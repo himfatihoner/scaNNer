@@ -310,30 +310,33 @@
                     <p class="mono text-white">{{.Current.Cores}} / {{.Current.NoFile}}</p>
                 </div>
             </div>
-            <form action="/settings/network-tune" method="POST" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <!-- Inputs associate with #netTuneForm (declared after the main form)
+                 so this is NOT a nested form — nesting would silently close the
+                 main settings form early and break its Save button. -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <label class="text-[11px] text-dark-400">port_lo
-                    <input type="number" name="port_lo" min="1024" max="65534" value="{{.Rec.PortLo}}" {{if not .Available}}disabled{{end}} class="w-full mt-0.5 mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-xs text-white disabled:opacity-50">
+                    <input type="number" form="netTuneForm" name="port_lo" min="1024" max="65534" value="{{.Rec.PortLo}}" {{if not .Available}}disabled{{end}} class="w-full mt-0.5 mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-xs text-white disabled:opacity-50">
                 </label>
                 <label class="text-[11px] text-dark-400">port_hi
-                    <input type="number" name="port_hi" min="1025" max="65535" value="{{.Rec.PortHi}}" {{if not .Available}}disabled{{end}} class="w-full mt-0.5 mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-xs text-white disabled:opacity-50">
+                    <input type="number" form="netTuneForm" name="port_hi" min="1025" max="65535" value="{{.Rec.PortHi}}" {{if not .Available}}disabled{{end}} class="w-full mt-0.5 mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-xs text-white disabled:opacity-50">
                 </label>
                 <label class="text-[11px] text-dark-400">fin_timeout (s)
-                    <input type="number" name="fin_timeout" min="1" max="600" value="{{.Rec.FinTimeout}}" {{if not .Available}}disabled{{end}} class="w-full mt-0.5 mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-xs text-white disabled:opacity-50">
+                    <input type="number" form="netTuneForm" name="fin_timeout" min="1" max="600" value="{{.Rec.FinTimeout}}" {{if not .Available}}disabled{{end}} class="w-full mt-0.5 mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-xs text-white disabled:opacity-50">
                 </label>
                 <label class="text-[11px] text-dark-400">tw_reuse (0–2)
-                    <input type="number" name="tw_reuse" min="0" max="2" value="{{.Rec.TWReuse}}" {{if not .Available}}disabled{{end}} class="w-full mt-0.5 mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-xs text-white disabled:opacity-50">
+                    <input type="number" form="netTuneForm" name="tw_reuse" min="0" max="2" value="{{.Rec.TWReuse}}" {{if not .Available}}disabled{{end}} class="w-full mt-0.5 mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-xs text-white disabled:opacity-50">
                 </label>
                 <label class="text-[11px] text-dark-400">conntrack_max
-                    <input type="number" name="conntrack_max" min="1024" value="{{.Rec.ConntrackMax}}" {{if not .Available}}disabled{{end}} class="w-full mt-0.5 mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-xs text-white disabled:opacity-50">
+                    <input type="number" form="netTuneForm" name="conntrack_max" min="1024" value="{{.Rec.ConntrackMax}}" {{if not .Available}}disabled{{end}} class="w-full mt-0.5 mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-xs text-white disabled:opacity-50">
                 </label>
                 <label class="text-[11px] text-dark-400">tw_buckets
-                    <input type="number" name="tw_buckets" min="1024" value="{{.Rec.TWBuckets}}" {{if not .Available}}disabled{{end}} class="w-full mt-0.5 mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-xs text-white disabled:opacity-50">
+                    <input type="number" form="netTuneForm" name="tw_buckets" min="1024" value="{{.Rec.TWBuckets}}" {{if not .Available}}disabled{{end}} class="w-full mt-0.5 mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-xs text-white disabled:opacity-50">
                 </label>
                 <div class="col-span-2 sm:col-span-3">
-                    <button type="submit" {{if not .Available}}disabled{{end}} class="px-4 py-2 text-xs font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Apply &amp; recompute</button>
+                    <button type="submit" form="netTuneForm" {{if not .Available}}disabled{{end}} class="px-4 py-2 text-xs font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Apply &amp; recompute</button>
                     <span class="text-[10px] text-dark-500 ml-2">Values pre-filled with the recommended set; edit if your box can take more/less.</span>
                 </div>
-            </form>
+            </div>
         </div>
         {{end}}
 
@@ -910,9 +913,10 @@ sudo modprobe nf_tables nft_nat  # load modules first (still won't fix the lock 
         </div>
     </form>
 
-    <!-- SMTP test posts here (separate form so it isn't affected by the main
-         settings save-lock, and to avoid nesting forms). Its inputs live in the
-         Email/SMTP card above, associated via form="smtpTestForm". -->
+    <!-- These live OUTSIDE the main settings form on purpose. Their controls
+         render inside the sections above but associate here via form="…", so
+         neither is nested in (and thus breaks) the main /settings/save form. -->
+    <form id="netTuneForm" action="/settings/network-tune" method="POST" class="hidden"></form>
     <form id="smtpTestForm" action="/settings/smtp-test" method="POST" class="hidden"></form>
 
     {{/* Database housekeeping. Lives OUTSIDE the main settings form

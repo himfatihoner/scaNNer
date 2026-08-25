@@ -62,6 +62,16 @@ die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 # ---------------------------------------------------------------------------
 [ "$(id -u)" -eq 0 ] || { printf 'ERROR: scanner-tune must run as root (via: sudo -n /usr/local/sbin/scanner-tune ...)\n' >&2; exit 2; }
 
+# Availability probe. The running scanner calls `sudo -n scanner-tune --check`
+# to confirm the helper is installed AND its NOPASSWD sudoers rule actually
+# works from the service's TTY-less, un-cached context. (A plain `sudo -l` would
+# require authentication just to LIST the rule and give false negatives there.)
+# This exercises the real run-path, then exits changing nothing.
+if [ "${1:-}" = "--check" ]; then
+  printf 'OK\n'
+  exit 0
+fi
+
 [ "$#" -ge 1 ] || die "no arguments; expected KEY=VAL from {port_lo,port_hi,fin_timeout,tw_reuse,conntrack_max,tw_buckets}"
 
 # ---------------------------------------------------------------------------

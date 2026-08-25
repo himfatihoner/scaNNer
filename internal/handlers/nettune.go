@@ -30,9 +30,13 @@ func recommendedTuning() netTuneRec {
 func netTuneAvailable() bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	// `sudo -n -l <path>` lists the rule without running it; succeeds only when a
-	// NOPASSWD rule for exactly this command exists.
-	return exec.CommandContext(ctx, "sudo", "-n", "-l", scannerTunePath).Run() == nil
+	// Probe by actually RUNNING the helper's no-op `--check` mode via sudo -n.
+	// This exercises the exact NOPASSWD run-path the Apply button uses, so it is
+	// true iff Apply will work. Do NOT use `sudo -n -l <path>`: listing a rule
+	// requires authentication even when running the command does not, so from
+	// the service's TTY-less, credential-cache-less context it returns a false
+	// "not installed" (while an interactive shell with cached sudo creds passes).
+	return exec.CommandContext(ctx, "sudo", "-n", scannerTunePath, "--check").Run() == nil
 }
 
 // SettingsNetworkTune applies operator-edited sysctl network-tuning values via

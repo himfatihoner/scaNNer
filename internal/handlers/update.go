@@ -215,10 +215,22 @@ func (h *Handler) UpdateApply(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 1. Pull (fast-forward only — never merge/rewrite). A failed ff pull leaves
-	//    the tree untouched, so no rollback is needed here.
-	if out, err := runGit(root, 120*time.Second, "pull", "--ff-only", "origin", ui.Branch); err != nil {
-		fail("git pull failed:\n" + lastLines(out))
+	// 1. Sync the checkout to exactly origin's tip. A plain `pull --ff-only`
+	//    ABORTS the moment local history has diverged from the remote — which
+	//    happens whenever the upstream is force-pushed or rebased (a curated
+	//    public mirror commonly rewrites its release history). Since a deployed
+	//    checkout only ever TRACKS the remote (any local edit was already
+	//    refused above via the clean-tree guard), fetch then hard-reset to the
+	//    upstream tip: a normal update is a fast-forward, and a diverged one is
+	//    realigned instead of dead-ending the whole update feature.
+	if out, err := runGit(root, 120*time.Second, "fetch", "origin", ui.Branch); err != nil {
+		fail("git fetch failed:\n" + lastLines(out))
+		return
+	}
+	upstream := "origin/" + ui.Branch
+	if out, err := runGit(root, 60*time.Second, "reset", "--hard", upstream); err != nil {
+		rollback()
+		fail("git update failed (could not sync to " + upstream + "):\n" + lastLines(out))
 		return
 	}
 	// 2. Build to a temp binary so a broken build never replaces the running one.

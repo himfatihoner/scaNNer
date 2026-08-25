@@ -1,0 +1,55 @@
+{{define "page_corsscan_results"}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="/modules/corsscan" class="hover:text-accent-400 transition-colors">CORS Misconfig</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Results</span>
+</div>
+{{template "scan_actions" .}}
+{{template "scan_progress" .}}
+<div id="scanContent">{{template "corsscan_results_inner" .}}</div>
+{{end}}
+
+{{define "corsscan_results_inner"}}
+<p class="text-sm text-dark-400 mb-4">{{.TotalFindings}} CORS finding(s) across {{len .Results}} URL(s)</p>
+{{range .Results}}
+<div class="bg-dark-900 border {{if .Findings}}border-warning/30{{else}}border-dark-800{{end}} rounded-xl mb-4 overflow-hidden">
+    <div class="px-5 py-3 border-b border-dark-800 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <span class="mono text-sm text-accent-400">{{.URL}}</span>
+            <button type="button" onclick="sendToBurp('{{.URL}}')" title="Send to configured proxy"
+                    class="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/30 hover:bg-orange-500/20">→ Burp</button>
+        </div>
+        <span class="text-xs text-dark-500">{{len .Findings}} finding(s)</span>
+    </div>
+    {{if .Error}}<div class="px-5 py-2 text-xs text-danger">{{.Error}}</div>{{end}}
+    {{if .Findings}}
+    <div class="p-3 space-y-2">
+        {{range .Findings}}
+        {{$sev := upper (print .Severity)}}
+        <div class="bg-dark-850 border
+            {{if eq $sev "CRITICAL"}}border-red-500/40
+            {{else if eq $sev "HIGH"}}border-orange-500/40
+            {{else if eq $sev "MEDIUM"}}border-yellow-500/40
+            {{else}}border-dark-700{{end}} rounded-lg p-3">
+            <div class="flex items-center gap-2 flex-wrap">
+                {{template "severity_badge" .Severity}}
+                <span class="text-xs font-medium text-white">{{.Title}}</span>
+            </div>
+            {{if .Detail}}<p class="text-[11px] text-dark-400 mt-1">{{.Detail}}</p>{{end}}
+            <div class="grid grid-cols-2 gap-2 mt-2 text-[10px]">
+                <div><span class="text-dark-500">Origin sent:</span> <span class="mono text-dark-200">{{.RequestOrigin}}</span></div>
+                <div><span class="text-dark-500">ACAO:</span> <span class="mono text-dark-200">{{.ResponseACAO}}</span></div>
+                {{if .ResponseACAC}}<div class="col-span-2"><span class="text-dark-500">ACA-Credentials:</span> <span class="mono text-dark-200">{{.ResponseACAC}}</span></div>{{end}}
+            </div>
+            {{template "raw_exchange" (dict "Request" .RawRequest "Response" .RawResponse)}}
+        </div>
+        {{end}}
+    </div>
+    {{else}}
+    <div class="px-5 py-3 text-xs text-success">✓ No CORS misconfiguration detected on this URL.</div>
+    {{end}}
+</div>
+{{end}}
+{{end}}

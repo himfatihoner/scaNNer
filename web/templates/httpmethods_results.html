@@ -1,0 +1,120 @@
+{{define "page_httpmethods_results"}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="/modules/httpmethods" class="hover:text-accent-400 transition-colors">HTTP Method Tester</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Results</span>
+</div>
+{{template "scan_actions" .}}
+
+{{if or (eq (print .Scan.Status) "running") (eq (print .Scan.Status) "pending")}}
+{{template "scan_progress" .}}
+{{end}}
+
+<div id="scanContent">
+{{template "httpmethods_results_inner" .}}
+</div>
+
+{{end}}
+
+{{define "httpmethods_results_inner"}}
+{{/* DangerousCount may be absent when this template is embedded by the
+     advancedweb suite (which doesn't precompute it). Coerce via `and`
+     so a missing/nil value short-circuits the comparison instead of
+     panicking `gt: invalid type for comparison`. */}}
+{{if and .DangerousCount (gt .DangerousCount 0)}}
+<p class="text-sm text-danger mb-4">{{.DangerousCount}} dangerous method/variant(s) allowed</p>
+{{end}}
+{{if .Results}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl mb-4 overflow-hidden">
+    {{template "empty_toggle" (dict "Scope" "httpmethods-targets" "ContainerSel" "#httpMethodsGroups" "Group" "aw-suite" "Label" "Hide URLs with no dangerous methods")}}
+    <div id="httpMethodsGroups" class="max-h-[600px] overflow-y-auto p-3 space-y-3">
+{{end}}
+{{range $tIdx, $tr := .Results}}
+{{$hasDangerous := false}}{{range $tr.Methods}}{{if and .Dangerous (eq .Status "Allowed")}}{{$hasDangerous = true}}{{end}}{{end}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden" data-empty="{{if not $hasDangerous}}true{{else}}false{{end}}">
+    <div class="px-5 py-4 border-b border-dark-800">
+        <span class="mono text-sm font-semibold text-accent-400">{{$tr.URL}}</span>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-dark-800">
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Method</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Content-Type</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Status</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Result</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Size</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Response Type</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Allow</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range $mIdx, $m := $tr.Methods}}
+                <tr class="raw-row border-b border-dark-800/50 hover:bg-dark-850/50 cursor-pointer transition-colors {{if and $m.Dangerous (eq $m.Status "Allowed")}}bg-danger/5{{end}}"
+                    data-target="hm-raw-{{$tIdx}}-{{$mIdx}}">
+                    <td class="px-5 py-2">
+                        <span class="inline-block w-3 text-dark-500 raw-caret mr-1">▸</span>
+                        <span class="mono text-xs font-medium
+                            {{if and $m.Dangerous (eq $m.Status "Allowed")}}text-danger
+                            {{else if eq $m.Status "Allowed"}}text-success
+                            {{else}}text-dark-400{{end}}">{{$m.Method}}</span>
+                    </td>
+                    <td class="px-5 py-2">
+                        {{if $m.ContentType}}
+                        <span class="text-[11px] text-dark-300 mono">{{$m.Variant}}</span>
+                        {{else}}
+                        <span class="text-[11px] text-dark-600">-</span>
+                        {{end}}
+                    </td>
+                    <td class="px-5 py-2">
+                        {{if $m.StatusCode}}
+                        <span class="mono text-[11px] px-1.5 py-0.5 rounded
+                            {{if and (ge $m.StatusCode 200) (lt $m.StatusCode 300)}}bg-success/10 text-success
+                            {{else if and (ge $m.StatusCode 300) (lt $m.StatusCode 400)}}bg-accent-500/10 text-accent-400
+                            {{else if eq $m.StatusCode 405}}bg-dark-700 text-dark-400
+                            {{else if eq $m.StatusCode 415}}bg-dark-700 text-dark-400
+                            {{else}}bg-warning/10 text-warning{{end}}">{{$m.StatusCode}}</span>
+                        {{else}}<span class="text-[11px] text-dark-600">-</span>{{end}}
+                    </td>
+                    <td class="px-5 py-2">
+                        {{if eq $m.Status "Allowed"}}
+                            {{if $m.Dangerous}}
+                            <span class="inline-flex items-center gap-1 text-[11px] text-danger">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                                Dangerous
+                            </span>
+                            {{else}}
+                            <span class="text-[11px] text-success">Allowed</span>
+                            {{end}}
+                        {{else if eq $m.Status "Error"}}
+                        <span class="text-[11px] text-dark-500" title="{{$m.Error}}">{{$m.Error}}</span>
+                        {{else}}
+                        <span class="text-[11px] text-dark-500">{{$m.Status}}</span>
+                        {{end}}
+                    </td>
+                    <td class="px-5 py-2 mono text-[11px] text-dark-400">{{if ge $m.Size 0}}{{$m.Size}}{{else}}-{{end}}</td>
+                    <td class="px-5 py-2 text-[11px] text-dark-400 max-w-[150px] truncate">{{if $m.RespCT}}{{$m.RespCT}}{{else}}-{{end}}</td>
+                    <td class="px-5 py-2 mono text-[11px] text-dark-400 max-w-[150px] truncate">{{if $m.Allow}}{{$m.Allow}}{{else}}-{{end}}</td>
+                </tr>
+                <tr id="hm-raw-{{$tIdx}}-{{$mIdx}}" class="hidden bg-dark-925">
+                    <td colspan="7" class="px-5 py-3">
+                        {{template "raw_panel" (list "hm" (printf "%d-%d" $tIdx $mIdx) $m.RawRequest $m.RawResponse)}}
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+{{end}}
+{{if .Results}}
+    </div>{{/* close httpMethodsGroups */}}
+</div>{{/* close wrapper */}}
+{{end}}
+
+{{if not .Results}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500"><p class="text-sm">{{if eq (print .Scan.Status) "running"}}Waiting for first results...{{else}}No results{{end}}</p></div>
+{{end}}
+{{end}}

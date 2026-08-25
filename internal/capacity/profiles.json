@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "measured_at": {
+    "usable_ephemeral_ports": 28232,
+    "ip_local_port_range": [32768, 60999],
+    "tcp_fin_timeout": 60,
+    "tcp_tw_reuse": 2,
+    "cpu_cores": 8,
+    "nf_conntrack_max": 0,
+    "rlimit_nofile": 524288,
+    "notes": "Live-observed on the dev VMware NAT VM this session; refined per module by the profiling harness."
+  },
+  "modules": {
+    "sslscan": {
+      "class": "socket_heavy",
+      "dominant_resource": "ports",
+      "ports_per_conc_unit": 47.5,
+      "cpu_frac_per_conc_unit": 0.05,
+      "measured_fin_timeout": 60,
+      "measured_optimal_conc": 20,
+      "max_safe_conc": 20,
+      "min_conc": 1,
+      "measured": true,
+      "notes": "~950 ephemeral ports held at conc 20 (FIN_WAIT2 ~700, TIME_WAIT ~200). Subprocess safety cap 20 binds in isolation; the port cost is a cross-module concern the global divisor handles."
+    },
+    "techdetect": {
+      "class": "cpu_heavy",
+      "dominant_resource": "cpu",
+      "ports_per_conc_unit": 7,
+      "cpu_frac_per_conc_unit": 0.40,
+      "measured_fin_timeout": 60,
+      "measured_optimal_conc": 15,
+      "max_safe_conc": 20,
+      "min_conc": 1,
+      "measured": true,
+      "notes": "whatweb runs as ruby: ~0.40 core + ~28 threads per concurrency unit. conc 20 => load ~22, cpu ~98% on 8 cores. CPU/process-bound, not socket-bound."
+    }
+  }
+}

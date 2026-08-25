@@ -1,0 +1,198 @@
+{{define "sidebar"}}
+<aside id="sidebar" class="bg-dark-900 border-r border-dark-800 flex flex-col shrink-0 sticky top-0 h-full self-start overflow-y-auto min-h-0 transition-[width] duration-200 ease-in-out w-64">
+    <!-- Logo + collapse toggle -->
+    <div class="p-5 border-b border-dark-800 flex items-center justify-between gap-2">
+        <a href="/" class="flex items-center gap-3 min-w-0">
+            <div class="w-10 h-10 rounded-lg bg-accent-600 flex items-center justify-center shrink-0">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+            </div>
+            <div class="sidebar-label min-w-0">
+                <h1 class="text-lg font-bold text-white tracking-wide">sca<span class="text-accent-400">NN</span>er</h1>
+                <p class="text-[10px] text-dark-400 uppercase tracking-widest">Scan Toolkit</p>
+            </div>
+        </a>
+        <button type="button" id="sidebarToggle" onclick="toggleSidebar()"
+                title="Collapse sidebar"
+                class="shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-dark-400 hover:text-white hover:bg-dark-800 transition-colors">
+            <svg id="sidebarToggleIcon" class="w-4 h-4 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+        </button>
+    </div>
+
+    {{/* Workspace context strip — shows the current workspace so the
+         user always knows where they are. Header dropdown is still
+         the switcher; this is the at-a-glance label. Hidden when the
+         sidebar is collapsed (the rest of the workflow handles that). */}}
+    {{if .ActiveWorkspace}}
+    <div class="sidebar-label px-4 py-2.5 border-b border-dark-800 bg-dark-925">
+        <p class="text-[9px] text-dark-500 uppercase tracking-wider mb-0.5">Workspace</p>
+        <p class="text-xs font-medium text-white truncate" title="{{.ActiveWorkspace.Name}}">{{.ActiveWorkspace.Name}}</p>
+        {{if or .TotalCount .TotalScanCount}}
+        <p class="text-[10px] text-dark-500 mt-0.5">{{if .TotalCount}}{{.TotalCount}} target{{if ne .TotalCount 1}}s{{end}}{{end}}{{if and .TotalCount .TotalScanCount}} · {{end}}{{if .TotalScanCount}}{{.TotalScanCount}} scan{{if ne .TotalScanCount 1}}s{{end}}{{end}}</p>
+        {{end}}
+    </div>
+    {{end}}
+
+    <!-- Navigation: list scrolls inside the fixed-height sidebar so the footer stays pinned. -->
+    <nav class="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
+        <p class="sidebar-label sidebar-section-header px-3 mb-2 text-[10px] font-semibold text-dark-500 uppercase tracking-widest">Main</p>
+
+        <a href="/" title="Dashboard" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm border-l-2 border-transparent transition-all duration-200 {{if eq .Page "dashboard"}}active{{else}}text-dark-300{{end}}">
+            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/>
+            </svg>
+            <span class="sidebar-label">Dashboard</span>
+        </a>
+
+        <a href="/targets" title="Targets" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm border-l-2 border-transparent transition-all duration-200 {{if eq .Page "targets"}}active{{else}}text-dark-300{{end}}">
+            <!-- Crosshair / target reticle — reads as "scan target" much more clearly than a map-pin. -->
+            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="9" stroke-width="1.5"/>
+                <circle cx="12" cy="12" r="5" stroke-width="1.5"/>
+                <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+                <line x1="12" y1="2" x2="12" y2="6" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="12" y1="18" x2="12" y2="22" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="2" y1="12" x2="6" y2="12" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="18" y1="12" x2="22" y2="12" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <span class="sidebar-label">Targets</span>
+        </a>
+
+        <a href="/assets" title="Assets" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm border-l-2 border-transparent transition-all duration-200 {{if or (eq .Page "assets") (eq .Page "asset_detail")}}active{{else}}text-dark-300{{end}}">
+            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="sidebar-label">Assets</span>
+        </a>
+
+        <a href="/vulnerabilities" title="Vulnerabilities" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm border-l-2 border-transparent transition-all duration-200 {{if eq .Page "vulnerabilities"}}active{{else}}text-dark-300{{end}}">
+            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01M5.07 19H19a2 2 0 001.75-2.98l-6.93-12a2 2 0 00-3.5 0l-6.93 12A2 2 0 005.07 19z"/>
+            </svg>
+            <span class="sidebar-label">Vulnerabilities</span>
+        </a>
+
+        <a href="/modules" title="Modules" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm border-l-2 border-transparent transition-all duration-200 {{if eq .Page "modules"}}active{{else}}text-dark-300{{end}}">
+            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+            </svg>
+            <span class="sidebar-label">Modules</span>
+        </a>
+
+        <a href="/scans" title="Scans" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm border-l-2 border-transparent transition-all duration-200 {{if eq .Page "scans"}}active{{else}}text-dark-300{{end}}">
+            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            <span class="sidebar-label">Scans</span>
+        </a>
+
+        <div class="pt-4">
+            <p class="sidebar-label sidebar-section-header px-3 mb-2 text-[10px] font-semibold text-dark-500 uppercase tracking-widest">System</p>
+        </div>
+
+        <a href="/settings" title="Settings" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm border-l-2 border-transparent transition-all duration-200 {{if eq .Page "settings"}}active{{else}}text-dark-300{{end}}">
+            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            <span class="sidebar-label">Settings</span>
+        </a>
+
+        {{if .IsAdmin}}
+        <a href="/users" title="Users" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm border-l-2 border-transparent transition-all duration-200 {{if or (eq .Page "users") (eq .Page "user_detail")}}active{{else}}text-dark-300{{end}}">
+            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4zm6 0a4 4 0 10-3-6.65"/>
+            </svg>
+            <span class="sidebar-label">Users</span>
+        </a>
+        <a href="/logs" title="Audit Logs" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm border-l-2 border-transparent transition-all duration-200 {{if eq .Page "logs"}}active{{else}}text-dark-300{{end}}">
+            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <span class="sidebar-label">Audit Logs</span>
+        </a>
+        <a href="/update" title="Software Update" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm border-l-2 border-transparent transition-all duration-200 {{if eq .Page "update"}}active{{else}}text-dark-300{{end}}">
+            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            <span class="sidebar-label">Software Update</span>
+        </a>
+        {{end}}
+    </nav>
+
+    <!-- Footer -->
+    <div class="p-4 border-t border-dark-800 shrink-0 space-y-2">
+        <div class="flex items-center gap-2 text-xs text-dark-500">
+            <span class="w-2 h-2 rounded-full bg-success shrink-0"></span>
+            <span class="sidebar-label">System Online</span>
+        </div>
+        {{/* Killswitch status chip. Three states:
+             - armed     : green ✓ "🛡 Killswitch: tun0" — scan traffic pinned via scanner-ns
+             - misconfig : amber pulsing dot — Settings pinned an iface but namespace
+                           failed to come up (CAP_NET_ADMIN missing, iface down, etc.)
+             - off       : grey dot — no iface pinned, scans use default route
+             Whole chip is a shortcut to /settings so the user can flip it without hunting. */}}
+        <a href="/settings" class="flex items-center gap-2 text-xs hover:opacity-80"
+           title="{{if .KillswitchActive}}Scan traffic is forced through {{.KillswitchInterface}} via scanner-ns. Click to manage.{{else if .KillswitchInterface}}{{.KillswitchInterface}} is pinned in Settings but the network namespace is not active — check CAP_NET_ADMIN. Click to fix.{{else}}No interface pinned — scans use the system default route and will leak if your VPN drops. Click to pin one.{{end}}">
+            {{if .KillswitchActive}}
+            <span class="w-2 h-2 rounded-full bg-success shrink-0"></span>
+            <span class="sidebar-label text-success">🛡 Killswitch: <span class="mono">{{.KillswitchInterface}}</span></span>
+            {{else if .KillswitchInterface}}
+            <span class="w-2 h-2 rounded-full bg-warning shrink-0 sidebar-pulse"></span>
+            <span class="sidebar-label text-warning">⚠ Killswitch off — <span class="mono">{{.KillswitchInterface}}</span> pinned</span>
+            {{else}}
+            <span class="w-2 h-2 rounded-full bg-dark-500 shrink-0"></span>
+            <span class="sidebar-label text-dark-400">Killswitch: <span class="text-dark-500">off</span></span>
+            {{end}}
+        </a>
+        {{if .CurrentUser}}
+        <div class="flex items-center justify-between gap-2 pt-2 mt-2 border-t border-dark-800">
+            <a href="/account" class="flex items-center gap-2 text-xs text-dark-300 hover:text-white min-w-0" title="Account settings">
+                <span class="w-6 h-6 rounded-full bg-dark-700 flex items-center justify-center text-[10px] font-semibold shrink-0">{{if .CurrentUser.IsAdmin}}A{{else}}U{{end}}</span>
+                <span class="sidebar-label truncate">{{.CurrentUser.Username}}{{if .IsAdmin}} <span class="text-dark-500">· admin</span>{{end}}</span>
+            </a>
+            <a href="/logout" class="sidebar-label text-xs text-dark-400 hover:text-danger shrink-0" title="Sign out">Sign out</a>
+        </div>
+        {{end}}
+    </div>
+</aside>
+<style>
+    @keyframes sbpulse { 0%, 100% { opacity: 1 } 50% { opacity: .35 } }
+    .sidebar-pulse { animation: sbpulse 1.5s ease-in-out infinite; }
+</style>
+
+<style>
+/* Collapsed-state rules. The aside also holds the width class — we toggle that
+   directly from JS so the transition runs. */
+#sidebar.sidebar-collapsed { width: 4.5rem; }
+#sidebar.sidebar-collapsed .sidebar-label { display: none; }
+#sidebar.sidebar-collapsed nav a.sidebar-link { justify-content: center; padding-left: 0.5rem; padding-right: 0.5rem; }
+#sidebar.sidebar-collapsed .sidebar-section-header { display: none; }
+#sidebar.sidebar-collapsed #sidebarToggleIcon { transform: rotate(180deg); }
+#sidebar.sidebar-collapsed .p-5 { padding: 0.75rem 0.5rem; flex-direction: column; gap: 0.5rem; }
+#sidebar.sidebar-collapsed .p-5 > a { justify-content: center; }
+#sidebar.sidebar-collapsed .p-4 { padding: 0.75rem 0.5rem; }
+#sidebar.sidebar-collapsed .p-4 > div { justify-content: center; }
+</style>
+<script>
+(function() {
+    var collapsed = localStorage.getItem('scanner-sidebar-collapsed') === '1';
+    if (collapsed) {
+        var el = document.getElementById('sidebar');
+        if (el) el.classList.add('sidebar-collapsed');
+    }
+})();
+function toggleSidebar() {
+    var el = document.getElementById('sidebar');
+    if (!el) return;
+    el.classList.toggle('sidebar-collapsed');
+    var nowCollapsed = el.classList.contains('sidebar-collapsed');
+    localStorage.setItem('scanner-sidebar-collapsed', nowCollapsed ? '1' : '0');
+    var btn = document.getElementById('sidebarToggle');
+    if (btn) btn.title = nowCollapsed ? 'Expand sidebar' : 'Collapse sidebar';
+}
+</script>
+{{end}}

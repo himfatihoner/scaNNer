@@ -1,0 +1,83 @@
+{{define "page_graphqlscan_results"}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="/modules/graphqlscan" class="hover:text-accent-400 transition-colors">GraphQL</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Results</span>
+</div>
+{{template "scan_actions" .}}
+{{template "scan_progress" .}}
+<div id="scanContent">{{template "graphqlscan_results_inner" .}}</div>
+{{end}}
+
+{{define "graphqlscan_results_inner"}}
+<p class="text-sm text-dark-400 mb-4">{{.GQLCount}} GraphQL endpoint(s) live · {{.FindingsCount}} finding(s)</p>
+{{range .Endpoints}}
+{{if .IsGraphQL}}
+<div class="bg-dark-900 border border-warning/30 rounded-xl mb-4 overflow-hidden">
+    <div class="px-5 py-3 border-b border-dark-800 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <span class="mono text-sm text-accent-400">{{.URL}}</span>
+            <button type="button" onclick="sendToBurp('{{.URL}}')" title="Send to configured proxy"
+                    class="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/30 hover:bg-orange-500/20">→ Burp</button>
+        </div>
+        <span class="text-xs text-dark-500">HTTP {{.Status}}{{if .IntrospectionOn}} · introspection ON · {{.SchemaTypeCount}} types{{end}}</span>
+    </div>
+    {{if .Findings}}
+    <div class="p-3 space-y-2">
+        {{range .Findings}}
+        <div class="bg-dark-850 border
+            {{if eq .Severity "HIGH"}}border-orange-500/40
+            {{else if eq .Severity "MEDIUM"}}border-yellow-500/40
+            {{else}}border-blue-500/40{{end}} rounded-lg p-3">
+            <div class="flex items-center gap-2">
+                <span class="mono text-[10px] px-2 py-0.5 rounded
+                    {{if eq .Severity "HIGH"}}bg-orange-500/20 text-orange-300
+                    {{else if eq .Severity "MEDIUM"}}bg-yellow-500/20 text-yellow-300
+                    {{else}}bg-blue-500/20 text-blue-300{{end}}">{{.Severity}}</span>
+                <span class="text-xs font-medium text-white">{{.Title}}</span>
+            </div>
+            <p class="text-[11px] text-dark-400 mt-1">{{.Detail}}</p>
+            {{if .Evidence}}<pre class="mono text-[10px] text-dark-300 bg-dark-950 border border-dark-800 rounded p-2 mt-1.5 max-h-32 overflow-auto whitespace-pre-wrap">{{.Evidence}}</pre>{{end}}
+            {{template "raw_exchange" (dict "Request" .RawRequest "Response" .RawResponse)}}
+        </div>
+        {{end}}
+    </div>
+    {{end}}
+    {{if .QueryFields}}
+    <details class="border-t border-dark-800">
+        <summary class="cursor-pointer px-5 py-2 text-[11px] text-dark-300 hover:text-white">Schema: {{len .QueryFields}} Query · {{len .MutationFields}} Mutation · {{len .SubscriptionFlds}} Subscription</summary>
+        <div class="px-5 py-2 space-y-1 text-[10px] mono">
+            {{if .QueryFields}}<div><span class="text-dark-500">Query:</span> <span class="text-accent-300">{{range $i, $f := .QueryFields}}{{if $i}}, {{end}}{{$f}}{{end}}</span></div>{{end}}
+            {{if .MutationFields}}<div><span class="text-dark-500">Mutation:</span> <span class="text-warning">{{range $i, $f := .MutationFields}}{{if $i}}, {{end}}{{$f}}{{end}}</span></div>{{end}}
+            {{if .SubscriptionFlds}}<div><span class="text-dark-500">Subscription:</span> <span class="text-success">{{range $i, $f := .SubscriptionFlds}}{{if $i}}, {{end}}{{$f}}{{end}}</span></div>{{end}}
+        </div>
+    </details>
+    {{end}}
+</div>
+{{end}}
+{{end}}
+
+{{if .Endpoints}}
+<details class="bg-dark-900 border border-dark-800 rounded-xl mb-4">
+    <summary class="cursor-pointer px-5 py-3 text-sm font-semibold text-dark-200 hover:text-white">All probed paths ({{len .Endpoints}})</summary>
+    <table class="w-full">
+        <thead><tr class="border-b border-dark-800 bg-dark-850">
+            <th class="text-left px-5 py-2 text-[10px] text-dark-500 uppercase">URL</th>
+            <th class="text-left px-5 py-2 text-[10px] text-dark-500 uppercase">Status</th>
+            <th class="text-left px-5 py-2 text-[10px] text-dark-500 uppercase">GraphQL?</th>
+        </tr></thead>
+        <tbody>
+            {{range .Endpoints}}
+            <tr class="border-b border-dark-800/50">
+                <td class="px-5 py-1 mono text-[11px] text-accent-400">{{.URL}}</td>
+                <td class="px-5 py-1 mono text-[10px] text-dark-300">{{.Status}}</td>
+                <td class="px-5 py-1 text-[10px]">{{if .IsGraphQL}}<span class="text-success">YES</span>{{else}}<span class="text-dark-500">no</span>{{end}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</details>
+{{end}}
+{{end}}

@@ -1,0 +1,109 @@
+{{define "page_jwt"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">JWT Analyzer</span>
+</div>
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">🔑</span> JWT Analyzer</h2>
+        <p class="text-sm text-dark-400 mt-1">Decode JWTs, audit alg/header/payload, brute-force HS* secrets, and generate attack tokens (alg=none, kid injection, alg confusion).</p>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Analysis</h3>
+            <form action="/modules/jwt/run" method="POST">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Tokens <span class="text-danger">*</span>{{template "info_icon" "One JWT per line. Format: header.payload.signature (or header.payload. for unsigned)."}}</label>
+                        <textarea name="tokens" rows="6" required placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.xxxx"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-[10px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Custom Wordlist{{template "info_icon" "Extra HMAC secret candidates to try, one per line. Combined with the built-in list."}}</label>
+                        <textarea name="wordlist" rows="6" placeholder="(optional — paste custom secrets here)"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Wordlist File Path{{template "info_icon" "Absolute path on the scanner host to a wordlist file (e.g. /usr/share/wordlists/rockyou.txt or /home/kali/jwt.secrets.list). Streamed line-by-line so multi-million-line lists work without ballooning memory or the form POST."}}</label>
+                        <input type="text" name="wordlist_path" placeholder="/usr/share/wordlists/rockyou.txt"
+                               class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"/>
+                    </div>
+
+                    <label class="flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer hover:border-accent-500/40">
+                        <input type="checkbox" name="include_default" checked class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500">
+                        <div>
+                            <p class="text-xs font-medium text-dark-200">Include built-in wordlist</p>
+                            <p class="text-[11px] text-dark-500 mt-0.5">~30 common JWT secrets seen in the wild (secret, password, your-256-bit-secret, etc.).</p>
+                        </div>
+                    </label>
+
+                    <label class="flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer hover:border-accent-500/40">
+                        <input type="checkbox" name="generate_attacks" checked class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500">
+                        <div>
+                            <p class="text-xs font-medium text-dark-200">Generate attack tokens</p>
+                            <p class="text-[11px] text-dark-500 mt-0.5">Builds forged JWTs for: alg=none, alg=None case bypass, empty signature, RS→HS confusion stub, kid path traversal, and (if cracked) re-signed token.</p>
+                        </div>
+                    </label>
+
+                    <details class="bg-dark-850 border border-dark-700 rounded-lg">
+                        <summary class="cursor-pointer px-3 py-2 text-xs font-medium text-dark-200 hover:text-white">Active Replay (optional)</summary>
+                        <div class="px-3 pb-3 pt-1 space-y-3">
+                            <p class="text-[11px] text-dark-500">If set, every generated attack token is fired at the URL below and the response status/length recorded per token — no more manual curl.</p>
+                            <div>
+                                <label class="block text-sm text-dark-300 mb-1.5">Target URL{{template "info_icon" "Full URL to send each token against, e.g. https://api.example.com/me. Leave blank to skip replay (analysis-only)."}}</label>
+                                <input type="text" name="target_url" placeholder="https://api.example.com/me"
+                                       class="w-full mono bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"/>
+                            </div>
+                            <div>
+                                <label class="block text-sm text-dark-300 mb-1.5">Header Name{{template "info_icon" "Header the token is placed in. Default: Authorization."}}</label>
+                                <input type="text" name="header_name" placeholder="Authorization"
+                                       class="w-full mono bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"/>
+                            </div>
+                            <div>
+                                <label class="block text-sm text-dark-300 mb-1.5">Value Prefix{{template "info_icon" "Prepended to the token in the header. Default: 'Bearer '. Set to empty for cookie-style tokens."}}</label>
+                                <input type="text" name="header_prefix" placeholder="Bearer "
+                                       class="w-full mono bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"/>
+                            </div>
+                        </div>
+                    </details>
+
+                    <div class="mt-1">{{template "http_tuning" (dict "TuneConcHint" $.TuneConcHint "TuneTimeoutHint" "10")}}</div>
+                </div>
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Analyze JWTs
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}
+            <div class="space-y-2">
+                {{range .Scans}}
+                <a href="/modules/jwt/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all group">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200 group-hover:text-white">Scan #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                    </div>
+                    <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                {{end}}
+            </div>
+            {{else}}
+            <div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No scans yet</p></div>
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}

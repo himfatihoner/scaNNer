@@ -1,0 +1,90 @@
+{{define "page_paramdisc"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Parameter Discovery</span>
+</div>
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">🧪</span> Parameter Discovery</h2>
+        <p class="text-sm text-dark-400 mt-1">Differential probing: send candidate parameters and flag those that change the response (status, length, reflection).</p>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Scan</h3>
+            <form action="/modules/paramdisc/run" method="POST">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Target URLs <span class="text-danger">*</span></label>
+                        {{template "workspace_targets" .}}
+                        <textarea name="urls" rows="3" placeholder="https://example.com/api/items" data-line-count
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-2">Method</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="method" value="GET" checked class="peer sr-only">
+                                <div class="p-2 bg-dark-850 border border-dark-700 rounded-lg peer-checked:border-accent-500 peer-checked:bg-accent-600/10 text-center">
+                                    <span class="text-xs text-dark-200 font-medium">GET</span>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="method" value="POST" class="peer sr-only">
+                                <div class="p-2 bg-dark-850 border border-dark-700 rounded-lg peer-checked:border-accent-500 peer-checked:bg-accent-600/10 text-center">
+                                    <span class="text-xs text-dark-200 font-medium">POST</span>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="method" value="BOTH" class="peer sr-only">
+                                <div class="p-2 bg-dark-850 border border-dark-700 rounded-lg peer-checked:border-accent-500 peer-checked:bg-accent-600/10 text-center">
+                                    <span class="text-xs text-dark-200 font-medium">Both</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Wordlist{{template "info_icon" "One parameter name per line. Defaults shown — replace as needed."}}</label>
+                        <textarea name="wordlist" rows="10"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent-500 resize-none">{{.DefaultParams}}</textarea>
+                    </div>
+                </div>
+                {{template "http_options" .}}
+                {{template "http_tuning" (dict "TuneConcHint" $.TuneConcHint "TuneTimeoutHint" "30")}}
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Start Parameter Discovery
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}
+            <div class="space-y-2">
+                {{range .Scans}}
+                <a href="/modules/paramdisc/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all group">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200 group-hover:text-white">Scan #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                    </div>
+                    <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                {{end}}
+            </div>
+            {{else}}
+            <div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No scans yet</p></div>
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}

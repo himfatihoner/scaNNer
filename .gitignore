@@ -1,0 +1,37 @@
+# Compiled binary (anchored to the repo root ONLY — an unanchored "scanner"
+# would also match the cmd/scanner/ SOURCE directory and drop it from the repo).
+/scanner
+
+# Local runtime state — the SQLite scan database holds real target/scan data
+# and secrets (API keys, SMTP password). NEVER commit it.
+/data/scanner.db
+/data/scanner.db-shm
+/data/scanner.db-wal
+*.db
+*.db-shm
+*.db-wal
+
+# Auto-generated self-signed TLS material
+/data/tls/
+
+# Downloaded CVE feeds (large, per-machine)
+/data/cve/
+/data/nvd/
+
+# Externally-installed third-party tool binaries (users install these
+# themselves; the Docker image builds them). Do not vendor binaries.
+/tools/*
+!/tools/.gitkeep
+
+# Logs
+*.log
+
+# Local editor / agent / OS cruft
+.claude/
+.idea/
+.vscode/
+.DS_Store
+
+# Internal/working docs — not for the public repo
+AUDIT_REPORT*.md
+PENTEST_PLAN.txt

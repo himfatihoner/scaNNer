@@ -1,0 +1,196 @@
+{{define "page_authtest"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Auth Tester</span>
+</div>
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">🔐</span> Auth Tester</h2>
+        <p class="text-sm text-dark-400 mt-1">Login brute + user-enumeration oracle + session-fixation + password-reset token entropy.</p>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Scan</h3>
+            <form action="/modules/authtest/run" method="POST" enctype="multipart/form-data">
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Login URL <span class="text-danger">*</span></label>
+                        <input type="text" name="login_url" placeholder="https://target/login" class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs text-dark-400 mb-1">Method</label>
+                            <select name="method" class="w-full mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-xs text-white">
+                                <option value="POST">POST</option>
+                                <option value="GET">GET</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-dark-400 mb-1">User field</label>
+                            <input type="text" name="user_field" placeholder="username" class="w-full mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-xs text-white placeholder-dark-600">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-dark-400 mb-1">Pass field</label>
+                            <input type="text" name="pass_field" placeholder="password" class="w-full mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-xs text-white placeholder-dark-600">
+                        </div>
+                        <div></div>
+                    </div>
+
+                    <!-- BODY ENCODING — form vs JSON. Modern SPA / API / SSO
+                         (Okta / Auth0 / Cognito / Keycloak) reject
+                         application/x-www-form-urlencoded with 400/415; the JSON
+                         path renders a template with {USER} / {PASS} placeholders
+                         that are JSON-escaped automatically. -->
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                        <p class="text-xs font-medium text-white mb-2 flex items-center gap-2">
+                            Body type {{template "info_icon" "form = classic application/x-www-form-urlencoded POST. json = application/json body rendered from the JSON template below. Pick json for modern SPA / API / SSO logins (Okta, Auth0, Keycloak, Cognito, etc.) which reject form encoding."}}
+                        </p>
+                        <div class="flex items-center gap-4 text-[11px] text-dark-300 mb-2">
+                            <label class="flex items-center gap-1.5 cursor-pointer">
+                                <input type="radio" name="body_encoding" value="form" checked class="text-accent-500">
+                                <span>form (urlencoded)</span>
+                            </label>
+                            <label class="flex items-center gap-1.5 cursor-pointer">
+                                <input type="radio" name="body_encoding" value="json" class="text-accent-500">
+                                <span>json</span>
+                            </label>
+                        </div>
+                        <label class="block text-[10px] text-dark-400 mb-0.5">JSON template <span class="text-dark-600">(used when Body type = json)</span> {{template "info_icon" "Placeholders {USER} and {PASS} are substituted at request time with the current attempt's credentials, JSON-escaped so quotes/newlines can't break the body. Leave blank to use the standard {\"username\":\"{USER}\",\"password\":\"{PASS}\"} template."}}</label>
+                        <input type="text" name="json_template" placeholder='{"username":"{USER}","password":"{PASS}"}' class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1 text-[11px] text-white placeholder-dark-600">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Usernames{{template "info_icon" "One per line. Paste OR upload a file (file wins if both supplied)."}}</label>
+                        <textarea name="usernames" rows="4" placeholder="admin&#10;root&#10;user@example.com" class="w-full mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-xs text-white placeholder-dark-600"></textarea>
+                        <label class="flex items-center gap-2 mt-1.5 cursor-pointer text-[10px] text-dark-400 hover:text-dark-200">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            <span>or upload .txt file:</span>
+                            <input type="file" name="usernames_file" accept=".txt,.list,.lst" class="text-[10px] text-dark-300 file:mr-2 file:px-2 file:py-0.5 file:rounded file:border-0 file:bg-dark-800 file:text-dark-200 hover:file:bg-dark-700 file:text-[10px]">
+                        </label>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Passwords{{template "info_icon" "One per line. Paste OR upload a file. For spray mode, place the most-likely passwords first."}}</label>
+                        <textarea name="passwords" rows="4" placeholder="admin&#10;password&#10;123456" class="w-full mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-xs text-white placeholder-dark-600"></textarea>
+                        <label class="flex items-center gap-2 mt-1.5 cursor-pointer text-[10px] text-dark-400 hover:text-dark-200">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            <span>or upload .txt file:</span>
+                            <input type="file" name="passwords_file" accept=".txt,.list,.lst" class="text-[10px] text-dark-300 file:mr-2 file:px-2 file:py-0.5 file:rounded file:border-0 file:bg-dark-800 file:text-dark-200 hover:file:bg-dark-700 file:text-[10px]">
+                        </label>
+                    </div>
+
+                    <!-- BURP INTRUDER MODE SELECTOR — controls how the (user × pass) sequence
+                         is generated. Each mode has a different shape; click to see the
+                         explanation. Pairing with anti-lockout delays below is critical for
+                         password spray runs against AD / SSO. -->
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                        <p class="text-xs font-medium text-white mb-2 flex items-center gap-2">
+                            Attack Mode {{template "info_icon" "Burp Intruder-style attack modes. Each mode rearranges the (user, pass) attempt sequence. Pick based on what you're trying to prove — credential stuffing vs lockout-safe spray vs default-cred test."}}
+                        </p>
+                        <div class="space-y-1.5 text-[11px] text-dark-300">
+                            <label class="flex items-start gap-2 cursor-pointer">
+                                <input type="radio" name="mode" value="clusterbomb" checked class="mt-0.5 text-accent-500">
+                                <span><span class="font-semibold text-white">Cluster Bomb</span> <span class="text-dark-500">(default · loud · concurrent)</span><br><span class="text-[10px] text-dark-500 leading-tight">Full cartesian — every username × every password. Finds any weak cred fast across many accounts. WILL trigger lockout policies. Honors Concurrency setting.</span></span>
+                            </label>
+                            <label class="flex items-start gap-2 cursor-pointer">
+                                <input type="radio" name="mode" value="spray" class="mt-0.5 text-accent-500">
+                                <span><span class="font-semibold text-white">Password Spray</span> <span class="text-dark-500">(stealth · lockout-safe)</span><br><span class="text-[10px] text-dark-500 leading-tight">For EACH password, try EVERY user once before moving on. Each user only sees N attempts spaced across the run — far below typical 3-5 lockout thresholds. Pair with delay-per-user ≥ 30 s for real low-and-slow.</span></span>
+                            </label>
+                            <label class="flex items-start gap-2 cursor-pointer">
+                                <input type="radio" name="mode" value="pitchfork" class="mt-0.5 text-accent-500">
+                                <span><span class="font-semibold text-white">Pitchfork</span> <span class="text-dark-500">(credential stuffing)</span><br><span class="text-[10px] text-dark-500 leading-tight">Zips the two lists — usernames[i] paired with passwords[i]. Doesn't cross. Perfect for leaked (user, pass) pairs from a breach dump.</span></span>
+                            </label>
+                            <label class="flex items-start gap-2 cursor-pointer">
+                                <input type="radio" name="mode" value="batteringram" class="mt-0.5 text-accent-500">
+                                <span><span class="font-semibold text-white">Battering Ram</span> <span class="text-dark-500">(same value both slots)</span><br><span class="text-[10px] text-dark-500 leading-tight">Same string into username AND password (admin/admin, root/root, vendor/vendor). The fastest test for vendor-default credentials.</span></span>
+                            </label>
+                            <label class="flex items-start gap-2 cursor-pointer">
+                                <input type="radio" name="mode" value="sniper" class="mt-0.5 text-accent-500">
+                                <span><span class="font-semibold text-white">Sniper</span> <span class="text-dark-500">(one field varies)</span><br><span class="text-[10px] text-dark-500 leading-tight">One field varies, the other stays fixed. With Sniper field=password (default): first username × every password. With field=username: every username × first password (reverse spray).</span></span>
+                            </label>
+                        </div>
+                        <div class="mt-2 grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[10px] text-dark-400 mb-0.5">Sniper field</label>
+                                <select name="sniper_field" class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1 text-[11px] text-white">
+                                    <option value="password">password varies (fixed user)</option>
+                                    <option value="username">username varies (fixed pass)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-dark-400 mb-0.5">Max attempts <span class="text-dark-600">(0=unlimited)</span></label>
+                                <input type="number" name="max_attempts" value="0" min="0" class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1 text-[11px] text-white">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ANTI-LOCKOUT DELAYS — when running spray/pitchfork/sniper modes
+                         these delays make the difference between getting caught and
+                         finding the weak account safely. -->
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                        <p class="text-xs font-medium text-white mb-2 flex items-center gap-2">
+                            Anti-Lockout Delays {{template "info_icon" "Wait between attempts to stay under per-account lockout thresholds. Accepts '30s', '2m', '1h' OR bare seconds ('30'). Ignored in Cluster Bomb mode (concurrent). Set 0 to disable."}}
+                        </p>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[10px] text-dark-400 mb-0.5">Between usernames</label>
+                                <input type="text" name="delay_per_user" placeholder="0 (e.g. 30s, 2m)" class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1 text-[11px] text-white">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-dark-400 mb-0.5">Between passwords</label>
+                                <input type="text" name="delay_per_pass" placeholder="0 (e.g. 5s, 1m)" class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1 text-[11px] text-white">
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-dark-500 mt-2 leading-snug">Typical spray: delay-per-user=30s, delay-per-pass=0. Typical credential-stuffing: both 0 (you control velocity outside the tool). Lockout thresholds are usually 3-5 attempts / 30 minutes — set delay-per-user higher than your target's lockout window.</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs text-dark-400 mb-1">Fail marker{{template "info_icon" "Optional substring that indicates failed login (case-insensitive). Auto-detected if blank."}}</label>
+                            <input type="text" name="fail_marker" placeholder="(auto-detect)" class="w-full mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-xs text-white placeholder-dark-600">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-dark-400 mb-1">Success marker</label>
+                            <input type="text" name="success_marker" placeholder="(optional)" class="w-full mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-xs text-white placeholder-dark-600">
+                        </div>
+                    </div>
+                    <label class="flex items-center gap-2 text-xs text-dark-300">
+                        <input type="checkbox" name="test_session" class="rounded border-dark-600 bg-dark-800 text-accent-500"> Test session fixation
+                    </label>
+                    <div>
+                        <label class="block text-xs text-dark-400 mb-1">Password reset URL <span class="text-dark-500">(optional)</span></label>
+                        <input type="text" name="reset_url" placeholder="https://target/password-reset" class="w-full mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-xs text-white placeholder-dark-600">
+                    </div>
+                </div>
+                {{template "http_options" .}}
+                {{template "http_tuning" (dict "TuneConcHint" $.TuneConcHint "TuneTimeoutHint" "10")}}
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Start Auth Probe
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}
+            <div class="space-y-2">
+                {{range .Scans}}
+                <a href="/modules/authtest/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200">Scan #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                    </div>
+                </a>
+                {{end}}
+            </div>
+            {{else}}<div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No scans yet</p></div>{{end}}
+        </div>
+    </div>
+</div>
+{{end}}

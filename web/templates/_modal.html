@@ -1,0 +1,88 @@
+{{/*
+    Shared modal base. Three defines that compose into a modal:
+
+      {{template "modal_open" (dict "ID" "myModal" "Title" "..." "Size" "max-w-2xl")}}
+        ... arbitrary modal body content ...
+      {{template "modal_close" .}}
+
+    Plus a single {{template "modal_script" .}} that lives in layout.html
+    and wires Esc-dismiss + click-outside dismiss + focus-on-open for
+    every .aw-modal on the page.
+
+    Before this file existed, scaNNer had three different inline modal
+    patterns (export_modal partial, assets new-list modal, settings
+    create-workspace modal). None responded to Esc; click-outside was
+    pasted inconsistently. Consolidating means one set of accessibility
+    behaviors everywhere.
+
+    Sizes (Tailwind classes):
+      max-w-md   ≈ 28rem — short forms (create workspace)
+      max-w-lg   ≈ 32rem — single-section forms
+      max-w-2xl  ≈ 42rem — default (export options, finding details)
+      max-w-3xl  ≈ 48rem — wide tables / evidence panels (techdetect)
+*/}}
+
+{{define "modal_open"}}
+{{$size := .Size}}{{if not $size}}{{$size = "max-w-2xl"}}{{end}}
+<div id="{{.ID}}"
+     class="aw-modal hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+     onclick="if(event.target===this)awModalClose(this)">
+    <div class="bg-dark-900 border border-dark-700 rounded-xl w-full {{$size}} mx-4 max-h-[90vh] flex flex-col">
+        <div class="flex items-center justify-between px-5 py-3 border-b border-dark-800">
+            <h3 class="text-base font-semibold text-white">{{.Title}}</h3>
+            <button type="button" onclick="awModalClose(this)"
+                    class="text-dark-500 hover:text-white text-xl leading-none px-2"
+                    aria-label="Close">×</button>
+        </div>
+        <div class="p-5 overflow-y-auto">
+{{end}}
+
+{{define "modal_close"}}
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "modal_script"}}
+<script>
+(function() {
+    if (window.__awModalWired) return;
+    window.__awModalWired = true;
+
+    // Helper used by close buttons and click-outside handlers. Walks
+    // up from the click target to find the .aw-modal ancestor, then
+    // toggles its .hidden class.
+    window.awModalClose = function(el) {
+        var m = el && el.closest ? el.closest('.aw-modal') : null;
+        if (m) m.classList.add('hidden');
+    };
+
+    // Programmatic open. Focuses the first interactive element inside
+    // so the user can immediately type / Tab without an extra click.
+    window.awModalOpen = function(id) {
+        var m = document.getElementById(id);
+        if (!m) return;
+        m.classList.remove('hidden');
+        var f = m.querySelector('input:not([type=hidden]),select,textarea,button');
+        if (f) {
+            // setTimeout(0) defers focus until after the modal's display
+            // transition; without it the focus call sometimes lands
+            // before the element is actually visible and gets dropped.
+            setTimeout(function() { f.focus(); }, 0);
+        }
+    };
+
+    // Esc dismisses the top-most open modal. Walks every .aw-modal on
+    // the page and hides the one currently visible.
+    document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Escape') return;
+        var open = document.querySelectorAll('.aw-modal:not(.hidden)');
+        if (!open.length) return;
+        // Hide all visible modals so a nested case (rare) clears in
+        // one Esc press — the user expectation.
+        open.forEach(function(m) { m.classList.add('hidden'); });
+        e.stopPropagation();
+    });
+})();
+</script>
+{{end}}

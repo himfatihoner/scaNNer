@@ -1,0 +1,98 @@
+{{define "page_cvematch"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">CVE Matcher</span>
+</div>
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">🩻</span> CVE Matcher</h2>
+        <p class="text-sm text-dark-400 mt-1">Map detected products/versions to known CVEs from a curated database (35+ landmark CVEs across Apache, nginx, PHP, OpenSSL, Spring, IIS, etc.).</p>
+    </div>
+</div>
+{{/* CVE DB freshness banner — surfaces when the cache hasn't been
+     refreshed in the last 8 days (longer than NVD's "modified" feed
+     window means we'd miss recent CVEs even on a delta refresh). */}}
+{{if .CVEDBNeverRefreshed}}
+<div class="mb-5 bg-warning/5 border border-warning/40 rounded-xl p-4">
+    <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 text-warning mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+        <div class="flex-1">
+            <p class="text-sm font-semibold text-warning">CVE database has never been refreshed</p>
+            <p class="text-[11px] text-dark-300 mt-1 leading-relaxed">Currently {{.CVEDBCount}} rows loaded (only the built-in 35 curated CVEs unless you've already synced NVD). For broader matching against the full NVD database, sync the NVD feed from Settings.</p>
+            <a href="/settings#cveDBStats" class="inline-block mt-2 text-[11px] px-3 py-1.5 rounded-lg bg-warning text-dark-950 hover:bg-warning/90 transition-colors font-medium">Open Settings → CVE Database</a>
+        </div>
+    </div>
+</div>
+{{else if .CVEDBStale}}
+<div class="mb-5 bg-warning/5 border border-warning/40 rounded-xl p-4">
+    <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 text-warning mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <div class="flex-1">
+            <p class="text-sm font-semibold text-warning">CVE database is {{.CVEDBAgeDays}} days old — please refresh</p>
+            <p class="text-[11px] text-dark-300 mt-1 leading-relaxed">
+                NVD's "modified" delta feed only contains CVEs changed in the last 8 days. A cache older than that risks missing recent CVEs entirely (delta refresh won't catch them — you need a full sync or the original window will close). Last refresh: <span class="mono text-warning">{{.CVEDBLastRefresh}}</span>.
+            </p>
+            <div class="flex items-center gap-2 mt-2">
+                <a href="/settings#cveDBStats" class="text-[11px] px-3 py-1.5 rounded-lg bg-warning text-dark-950 hover:bg-warning/90 transition-colors font-medium">Open Settings → CVE Database</a>
+                <span class="text-[10px] text-dark-500">Quick daily refresh takes ~90 seconds.</span>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Match</h3>
+            <form action="/modules/cvematch/run" method="POST">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Manual Entries{{template "info_icon" "One per line. Format: product@version  OR  product@version@source-url. Examples: apache@2.4.49  ·  nginx@1.13.0@https://example.com"}}</label>
+                        <textarea name="manual" rows="5" placeholder="apache@2.4.49&#10;nginx@1.13.0&#10;openssh@8.5"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                    </div>
+                    {{if .TechScans}}
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Import from Tech Detect{{template "info_icon" "Pull every detected (product, version) pair from a previous Tech Detector scan."}}</label>
+                        <select name="import_techdetect" class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent-500">
+                            <option value="">(none)</option>
+                            {{range .TechScans}}{{if eq (print .Status) "done"}}
+                            <option value="{{.ID}}">Scan {{.ID | printf "%.8s"}} — {{.CreatedAt.Format "2006-01-02 15:04"}}</option>
+                            {{end}}{{end}}
+                        </select>
+                    </div>
+                    {{end}}
+                </div>
+                {{template "queue_option" .}}
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Match CVEs
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}
+            <div class="space-y-2">
+                {{range .Scans}}
+                <a href="/modules/cvematch/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200">Scan #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                    </div>
+                </a>
+                {{end}}
+            </div>
+            {{else}}<div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No scans yet</p></div>{{end}}
+        </div>
+    </div>
+</div>
+{{end}}

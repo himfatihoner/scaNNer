@@ -1,0 +1,172 @@
+{{define "raw_panel"}}
+{{/* args: list "<scope>" $idx $rawRequest $rawResponse */}}
+{{$scope := index . 0}}{{$idx := index . 1}}{{$req := index . 2}}{{$resp := index . 3}}
+<div class="space-y-3">
+    {{if and (not $req) (not $resp)}}
+    <p class="text-xs text-dark-500 italic">Raw request / response not captured for this entry.</p>
+    {{else}}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <!-- Request -->
+        <div>
+            <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] uppercase tracking-wider text-accent-400 font-semibold">Request</span>
+                    {{if $req}}<span class="text-[10px] text-dark-500 mono">{{len $req}} bytes</span>{{end}}
+                </div>
+                {{if $req}}
+                <button type="button" onclick="copyRaw(this, '{{$scope}}-req-{{$idx}}')"
+                        class="text-[10px] text-dark-400 hover:text-accent-400 px-2 py-0.5 bg-dark-800 hover:bg-dark-700 rounded transition-colors">Copy</button>
+                {{end}}
+            </div>
+            {{if $req}}
+            <pre id="{{$scope}}-req-{{$idx}}" class="mono text-[11px] text-dark-200 bg-dark-950 border border-dark-800 rounded-lg p-3 max-h-[400px] overflow-auto whitespace-pre-wrap break-all">{{$req}}</pre>
+            {{else}}
+            <p class="text-[11px] text-dark-500 italic px-2">not captured</p>
+            {{end}}
+        </div>
+        <!-- Response -->
+        <div>
+            <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] uppercase tracking-wider text-success font-semibold">Response</span>
+                    {{if $resp}}<span class="text-[10px] text-dark-500 mono">{{len $resp}} bytes</span>{{end}}
+                </div>
+                {{if $resp}}
+                <button type="button" onclick="copyRaw(this, '{{$scope}}-res-{{$idx}}')"
+                        class="text-[10px] text-dark-400 hover:text-accent-400 px-2 py-0.5 bg-dark-800 hover:bg-dark-700 rounded transition-colors">Copy</button>
+                {{end}}
+            </div>
+            {{if $resp}}
+            <pre id="{{$scope}}-res-{{$idx}}" class="mono text-[11px] text-dark-200 bg-dark-950 border border-dark-800 rounded-lg p-3 max-h-[400px] overflow-auto whitespace-pre-wrap break-all">{{$resp}}</pre>
+            {{else}}
+            <p class="text-[11px] text-dark-500 italic px-2">not captured</p>
+            {{end}}
+        </div>
+    </div>
+    {{end}}
+</div>
+{{end}}
+
+{{define "raw_panel_script"}}
+<script>
+function copyRaw(btn, elID) {
+    var el = document.getElementById(elID);
+    if (!el) return;
+    var text = el.textContent || el.innerText || '';
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+            var prev = btn.textContent;
+            btn.textContent = 'Copied';
+            btn.classList.add('text-success');
+            setTimeout(function() {
+                btn.textContent = prev;
+                btn.classList.remove('text-success');
+            }, 1200);
+        }).catch(function() { fallbackCopy(text, btn); });
+    } else {
+        fallbackCopy(text, btn);
+    }
+}
+// copyText(text, btn) — used by floating "Copy" pills auto-injected into pre blocks.
+function copyText(text, btn) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+            if (!btn) return;
+            var prev = btn.textContent;
+            btn.textContent = 'Copied';
+            btn.classList.add('text-success');
+            setTimeout(function() { btn.textContent = prev; btn.classList.remove('text-success'); }, 1200);
+        }).catch(function() { fallbackCopy(text, btn); });
+    } else {
+        fallbackCopy(text, btn);
+    }
+}
+function fallbackCopy(text, btn) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'absolute';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); btn.textContent = 'Copied'; } catch(e) {}
+    document.body.removeChild(ta);
+    setTimeout(function() { btn.textContent = 'Copy'; }, 1200);
+}
+// Delegated handler so it works on initially-rendered AND partial-swapped rows.
+document.addEventListener('click', function(e) {
+    var row = e.target.closest('.raw-row');
+    if (!row) return;
+    // Don't toggle if user clicked the Copy button itself
+    if (e.target.closest('button')) return;
+    var targetID = row.getAttribute('data-target');
+    if (!targetID) return;
+    var panel = document.getElementById(targetID);
+    if (!panel) return;
+    panel.classList.toggle('hidden');
+    var caret = row.querySelector('.raw-caret');
+    if (caret) caret.textContent = panel.classList.contains('hidden') ? '▸' : '▾';
+});
+
+// Auto-decorate every <pre> on the page with a hover-revealed copy pill.
+// Skips <pre> already wrapped in a relative parent that has its own button.
+function decoratePresWithCopy(root) {
+    var scope = root || document;
+    var pres = scope.querySelectorAll('pre');
+    pres.forEach(function(p) {
+        if (p.dataset.copyDecorated === '1') return;
+        if (!p.textContent || p.textContent.trim().length < 4) return;
+        // Skip when an explicit copy button already exists nearby (avoid duplicate UI).
+        var prev = p.previousElementSibling;
+        if (prev && prev.querySelector && prev.querySelector('button[onclick*="copyRaw"]')) {
+            p.dataset.copyDecorated = '1';
+            return;
+        }
+        // Wrap in relative container if not already positioned.
+        var parent = p.parentElement;
+        var wrap = parent;
+        var cs = parent ? getComputedStyle(parent) : null;
+        if (!cs || cs.position === 'static') {
+            wrap = document.createElement('div');
+            wrap.className = 'relative';
+            p.parentNode.insertBefore(wrap, p);
+            wrap.appendChild(p);
+        }
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = 'Copy';
+        btn.className = 'copy-pill absolute top-2 right-2 px-2 py-0.5 text-[10px] font-medium text-dark-300 bg-dark-800/90 hover:bg-dark-700 border border-dark-700 rounded opacity-0 group-hover:opacity-100 transition-opacity';
+        btn.style.opacity = '0';
+        btn.style.transition = 'opacity 120ms ease';
+        wrap.classList.add('group');
+        wrap.addEventListener('mouseenter', function() { btn.style.opacity = '1'; });
+        wrap.addEventListener('mouseleave', function() { btn.style.opacity = '0'; });
+        btn.addEventListener('click', function(ev) {
+            ev.stopPropagation();
+            ev.preventDefault();
+            copyText(p.textContent || '', btn);
+        });
+        wrap.appendChild(btn);
+        p.dataset.copyDecorated = '1';
+    });
+}
+// Run on first load + whenever scanContent gets swapped via partial fetch.
+document.addEventListener('DOMContentLoaded', function() { decoratePresWithCopy(document); });
+// MutationObserver picks up partial-swapped sections without us having to wire each one.
+(function() {
+    if (typeof MutationObserver === 'undefined') return;
+    var obs = new MutationObserver(function(muts) {
+        for (var i = 0; i < muts.length; i++) {
+            for (var j = 0; j < muts[i].addedNodes.length; j++) {
+                var n = muts[i].addedNodes[j];
+                if (n.nodeType === 1) decoratePresWithCopy(n);
+            }
+        }
+    });
+    var sc = document.getElementById('scanContent');
+    if (sc) obs.observe(sc, { childList: true, subtree: true });
+    // Also observe the body for newly-added scan-progress / detail blocks
+    obs.observe(document.body, { childList: true, subtree: false });
+})();
+</script>
+{{end}}

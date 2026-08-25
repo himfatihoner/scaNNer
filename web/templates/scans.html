@@ -1,0 +1,284 @@
+{{define "page_scans"}}
+<!-- Workspace context -->
+<div class="flex items-center gap-2 text-xs text-dark-500 mb-5">
+    <svg class="w-3.5 h-3.5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+    </svg>
+    <span class="text-dark-300">{{.ActiveWorkspace.Name}}</span>
+</div>
+
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h2 class="text-xl font-bold text-white">{{if .IsArchive}}Archived Scans{{else}}Scan History{{end}}</h2>
+        <p class="text-sm text-dark-400 mt-1">{{if .IsArchive}}Scans you've moved out of the active list. They aren't deleted — restore any time.{{else}}View all active scans for this workspace{{end}}</p>
+    </div>
+    <div class="flex items-center gap-2">
+        {{if .IsArchive}}
+        <a href="/scans" class="flex items-center gap-2 px-3 py-2 text-xs font-medium text-dark-300 hover:text-white bg-dark-850 border border-dark-700 hover:border-accent-500/50 rounded-lg transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+            Active Scans
+        </a>
+        {{else}}
+        <a href="/scans/archive" class="flex items-center gap-2 px-3 py-2 text-xs font-medium text-dark-300 hover:text-white bg-dark-850 border border-dark-700 hover:border-accent-500/50 rounded-lg transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+            Archive
+            {{if gt .ArchivedCount 0}}<span class="text-[10px] mono px-1.5 py-0.5 bg-dark-800 text-dark-400 rounded">{{.ArchivedCount}}</span>{{end}}
+        </a>
+        {{end}}
+    </div>
+</div>
+
+<!-- Filter / Sort bar -->
+<div class="flex flex-wrap items-center gap-2 mb-4">
+    <div class="relative">
+        <svg class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-dark-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input id="scanSearch" type="search" placeholder="Search scan ID or target..." oninput="applyScanFilter()"
+               class="bg-dark-850 border border-dark-700 rounded-lg pl-7 pr-3 py-1.5 text-xs text-white placeholder-dark-500 focus:outline-none focus:border-accent-500 w-64">
+    </div>
+    <select id="scanModuleFilter" onchange="applyScanFilter()"
+            class="bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
+        <option value="">All modules</option>
+    </select>
+    <select id="scanStatusFilter" onchange="applyScanFilter()"
+            class="bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
+        <option value="">All statuses</option>
+        <option value="done">Done</option>
+        <option value="running">Running</option>
+        <option value="pending">Pending</option>
+        <option value="error">Error</option>
+        <option value="cancelled">Cancelled</option>
+    </select>
+    <span id="scanResultCount" class="ml-auto text-[11px] text-dark-500"></span>
+</div>
+
+<!-- Scans Table -->
+<div id="scanContent" class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+{{template "scans_inner" .}}
+</div>
+
+<script>
+function applyScanFilter() {
+    var q = (document.getElementById('scanSearch').value || '').trim().toLowerCase();
+    var mod = document.getElementById('scanModuleFilter').value;
+    var st = document.getElementById('scanStatusFilter').value;
+    var tbody = document.querySelector('#scanContent tbody');
+    if (!tbody) return;
+    var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr')).filter(function(r){return r.dataset.module !== undefined;});
+    var visible = 0;
+    rows.forEach(function(r) {
+        var rMod  = (r.dataset.module || '').toLowerCase();
+        var rSt   = (r.dataset.status || '').toLowerCase();
+        var rText = (r.textContent || '').toLowerCase();
+        var matchQ  = !q || rText.indexOf(q) !== -1;
+        var matchMod = !mod || rMod === mod.toLowerCase();
+        var matchSt  = !st  || rSt === st.toLowerCase();
+        var show = matchQ && matchMod && matchSt;
+        r.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+    var counter = document.getElementById('scanResultCount');
+    if (counter) counter.textContent = visible + ' / ' + rows.length + ' scan' + (rows.length === 1 ? '' : 's');
+}
+document.addEventListener('DOMContentLoaded', function() {
+    // Populate module filter dropdown from rendered rows so it always matches
+    // what's actually in the table.
+    var sel = document.getElementById('scanModuleFilter');
+    if (sel) {
+        var seen = {};
+        document.querySelectorAll('#scanContent tbody tr[data-module]').forEach(function(r) {
+            var m = r.dataset.module;
+            if (m && !seen[m]) {
+                seen[m] = true;
+                var label = r.dataset.moduleLabel || m;
+                var opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = label;
+                sel.appendChild(opt);
+            }
+        });
+    }
+    // Bind the column-header sort. Default: newest first. The bindSortableTable
+    // helper lives at the bottom of layout.html, so we defer until the DOM is
+    // fully parsed (it isn't yet in the per-page IIFE scope).
+    if (window.bindSortableTable) {
+        bindSortableTable('#scanContent table', { defaultKey: 'createdat', defaultDir: 'desc' });
+    }
+    applyScanFilter();
+});
+</script>
+{{if .HasRunning}}
+<script>
+(function() {
+    var interval = setInterval(function() {
+        var url = location.pathname + (location.search ? location.search + '&' : '?') + 'partial=1&_=' + Date.now();
+        fetch(url).then(function(r){return r.text();}).then(function(html) {
+            var c = document.getElementById('scanContent');
+            if (c && html) c.innerHTML = html;
+            // Re-apply the active search/module/status filter to the freshly
+            // swapped rows (the filter inputs live outside #scanContent so their
+            // values survive; only the row display needs re-applying).
+            try { applyScanFilter(); } catch (e) {}
+            // Stop polling once nothing is running/queued anymore.
+            if (c && !c.querySelector('.scan-pulse') && !c.innerHTML.match(/Running|Pending|pending|Queued/i)) {
+                clearInterval(interval);
+            }
+        }).catch(function(){});
+    }, 4000);
+})();
+</script>
+{{end}}
+{{end}}
+
+{{define "scans_inner"}}
+    <table class="w-full">
+        <thead>
+            <tr class="border-b border-dark-800">
+                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="id" data-sort-type="string">Scan ID</th>
+                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="module" data-sort-type="string">Module</th>
+                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="status" data-sort-type="string">Status</th>
+                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="targets" data-sort-type="number">Targets</th>
+                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="createdat" data-sort-type="number">Started</th>
+                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="duration" data-sort-type="number">Duration</th>
+                <th class="text-right px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{if .Scans}}
+            {{range .Scans}}
+            <tr class="border-b border-dark-800/50 hover:bg-dark-850/50 transition-colors cursor-pointer"
+                onclick="if(!event.target.closest('a,button,form,input')){window.location='{{scanResultsURL .}}'}"
+                data-id="{{.ID}}"
+                data-module="{{.Module}}"
+                data-module-label="{{moduleDisplayName .Module}}"
+                data-status="{{.Status}}"
+                data-targets="{{.ProgressTotal}}"
+                data-createdat="{{.CreatedAt.Unix}}"
+                data-duration="{{if and .StartedAt .FinishedAt}}{{printf "%.0f" (.FinishedAt.Sub (deref .StartedAt)).Seconds}}{{else}}0{{end}}">
+                <td class="px-5 py-3">
+                    <a href="{{scanResultsURL .}}" class="mono text-sm text-accent-400 hover:text-accent-300 transition-colors">
+                        {{.ID | printf "%.8s"}}
+                    </a>
+                </td>
+                <td class="px-5 py-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm">{{moduleIcon .Module}}</span>
+                        <span class="text-sm text-dark-200">{{moduleDisplayName .Module}}</span>
+                    </div>
+                </td>
+                <td class="px-5 py-3">
+                    {{if eq (print .Status) "done"}}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-success/10 text-success border border-success/20">
+                        <span class="w-1.5 h-1.5 rounded-full bg-success"></span>
+                        Done
+                    </span>
+                    {{else if eq (print .Status) "running"}}
+                    <div class="flex items-center gap-2">
+                        <div class="w-24 h-1.5 bg-dark-800 rounded-full overflow-hidden">
+                            <div class="h-full bg-accent-500 rounded-full transition-all" style="width: {{scanPct .ProgressDone .ProgressTotal}}%"></div>
+                        </div>
+                        <span class="text-[11px] text-accent-400 mono">{{scanPct .ProgressDone .ProgressTotal}}%</span>
+                    </div>
+                    {{else if eq (print .Status) "error"}}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-danger/10 text-danger border border-danger/20">
+                        <span class="w-1.5 h-1.5 rounded-full bg-danger"></span>
+                        Error
+                    </span>
+                    {{else if eq (print .Status) "cancelled"}}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-warning/10 text-warning border border-warning/20">
+                        <span class="w-1.5 h-1.5 rounded-full bg-warning"></span>
+                        Cancelled
+                    </span>
+                    {{else if eq (print .Status) "paused"}}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-warning/10 text-warning border border-warning/20">
+                        <span class="w-1.5 h-1.5 rounded-full bg-warning"></span>
+                        Paused
+                    </span>
+                    {{else if eq (print .Status) "queued"}}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-accent-600/10 text-accent-300 border border-accent-500/20">
+                        <span class="w-1.5 h-1.5 rounded-full bg-accent-400"></span>
+                        Queued
+                    </span>
+                    {{else}}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-dark-700/50 text-dark-400 border border-dark-700">
+                        <span class="w-1.5 h-1.5 rounded-full bg-dark-500"></span>
+                        Pending
+                    </span>
+                    {{end}}
+                </td>
+                <td class="px-5 py-3 text-xs text-dark-400">
+                    {{$tc := scanTargetCount .}}{{$tc}} target{{if ne $tc 1}}s{{end}}
+                </td>
+                <td class="px-5 py-3 text-xs text-dark-400">
+                    {{if .StartedAt}}
+                    {{.StartedAt.Format "2006-01-02 15:04:05"}}
+                    {{else}}
+                    <span class="text-dark-600">-</span>
+                    {{end}}
+                </td>
+                <td class="px-5 py-3 text-xs text-dark-400">
+                    {{if and .StartedAt .FinishedAt}}
+                    {{formatDuration (.FinishedAt.Sub (deref .StartedAt))}}
+                    {{else if .StartedAt}}
+                    <span class="text-accent-400">In progress...</span>
+                    {{else}}
+                    <span class="text-dark-600">-</span>
+                    {{end}}
+                </td>
+                <td class="px-5 py-3">
+                    <div class="flex items-center justify-end gap-1">
+                        {{if or (eq (print .Status) "running") (eq (print .Status) "pending")}}
+                        <form action="/scans/stop/" method="POST" class="inline">
+                            <input type="hidden" name="id" value="{{.ID}}">
+                            <button type="submit" class="p-1.5 text-dark-500 hover:text-warning hover:bg-warning/10 rounded-md transition-colors" title="Stop">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><rect x="9" y="9" width="6" height="6" rx="1" fill="currentColor"/></svg>
+                            </button>
+                        </form>
+                        {{else}}
+                        <form action="/scans/restart/" method="POST" class="inline">
+                            <input type="hidden" name="id" value="{{.ID}}">
+                            <button type="submit" class="p-1.5 text-dark-500 hover:text-accent-400 hover:bg-dark-800 rounded-md transition-colors" title="Restart">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            </button>
+                        </form>
+                        {{end}}
+                        {{if and (ne (print .Status) "running") (ne (print .Status) "pending")}}
+                        <form action="/scans/archive/" method="POST" class="inline">
+                            <input type="hidden" name="id" value="{{.ID}}">
+                            <input type="hidden" name="action" value="{{if .Archived}}unarchive{{else}}archive{{end}}">
+                            <button type="submit" class="p-1.5 text-dark-500 hover:text-accent-400 hover:bg-dark-800 rounded-md transition-colors" title="{{if .Archived}}Unarchive{{else}}Archive{{end}}">
+                                {{if .Archived}}
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2zm5 8l2-2m0 0l2-2m-2 2v6"/></svg>
+                                {{else}}
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+                                {{end}}
+                            </button>
+                        </form>
+                        {{end}}
+                        <form action="/scans/delete/" method="POST" class="inline" onsubmit="return confirm('Delete this scan? Its findings are also removed from the Vulnerabilities page and assets. Export first if you need them.')">
+                            <input type="hidden" name="id" value="{{.ID}}">
+                            <button type="submit" class="p-1.5 text-dark-500 hover:text-danger hover:bg-danger/10 rounded-md transition-colors" title="Delete">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {{end}}
+            {{else}}
+            <tr>
+                <td colspan="7" class="px-5 py-16 text-center">
+                    <div class="flex flex-col items-center text-dark-500">
+                        <svg class="w-10 h-10 mb-2 text-dark-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                        <p class="text-sm">No scans found</p>
+                        <p class="text-xs text-dark-600 mt-1">Run a scan from the <a href="/modules" class="text-accent-400 hover:underline">Modules</a> page</p>
+                    </div>
+                </td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+{{end}}

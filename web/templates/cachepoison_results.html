@@ -1,0 +1,52 @@
+{{define "page_cachepoison_results"}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="/modules/cachepoison" class="hover:text-accent-400 transition-colors">Cache & Smuggle</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Results</span>
+</div>
+{{template "scan_actions" .}}
+{{template "scan_progress" .}}
+<div id="scanContent">{{template "cachepoison_results_inner" .}}</div>
+{{end}}
+
+{{define "cachepoison_results_inner"}}
+<p class="text-sm text-dark-400 mb-4">{{.TotalFindings}} finding(s) across {{.TotalProbes}} probes / {{len .Results}} URL(s)</p>
+{{range .Results}}
+<div class="bg-dark-900 border {{if .Findings}}border-warning/30{{else}}border-dark-800{{end}} rounded-xl mb-4 overflow-hidden">
+    <div class="px-5 py-3 border-b border-dark-800 flex items-center justify-between">
+        <span class="mono text-sm text-accent-400">{{.URL}}</span>
+        <span class="text-xs text-dark-500">{{.Tested}} probes</span>
+    </div>
+    {{if .Error}}<div class="px-5 py-2 text-xs text-danger">{{.Error}}</div>{{end}}
+    {{if .Findings}}
+    <div class="p-3 space-y-2">
+        {{range .Findings}}
+        <div class="bg-dark-850 border
+            {{if eq .Severity "CRITICAL"}}border-red-500/40
+            {{else if eq .Severity "HIGH"}}border-orange-500/40
+            {{else if eq .Severity "MEDIUM"}}border-yellow-500/40
+            {{else if eq .Severity "INFO"}}border-dark-700
+            {{else}}border-blue-500/40{{end}} rounded-lg p-3">
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="mono text-[10px] px-2 py-0.5 rounded
+                    {{if eq .Severity "CRITICAL"}}bg-red-500/20 text-red-300
+                    {{else if eq .Severity "HIGH"}}bg-orange-500/20 text-orange-300
+                    {{else if eq .Severity "MEDIUM"}}bg-yellow-500/20 text-yellow-300
+                    {{else if eq .Severity "INFO"}}bg-dark-700 text-dark-300
+                    {{else}}bg-blue-500/20 text-blue-300{{end}}">{{.Severity}}</span>
+                <span class="mono text-[10px] px-2 py-0.5 rounded bg-dark-700 text-dark-300">{{.Class}}</span>
+                <span class="text-xs font-medium text-white">{{.Title}}</span>
+                {{if .Header}}<span class="mono text-[10px] text-warning">{{.Header}}</span>{{end}}
+            </div>
+            <p class="text-[11px] text-dark-400 mt-1">{{.Detail}}</p>
+            {{if .Evidence}}<pre class="mono text-[10px] text-dark-300 bg-dark-950 border border-dark-800 rounded p-2 mt-1.5 max-h-32 overflow-auto whitespace-pre-wrap">{{.Evidence}}</pre>{{end}}
+            {{template "raw_exchange" (dict "Request" .RawRequest "Response" .RawResponse)}}
+        </div>
+        {{end}}
+    </div>
+    {{else}}<div class="px-5 py-3 text-xs text-success">✓ No cache poisoning or smuggling signals detected.</div>{{end}}
+</div>
+{{end}}
+{{end}}

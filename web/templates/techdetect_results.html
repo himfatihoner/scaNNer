@@ -1,0 +1,289 @@
+{{define "page_techdetect_results"}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="/modules/techdetect" class="hover:text-accent-400 transition-colors">Tech Detector</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Results</span>
+</div>
+{{template "scan_actions" .}}
+
+{{if or (eq (print .Scan.Status) "running") (eq (print .Scan.Status) "pending")}}
+{{template "scan_progress" .}}
+{{end}}
+
+<div id="scanContent">
+{{template "techdetect_results_inner" .}}
+</div>
+
+{{end}}
+
+{{define "techdetect_results_inner"}}
+<p class="text-sm text-dark-400 mb-4">{{.TotalTech}} technologies detected across {{len .Results}} target(s)</p>
+{{/* Suite view caps how many host rows render (heavy page). When the scan
+     produced more rows than are shown, say so and offer to load more — the
+     rows are ordered version-bearing (CVE-relevant) first, so nothing that
+     CVE Matcher flagged is ever hidden behind the cap. */}}
+{{if and .TotalRows .ShownRows (gt .TotalRows .ShownRows)}}
+<div class="flex items-center gap-3 mb-4 text-xs bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+    <span class="text-amber-300">Showing {{.ShownRows}} of {{.TotalRows}} hosts (version-bearing hosts first, so every CVE-flagged host is included).</span>
+    <span class="flex-1"></span>
+    {{if .ScanID}}
+    <a href="/modules/advancedweb/results/{{.ScanID}}?techrows=500#stage-techdetect" class="px-2 py-0.5 rounded bg-dark-800 text-dark-200 border border-dark-700 hover:bg-dark-700">Show 500</a>
+    <a href="/modules/advancedweb/results/{{.ScanID}}?techrows=all#stage-techdetect" class="px-2 py-0.5 rounded bg-dark-800 text-dark-200 border border-dark-700 hover:bg-dark-700">Show all</a>
+    {{end}}
+</div>
+{{end}}
+
+{{/* Evidence modal — populated by tdShowEvidence() when the user clicks a tech chip.
+     Surfaces (a) which target was probed + what came back, (b) which signal (header
+     value / cookie name / body substring / meta tag) triggered detection. Lets the
+     pentester verify the match isn't a false positive without leaving the page. */}}
+<div id="tdEvidenceModal" class="aw-modal hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onclick="if(event.target===this)awModalClose(this)">
+    <div class="bg-dark-900 border border-dark-700 rounded-xl w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col">
+        <div class="flex items-center justify-between px-5 py-3 border-b border-dark-800">
+            <div class="flex items-center gap-3">
+                <span id="tdEvName" class="text-base font-semibold text-white"></span>
+                <span id="tdEvVersion" class="mono text-[11px] text-dark-300 px-2 py-0.5 rounded bg-dark-850"></span>
+                <span id="tdEvCategory" class="text-[10px] text-dark-500 uppercase tracking-wider"></span>
+            </div>
+            <button type="button" onclick="awModalClose(this)"
+                    class="text-dark-500 hover:text-white text-xl leading-none" aria-label="Close">×</button>
+        </div>
+        <div class="p-5 overflow-y-auto space-y-4">
+            <div>
+                <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-1">Method (how this was detected)</p>
+                <p id="tdEvSource" class="mono text-[11px] text-accent-300"></p>
+                <div id="tdEvMethodNote" class="text-[11px] text-dark-400 mt-1"></div>
+            </div>
+            <div>
+                <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-1">Matching signal (the evidence)</p>
+                <pre id="tdEvEvidence" class="mono text-[11px] text-dark-200 bg-dark-950 border border-dark-800 rounded p-3 whitespace-pre-wrap break-all"></pre>
+            </div>
+            <div>
+                <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-1">Probed URL</p>
+                <p id="tdEvTarget" class="mono text-[11px] text-accent-400 break-all"></p>
+                <p class="text-[10px] text-dark-500 mt-0.5">HTTP status: <span id="tdEvStatus" class="mono text-dark-300"></span></p>
+            </div>
+            <details>
+                <summary class="cursor-pointer text-[11px] uppercase tracking-wider text-dark-500 hover:text-dark-300">Raw request</summary>
+                <pre id="tdEvReq" class="mono text-[10px] text-dark-300 bg-dark-950 border border-dark-800 rounded p-3 mt-1 whitespace-pre-wrap break-all max-h-60 overflow-y-auto"></pre>
+            </details>
+            <details>
+                <summary class="cursor-pointer text-[11px] uppercase tracking-wider text-dark-500 hover:text-dark-300">Raw response (headers + body excerpt)</summary>
+                <pre id="tdEvResp" class="mono text-[10px] text-dark-300 bg-dark-950 border border-dark-800 rounded p-3 mt-1 whitespace-pre-wrap break-all max-h-80 overflow-y-auto"></pre>
+            </details>
+        </div>
+    </div>
+</div>
+<script>
+// Click handler for tech chips → fill + show evidence modal.
+// tdFilterTech shows only the target cards whose detected technologies (name
+// or category) — or whose host/URL — match the query. Lets the operator pull a
+// specific technology out of a large multi-target scan ("which of my 500 hosts
+// run nginx?"). Also highlights the matching tech chips.
+function tdFilterTech(q) {
+    q = (q || '').trim().toLowerCase();
+    var cards = document.querySelectorAll('#techDetectGroups .td-target-card');
+    var shown = 0;
+    cards.forEach(function(card) {
+        var techs = (card.getAttribute('data-techs') || '').toLowerCase();
+        var url = (card.getAttribute('data-url') || '').toLowerCase();
+        var match = !q || techs.indexOf(q) !== -1 || url.indexOf(q) !== -1;
+        card.style.display = match ? '' : 'none';
+        if (match) shown++;
+        card.querySelectorAll('[data-name]').forEach(function(chip) {
+            var hit = q && (chip.getAttribute('data-name') || '').toLowerCase().indexOf(q) !== -1;
+            chip.classList.toggle('ring-2', !!hit);
+            chip.classList.toggle('ring-accent-500', !!hit);
+        });
+    });
+    var counter = document.getElementById('tdMatchCount');
+    if (counter) counter.textContent = q ? (shown + ' target(s) with "' + q + '"') : '';
+}
+
+function tdShowEvidence(btn) {
+    var name     = btn.getAttribute('data-name') || '';
+    var version  = btn.getAttribute('data-version') || '';
+    var category = btn.getAttribute('data-category') || '';
+    var source   = btn.getAttribute('data-source') || '';
+    var evidence = btn.getAttribute('data-evidence') || '';
+    var url      = btn.getAttribute('data-target-url') || '';
+    var status   = btn.getAttribute('data-status') || '';
+    var req      = btn.getAttribute('data-raw-request') || '';
+    var resp     = btn.getAttribute('data-raw-response') || '';
+    document.getElementById('tdEvName').textContent     = name;
+    document.getElementById('tdEvVersion').textContent  = version || '(no version)';
+    document.getElementById('tdEvCategory').textContent = category;
+    document.getElementById('tdEvSource').textContent   = source || '(unknown)';
+    // Map the internal source key to a human sentence describing the detection method.
+    var note = '';
+    if (source === 'fingerprint') {
+        note = 'Built-in fingerprint database — substring match on response headers, cookies, body, <meta> generator, <script src>, or <link href>.';
+    } else if (source === 'whatweb') {
+        note = 'External WhatWeb tool — subprocess executed with `whatweb -a 3 <url>` and its plugin hit was merged into our results.';
+    } else if (source && source.indexOf('header:') === 0) {
+        note = 'Header-based extraction — parsed name+version directly from the response header listed in Source.';
+    } else {
+        note = 'Detection origin not annotated for this entry.';
+    }
+    document.getElementById('tdEvMethodNote').textContent = note;
+    document.getElementById('tdEvEvidence').textContent = evidence || '(no evidence string recorded — older scans before this column existed)';
+    document.getElementById('tdEvTarget').textContent   = url;
+    document.getElementById('tdEvStatus').textContent   = status || '?';
+    document.getElementById('tdEvReq').textContent  = req  || '(no raw request captured)';
+    document.getElementById('tdEvResp').textContent = resp || '(no raw response captured)';
+    awModalOpen('tdEvidenceModal');
+}
+</script>
+
+{{/* Inline CVE Matcher results — runs in the same scan goroutine when
+     the user ticks "Auto-run CVE Matcher". Reuses cvematch_results_inner
+     so the table is identical to the standalone module. */}}
+{{if .AutoCVEMatch}}
+<div class="bg-dark-900 border border-rose-500/30 rounded-xl mb-4">
+    <div class="flex items-center gap-3 px-5 py-3 border-b border-dark-800">
+        <span class="text-rose-300 text-lg">🩻</span>
+        <div class="flex-1">
+            <p class="text-sm font-semibold text-white">CVE Matcher
+                {{if .CVEMatches}}<span class="text-[10px] mono px-1.5 py-0.5 rounded bg-success/20 text-success ml-1">{{len .CVEMatches}} matches</span>
+                {{else if eq (print .Scan.Status) "running"}}<span class="text-[10px] mono px-1.5 py-0.5 rounded bg-accent-500/20 text-accent-400 ml-1">running…</span>
+                {{else if .CVEInputs}}<span class="text-[10px] mono px-1.5 py-0.5 rounded bg-warning/20 text-warning ml-1">0 matches</span>
+                {{else}}<span class="text-[10px] mono px-1.5 py-0.5 rounded bg-dark-700 text-dark-300 ml-1">no inputs</span>{{end}}
+            </p>
+            <p class="text-[11px] text-dark-400 mt-0.5">
+                {{if .CVEInputs}}Auto-matched against {{len .CVEInputs}} (product, version) tuples detected above — no separate scan, results below.{{else}}Will populate once Tech Detection produces version-bearing entries.{{end}}
+            </p>
+        </div>
+        {{if .CVEMatches}}
+        <a href="/export/{{.Scan.ID}}?format=csv&sections=matches"
+           class="text-xs px-3 py-1.5 rounded-lg bg-rose-500/15 text-rose-300 hover:bg-rose-500/25 border border-rose-500/40 transition-colors inline-flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Export CVE matches (CSV)
+        </a>
+        {{end}}
+    </div>
+    {{if .CVEMatches}}
+    <div class="aw-stage-scroll max-h-[500px] overflow-y-auto">
+        {{template "cvematch_results_inner" (dict "Inputs" .CVEInputs "Matches" .CVEMatches "SeverityCounts" .CVESeverityCounts)}}
+    </div>
+    {{end}}
+</div>
+{{end}}
+
+{{/* Empty-row toggle: hide URLs with 0 detected technologies (often
+     non-HTTP services or blocked targets that yielded nothing). */}}
+{{if .Results}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl mb-4 overflow-hidden">
+    {{template "empty_toggle" (dict "Scope" "techdetect-targets" "ContainerSel" "#techDetectGroups" "Group" "aw-suite" "Label" "Hide URLs with no technologies")}}
+    <!-- Search a specific technology (or host) across every scanned target -->
+    <div class="px-3 pt-3">
+        <div class="relative">
+            <svg class="w-4 h-4 text-dark-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input type="text" id="tdTechSearch" oninput="tdFilterTech(this.value)" autocomplete="off"
+                   placeholder="Search a technology (e.g. nginx, WordPress, Django) or host — shows only matching targets"
+                   class="w-full bg-dark-850 border border-dark-700 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+        </div>
+        <p id="tdMatchCount" class="text-[11px] text-dark-500 mt-1 h-3"></p>
+    </div>
+    <div id="techDetectGroups" class="max-h-[600px] overflow-y-auto p-3 space-y-3">
+{{end}}
+
+{{range $i, $tr := .Results}}
+{{$emptyTech := eq (len .Technologies) 0}}
+<div class="td-target-card bg-dark-900 border border-dark-800 rounded-xl overflow-hidden" data-empty="{{if $emptyTech}}true{{else}}false{{end}}" data-url="{{.URL}}" data-techs="{{range .Technologies}}{{.Name}}|{{.Category}} {{end}}">
+    <div class="px-5 py-4 border-b border-dark-800 flex items-center justify-between">
+        <div>
+            <span class="mono text-sm font-semibold text-accent-400">{{.URL}}</span>
+            <button type="button" onclick="sendToBurp('{{.URL}}')" title="Send this request to the configured proxy (Burp Repeater)"
+                    class="ml-2 text-[9px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/30 hover:bg-orange-500/20">→ Burp</button>
+            <span class="text-xs text-dark-500 ml-3">{{len .Technologies}} technologies</span>
+            {{if .Error}}<span class="text-xs text-danger ml-2">{{.Error}}</span>{{end}}
+        </div>
+        <div class="flex items-center gap-2 text-xs text-dark-500">
+            {{if .Server}}<span class="bg-dark-800 px-2 py-0.5 rounded">{{.Server}}</span>{{end}}
+            {{if .StatusCode}}<span class="mono bg-dark-800 px-2 py-0.5 rounded">{{.StatusCode}}</span>{{end}}
+        </div>
+    </div>
+
+    {{if .Technologies}}
+    <div class="p-5">
+        <p class="text-[10px] text-dark-500 mb-2">Click any chip to see the request that produced it and which signal matched.</p>
+        <div class="flex flex-wrap gap-2">
+            {{$tr := .}}
+            {{range .Technologies}}
+            <button type="button"
+                    onclick="tdShowEvidence(this)"
+                    data-name="{{.Name}}"
+                    data-version="{{.Version}}"
+                    data-category="{{.Category}}"
+                    data-source="{{.Source}}"
+                    data-evidence="{{.Evidence}}"
+                    data-target-url="{{$tr.URL}}"
+                    data-status="{{$tr.StatusCode}}"
+                    data-raw-request="{{$tr.RawRequest}}"
+                    data-raw-response="{{$tr.RawResponse}}"
+                    class="flex items-center gap-2 px-3 py-2 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 hover:bg-dark-800 transition-colors cursor-pointer text-left">
+                <span class="w-2 h-2 rounded-full shrink-0
+                    {{if eq (print .Category) "CMS"}}bg-danger
+                    {{else if eq (print .Category) "Framework"}}bg-accent-400
+                    {{else if eq (print .Category) "Web Server"}}bg-success
+                    {{else if eq (print .Category) "Language"}}bg-warning
+                    {{else if eq (print .Category) "JavaScript"}}bg-yellow-400
+                    {{else if eq (print .Category) "CDN"}}bg-orange-400
+                    {{else if eq (print .Category) "Analytics"}}bg-purple-400
+                    {{else if eq (print .Category) "Security"}}bg-green-400
+                    {{else if eq (print .Category) "UI Framework"}}bg-pink-400
+                    {{else}}bg-dark-400
+                    {{end}}"></span>
+                <div>
+                    <span class="text-xs font-medium text-white">{{.Name}}</span>
+                    {{if .Version}}<span class="text-[10px] text-dark-400 ml-1">{{.Version}}</span>{{end}}
+                </div>
+                <span class="text-[9px] text-dark-500 bg-dark-800 px-1.5 py-0.5 rounded">{{.Category}}</span>
+            </button>
+            {{end}}
+        </div>
+
+        <!-- Grouped view -->
+        <div class="mt-4">
+            <button onclick="document.getElementById('detail-{{$i}}').classList.toggle('hidden')" class="text-[11px] text-accent-400 hover:text-accent-300">Show/Hide Details</button>
+            <div id="detail-{{$i}}" class="hidden mt-2">
+                <table class="w-full">
+                    <thead><tr class="border-b border-dark-800">
+                        <th class="text-left px-3 py-2 text-[10px] text-dark-500 uppercase">Technology</th>
+                        <th class="text-left px-3 py-2 text-[10px] text-dark-500 uppercase">Version</th>
+                        <th class="text-left px-3 py-2 text-[10px] text-dark-500 uppercase">Category</th>
+                        <th class="text-left px-3 py-2 text-[10px] text-dark-500 uppercase">Source</th>
+                    </tr></thead>
+                    <tbody>
+                    {{range .Technologies}}
+                    <tr class="border-b border-dark-800/50">
+                        <td class="px-3 py-1.5 text-xs text-white">{{.Name}}</td>
+                        <td class="px-3 py-1.5 text-xs text-dark-400 mono">{{if .Version}}{{.Version}}{{else}}-{{end}}</td>
+                        <td class="px-3 py-1.5 text-[11px] text-dark-500">{{.Category}}</td>
+                        <td class="px-3 py-1.5 text-[11px] text-dark-500">{{.Source}}</td>
+                    </tr>
+                    {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {{else}}
+    <div class="p-5 text-center text-dark-500"><p class="text-sm">No technologies detected</p></div>
+    {{end}}
+    <div class="px-5 pb-4">
+    {{template "raw_exchange" (dict "Request" .RawRequest "Response" .RawResponse "URL" .URL)}}
+    </div>
+</div>
+{{end}}
+{{if .Results}}
+    </div>{{/* close techDetectGroups */}}
+</div>{{/* close wrapper */}}
+{{end}}
+
+{{if not .Results}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500"><p class="text-sm">{{if eq (print .Scan.Status) "running"}}Waiting for first results...{{else}}No results{{end}}</p></div>
+{{end}}
+{{end}}

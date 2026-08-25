@@ -1,0 +1,202 @@
+{{define "export_modal"}}
+<!-- Export Modal (aw-modal class wires Esc + click-outside via modal_script) -->
+<div id="exportModal" class="aw-modal hidden fixed inset-0 z-50 flex items-center justify-center"
+     onclick="if(event.target===this)awModalClose(this)">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="awModalClose(this.parentElement)"></div>
+    <div class="relative bg-dark-900 border border-dark-800 rounded-xl w-full max-w-2xl mx-4 p-6 shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div class="flex items-center justify-between mb-5">
+            <h3 class="text-lg font-semibold text-white">Export Results</h3>
+            <button onclick="awModalClose(this)" class="text-dark-500 hover:text-white transition-colors" aria-label="Close">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <!-- Format -->
+        <div class="mb-4">
+            <label class="block text-sm text-dark-300 mb-2">Format</label>
+            <div class="grid grid-cols-3 gap-2">
+                <label class="relative cursor-pointer">
+                    <input type="radio" name="export_format" value="csv" class="peer sr-only" checked>
+                    <div class="p-2.5 bg-dark-850 border border-dark-700 rounded-lg peer-checked:border-accent-500 peer-checked:bg-accent-600/5 transition-all text-center">
+                        <p class="text-xs font-medium text-dark-300 peer-checked:text-accent-400">CSV</p>
+                    </div>
+                </label>
+                <label class="relative cursor-pointer">
+                    <input type="radio" name="export_format" value="json" class="peer sr-only">
+                    <div class="p-2.5 bg-dark-850 border border-dark-700 rounded-lg peer-checked:border-accent-500 peer-checked:bg-accent-600/5 transition-all text-center">
+                        <p class="text-xs font-medium text-dark-300 peer-checked:text-accent-400">JSON</p>
+                    </div>
+                </label>
+                <label class="relative cursor-pointer">
+                    <input type="radio" name="export_format" value="pdf" class="peer sr-only">
+                    <div class="p-2.5 bg-dark-850 border border-dark-700 rounded-lg peer-checked:border-accent-500 peer-checked:bg-accent-600/5 transition-all text-center">
+                        <p class="text-xs font-medium text-dark-300 peer-checked:text-accent-400">PDF</p>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <!-- Severity filter (only visible if the loaded schema has any
+             section with HasSeverity). Defaults: CRITICAL + HIGH + MEDIUM
+             ticked; LOW + INFO unticked — pentester-report defaults. -->
+        <div id="exportSeverityGroup" class="hidden mb-4">
+            <div class="flex items-center justify-between mb-2">
+                <label class="text-sm text-dark-300">Severity Filter</label>
+                <span class="text-[10px] text-dark-500">applies to findings/vulnerabilities sections only</span>
+            </div>
+            <div class="flex flex-wrap gap-2 bg-dark-850 border border-dark-700 rounded-lg p-3">
+                <label class="cursor-pointer">
+                    <input type="checkbox" name="export_severity" value="CRITICAL" checked class="peer sr-only">
+                    <span class="text-[11px] mono px-2.5 py-1 rounded border border-dark-700 bg-dark-900 text-dark-400 peer-checked:bg-red-500/20 peer-checked:text-red-300 peer-checked:border-red-500/40">CRITICAL</span>
+                </label>
+                <label class="cursor-pointer">
+                    <input type="checkbox" name="export_severity" value="HIGH" checked class="peer sr-only">
+                    <span class="text-[11px] mono px-2.5 py-1 rounded border border-dark-700 bg-dark-900 text-dark-400 peer-checked:bg-orange-500/20 peer-checked:text-orange-300 peer-checked:border-orange-500/40">HIGH</span>
+                </label>
+                <label class="cursor-pointer">
+                    <input type="checkbox" name="export_severity" value="MEDIUM" checked class="peer sr-only">
+                    <span class="text-[11px] mono px-2.5 py-1 rounded border border-dark-700 bg-dark-900 text-dark-400 peer-checked:bg-yellow-500/20 peer-checked:text-yellow-300 peer-checked:border-yellow-500/40">MEDIUM</span>
+                </label>
+                <label class="cursor-pointer">
+                    <input type="checkbox" name="export_severity" value="LOW" class="peer sr-only">
+                    <span class="text-[11px] mono px-2.5 py-1 rounded border border-dark-700 bg-dark-900 text-dark-400 peer-checked:bg-blue-500/20 peer-checked:text-blue-300 peer-checked:border-blue-500/40">LOW</span>
+                </label>
+                <label class="cursor-pointer">
+                    <input type="checkbox" name="export_severity" value="INFO" class="peer sr-only">
+                    <span class="text-[11px] mono px-2.5 py-1 rounded border border-dark-700 bg-dark-900 text-dark-400 peer-checked:bg-dark-700 peer-checked:text-dark-200 peer-checked:border-dark-500">INFO</span>
+                </label>
+                <span class="ml-auto text-[10px] text-dark-500 self-center">untick a level to drop those rows from the export</span>
+            </div>
+        </div>
+
+        <!-- Sections + Columns -->
+        <div class="mb-5 flex-1 overflow-hidden flex flex-col min-h-0">
+            <div class="flex items-center justify-between mb-2">
+                <label class="text-sm text-dark-300">Sections &amp; Columns</label>
+                <span class="text-[10px] text-dark-500">tick exactly the columns you want — only those will be exported</span>
+            </div>
+            <div id="exportSections" class="space-y-2 bg-dark-850 border border-dark-700 rounded-lg p-3 overflow-y-auto flex-1 min-h-0">
+                <p class="text-xs text-dark-500">Loading sections...</p>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-3 shrink-0">
+            <button type="button" onclick="document.getElementById('exportModal').classList.add('hidden')"
+                    class="px-4 py-2.5 text-sm text-dark-400 hover:text-white bg-dark-850 border border-dark-700 rounded-lg transition-colors">Cancel</button>
+            <button type="button" onclick="doExport()"
+                    class="px-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                Download
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+var _exportScanID = '';
+
+function _esc(s) { return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+function _exportSectionToggle(sectionID) {
+    var body = document.getElementById('exp-sec-body-' + sectionID);
+    var caret = document.getElementById('exp-sec-caret-' + sectionID);
+    if (!body) return;
+    body.classList.toggle('hidden');
+    if (caret) caret.textContent = body.classList.contains('hidden') ? '▸' : '▾';
+}
+
+function _exportSectionAll(sectionID, checked) {
+    document.querySelectorAll('input[data-section="' + sectionID + '"][name="export_column"]').forEach(function(cb) {
+        cb.checked = checked;
+    });
+    _exportSyncSectionFromColumns(sectionID);
+}
+
+// Auto-tick the section header when ANY column is on; auto-untick when none.
+function _exportSyncSectionFromColumns(sectionID) {
+    var sec = document.querySelector('input[name="export_section"][value="' + sectionID + '"]');
+    if (!sec) return;
+    var any = document.querySelector('input[data-section="' + sectionID + '"][name="export_column"]:checked');
+    sec.checked = !!any;
+}
+
+function openExportModal(scanID) {
+    _exportScanID = scanID;
+    document.getElementById('exportModal').classList.remove('hidden');
+    fetch('/export/sections/' + scanID).then(function(r){return r.json()}).then(function(sections) {
+        if (!sections || !sections.length) {
+            document.getElementById('exportSections').innerHTML =
+                '<p class="text-xs text-dark-500">No exportable sections for this module.</p>';
+            document.getElementById('exportSeverityGroup').classList.add('hidden');
+            return;
+        }
+        // Toggle severity filter only when at least one section carries a
+        // severity attribute. Modules like dnsenum/spider don't have one.
+        var anySev = sections.some(function(s){ return !!s.has_severity; });
+        var sevGroup = document.getElementById('exportSeverityGroup');
+        if (anySev) sevGroup.classList.remove('hidden');
+        else sevGroup.classList.add('hidden');
+        var html = '';
+        sections.forEach(function(s) {
+            var cols = s.columns || [];
+            var open = !!s.default;
+            html += '<div class="bg-dark-900 border border-dark-800 rounded-lg overflow-hidden">';
+            html += '  <div class="flex items-center gap-2 px-3 py-2 bg-dark-850 border-b border-dark-800">';
+            html += '    <input type="checkbox" name="export_section" value="' + _esc(s.id) + '" ' + (s.default?'checked':'') +
+                    ' class="rounded border-dark-600 bg-dark-800 text-accent-500 focus:ring-accent-500/50 shrink-0">';
+            html += '    <button type="button" onclick="_exportSectionToggle(\'' + _esc(s.id) + '\')" class="flex-1 flex items-center gap-2 text-left">';
+            html += '      <span id="exp-sec-caret-' + _esc(s.id) + '" class="text-dark-500 text-[10px] w-3">' + (open?'▾':'▸') + '</span>';
+            html += '      <span class="text-xs font-medium text-dark-100">' + _esc(s.label) + '</span>';
+            html += '      <span class="text-[10px] text-dark-500 ml-auto">' + cols.length + ' columns</span>';
+            html += '    </button>';
+            html += '    <div class="flex items-center gap-1 shrink-0">';
+            html += '      <button type="button" onclick="_exportSectionAll(\'' + _esc(s.id) + '\', true)"  class="text-[10px] text-dark-400 hover:text-accent-400 px-1.5 py-0.5 bg-dark-800 hover:bg-dark-700 rounded">All</button>';
+            html += '      <button type="button" onclick="_exportSectionAll(\'' + _esc(s.id) + '\', false)" class="text-[10px] text-dark-400 hover:text-warning px-1.5 py-0.5 bg-dark-800 hover:bg-dark-700 rounded">None</button>';
+            html += '    </div>';
+            html += '  </div>';
+            html += '  <div id="exp-sec-body-' + _esc(s.id) + '" class="p-2 grid grid-cols-2 gap-1 ' + (open?'':'hidden') + '">';
+            cols.forEach(function(c) {
+                html += '<label class="flex items-center gap-2 px-2 py-1 rounded hover:bg-dark-800 cursor-pointer transition-colors">';
+                html += '  <input type="checkbox" name="export_column" data-section="' + _esc(s.id) + '" value="' + _esc(s.id) + '.' + _esc(c.id) + '" ' + (c.default?'checked':'') +
+                        ' onchange="_exportSyncSectionFromColumns(\'' + _esc(s.id) + '\')"' +
+                        ' class="rounded border-dark-600 bg-dark-800 text-accent-500 focus:ring-accent-500/50">';
+                html += '  <span class="text-[11px] text-dark-200">' + _esc(c.label) + '</span>';
+                html += '</label>';
+            });
+            html += '  </div>';
+            html += '</div>';
+        });
+        document.getElementById('exportSections').innerHTML = html;
+    });
+}
+
+function doExport() {
+    var format = document.querySelector('input[name="export_format"]:checked').value;
+    var sections = [];
+    document.querySelectorAll('input[name="export_section"]:checked').forEach(function(cb) { sections.push(cb.value); });
+    var columns = [];
+    document.querySelectorAll('input[name="export_column"]:checked').forEach(function(cb) { columns.push(cb.value); });
+    if (sections.length === 0) {
+        alert('Please select at least one section to export.');
+        return;
+    }
+    var url = '/export/' + _exportScanID + '?format=' + format + '&sections=' + sections.join(',') + '&columns=' + columns.join(',');
+    // Severity filter — only sent when the group is visible (i.e. the
+    // module has any HasSeverity section).
+    var sevGroup = document.getElementById('exportSeverityGroup');
+    if (sevGroup && !sevGroup.classList.contains('hidden')) {
+        var sevs = [];
+        document.querySelectorAll('input[name="export_severity"]:checked').forEach(function(cb) { sevs.push(cb.value); });
+        if (sevs.length === 0) {
+            alert('Pick at least one severity level — exporting with all unticked would drop every row.');
+            return;
+        }
+        url += '&severities=' + sevs.join(',');
+    }
+    var sortParam = new URLSearchParams(window.location.search).get('sort');
+    if (sortParam) url += '&sort=' + sortParam;
+    window.location.href = url;
+    document.getElementById('exportModal').classList.add('hidden');
+}
+</script>
+{{end}}

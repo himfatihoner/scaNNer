@@ -1,0 +1,468 @@
+{{define "scan_progress"}}
+{{/* Reusable running-scan panel with progress bar + Stop button.
+     Required data: .Scan, .StatusURL (e.g. "/modules/direnum/status/") */}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-6 mb-6">
+    <div class="flex items-start gap-4">
+        <div class="w-10 h-10 rounded-full bg-accent-600/10 flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5 text-accent-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between gap-3 mb-2">
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-semibold text-white">Scan in progress</p>
+                    <p id="progressMsg" class="text-xs text-dark-400 mt-0.5 truncate" title="">Initializing — first results in a few seconds</p>
+                </div>
+                <form action="/scans/stop/" method="POST" onsubmit="return confirm('Stop this scan and abort all in-flight requests?')">
+                    <input type="hidden" name="id" value="{{.Scan.ID}}">
+                    <button type="submit" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-warning hover:text-white bg-warning/10 hover:bg-warning/20 border border-warning/30 rounded-lg transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><rect x="9" y="9" width="6" height="6" rx="1" fill="currentColor"/></svg>
+                        Stop
+                    </button>
+                </form>
+            </div>
+            <div class="flex items-center justify-between mb-1.5">
+                <span id="progressLabel" class="text-[11px] text-dark-500 mono">0 / {{.Scan.ProgressTotal}}</span>
+                <span id="progressPct" class="text-[11px] font-medium text-accent-400">0%</span>
+            </div>
+            <div class="w-full h-2 bg-dark-800 rounded-full overflow-hidden">
+                {{/* Initial 5% + animate-pulse so the bar is visible
+                     during the first ~2s gap between scan-start and
+                     the first progress poll returning real data. The
+                     polling JS below replaces width + drops the pulse
+                     class as soon as the backend reports done > 0. */}}
+                <div id="progressBar" class="h-full bg-accent-500 rounded-full transition-all duration-500 ease-out animate-pulse" style="width: 5%"></div>
+            </div>
+            <p id="progressWarning" class="hidden mt-2 text-[11px] text-warning"></p>
+        </div>
+    </div>
+
+    <!-- Currently-running command. Updated whenever the scanner emits a
+         progress message starting with "$ " — the convention scanners use to
+         surface the actual external command they're invoking. -->
+    <div id="currentCmdRow" class="mt-3 hidden flex items-center gap-3 bg-dark-950 border border-accent-500/30 rounded-lg px-3 py-2 max-w-full overflow-hidden">
+        <svg class="w-4 h-4 text-accent-400 animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        <span class="text-[10px] uppercase tracking-wider text-accent-400 shrink-0">Running</span>
+        <code id="currentCmd" class="mono text-[11px] text-dark-200 truncate flex-1 min-w-0" title=""></code>
+    </div>
+
+    <!-- Console log: streams every distinct progress message the scanner emits -->
+    <div class="mt-4 border-t border-dark-800 pt-3">
+        <div class="flex items-center justify-between mb-2">
+            <button type="button" onclick="document.getElementById('scanLog').classList.toggle('hidden'); var c = document.getElementById('scanLogCaret'); if (c) c.textContent = document.getElementById('scanLog').classList.contains('hidden') ? '▸' : '▾';"
+                    class="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-dark-400 hover:text-white">
+                <span id="scanLogCaret">▾</span>
+                Console <span id="scanLogCount" class="text-[10px] text-dark-500 mono ml-1">(0)</span>
+            </button>
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="copyScanLog(this)" class="text-[10px] text-dark-400 hover:text-accent-400 px-2 py-0.5 bg-dark-800 hover:bg-dark-700 rounded transition-colors">Copy</button>
+                <button type="button" onclick="document.getElementById('scanLog').innerHTML=''; document.getElementById('scanLogCount').textContent='(0)';"
+                        class="text-[10px] text-dark-400 hover:text-warning px-2 py-0.5 bg-dark-800 hover:bg-dark-700 rounded transition-colors">Clear</button>
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" id="scanLogAutoScroll" checked class="rounded border-dark-600 bg-dark-800 text-accent-500 w-3 h-3">
+                    <span class="text-[10px] text-dark-500">auto-scroll</span>
+                </label>
+            </div>
+        </div>
+        <pre id="scanLog" class="mono text-[11px] text-dark-300 bg-dark-950 border border-dark-800 rounded-lg p-3 max-h-64 overflow-auto whitespace-pre-wrap break-words" style="overflow-wrap:anywhere"></pre>
+    </div>
+</div>
+<script>
+function copyScanLog(btn) {
+    var el = document.getElementById('scanLog');
+    if (!el) return;
+    var text = el.textContent || '';
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+            var prev = btn.textContent;
+            btn.textContent = 'Copied';
+            setTimeout(function() { btn.textContent = prev; }, 1200);
+        });
+    }
+}
+(function() {
+    var scanID = "{{.Scan.ID}}";
+    var statusURL = "/modules/{{.Scan.Module}}/status/" + scanID;
+    var tick = 0;
+    var lastLogged = '';
+    var logCount = 0;
+    function setCurrentCmd(cmd) {
+        var row = document.getElementById('currentCmdRow');
+        var el  = document.getElementById('currentCmd');
+        if (!row || !el) return;
+        if (!cmd) { row.classList.add('hidden'); return; }
+        row.classList.remove('hidden');
+        el.textContent = cmd;
+        el.title = cmd;
+    }
+    function lineClass(line) {
+        if (line.indexOf('$ ') === 0) return 'text-accent-400';
+        if (line.indexOf('✓') === 0) return 'text-success';
+        if (line.indexOf('→') === 0) return 'text-accent-300';
+        if (line.indexOf('⚠') === 0 || /firewall/i.test(line)) return 'text-warning';
+        if (/\berror\b|\bfail(ed|ure)?\b/i.test(line)) return 'text-danger';
+        return 'text-dark-300';
+    }
+    // renderLog paints the FULL server-side console log (status endpoint's
+    // `log`). Unlike the old appendLog — which sampled only the latest
+    // progress_msg every 2s and dropped everything emitted in between — this
+    // is lossless and survives reloads. We re-render only when the server's
+    // line count changes, preserving scroll unless auto-scroll is on.
+    var lastLogLines = -1;
+    function renderLog(fullLog, lineCount) {
+        var pre = document.getElementById('scanLog');
+        if (!pre) return;
+        if (lineCount === lastLogLines) return;
+        lastLogLines = lineCount;
+        var auto = document.getElementById('scanLogAutoScroll');
+        var stick = auto && auto.checked;
+        var prevTop = pre.scrollTop;
+        var html = '';
+        var lastCmd = '';
+        (fullLog || '').split('\n').forEach(function(line) {
+            if (!line) return;
+            if (line.indexOf('$ ') === 0) lastCmd = line.substring(2);
+            var safe = line.replace(/[<>&]/g, function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;'}[c];});
+            html += '<span class="' + lineClass(line) + '">' + safe + '</span>\n';
+        });
+        pre.innerHTML = html;
+        var counter = document.getElementById('scanLogCount');
+        if (counter) counter.textContent = '(' + lineCount + ')';
+        if (lastCmd) setCurrentCmd(lastCmd);
+        if (stick) pre.scrollTop = pre.scrollHeight; else pre.scrollTop = prevTop;
+    }
+    // Walk every scrollable container inside #scanContent and capture its
+    // scrollTop keyed by an ID found inside it. innerHTML swap blows away
+    // these elements (scrollTop resets to 0), so we re-apply the offsets
+    // once the new markup is in place. Without this, every partial refresh
+    // (every ~4s mid-scan) would yank the user back to the top of the
+    // results table whenever a new finding came in.
+    function captureScrollState(root) {
+        var state = {};
+        var SCROLL_RE = /(^|\s)(overflow-(y-)?auto|overflow-(y-)?scroll|max-h-)/;
+        var scrollers = [];
+        root.querySelectorAll('*').forEach(function(el) {
+            if (SCROLL_RE.test(el.className || '') && el.scrollTop > 0) {
+                scrollers.push(el);
+            }
+        });
+        scrollers.forEach(function(s) {
+            var idEl = s.querySelector('[id]');
+            if (idEl) state[idEl.id] = s.scrollTop;
+        });
+        return state;
+    }
+    function restoreScrollState(root, state) {
+        Object.keys(state).forEach(function(id) {
+            var el = root.querySelector('#' + CSS.escape(id));
+            if (!el) return;
+            var s = el.parentElement;
+            while (s && s !== root) {
+                var oy = getComputedStyle(s).overflowY;
+                if (oy === 'auto' || oy === 'scroll') {
+                    s.scrollTop = state[id];
+                    break;
+                }
+                s = s.parentElement;
+            }
+        });
+    }
+    // Capture+restore expanded raw-request panels across partial swaps.
+    // Three patterns exist in the templates:
+    //   (a) .raw-row[data-target] toggles a sibling .hidden div (raw_panel)
+    //   (b) <details data-raw-key="..."> elements (raw_exchange — server-
+    //       rendered stable key built from URL + Method + Idx)
+    //   (c) <details> without data-raw-key — legacy fallback, keyed by
+    //       text fingerprint of the surrounding row (lossy when finding
+    //       counts drift mid-scan; covered for backwards compat only)
+    // Without restore, a user clicks Raw HTTP on a finding, sees it for
+    // ~2s, then refreshContent() rewrites #scanContent and the panel
+    // disappears mid-read.
+    function captureOpenRaw(root) {
+        var byID = [];
+        var byRawKey = [];
+        var byTextKey = [];
+        root.querySelectorAll('.raw-row[data-target]').forEach(function(row) {
+            var t = row.getAttribute('data-target');
+            if (!t) return;
+            var panel = root.querySelector('#' + CSS.escape(t));
+            if (panel && !panel.classList.contains('hidden')) {
+                byID.push(t);
+            }
+        });
+        root.querySelectorAll('details').forEach(function(d) {
+            if (!d.open) return;
+            var stable = d.getAttribute('data-raw-key');
+            if (stable) {
+                byRawKey.push(stable);
+                return;
+            }
+            var anchor = d.closest('tr,li,div,td') || d.parentElement;
+            var key = (anchor ? anchor.textContent : d.textContent).replace(/\s+/g, ' ').trim().slice(0, 80);
+            if (key) byTextKey.push(key);
+        });
+        return { byID: byID, byRawKey: byRawKey, byTextKey: byTextKey };
+    }
+    function restoreOpenRaw(root, state) {
+        if (!state) return;
+        (state.byID || []).forEach(function(id) {
+            var panel = root.querySelector('#' + CSS.escape(id));
+            if (!panel) return;
+            panel.classList.remove('hidden');
+            var row = root.querySelector('.raw-row[data-target="' + id + '"]');
+            if (row) {
+                var caret = row.querySelector('.raw-caret');
+                if (caret) caret.textContent = '▾';
+            }
+        });
+        // Stable keys — exact match on the data-raw-key attribute.
+        var rawKeys = state.byRawKey || [];
+        if (rawKeys.length) {
+            var rawSet = {};
+            rawKeys.forEach(function(k) { rawSet[k] = true; });
+            root.querySelectorAll('details[data-raw-key]').forEach(function(d) {
+                if (rawSet[d.getAttribute('data-raw-key')]) {
+                    d.open = true;
+                }
+            });
+        }
+        // Text fingerprint — only for legacy <details> without stable key.
+        var textKeys = state.byTextKey || [];
+        if (textKeys.length) {
+            var textSet = {};
+            textKeys.forEach(function(k) { textSet[k] = true; });
+            root.querySelectorAll('details:not([data-raw-key])').forEach(function(d) {
+                var anchor = d.closest('tr,li,div,td') || d.parentElement;
+                var key = (anchor ? anchor.textContent : d.textContent).replace(/\s+/g, ' ').trim().slice(0, 80);
+                if (key && textSet[key]) {
+                    d.open = true;
+                }
+            });
+        }
+    }
+    // Capture+restore the in-results search/filter controls across partial
+    // swaps. Results templates put their search box + filter selects INSIDE
+    // #scanContent (e.g. #sslSearch, #psSearch/#psPortFilter/#psServiceFilter,
+    // #hdSearch/#hdPortFilter/#hdStateFilter, #tdTechSearch), so the innerHTML
+    // replace wipes whatever the operator typed AND resets every row back to
+    // unfiltered mid-scan. We snapshot each id'd input/select value (plus which
+    // one had focus and its caret), then after the swap set the values back and
+    // dispatch an 'input' (and, for <select>, 'change') event so the re-defined
+    // oninput/onchange filter handler re-applies automatically. Zero changes to
+    // any individual *_results.html template are required.
+    function captureSearchState(root) {
+        var state = { values: {}, focusId: null, selStart: null };
+        var active = document.activeElement;
+        root.querySelectorAll('input, select').forEach(function(el) {
+            if (!el.id) return;
+            // Record selects always (empty value == "All" is meaningful);
+            // inputs only when they hold a non-empty value.
+            if (el.tagName === 'SELECT' || el.value) {
+                state.values[el.id] = el.value;
+            }
+            if (el === active) {
+                state.focusId = el.id;
+                try { state.selStart = el.selectionStart; } catch (e) { state.selStart = null; }
+            }
+        });
+        return state;
+    }
+    function restoreSearchState(root, state) {
+        if (!state) return;
+        Object.keys(state.values).forEach(function(id) {
+            var el = root.querySelector('#' + CSS.escape(id));
+            if (!el) return;
+            el.value = state.values[id];
+            // Fire the handler the template wired up so the filter re-applies.
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            if (el.tagName === 'SELECT') {
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+        if (state.focusId) {
+            var f = root.querySelector('#' + CSS.escape(state.focusId));
+            if (f) {
+                f.focus();
+                if (state.selStart != null) {
+                    try { f.setSelectionRange(state.selStart, state.selStart); } catch (e) {}
+                }
+            }
+        }
+    }
+    var lastContentHTML = null;
+    function refreshContent() {
+        var path = location.pathname;
+        var qs = location.search;
+        var partialURL = path + (qs ? qs + '&' : '?') + 'partial=1&_=' + Date.now();
+        fetch(partialURL, {headers: {'X-Partial': '1'}})
+            .then(function(r) {
+                // Session expired mid-scan → the poll is now unauthenticated.
+                // Go to the login page instead of painting "unauthorized" into
+                // the results area.
+                if (r.status === 401 || r.status === 403) { window.location.href = '/login'; return null; }
+                return r.text();
+            })
+            .then(function(html) {
+                var el = document.getElementById('scanContent');
+                if (!el || !html) return;
+                // Task 2: an idle poll (results unchanged) must NOT rebuild the
+                // DOM — that full innerHTML replace is exactly what resets the
+                // scroll and drops selection. Skip when nothing changed.
+                if (html === lastContentHTML) return;
+                lastContentHTML = html;
+                var winX = window.scrollX, winY = window.scrollY;
+                var scroll = captureScrollState(el);
+                var openRaw = captureOpenRaw(el);
+                var search = captureSearchState(el);
+                el.innerHTML = html;
+                // innerHTML never executes injected <script> tags, so the
+                // result template's inline IIFE that wires row-click handlers
+                // and binds the sortable-table helper would only run on the
+                // initial page load. Re-create each script element so it
+                // actually runs after every partial swap — otherwise rows
+                // stop expanding mid-scan until a manual F5.
+                el.querySelectorAll('script').forEach(function(old) {
+                    var s = document.createElement('script');
+                    if (old.src) {
+                        s.src = old.src;
+                    } else {
+                        s.text = old.textContent;
+                    }
+                    old.replaceWith(s);
+                });
+                restoreOpenRaw(el, openRaw);
+                // Re-apply the operator's search/filter AFTER the inline
+                // filter functions have been re-defined by the script recreate
+                // above, so dispatching 'input'/'change' finds a live handler.
+                restoreSearchState(el, search);
+                // Task 2: restore scroll AFTER the browser lays out the new
+                // (usually taller) content. Restoring synchronously clamps
+                // window.scrollTo() to the momentarily-shorter page height, so
+                // a mid-scan swap that appends rows would shift the viewport.
+                requestAnimationFrame(function() {
+                    restoreScrollState(el, scroll);
+                    window.scrollTo(winX, winY);
+                });
+            }).catch(function(){});
+    }
+    function setStatusBadge(status) {
+        var holder = document.querySelector('h2.text-xl.font-bold.text-white');
+        if (!holder) return;
+        // Remove any existing badge inside the h2
+        holder.querySelectorAll('span').forEach(function(s) {
+            if (/Done|Running|Cancelled|Error/i.test(s.textContent)) s.remove();
+        });
+        var span = document.createElement('span');
+        span.className = 'text-[10px] uppercase px-2 py-1 rounded ml-2';
+        if (status === 'done') {
+            span.classList.add('text-success', 'bg-success/10');
+            span.textContent = 'Done';
+        } else if (status === 'cancelled') {
+            span.classList.add('text-warning', 'bg-warning/10');
+            span.textContent = 'Cancelled';
+        } else if (status === 'error') {
+            span.classList.add('text-danger', 'bg-danger/10');
+            span.textContent = 'Error';
+        } else {
+            return;
+        }
+        holder.appendChild(span);
+    }
+    function hideProgressPanel() {
+        // The panel is the parent ".bg-dark-900..." wrapping #progressBar.
+        var bar = document.getElementById('progressBar');
+        if (!bar) return;
+        var panel = bar.closest('.bg-dark-900');
+        if (!panel) return;
+        // Task 2: hiding a panel ABOVE the results shifts everything up. Measure
+        // the EXACT shift of #scanContent (which includes the panel's margins,
+        // unlike getBoundingClientRect().height) and pull the scroll up by that
+        // delta so the operator's view of the results doesn't jump at completion.
+        var content = document.getElementById('scanContent');
+        var before = content ? content.getBoundingClientRect().top : 0;
+        panel.style.display = 'none';
+        if (content) {
+            var delta = before - content.getBoundingClientRect().top;
+            if (delta > 0 && window.scrollY >= delta) {
+                window.scrollTo(window.scrollX, window.scrollY - delta);
+            }
+        }
+    }
+    // Monotonic percentage — once the bar shows N%, refuse to go below
+    // it. Some modules emit progress that briefly regresses (a partial
+    // re-scan, total adjusted mid-flight) and a backward-moving bar
+    // looks broken even when the underlying scan is fine.
+    var lastPct = 0;
+    var interval = setInterval(function() {
+        fetch(statusURL).then(function(r){
+            if (r.status === 401 || r.status === 403) { clearInterval(interval); window.location.href = '/login'; return null; }
+            return r.json();
+        }).then(function(d) {
+            if (!d) return; // unauthenticated → redirect already issued
+            var pct = d.percent || 0;
+            // Honor monotonic clamp.
+            if (pct < lastPct) pct = lastPct;
+            lastPct = pct;
+            var bar = document.getElementById('progressBar');
+            var pctEl = document.getElementById('progressPct');
+            var labelEl = document.getElementById('progressLabel');
+            if (bar) {
+                if (d.indeterminate) {
+                    // No upfront total — show an animated striped bar
+                    // instead of a stuck-at-0% sliver. The user knows
+                    // the scan is running but we can't quantify it.
+                    bar.style.width = '100%';
+                    bar.classList.add('animate-pulse','opacity-50');
+                } else {
+                    bar.style.width = pct + '%';
+                    bar.classList.remove('animate-pulse','opacity-50');
+                }
+            }
+            if (pctEl) {
+                pctEl.textContent = d.indeterminate ? 'working...' : (pct + '%');
+            }
+            if (labelEl) {
+                labelEl.textContent = d.indeterminate
+                    ? ((d.done||0) + ' done')
+                    : ((d.done||0) + ' / ' + (d.total||0));
+            }
+            var msg = document.getElementById('progressMsg');
+            if (msg) {
+                msg.textContent = d.message || 'Processing...';
+                msg.setAttribute('title', d.message || '');
+            }
+            // Render the full lossless console log from the server.
+            renderLog(d.log, d.logLines || 0);
+            var warn = document.getElementById('progressWarning');
+            if (warn) {
+                if (d.warning) {
+                    warn.textContent = '⚠ ' + d.warning;
+                    warn.classList.remove('hidden');
+                } else {
+                    warn.classList.add('hidden');
+                }
+            }
+            if (d.status === 'done' || d.status === 'error' || d.status === 'cancelled') {
+                clearInterval(interval);
+                // One last content swap, then update header in-place — NO page reload.
+                refreshContent();
+                setStatusBadge(d.status);
+                hideProgressPanel();
+                setCurrentCmd(null);
+                return;
+            }
+            // Every 2nd tick (~4s), swap just the results section — no full page reload
+            tick++;
+            if (tick % 2 === 0) {
+                refreshContent();
+            }
+        }).catch(function(){});
+    }, 2000);
+})();
+</script>
+{{end}}

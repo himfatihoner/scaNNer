@@ -1,0 +1,141 @@
+{{define "page_sslscan"}}
+{{template "form_error" .}}
+<!-- Breadcrumb -->
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">SSL/TLS Scanner</span>
+</div>
+
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <span class="text-2xl">🔒</span> SSL/TLS Scanner
+        </h2>
+        <p class="text-sm text-dark-400 mt-1">Detect vulnerable SSL/TLS versions, weak ciphers, and certificate issues</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Scan Form -->
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Scan</h3>
+            <form action="/modules/sslscan/run" method="POST">
+                <div class="space-y-4">
+                    {{template "workspace_targets" .}}
+                    {{if not .WSTargetGroups}}
+                    <p class="text-xs text-dark-500 italic">No targets in workspace. <a href="/targets" class="text-accent-400 hover:underline">Add targets</a></p>
+                    {{end}}
+
+                    <!-- Manual Targets -->
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Manual Targets{{template "info_icon" "Hostnames or IPs. CIDR notation is expanded to individual IPs (max /24 = 256 hosts per line — split wider blocks across runs)."}}</label>
+                        <textarea name="manual_targets" rows="3" placeholder="hostname or IP, one per line&#10;e.g. example.com&#10;192.168.1.1"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                    </div>
+
+                    <!-- Ports -->
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Ports{{template "info_icon" "Defaults to 443 (HTTPS) plus the common STARTTLS service ports (25/587 SMTP, 143 IMAP, 110 POP3, 21 FTP, 389 LDAP, 5432 Postgres). With STARTTLS = Auto each port negotiates TLS the right way. Trim the list to just 443 for a pure HTTPS scan."}}</label>
+                        <input type="text" name="ports" value="443,25,587,143,110,21,389,5432" placeholder="443, 8443, 1-1000"
+                               class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                        <p class="text-[11px] text-dark-500 mt-1">443 + STARTTLS service ports by default. Comma-separated or ranges (e.g. 443,8443,8000-8100)</p>
+                    </div>
+
+                    <!-- STARTTLS mode -->
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">STARTTLS{{template "info_icon" "Plaintext-to-TLS upgrade dance for services that don't wrap TLS by default. Auto picks by port: 25/587=SMTP, 143=IMAP, 110=POP3, 389=LDAP, 21=FTP, 5432=Postgres. Force a protocol to override port detection."}}</label>
+                        <select name="starttls"
+                                class="w-full bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent-500">
+                            <option value="none">None — dial TLS directly (443/8443/etc)</option>
+                            <option value="auto" selected>Auto — pick by port (recommended)</option>
+                            <option value="smtp">SMTP (25, 587)</option>
+                            <option value="imap">IMAP (143)</option>
+                            <option value="pop3">POP3 (110)</option>
+                            <option value="ftp">FTP (21)</option>
+                            <option value="ldap">LDAP (389)</option>
+                            <option value="postgres">PostgreSQL (5432)</option>
+                        </select>
+                        <p class="text-[11px] text-dark-500 mt-1">"Auto" negotiates STARTTLS per port (mail/FTP/LDAP/Postgres) and dials TLS directly on 443. Pick "None" for a pure HTTPS scan, or force one protocol.</p>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    {{template "http_tuning" (dict "TuneConcHint" $.TuneConcHint "TuneTimeoutHint" "8")}}
+                </div>
+
+                <button type="submit"
+                        class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    Start TLS/SSL Scan
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Past Scans -->
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}
+            <div class="space-y-2">
+                {{range .Scans}}
+                <a href="/modules/sslscan/results/{{.ID}}"
+                   class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all group">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}
+                        <span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}
+                        <span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else if eq (print .Status) "error"}}
+                        <span class="w-2 h-2 rounded-full bg-danger"></span>
+                        {{else}}
+                        <span class="w-2 h-2 rounded-full bg-dark-500"></span>
+                        {{end}}
+                        <div>
+                            <span class="text-sm text-dark-200 group-hover:text-white transition-colors">Scan #{{.ID | printf "%.8s"}}</span>
+                            <span class="text-[11px] text-dark-500 ml-2">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        {{if eq (print .Status) "done"}}
+                        <span class="text-[10px] uppercase tracking-wider text-success bg-success/10 px-2 py-0.5 rounded">Done</span>
+                        {{else if eq (print .Status) "running"}}
+                        <span class="text-[10px] uppercase tracking-wider text-accent-400 bg-accent-600/10 px-2 py-0.5 rounded">Running</span>
+                        {{else if eq (print .Status) "error"}}
+                        <span class="text-[10px] uppercase tracking-wider text-danger bg-danger/10 px-2 py-0.5 rounded">Error</span>
+                        {{else}}
+                        <span class="text-[10px] uppercase tracking-wider text-dark-500 bg-dark-800 px-2 py-0.5 rounded">Pending</span>
+                        {{end}}
+                        <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </div>
+                </a>
+                {{end}}
+            </div>
+            {{else}}
+            <div class="flex flex-col items-center py-8 text-dark-500">
+                <svg class="w-10 h-10 mb-2 text-dark-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                </svg>
+                <p class="text-sm">No scans yet</p>
+                <p class="text-xs text-dark-600 mt-1">Configure and start your first SSL/TLS scan</p>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleAll(btn) {
+    var checkboxes = document.querySelectorAll('input[name="targets"]');
+    var allChecked = Array.from(checkboxes).every(function(cb) { return cb.checked; });
+    checkboxes.forEach(function(cb) { cb.checked = !allChecked; });
+    btn.textContent = allChecked ? 'Select All' : 'Deselect All';
+}
+</script>
+{{end}}

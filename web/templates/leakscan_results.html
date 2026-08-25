@@ -1,0 +1,77 @@
+{{define "page_leakscan_results"}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="/modules/leakscan" class="hover:text-accent-400 transition-colors">GitHub Leak Scanner</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Results</span>
+</div>
+{{template "scan_actions" .}}
+
+{{if or (eq (print .Scan.Status) "running") (eq (print .Scan.Status) "pending")}}
+{{template "scan_progress" .}}
+{{end}}
+
+<div id="scanContent">
+{{template "leakscan_results_inner" .}}
+</div>
+{{end}}
+
+{{define "leakscan_results_inner"}}
+<div class="grid grid-cols-2 gap-3 mb-6">
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">Files Found</p>
+        <p class="text-2xl font-bold {{if .TotalHits}}text-accent-400{{else}}text-dark-600{{end}}">{{.TotalHits}}</p>
+    </div>
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">Secret Matches</p>
+        <p class="text-2xl font-bold {{if .TotalMatches}}text-danger{{else}}text-dark-600{{end}}">{{.TotalMatches}}</p>
+    </div>
+</div>
+
+{{range .Results}}
+<div class="bg-dark-900 border {{if .MatchCount}}border-danger/30{{else}}border-dark-800{{end}} rounded-xl mb-4 overflow-hidden">
+    <div class="px-5 py-4 border-b border-dark-800 flex items-center justify-between">
+        <div>
+            <span class="mono text-sm font-semibold text-accent-400">{{.Query}}</span>
+            <p class="text-[11px] text-dark-500 mt-0.5">{{.HitCount}} files{{if gt .TotalAvailable .HitCount}} <span class="text-dark-600">(showing {{.HitCount}} of {{.TotalAvailable}} available)</span>{{end}} · {{.MatchCount}} regex matches</p>
+        </div>
+    </div>
+    {{if .Error}}<div class="px-5 py-3 text-xs text-danger">{{.Error}}</div>{{end}}
+    <div class="px-5 py-2">
+    {{template "raw_exchange" (dict "Request" .RawRequest "Response" .RawResponse)}}
+    </div>
+    {{if .Hits}}
+    <div class="divide-y divide-dark-800">
+        {{range .Hits}}
+        <div class="px-5 py-3">
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0 flex-1">
+                    <a href="{{.HTMLURL}}" target="_blank" rel="noopener" class="mono text-xs text-accent-400 hover:text-accent-300 break-all">{{.Repo}} <span class="text-dark-500">/</span> {{.Path}}</a>
+                </div>
+                {{if .Matches}}
+                <span class="text-[10px] uppercase tracking-wider text-danger bg-danger/10 border border-danger/20 px-2 py-0.5 rounded shrink-0">{{len .Matches}} secrets</span>
+                {{end}}
+            </div>
+            {{if .Matches}}
+            <div class="mt-2 space-y-1">
+                {{range .Matches}}
+                <div class="bg-dark-850 border border-dark-700 rounded p-2">
+                    <p class="text-[10px] text-danger uppercase tracking-wider font-bold mb-1">{{.Pattern}}</p>
+                    <pre class="mono text-[10px] text-dark-300 whitespace-pre-wrap break-all">{{.Sample}}</pre>
+                </div>
+                {{end}}
+            </div>
+            {{end}}
+        </div>
+        {{end}}
+    </div>
+    {{end}}
+</div>
+{{end}}
+{{if not .Results}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
+    <p class="text-sm">{{if eq (print .Scan.Status) "running"}}Waiting for first results...{{else}}No results available{{end}}</p>
+</div>
+{{end}}
+{{end}}

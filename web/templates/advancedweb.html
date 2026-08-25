@@ -1,0 +1,762 @@
+{{define "page_advancedweb"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Advanced Web Application Scanner</span>
+</div>
+
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">🧪</span> Advanced Web Application Scanner</h2>
+        <p class="text-sm text-dark-400 mt-1">Chains 10 web modules in sequence — each stage feeds the next. URL input skips stages 1–3. Plain IP input is rejected.</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Suite Scan</h3>
+
+            <form action="/modules/advanced-web/run" method="POST">
+                <div class="space-y-4">
+                    <!-- Target -->
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Target <span class="text-dark-500">(manual entry)</span></label>
+                        <input type="text" name="target" id="awTarget" placeholder="example.com  ·  https://example.com/app  ·  (raw IPs not supported)"
+                               oninput="awTargetChanged(this)"
+                               class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                        <p id="awTargetHint" class="text-[11px] text-dark-500 mt-1">A single domain or URL. If <span class="mono">http://</span> / <span class="mono">https://</span> is included, that scheme is used as-is and stages 1–3 (WHOIS / DNS / HTTPX) are skipped.</p>
+                    </div>
+
+                    {{/* Workspace target-list picker — same UX as every other
+                         module form: pick individual targets, or a whole list /
+                         scheme via the header checkboxes. Members POST as
+                         name="targets". Either the manual field above OR at
+                         least one picked target must resolve. */}}
+                    {{template "workspace_targets" .}}
+                    {{if .WSTargetGroups}}
+                    <p class="text-[10px] text-dark-500 -mt-2">Tick a list or scheme header to select all its members, or pick individual hosts. Picked targets + the manual target above all run in <strong>one</strong> suite scan. IPs are silently skipped (the suite needs domains/URLs).</p>
+                    {{else}}
+                    <p class="text-xs text-dark-500 italic">No targets in this workspace yet. <a href="/targets" class="text-accent-400 hover:underline">Add targets</a> to pick them here.</p>
+                    {{end}}
+
+                    <!-- Depth preset — flips every per-stage sub-option
+                         to a sensible default. The user can still tweak
+                         individual fields afterwards; the preset is purely
+                         a UI affordance, not enforced server-side. -->
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                        <div class="flex items-center justify-between gap-3 flex-wrap">
+                            <div>
+                                <p class="text-[11px] uppercase tracking-wider text-dark-300">Scan depth preset</p>
+                                <p class="text-[10px] text-dark-500 mt-0.5">Picks defaults for every module. Override individual fields below if needed.</p>
+                            </div>
+                            <div class="inline-flex bg-dark-900 border border-dark-700 rounded-lg overflow-hidden">
+                                <button type="button" data-depth="quick" class="aw-depth-btn px-3 py-1.5 text-[11px] text-dark-300 hover:text-white transition-colors">Quick</button>
+                                <button type="button" data-depth="normal" class="aw-depth-btn px-3 py-1.5 text-[11px] text-white bg-accent-600">Normal</button>
+                                <button type="button" data-depth="deep" class="aw-depth-btn px-3 py-1.5 text-[11px] text-dark-300 hover:text-white transition-colors">Deep</button>
+                            </div>
+                        </div>
+                        <p id="awDepthHint" class="text-[10px] text-dark-500 mt-2"></p>
+                        {{/* Persistent, high-contrast warning banner surfaced
+                             when the current preset+target selection would
+                             produce a fleet-wide TCP fan (full-port HTTPX
+                             × multi-target list). Buried WARNING text in
+                             the small hint above is easy to miss; this
+                             banner shows an operator-visible probe count
+                             estimate and only appears when a risky combo
+                             is actually active. */}}
+                        <div id="awFanoutWarn" class="hidden mt-2 rounded border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
+                            <div class="flex items-start gap-2">
+                                <svg class="w-3.5 h-3.5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M4.93 19h14.14a2 2 0 001.75-3l-7.07-12.5a2 2 0 00-3.5 0L3.18 16a2 2 0 001.75 3z"/></svg>
+                                <div class="flex-1">
+                                    <p class="font-semibold text-amber-100">Full-port HTTPX × multi-target fan-out</p>
+                                    <p class="mt-0.5 text-amber-200/90">Estimated TCP probes: <span id="awProbeEstimate" class="mono font-semibold">—</span>. Lower HTTPX Mode to <span class="mono">common</span> in Stage 3, or shrink the target selection before starting.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stage selection — each row is a <details> so the
+                         user can expand only the stages they need to tweak.
+                         Sub-options ride below the checkbox row, scoped
+                         visually to that stage. Depth preset still flips
+                         everything via JS. -->
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <p class="text-[11px] uppercase tracking-wider text-dark-300">Stages — click ⚙ to override defaults</p>
+                            <div class="flex items-center gap-2 text-[11px]">
+                                <button type="button" class="text-accent-400 hover:underline" onclick="awToggleStages(true)">Select all</button>
+                                <span class="text-dark-600">·</span>
+                                <button type="button" class="text-dark-400 hover:underline" onclick="awToggleStages(false)">Deselect all</button>
+                            </div>
+                        </div>
+                        <script>
+                        // Toggle every visible stage checkbox (permission-hidden stages
+                        // aren't in the DOM, so they're untouched).
+                        function awToggleStages(on){
+                            document.querySelectorAll('#awStageList input[type="checkbox"][name^="enable_"]').forEach(function(c){ c.checked = on; });
+                        }
+                        </script>
+                        <div class="space-y-1.5" id="awStageList">
+
+                            {{/* === Stage 1: WHOIS / ASN === */}}
+                            {{if index $.AllowedStages "whois"}}
+                            <details class="bg-dark-900 border border-dark-700 rounded">
+                                <summary class="cursor-pointer px-3 py-2 flex items-start gap-2 list-none">
+                                    <input type="checkbox" name="enable_whois" checked class="mt-1 rounded border-dark-600 bg-dark-800 text-accent-500" onclick="event.stopPropagation()">
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-[11px] font-medium text-dark-200">1. WHOIS / ASN</p>
+                                        <p class="text-[10px] text-dark-500 mt-0.5">Domain registry + ASN lookup · no per-module options</p>
+                                    </div>
+                                </summary>
+                            </details>
+                            {{end}}
+
+                            {{/* === Stage 2: DNS Enumeration — speed + max depth === */}}
+                            {{if index $.AllowedStages "dnsenum"}}
+                            <details class="bg-dark-900 border border-dark-700 rounded">
+                                <summary class="cursor-pointer px-3 py-2 flex items-start gap-2 list-none">
+                                    <input type="checkbox" name="enable_dnsenum" checked class="mt-1 rounded border-dark-600 bg-dark-800 text-accent-500" onclick="event.stopPropagation()">
+                                    <div class="flex-1 min-w-0 flex items-center gap-2">
+                                        <div class="flex-1">
+                                            <p class="text-[11px] font-medium text-dark-200">2. DNS Enumeration</p>
+                                            <p class="text-[10px] text-dark-500 mt-0.5">Subdomain discovery — wordlist + passive sources</p>
+                                        </div>
+                                        <span class="text-dark-500 text-[10px]">⚙</span>
+                                    </div>
+                                </summary>
+                                <div class="px-3 pb-3 pt-1 grid grid-cols-2 gap-2 border-t border-dark-800">
+                                    <div>
+                                        <label class="block text-[10px] uppercase text-dark-500 mb-1">Speed</label>
+                                        <select name="dnsenum_speed" class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1 text-[11px] text-white focus:outline-none focus:border-accent-500">
+                                            <option value="fast" selected>Fast (small wordlist)</option>
+                                            <option value="normal">Normal (medium wordlist)</option>
+                                            <option value="aggressive">Aggressive (large wordlist)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] uppercase text-dark-500 mb-1">Max depth</label>
+                                        <select name="dnsenum_max_depth" class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1 text-[11px] text-white focus:outline-none focus:border-accent-500">
+                                            <option value="1" selected>1 (direct subdomains)</option>
+                                            <option value="2">2 (sub-subdomains)</option>
+                                            <option value="3">3 (deeper)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </details>
+                            {{end}}
+
+                            {{/* === Stage 3: HTTPX Finder — scan mode === */}}
+                            {{if index $.AllowedStages "httpxfind"}}
+                            <details class="bg-dark-900 border border-dark-700 rounded">
+                                <summary class="cursor-pointer px-3 py-2 flex items-start gap-2 list-none">
+                                    <input type="checkbox" name="enable_httpxfind" checked class="mt-1 rounded border-dark-600 bg-dark-800 text-accent-500" onclick="event.stopPropagation()">
+                                    <div class="flex-1 min-w-0 flex items-center gap-2">
+                                        <div class="flex-1">
+                                            <p class="text-[11px] font-medium text-dark-200">3. HTTPX Finder</p>
+                                            <p class="text-[10px] text-dark-500 mt-0.5">Live HTTP service discovery</p>
+                                        </div>
+                                        <span class="text-dark-500 text-[10px]">⚙</span>
+                                    </div>
+                                </summary>
+                                <div class="px-3 pb-3 pt-1 grid grid-cols-2 gap-2 border-t border-dark-800">
+                                    <div class="col-span-2">
+                                        <label class="block text-[10px] uppercase text-dark-500 mb-1">Scan mode</label>
+                                        <select name="httpx_mode" id="httpxModeSelect" onchange="awHttpxModeChange(this.value)" class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1 text-[11px] text-white focus:outline-none focus:border-accent-500">
+                                            <option value="common" selected>Common ports (80, 443, 8080, 8443)</option>
+                                            <option value="full">Full port range (1–65535) — much slower</option>
+                                            <option value="custom">Custom ports (manual list)</option>
+                                        </select>
+                                    </div>
+                                    <div id="httpxCustomPortsBox" class="col-span-2 hidden">
+                                        <label class="block text-[10px] uppercase text-dark-500 mb-1">Custom ports <span class="text-danger">*</span></label>
+                                        <input type="text" name="httpx_custom_ports" placeholder="80,443,8000-8100,9000"
+                                               class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                                        <p class="text-[10px] text-dark-500 mt-1">Comma-separated single ports and/or ranges (each 1–65535). Probes EXACTLY this list per host — no pre-discovery, no TCP scan. <span class="text-warning">Wide ranges multiply probe count by host count</span> — keep an eye on Probe concurrency below.</p>
+                                    </div>
+                                    <div class="col-span-2">
+                                        <label class="block text-[10px] uppercase text-dark-500 mb-1">Probe concurrency</label>
+                                        <input type="number" name="httpx_concurrency" value="20" min="1" max="1000"
+                                               class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1 text-[11px] text-white focus:outline-none focus:border-accent-500">
+                                        <p class="text-[10px] text-dark-500 mt-1">Max parallel HTTP probes. Default 20. Raise (e.g. 100–200) when DNS Enum produces many subdomains + Full mode — keeps wall-clock manageable. Capped at 1000.</p>
+                                    </div>
+                                </div>
+                            </details>
+                            {{end}}
+                            <script>
+                            // Toggle the custom-ports input row when the user
+                            // picks "custom" — keeps the form compact for the
+                            // common cases and signals required-ness.
+                            function awHttpxModeChange(v) {
+                                var box = document.getElementById('httpxCustomPortsBox');
+                                if (!box) return;
+                                if (v === 'custom') box.classList.remove('hidden');
+                                else box.classList.add('hidden');
+                            }
+                            // Re-apply on load in case the preset script picks "custom".
+                            (function(){
+                                var s = document.getElementById('httpxModeSelect');
+                                if (s) awHttpxModeChange(s.value);
+                            })();
+                            </script>
+
+                            {{/* === Stage 4: SSL/TLS === */}}
+                            {{if index $.AllowedStages "sslscan"}}
+                            <details class="bg-dark-900 border border-dark-700 rounded">
+                                <summary class="cursor-pointer px-3 py-2 flex items-start gap-2 list-none">
+                                    <input type="checkbox" name="enable_sslscan" checked class="mt-1 rounded border-dark-600 bg-dark-800 text-accent-500" onclick="event.stopPropagation()">
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-[11px] font-medium text-dark-200">4. SSL/TLS Scanner</p>
+                                        <p class="text-[10px] text-dark-500 mt-0.5">Cert + cipher + protocol assessment · independent of HTTPX · configurable ports</p>
+                                    </div>
+                                </summary>
+                                <div class="px-3 pb-3 pt-1 border-t border-dark-800">
+                                    <label class="block text-[10px] text-dark-400 mb-1">TLS ports to scan (CSV + ranges)</label>
+                                    <input type="text" name="sslscan_ports" placeholder="443,8443" value="443,8443"
+                                           class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1 text-[11px] text-white focus:outline-none focus:border-accent-500">
+                                    <p class="text-[10px] text-dark-500 mt-1">Bağımsız — her keşfedilen host bu portlarda TLS taranır (HTTPX'in bulduğu porta bağlı değil), böylece diğer portlardaki TLS atlanmaz. Boş = 443,8443.</p>
+                                </div>
+                            </details>
+                            {{end}}
+
+                            {{/* === Stage 5: WAF / Firewall === */}}
+                            {{if index $.AllowedStages "wafdetect"}}
+                            <details class="bg-dark-900 border border-dark-700 rounded">
+                                <summary class="cursor-pointer px-3 py-2 flex items-start gap-2 list-none">
+                                    <input type="checkbox" name="enable_wafdetect" checked class="mt-1 rounded border-dark-600 bg-dark-800 text-accent-500" onclick="event.stopPropagation()">
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-[11px] font-medium text-dark-200">5. WAF / Firewall</p>
+                                        <p class="text-[10px] text-dark-500 mt-0.5">Detect Cloudflare / Akamai / AWS WAF / etc · no per-module options</p>
+                                    </div>
+                                </summary>
+                            </details>
+                            {{end}}
+
+                            {{/* === Stage 6: Tech Detection === */}}
+                            {{if index $.AllowedStages "techdetect"}}
+                            <details class="bg-dark-900 border border-dark-700 rounded">
+                                <summary class="cursor-pointer px-3 py-2 flex items-start gap-2 list-none">
+                                    <input type="checkbox" name="enable_techdetect" checked class="mt-1 rounded border-dark-600 bg-dark-800 text-accent-500" onclick="event.stopPropagation()">
+                                    <div class="flex-1 min-w-0 flex items-center gap-2">
+                                        <div class="flex-1">
+                                            <p class="text-[11px] font-medium text-dark-200">6. Tech Detection</p>
+                                            <p class="text-[10px] text-dark-500 mt-0.5">Frameworks + servers · feeds DirEnum + CVE Matcher</p>
+                                        </div>
+                                        <span class="text-dark-500 text-[10px]">⚙</span>
+                                    </div>
+                                </summary>
+                                <div class="px-3 pb-3 pt-1 border-t border-dark-800">
+                                    <label class="flex items-start gap-2 cursor-pointer">
+                                        <input type="checkbox" name="techdetect_aggressive" class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500">
+                                        <span class="min-w-0">
+                                            <span class="block text-[11px] text-dark-200">Aggressive WhatWeb (-a 3)</span>
+                                            <span class="block text-[10px] text-dark-500 mt-0.5 leading-relaxed">Runs whatweb <span class="mono">-a 3</span> on every live service for deeper version/plugin detection. Much slower — a whatweb subprocess per host. Off = fast passive detection reusing the HTTPX bodies.</span>
+                                        </span>
+                                    </label>
+                                </div>
+                            </details>
+                            {{end}}
+
+                            {{/* === Stage 7: CVE Matcher (gated on Tech Detection) === */}}
+                            {{if index $.AllowedStages "cvematch"}}
+                            <details class="bg-dark-900 border border-dark-700 rounded">
+                                <summary class="cursor-pointer px-3 py-2 flex items-start gap-2 list-none">
+                                    <input type="checkbox" name="enable_cvematch" checked class="mt-1 rounded border-dark-600 bg-dark-800 text-accent-500" onclick="event.stopPropagation()">
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-[11px] font-medium text-dark-200">7. CVE Matcher</p>
+                                        <p class="text-[10px] text-dark-500 mt-0.5">Map detected products → known CVEs (needs Tech Detection)</p>
+                                    </div>
+                                </summary>
+                            </details>
+                            {{end}}
+
+                            {{/* === Stage 8: WPScan (gated on Tech Detection finding WordPress) === */}}
+                            {{if index $.AllowedStages "wpscan"}}
+                            <details class="bg-dark-900 border border-dark-700 rounded">
+                                <summary class="cursor-pointer px-3 py-2 flex items-start gap-2 list-none">
+                                    <input type="checkbox" name="enable_wpscan" class="mt-1 rounded border-dark-600 bg-dark-800 text-accent-500" onclick="event.stopPropagation()">
+                                    <div class="flex-1 min-w-0 flex items-center gap-2">
+                                        <div class="flex-1">
+                                            <p class="text-[11px] font-medium text-dark-200">8. WPScan</p>
+                                            <p class="text-[10px] text-dark-500 mt-0.5">WordPress vuln scanner — only fires on URLs where Tech Detection identified WordPress (needs Tech Detection)</p>
+                                        </div>
+                                        <span class="text-dark-500 text-[10px]">⚙</span>
+                                    </div>
+                                </summary>
+                                <div class="px-3 pb-3 pt-1 border-t border-dark-800">
+                                    <p class="block text-[10px] uppercase text-dark-500 mb-1.5">Speed Profile</p>
+                                    {{/* Mirror the standalone WPScan module's 3-radio card layout
+                                         so the suite control feels identical. Fast is the safe
+                                         default; users opt into aggressive when they want full
+                                         plugin + theme + DB-export + Timthumb enumeration. */}}
+                                    <div class="space-y-2">
+                                        <label class="flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-success has-[:checked]:bg-success/5">
+                                            <input type="radio" name="wpscan_speed" value="fast" class="mt-0.5 rounded-full border-dark-600 bg-dark-800 text-success" checked>
+                                            <div>
+                                                <p class="text-xs font-medium text-dark-200">Fast — defaults + users</p>
+                                                <p class="text-[11px] text-dark-500 mt-0.5">Sade <span class="mono">wpscan --url X --api-token Y</span> davranışı + user enumeration.</p>
+                                                <p class="text-[10px] text-dark-600 mt-0.5 mono">--enumerate ap,cb,u · --plugins-detection passive · ~15-60s/site</p>
+                                            </div>
+                                        </label>
+                                        <label class="flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-warning has-[:checked]:bg-warning/5">
+                                            <input type="radio" name="wpscan_speed" value="normal" class="mt-0.5 rounded-full border-dark-600 bg-dark-800 text-warning">
+                                            <div>
+                                                <p class="text-xs font-medium text-dark-200">More Aggressive — + themes + db exports</p>
+                                                <p class="text-[11px] text-dark-500 mt-0.5">Plugin keşfi mixed mode'a geçer; tema enumeration ve DB export kontrolü eklenir.</p>
+                                                <p class="text-[10px] text-dark-600 mt-0.5 mono">--enumerate ap,at,cb,dbe,u · --plugins-detection mixed · ~5-15min/site</p>
+                                            </div>
+                                        </label>
+                                        <label class="flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-danger has-[:checked]:bg-danger/5">
+                                            <input type="radio" name="wpscan_speed" value="aggressive" class="mt-0.5 rounded-full border-dark-600 bg-dark-800 text-danger">
+                                            <div>
+                                                <p class="text-xs font-medium text-dark-200">Most Aggressive — everything</p>
+                                                <p class="text-[11px] text-dark-500 mt-0.5">Plugin / tema / config / DB / user / Timthumb / Media — hepsi, hem plugin keşfi hem version detection aggressive mode'da.</p>
+                                                <p class="text-[10px] text-dark-600 mt-0.5 mono">--enumerate ap,at,cb,dbe,u,tt,m · --plugins-detection aggressive · 30-60min+/site</p>
+                                            </div>
+                                        </label>
+                                    </div>
+                                    {{/* WPScan API-token banner — same content as the standalone
+                                         WPScan page so users get the same enrichment hint. */}}
+                                    {{if .HasWPScanAPIKey}}
+                                    <div class="flex items-start gap-2 px-3 py-2 mt-3 bg-success/5 border border-success/20 rounded-lg">
+                                        <svg class="w-4 h-4 text-success mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                        <p class="text-[11px] text-dark-300">WPScan API token configured — full WPVulnDB vulnerability details will be fetched.</p>
+                                    </div>
+                                    {{else}}
+                                    <div class="flex items-start gap-2 px-3 py-2 mt-3 bg-warning/5 border border-warning/30 rounded-lg">
+                                        <svg class="w-4 h-4 text-warning mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                                        <div>
+                                            <p class="text-[11px] font-medium text-warning">Running without WPScan API token</p>
+                                            <p class="text-[11px] text-dark-400 mt-0.5">WPScan still runs — version detection and plugin/theme enumeration work fine. WPVulnDB CVE enrichment will be skipped. Add a free token in <a href="/settings" class="text-accent-400 hover:underline">Settings → API Keys</a>.</p>
+                                        </div>
+                                    </div>
+                                    {{end}}
+                                </div>
+                            </details>
+                            {{end}}
+
+                            {{/* === Stage 9: Nuclei — severities === */}}
+                            {{if index $.AllowedStages "nuclei"}}
+                            <details class="bg-dark-900 border border-dark-700 rounded">
+                                <summary class="cursor-pointer px-3 py-2 flex items-start gap-2 list-none">
+                                    <input type="checkbox" name="enable_nuclei" checked class="mt-1 rounded border-dark-600 bg-dark-800 text-accent-500" onclick="event.stopPropagation()">
+                                    <div class="flex-1 min-w-0 flex items-center gap-2">
+                                        <div class="flex-1">
+                                            <p class="text-[11px] font-medium text-dark-200">9. Nuclei</p>
+                                            <p class="text-[10px] text-dark-500 mt-0.5">Template-based vuln scanning</p>
+                                        </div>
+                                        <span class="text-dark-500 text-[10px]">⚙</span>
+                                    </div>
+                                </summary>
+                                <div class="px-3 pb-3 pt-1 border-t border-dark-800 space-y-3">
+                                    <div>
+                                        <label class="block text-[10px] uppercase text-dark-500 mb-1.5">Severities</label>
+                                        <div class="flex flex-wrap gap-1.5">
+                                            {{range $sev := list "critical" "high" "medium" "low" "info"}}
+                                            <label class="cursor-pointer">
+                                                <input type="checkbox" name="nuclei_severities" value="{{$sev}}"
+                                                       {{if or (eq $sev "critical") (eq $sev "high") (eq $sev "medium")}}checked{{end}}
+                                                       class="peer sr-only">
+                                                <span class="mono text-[10px] px-2 py-0.5 rounded bg-dark-900 border border-dark-700 text-dark-300 peer-checked:bg-accent-600/30 peer-checked:border-accent-500 peer-checked:text-accent-200 inline-block">{{$sev}}</span>
+                                            </label>
+                                            {{end}}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] uppercase text-dark-500 mb-1.5">Aggressiveness</label>
+                                        <div class="flex flex-wrap gap-1.5">
+                                            {{range $lvl := list "polite" "normal" "aggressive"}}
+                                            <label class="cursor-pointer">
+                                                <input type="radio" name="nuclei_level" value="{{$lvl}}" {{if eq $lvl "normal"}}checked{{end}} class="peer sr-only">
+                                                <span class="mono text-[10px] px-2 py-0.5 rounded bg-dark-900 border border-dark-700 text-dark-300 peer-checked:bg-accent-600/30 peer-checked:border-accent-500 peer-checked:text-accent-200 inline-block">{{$lvl}}</span>
+                                            </label>
+                                            {{end}}
+                                        </div>
+                                        <p class="text-[10px] text-dark-500 mt-1">Sets nuclei rate-limit · concurrency · bulk-size together (polite 25/10/10 · normal 150/25/25 · aggressive 500/50/50).</p>
+                                    </div>
+                                </div>
+                            </details>
+                            {{end}}
+
+                            {{/* === Stage 9: Directory + Spider — full sub-options === */}}
+                            {{if index $.AllowedStages "dirspider"}}
+                            <details class="bg-dark-900 border border-dark-700 rounded">
+                                <summary class="cursor-pointer px-3 py-2 flex items-start gap-2 list-none">
+                                    <input type="checkbox" name="enable_dirspider" checked class="mt-1 rounded border-dark-600 bg-dark-800 text-accent-500" onclick="event.stopPropagation()">
+                                    <div class="flex-1 min-w-0 flex items-center gap-2">
+                                        <div class="flex-1">
+                                            <p class="text-[11px] font-medium text-dark-200">10. Directory + Spider</p>
+                                            <p class="text-[10px] text-dark-500 mt-0.5">DirEnum ↔ Spider iterative cross-feed</p>
+                                        </div>
+                                        <span class="text-dark-500 text-[10px]">⚙</span>
+                                    </div>
+                                </summary>
+                                <div class="px-3 pb-3 pt-1 grid grid-cols-2 md:grid-cols-3 gap-2 border-t border-dark-800">
+                                    <div>
+                                        <label class="block text-[10px] uppercase text-dark-500 mb-1">DirEnum level</label>
+                                        <select name="direnum_level" class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1 text-[11px] text-white focus:outline-none focus:border-accent-500">
+                                            <option value="light">Light (~4K)</option>
+                                            <option value="normal" selected>Normal (~50K)</option>
+                                            <option value="aggressive">Aggressive (~300K)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] uppercase text-dark-500 mb-1">DirEnum depth</label>
+                                        <select name="direnum_max_depth" class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1 text-[11px] text-white focus:outline-none focus:border-accent-500">
+                                            <option value="1">1</option>
+                                            <option value="2" selected>2</option>
+                                            <option value="3">3</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] uppercase text-dark-500 mb-1">Spider depth</label>
+                                        <input type="number" name="spider_max_depth" value="3" min="1" max="10" class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1 text-[11px] text-white focus:outline-none focus:border-accent-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] uppercase text-dark-500 mb-1">Spider max pages</label>
+                                        <input type="number" name="spider_max_pages" value="200" min="10" max="5000" class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1 text-[11px] text-white focus:outline-none focus:border-accent-500">
+                                    </div>
+                                    <label class="flex items-center gap-2 col-span-2 md:col-span-3 mt-1">
+                                        <input type="checkbox" name="direnum_smart_scan" checked class="rounded border-dark-600 bg-dark-800 text-accent-500">
+                                        <span class="text-[10px] text-dark-300">DirEnum Smart Scan (FP filter)</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 col-span-2 md:col-span-3">
+                                        <input type="checkbox" name="direnum_recursive" checked class="rounded border-dark-600 bg-dark-800 text-accent-500">
+                                        <span class="text-[10px] text-dark-300">DirEnum Recursive</span>
+                                    </label>
+                                </div>
+                            </details>
+                            {{end}}
+
+                            {{/* === Stage 11: HTTP Methods === */}}
+                            {{if index $.AllowedStages "httpmethods"}}
+                            <details class="bg-dark-900 border border-dark-700 rounded">
+                                <summary class="cursor-pointer px-3 py-2 flex items-start gap-2 list-none">
+                                    <input type="checkbox" name="enable_httpmethods" checked class="mt-1 rounded border-dark-600 bg-dark-800 text-accent-500" onclick="event.stopPropagation()">
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-[11px] font-medium text-dark-200">12. HTTP Methods</p>
+                                        <p class="text-[10px] text-dark-500 mt-0.5">Tests all 15 HTTP/WebDAV verbs — no override (full set always probed)</p>
+                                    </div>
+                                </summary>
+                            </details>
+                            {{end}}
+
+                            {{/* === Stage 12: SecHeaders — manual override === */}}
+                            {{if index $.AllowedStages "secheaders"}}
+                            <details class="bg-dark-900 border border-dark-700 rounded">
+                                <summary class="cursor-pointer px-3 py-2 flex items-start gap-2 list-none">
+                                    <input type="checkbox" name="enable_secheaders" checked class="mt-1 rounded border-dark-600 bg-dark-800 text-accent-500" onclick="event.stopPropagation()">
+                                    <div class="flex-1 min-w-0 flex items-center gap-2">
+                                        <div class="flex-1">
+                                            <p class="text-[11px] font-medium text-dark-200">13. Security Headers</p>
+                                            <p class="text-[10px] text-dark-500 mt-0.5">HSTS, CSP, etc. — per-method audit</p>
+                                        </div>
+                                        <span class="text-dark-500 text-[10px]">⚙</span>
+                                    </div>
+                                </summary>
+                                <div class="px-3 pb-3 pt-1 border-t border-dark-800">
+                                    <label class="flex items-center gap-2 mb-2">
+                                        <input type="checkbox" name="secheaders_override" class="rounded border-dark-600 bg-dark-800 text-accent-500">
+                                        <span class="text-[10px] text-dark-300">Override methods manually (otherwise auto-derived from Stage 11)</span>
+                                    </label>
+                                    <p class="text-[10px] text-dark-500 mb-1">Methods to probe:</p>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        {{range $m := list "GET" "POST" "PUT"}}
+                                        <label class="cursor-pointer">
+                                            <input type="checkbox" name="secheaders_methods" value="{{$m}}" {{if eq $m "GET"}}checked{{end}} class="peer sr-only">
+                                            <span class="mono text-[10px] px-2 py-0.5 rounded bg-dark-900 border border-dark-700 text-dark-300 peer-checked:bg-accent-600/30 peer-checked:border-accent-500 peer-checked:text-accent-200 inline-block">{{$m}}</span>
+                                        </label>
+                                        {{end}}
+                                    </div>
+                                </div>
+                            </details>
+                            {{end}}
+
+                        </div>
+                        <p class="text-[10px] text-dark-500 mt-2">Stage 11 (Parameter Discovery) is intentionally absent — module is still being stabilised, not safe inside this suite yet.</p>
+                        <p class="text-[10px] text-warning mt-1">CVE Matcher and WPScan both require Tech Detection — their checkboxes auto-disable when Tech Detection is unchecked. WPScan additionally only fires on URLs where WordPress is detected.</p>
+                    </div>
+                    <script>
+                    // Hard UI-level gating: CVE Matcher and WPScan can't be
+                    // enabled without Tech Detection. Both consume tech
+                    // detection output. Listen on the techdetect checkbox;
+                    // when it flips off, force the dependent checkboxes off,
+                    // disable the inputs, and visually mute their rows.
+                    (function() {
+                        var tech = document.querySelector('input[name="enable_techdetect"]');
+                        if (!tech) return;
+                        // Each entry: { selector, defaultUncheckedWhenOff }.
+                        var deps = ['enable_cvematch', 'enable_wpscan'];
+                        var rows = deps.map(function(name) {
+                            var cb = document.querySelector('input[name="' + name + '"]');
+                            if (!cb) return null;
+                            return { cb: cb, row: cb.closest('details') || cb.closest('label') };
+                        }).filter(Boolean);
+                        function sync() {
+                            rows.forEach(function(r) {
+                                if (tech.checked) {
+                                    r.cb.disabled = false;
+                                    if (r.row) {
+                                        r.row.classList.remove('opacity-50','cursor-not-allowed');
+                                        r.row.classList.add('cursor-pointer');
+                                    }
+                                } else {
+                                    r.cb.checked = false;
+                                    r.cb.disabled = true;
+                                    if (r.row) {
+                                        r.row.classList.add('opacity-50','cursor-not-allowed');
+                                        r.row.classList.remove('cursor-pointer');
+                                    }
+                                }
+                            });
+                        }
+                        tech.addEventListener('change', sync);
+                        sync();
+                    })();
+
+                    // ----- Depth preset → per-module defaults -----
+                    // Each preset flips sub-option controls in one click.
+                    // After clicking, the user can still tweak individual
+                    // fields (the preset only sets values, doesn't lock).
+                    (function() {
+                        var PRESETS = {
+                            quick: {
+                                dnsenum_speed: 'fast',
+                                dnsenum_max_depth: '1',
+                                httpx_mode: 'common',
+                                httpx_concurrency: '20',
+                                direnum_level: 'light',
+                                direnum_max_depth: '1',
+                                direnum_smart_scan: true,
+                                direnum_recursive: false,
+                                spider_max_depth: '1',
+                                spider_max_pages: '50',
+                                nuclei_severities: ['critical','high'],
+                                nuclei_level: 'normal',
+                                techdetect_aggressive: false,
+                                wpscan_speed: 'fast',
+                                secheaders_methods: ['GET'],
+                                hint: 'Fast surface sweep — fast DNS, common ports HTTPX, light DirEnum (~4K) depth 1 no recursion · spider 50 pages · critical+high nuclei · WPScan fast. ~2-5 min.',
+                            },
+                            normal: {
+                                dnsenum_speed: 'fast',
+                                dnsenum_max_depth: '1',
+                                httpx_mode: 'common',
+                                httpx_concurrency: '50',
+                                direnum_level: 'normal',
+                                direnum_max_depth: '2',
+                                direnum_smart_scan: true,
+                                direnum_recursive: true,
+                                spider_max_depth: '3',
+                                spider_max_pages: '200',
+                                nuclei_severities: ['critical','high','medium'],
+                                nuclei_level: 'normal',
+                                techdetect_aggressive: false,
+                                wpscan_speed: 'normal',
+                                secheaders_methods: ['GET'],
+                                hint: 'Balanced default — normal DirEnum (~50K) depth 2 + recursion · spider 200 pages · critical/high/medium nuclei · WPScan normal. ~10-20 min.',
+                            },
+                            deep: {
+                                dnsenum_speed: 'aggressive',
+                                dnsenum_max_depth: '2',
+                                httpx_mode: 'full',
+                                httpx_concurrency: '200',
+                                direnum_level: 'aggressive',
+                                direnum_max_depth: '3',
+                                direnum_smart_scan: true,
+                                direnum_recursive: true,
+                                spider_max_depth: '5',
+                                spider_max_pages: '1000',
+                                nuclei_severities: ['critical','high','medium','low','info'],
+                                nuclei_level: 'aggressive',
+                                techdetect_aggressive: true,
+                                wpscan_speed: 'aggressive',
+                                secheaders_methods: ['GET','POST','PUT'],
+                                hint: 'Exhaustive — aggressive DNS depth 2, FULL port HTTPX (1-65535), aggressive DirEnum (~300K) depth 3 + recursion · spider 1000 pages · all nuclei severities · WPScan aggressive · 3 secheaders methods. WARNING: full-port HTTPX × multi-target lists fans out to (targets × 65535) TCP probes — for large target lists, lower httpx_mode to "common" or use a custom port spec. Hours on complex targets.',
+                            },
+                        };
+                        var btns = document.querySelectorAll('.aw-depth-btn');
+                        var hint = document.getElementById('awDepthHint');
+                        function applyPreset(name) {
+                            var p = PRESETS[name];
+                            if (!p) return;
+                            // Selects
+                            var setSel = function(n, v) {
+                                var el = document.querySelector('select[name="'+n+'"]');
+                                if (el) el.value = v;
+                            };
+                            setSel('dnsenum_speed', p.dnsenum_speed);
+                            setSel('dnsenum_max_depth', p.dnsenum_max_depth);
+                            setSel('httpx_mode', p.httpx_mode);
+                            setSel('direnum_level', p.direnum_level);
+                            setSel('direnum_max_depth', p.direnum_max_depth);
+                            // Radio group helper — WPScan now uses radios (mirror
+                            // standalone WPScan page). Pass a single value, the
+                            // helper ticks that one and clears siblings.
+                            var setRadio = function(n, v) {
+                                document.querySelectorAll('input[name="'+n+'"][type="radio"]').forEach(function(el) {
+                                    el.checked = el.value === v;
+                                });
+                            };
+                            setRadio('wpscan_speed', p.wpscan_speed);
+                            setRadio('nuclei_level', p.nuclei_level);
+                            // Numeric inputs
+                            var setNum = function(n, v) {
+                                var el = document.querySelector('input[name="'+n+'"][type="number"]');
+                                if (el) el.value = v;
+                            };
+                            setNum('spider_max_depth', p.spider_max_depth);
+                            setNum('spider_max_pages', p.spider_max_pages);
+                            setNum('httpx_concurrency', p.httpx_concurrency);
+                            // Boolean checkboxes
+                            var setBool = function(n, v) {
+                                var el = document.querySelector('input[name="'+n+'"][type="checkbox"]');
+                                if (el) el.checked = !!v;
+                            };
+                            setBool('direnum_smart_scan', p.direnum_smart_scan);
+                            setBool('direnum_recursive', p.direnum_recursive);
+                            setBool('techdetect_aggressive', p.techdetect_aggressive);
+                            // Multi-value checkbox groups: clear + tick the listed values.
+                            var setGroup = function(n, vals) {
+                                var els = document.querySelectorAll('input[name="'+n+'"]');
+                                els.forEach(function(el) { el.checked = vals.indexOf(el.value) !== -1; });
+                            };
+                            setGroup('nuclei_severities', p.nuclei_severities);
+                            setGroup('secheaders_methods', p.secheaders_methods);
+                            if (hint) hint.textContent = p.hint;
+                            // Update button active state.
+                            btns.forEach(function(b) {
+                                if (b.getAttribute('data-depth') === name) {
+                                    b.classList.add('bg-accent-600','text-white');
+                                    b.classList.remove('text-dark-300','hover:text-white');
+                                } else {
+                                    b.classList.remove('bg-accent-600','text-white');
+                                    b.classList.add('text-dark-300','hover:text-white');
+                                }
+                            });
+                        }
+                        btns.forEach(function(b) {
+                            b.addEventListener('click', function() {
+                                applyPreset(b.getAttribute('data-depth'));
+                                recomputeFanoutWarn();
+                            });
+                        });
+                        // Recompute the fleet-wide fan-out warning whenever
+                        // the target manual input, any target list checkbox,
+                        // or the httpx_mode select changes. Estimate:
+                        // targets × (mode=='full' ? 65535 : mode=='top1000' ? 1000 : 100).
+                        function recomputeFanoutWarn() {
+                            var banner = document.getElementById('awFanoutWarn');
+                            var est = document.getElementById('awProbeEstimate');
+                            if (!banner || !est) return;
+                            var modeEl = document.querySelector('select[name="httpx_mode"]');
+                            var mode = modeEl ? modeEl.value : '';
+                            var portMult = mode === 'full' ? 65535 : (mode === 'top1000' ? 1000 : 100);
+                            var manualEl = document.getElementById('awTarget');
+                            var manualTargets = (manualEl && manualEl.value.trim() !== '') ? 1 : 0;
+                            // Each ticked target checkbox (from the workspace
+                            // picker) is exactly one target.
+                            var listTotal = document.querySelectorAll('input[name="targets"]:checked').length;
+                            var totalTargets = manualTargets + listTotal;
+                            var totalProbes = totalTargets * portMult;
+                            // Threshold: warn when >= 250k probes (~4 targets on full ports).
+                            if (mode === 'full' && totalTargets > 1) {
+                                est.textContent = totalProbes.toLocaleString() + ' (' + totalTargets + ' targets × ' + portMult.toLocaleString() + ' ports)';
+                                banner.classList.remove('hidden');
+                            } else {
+                                banner.classList.add('hidden');
+                            }
+                        }
+                        // Wire recompute to relevant inputs.
+                        var modeSel = document.querySelector('select[name="httpx_mode"]');
+                        if (modeSel) modeSel.addEventListener('change', recomputeFanoutWarn);
+                        var manualIn = document.getElementById('awTarget');
+                        if (manualIn) manualIn.addEventListener('input', recomputeFanoutWarn);
+                        document.querySelectorAll('input[name="targets"]').forEach(function(cb) {
+                            cb.addEventListener('change', recomputeFanoutWarn);
+                        });
+                        applyPreset('normal'); // initial state mirrors the existing defaults
+                        recomputeFanoutWarn();
+                    })();
+                    </script>
+
+                </div>
+
+                {{template "http_options" .}}
+
+                <label class="flex items-center gap-2 mt-4 text-xs text-dark-300 cursor-pointer select-none">
+                    <input type="checkbox" name="run_sequential" value="1"
+                           class="rounded border-dark-600 bg-dark-900 text-accent-500 focus:ring-accent-500 focus:ring-offset-0">
+                    <span>Start after the current scan finishes{{template "info_icon" "Sequential scanning: instead of starting now, queue this scan and launch it automatically once this workspace has no other running scan. Tick it on several launches to chain them one after another (FIFO). If nothing is running, it starts immediately."}}</span>
+                </label>
+
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Start Suite
+                </button>
+            </form>
+            <script>
+            // Reactive form: stages 1-3 (WHOIS/DNS/HTTPX) are domain-level
+            // recon — they have no useful work to do when the user already
+            // gave us a URL. Detect http(s):// prefix and visually disable
+            // those rows so the user understands at a glance.
+            (function() {
+                var URL_STAGE_NAMES = ['enable_whois', 'enable_dnsenum', 'enable_httpxfind'];
+                window.awTargetChanged = function(input) {
+                    var v = (input.value || '').trim().toLowerCase();
+                    var isURL = v.indexOf('http://') === 0 || v.indexOf('https://') === 0;
+                    URL_STAGE_NAMES.forEach(function(name) {
+                        var cb = document.querySelector('input[name="' + name + '"]');
+                        if (!cb) return;
+                        // New <details>-based layout: walk up to the
+                        // <details> wrapper instead of the old <label>.
+                        var row = cb.closest('details') || cb.closest('label');
+                        cb.disabled = isURL;
+                        if (isURL) cb.checked = false;
+                        if (row) {
+                            row.classList.toggle('opacity-40', isURL);
+                            row.classList.toggle('pointer-events-none', isURL);
+                        }
+                    });
+                    var hint = document.getElementById('awTargetHint');
+                    if (hint) {
+                        hint.classList.toggle('text-warning', isURL);
+                        hint.innerHTML = isURL
+                            ? '⚡ URL detected — stages 1–3 (WHOIS / DNS / HTTPX) are <strong>passive</strong> for URL targets.'
+                            : 'A single domain or URL. If <span class="mono">http://</span> / <span class="mono">https://</span> is included, that scheme is used as-is and stages 1–3 (WHOIS / DNS / HTTPX) are skipped.';
+                    }
+                };
+                // Run once on load in case the form is reposted with a value already in the field.
+                var initInput = document.getElementById('awTarget');
+                if (initInput) awTargetChanged(initInput);
+            })();
+            </script>
+        </div>
+    </div>
+
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}
+            <div class="space-y-2">
+                {{range .Scans}}
+                <a href="/modules/advanced-web/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all group">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200 group-hover:text-white">Suite #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "01-02 15:04"}}</span>
+                    </div>
+                    <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                {{end}}
+            </div>
+            {{else}}
+            <div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No scans yet</p></div>
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}

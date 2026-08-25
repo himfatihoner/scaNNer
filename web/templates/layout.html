@@ -1,0 +1,738 @@
+{{define "layout"}}
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}}</title>
+    {{/* Self-hosted Tailwind + htmx. Previously these were loaded from
+         cdn.tailwindcss.com and unpkg.com; cdn.tailwindcss.com became
+         unreachable from this machine (TLS/network), leaving every
+         page unstyled — SVG icons rendered as viewport-sized blobs and
+         all utility classes were no-ops. Bundled locally so the UI
+         survives any future external-CDN outage too. */}}
+    <script src="/static/js/tailwind.js"></script>
+    <script src="/static/js/htmx.min.js"></script>
+    {{/* Tailwind 4 config — CSS-first replacement for the v3 JS config.
+         Mirrors the original colour palette (dark.50–950, accent.400–600,
+         status colours). Same custom utilities continue to work:
+         bg-dark-900, text-accent-400, border-warning, ... */}}
+    <style type="text/tailwindcss">
+        @theme {
+            --color-dark-50:  #f5f5f6;
+            --color-dark-100: #e6e6e8;
+            --color-dark-200: #cfd0d4;
+            --color-dark-300: #adaeb5;
+            --color-dark-400: #84858f;
+            --color-dark-500: #696a74;
+            --color-dark-600: #5a5a63;
+            --color-dark-700: #4c4d54;
+            --color-dark-800: #434349;
+            --color-dark-850: #313136;
+            --color-dark-900: #27272a;
+            --color-dark-925: #1e1e21;
+            --color-dark-950: #18181b;
+
+            --color-accent-400: #60a5fa;
+            --color-accent-500: #3b82f6;
+            --color-accent-600: #2563eb;
+
+            --color-success: #22c55e;
+            --color-warning: #eab308;
+            --color-danger:  #ef4444;
+        }
+        /* Tailwind 4 dropped "dark mode by class" defaults; restore the
+           explicit selector so our existing toggleTheme() / .light branch
+           continues to work without an HTML data-attribute migration. */
+        @custom-variant dark (&:where(:not(.light), :not(.light) *));
+    </style>
+    <script>
+        // Apply persisted theme + UI scale BEFORE the body renders, to avoid flash.
+        (function() {
+            try {
+                var t = localStorage.getItem('scanner-theme') || 'dark';
+                if (t === 'light') document.documentElement.classList.add('light');
+            } catch(e) {}
+            // UI scale: user choice from Settings, otherwise auto by viewport width.
+            var scale = 1;
+            try {
+                var s = localStorage.getItem('scanner-ui-scale');
+                if (s === 'auto' || !s) {
+                    var w = window.innerWidth;
+                    if (w >= 2560)      scale = 1.30;
+                    else if (w >= 1920) scale = 1.25;
+                    else if (w >= 1536) scale = 1.18;
+                    else if (w >= 1280) scale = 1.10;
+                    else                scale = 1.00;
+                } else {
+                    var n = parseFloat(s);
+                    if (!isNaN(n) && n >= 0.8 && n <= 1.6) scale = n;
+                }
+            } catch(e) {}
+            document.documentElement.style.setProperty('--ui-scale', scale);
+        })();
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        /* ============================================================
+           LIGHT THEME OVERRIDES
+           Activated when <html class="light">. Overrides the most-used
+           dark palette utilities with light equivalents using high
+           specificity + !important so we don't have to touch every
+           template's class names.
+           ============================================================ */
+        /* Light palette — DIMMED. Previously the canvas was a bright
+           cool-slate (#dde3eb / #e8edf3) which strained eyes during long
+           sessions. Now: warm muted slate, ~10 lightness units darker
+           across the board, with a subtle yellow-cast off-white for cards
+           to reduce blue-light glare. Easier on the eye for hours-long
+           pentest sessions while still clearly readable. */
+        html.light body { background-color: #c8cfd8 !important; color: #0f172a !important; }
+        html.light .bg-dark-950 { background-color: #c8cfd8 !important; }    /* page canvas (was #dde3eb) */
+        html.light .bg-dark-925 { background-color: #bdc4ce !important; }    /* sub-canvas */
+        html.light .bg-dark-900 { background-color: #d4dae3 !important; }    /* primary cards (was #e8edf3) */
+        html.light .bg-dark-850 { background-color: #c2c9d3 !important; }    /* card alt rows */
+        html.light .bg-dark-800 { background-color: #b0b7c2 !important; }    /* hover / chips */
+        html.light .bg-dark-700 { background-color: #969ea9 !important; }
+        html.light .bg-dark-700\/50 { background-color: rgba(150,158,169,0.5) !important; }
+        html.light .bg-dark-850\/50,
+        html.light .bg-dark-850\/60 { background-color: rgba(194,201,211,0.6) !important; }
+        html.light .bg-dark-800\/50 { background-color: rgba(176,183,194,0.5) !important; }
+        /* Borders — darker slate so cards are clearly bordered against the
+           dimmer surfaces. */
+        html.light .border-dark-950 { border-color: #9ca5b1 !important; }
+        html.light .border-dark-900 { border-color: #aab2bd !important; }
+        html.light .border-dark-850 { border-color: #aab2bd !important; }
+        html.light .border-dark-800 { border-color: #aab2bd !important; }
+        html.light .border-dark-800\/50 { border-color: rgba(170,178,189,0.6) !important; }
+        html.light .border-dark-700 { border-color: #969ea9 !important; }
+        html.light .border-dark-700\/50 { border-color: rgba(150,158,169,0.6) !important; }
+        html.light .border-dark-600 { border-color: #6e7682 !important; }
+        /* Text — slate scale, descending contrast. */
+        html.light .text-white   { color: #0f172a !important; }
+        html.light .text-dark-100 { color: #1e293b !important; }
+        html.light .text-dark-200 { color: #334155 !important; }
+        html.light .text-dark-300 { color: #475569 !important; }
+        html.light .text-dark-400 { color: #64748b !important; }
+        html.light .text-dark-500 { color: #94a3b8 !important; }
+        html.light .text-dark-600 { color: #cbd5e1 !important; }
+        html.light .text-dark-700 { color: #e2e8f0 !important; }
+        html.light .placeholder-dark-600::placeholder { color: #94a3b8 !important; }
+        html.light .placeholder-dark-500::placeholder { color: #94a3b8 !important; }
+
+        /* Sidebar — slightly darker than the canvas so it reads as a rail. */
+        html.light aside.bg-dark-900 { background-color: #b9c1cc !important; border-right-color: #969ea9 !important; box-shadow: none; }
+        html.light .sidebar-link.active {
+            background: rgba(37, 99, 235, 0.12) !important;
+            color: #1d4ed8 !important;
+            border-left-color: #1d4ed8 !important;
+        }
+        html.light .sidebar-link:hover:not(.active) {
+            background: rgba(15, 23, 42, 0.06) !important;
+        }
+        html.light .module-card:hover { border-color: #1d4ed8 !important; }
+        /* Header — matches the card tone instead of being pure white. */
+        html.light header { background-color: #d4dae3 !important; border-bottom-color: #aab2bd !important; }
+        html.light header.bg-dark-900\/80 { background-color: rgba(212,218,227,0.92) !important; }
+        /* Form controls keep dark text on the new light surfaces. */
+        html.light input, html.light textarea, html.light select { color: #0f172a; }
+        html.light input:focus, html.light textarea:focus, html.light select:focus { border-color: #2563eb !important; }
+        /* Accent — bump to a deeper blue so it pops against white. */
+        html.light .text-accent-400 { color: #2563eb !important; }
+        html.light .text-accent-300 { color: #1d4ed8 !important; }
+        html.light .text-accent-500 { color: #1d4ed8 !important; }
+        html.light .border-accent-500\/30 { border-color: rgba(37,99,235,0.35) !important; }
+        html.light .bg-accent-600\/10 { background-color: rgba(37,99,235,0.10) !important; }
+        /* Pre/code blocks — soft slate background, readable inline code. */
+        html.light pre.bg-dark-950 { background-color: #0f172a !important; color: #e2e8f0 !important; }
+        html.light pre.bg-dark-925 { background-color: #0f172a !important; color: #e2e8f0 !important; }
+        html.light .mono { color: inherit; }
+        /* Subtle slate scrollbars instead of cool gray. */
+        html.light ::-webkit-scrollbar-track { background: #c2c9d3 !important; }
+        html.light ::-webkit-scrollbar-thumb { background: #969ea9 !important; }
+        html.light ::-webkit-scrollbar-thumb:hover { background: #6e7682 !important; }
+
+        /* Responsive UI scaling. Base rem grows with viewport for rem-based
+           Tailwind utilities; the early-apply script in <head> sets --ui-scale
+           on <html> based on either the user's Settings choice (localStorage)
+           or an automatic viewport-derived value. body zoom picks it up. */
+        html {
+            --ui-scale: 1;
+            font-size: clamp(16px, calc(0.45vw + 12px), 20px);
+        }
+        body {
+            zoom: var(--ui-scale, 1);
+            /* Critical: keep all scroll INSIDE <main> so the sidebar stays
+               pinned at every UI scale. overflow:hidden makes <main> the only
+               scroll container. But `zoom` also scales 100vh, so at scale > 1
+               (the auto default is 1.10 on laptops) a plain height:100vh would
+               render 1.1x too tall, overflow the screen, and — with the hidden
+               overflow — clip the bottom (unreachable Save buttons). Divide the
+               zoom back out so the shell always equals the REAL viewport. */
+            overflow: hidden;
+            height: calc(100vh / var(--ui-scale, 1));
+        }
+
+        body { font-family: 'Inter', sans-serif; }
+        code, .mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* =========================================================
+           UNIFIED CHECKBOX + RADIO STYLE
+           All checkboxes/radios across the app render with the same
+           look regardless of which Tailwind utility classes happen to
+           be on them. Native browser styling stripped; custom border,
+           hover, focus, and checked states applied with a single CSS
+           rule. Works in both dark + light themes (the accent colour
+           inherits from --tw-color-accent-500 via Tailwind's classes).
+           ========================================================= */
+        input[type="checkbox"], input[type="radio"] {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            width: 14px;
+            height: 14px;
+            background-color: #1e1e21;
+            border: 1.5px solid #5a5a63;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background-color 120ms, border-color 120ms;
+            display: inline-block;
+            vertical-align: middle;
+            position: relative;
+        }
+        input[type="checkbox"] { border-radius: 3px; }
+        input[type="radio"]    { border-radius: 50%; }
+        input[type="checkbox"]:hover, input[type="radio"]:hover {
+            border-color: #60a5fa;
+        }
+        input[type="checkbox"]:focus, input[type="radio"]:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(59,130,246,0.35);
+        }
+        input[type="checkbox"]:checked, input[type="radio"]:checked {
+            background-color: #2563eb;
+            border-color: #3b82f6;
+        }
+        input[type="checkbox"]:checked::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='white'><path d='M13.485 4.515a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-3-3a1 1 0 011.414-1.414L6.778 9.808l5.293-5.293a1 1 0 011.414 0z'/></svg>");
+            background-size: 12px 12px;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        input[type="radio"]:checked::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #ffffff;
+        }
+        input[type="checkbox"]:disabled, input[type="radio"]:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        /* Light-mode overrides — keep checked state vivid against the new
+           dim slate canvas. */
+        html.light input[type="checkbox"], html.light input[type="radio"] {
+            background-color: #f3f5f8;
+            border-color: #7d8493;
+        }
+        html.light input[type="checkbox"]:checked, html.light input[type="radio"]:checked {
+            background-color: #1d4ed8;
+            border-color: #1d4ed8;
+        }
+        /* Hidden checkboxes used as toggle peers (Tailwind .sr-only) stay
+           invisible — only the sibling span renders. */
+        .peer.sr-only { width: 0 !important; height: 0 !important; border: 0 !important; }
+        .sidebar-link.active {
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            border-left-color: #3b82f6;
+        }
+        .sidebar-link:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .module-card:hover {
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+        }
+        .scan-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #18181b; }
+        ::-webkit-scrollbar-thumb { background: #4c4d54; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #696a74; }
+
+        /* Button size + variant scale (Pillar 5). Before this, every
+           button instance carried its own ad-hoc class string — submit
+           buttons used `px-5 py-2.5 text-sm`, the → Burp pill used
+           `px-1.5 py-0.5 text-[9px]`, tab buttons used `px-3 py-1`. No
+           central definition meant any tweak to a size required edits
+           across dozens of files. These three sizes + four variants
+           cover every existing button style in scaNNer.
+
+           Sizes:
+             .btn-sm — pill / chip actions  (→ Burp, copy, Cancel)
+             .btn-md — default form action  (Save, Apply)
+             .btn-lg — primary CTA          (Start <Module> Scan)
+
+           Variants:
+             .btn-primary    — accent-600  → main affirmative action
+             .btn-secondary  — dark-850    → neutral
+             .btn-ghost      — transparent → toolbar-style
+             .btn-danger     — danger/10   → destructive (delete, stop)
+        */
+        .btn { display: inline-flex; align-items: center; gap: 0.5rem; justify-content: center; border-radius: 0.5rem; transition: background-color 150ms, color 150ms, border-color 150ms; font-weight: 500; }
+        .btn[disabled] { opacity: 0.4; cursor: not-allowed; }
+
+        .btn-sm { padding: 0.25rem 0.5rem;   font-size: 0.625rem; }
+        .btn-md { padding: 0.5rem 0.75rem;   font-size: 0.75rem;  }
+        .btn-lg { padding: 0.625rem 1rem;    font-size: 0.875rem; font-weight: 500; }
+
+        .btn-primary   { background: #2563eb; color: #fff; }
+        .btn-primary:hover:not([disabled])   { background: #3b82f6; }
+        .btn-secondary { background: #313136; color: #cfd0d4; border: 1px solid #4c4d54; }
+        .btn-secondary:hover:not([disabled]) { background: #434349; color: #fff; }
+        .btn-ghost     { background: transparent; color: #84858f; }
+        .btn-ghost:hover:not([disabled])     { color: #fff; background: rgba(255,255,255,0.04); }
+        .btn-danger    { background: rgba(239,68,68,0.1); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+        .btn-danger:hover:not([disabled])    { background: rgba(239,68,68,0.2); color: #fff; }
+        html.light .btn-secondary { background: #d4dae3; color: #2e3540; border-color: #b8c0cd; }
+        html.light .btn-secondary:hover:not([disabled]) { background: #b8c0cd; color: #1a1f2a; }
+        html.light .btn-ghost { color: #5a6477; }
+        html.light .btn-ghost:hover:not([disabled]) { background: rgba(0,0,0,0.05); color: #1a1f2a; }
+    </style>
+</head>
+<body class="h-full bg-dark-950 text-dark-200">
+    <div class="flex h-full">
+        {{template "sidebar" .}}
+        <div class="flex-1 flex flex-col min-h-0 overflow-hidden">
+            {{template "header" .}}
+            <main class="flex-1 overflow-y-auto p-6">
+                {{template "module_info" .}}
+                {{if eq .Page "dashboard"}}
+                    {{template "dashboard" .}}
+                {{else if eq .Page "targets"}}
+                    {{template "page_targets" .}}
+                {{else if eq .Page "assets"}}
+                    {{template "page_assets" .}}
+                {{else if eq .Page "vulnerabilities"}}
+                    {{template "page_vulnerabilities" .}}
+                {{else if eq .Page "asset_detail"}}
+                    {{template "page_asset_detail" .}}
+                {{else if eq .Page "modules"}}
+                    {{template "page_modules" .}}
+                {{else if eq .Page "scans"}}
+                    {{template "page_scans" .}}
+                {{else if eq .Page "sslscan"}}
+                    {{template "page_sslscan" .}}
+                {{else if eq .Page "sslscan_results"}}
+                    {{template "page_sslscan_results" .}}
+                {{else if eq .Page "httpxfind"}}
+                    {{template "page_httpxfind" .}}
+                {{else if eq .Page "httpxfind_results"}}
+                    {{template "page_httpxfind_results" .}}
+                {{else if eq .Page "httpmethods"}}
+                    {{template "page_httpmethods" .}}
+                {{else if eq .Page "httpmethods_results"}}
+                    {{template "page_httpmethods_results" .}}
+                {{else if eq .Page "wafdetect"}}
+                    {{template "page_wafdetect" .}}
+                {{else if eq .Page "wafdetect_results"}}
+                    {{template "page_wafdetect_results" .}}
+                {{else if eq .Page "wpscan"}}
+                    {{template "page_wpscan" .}}
+                {{else if eq .Page "wpscan_results"}}
+                    {{template "page_wpscan_results" .}}
+                {{else if eq .Page "dnsenum"}}
+                    {{template "page_dnsenum" .}}
+                {{else if eq .Page "dnsenum_results"}}
+                    {{template "page_dnsenum_results" .}}
+                {{else if eq .Page "techdetect"}}
+                    {{template "page_techdetect" .}}
+                {{else if eq .Page "techdetect_results"}}
+                    {{template "page_techdetect_results" .}}
+                {{else if eq .Page "spider"}}
+                    {{template "page_spider" .}}
+                {{else if eq .Page "spider_results"}}
+                    {{template "page_spider_results" .}}
+                {{else if eq .Page "direnum"}}
+                    {{template "page_direnum" .}}
+                {{else if eq .Page "direnum_results"}}
+                    {{template "page_direnum_results" .}}
+                {{else if eq .Page "secheaders"}}
+                    {{template "page_secheaders" .}}
+                {{else if eq .Page "secheaders_results"}}
+                    {{template "page_secheaders_results" .}}
+                {{else if eq .Page "nuclei"}}
+                    {{template "page_nuclei" .}}
+                {{else if eq .Page "nuclei_results"}}
+                    {{template "page_nuclei_results" .}}
+                {{else if eq .Page "hostdiscovery"}}
+                    {{template "page_hostdiscovery" .}}
+                {{else if eq .Page "hostdiscovery_results"}}
+                    {{template "page_hostdiscovery_results" .}}
+                {{else if eq .Page "portservice"}}
+                    {{template "page_portservice" .}}
+                {{else if eq .Page "portservice_results"}}
+                    {{template "page_portservice_results" .}}
+                {{else if eq .Page "portservice_host"}}
+                    {{template "page_portservice_host" .}}
+                {{else if eq .Page "smbenum"}}
+                    {{template "page_smbenum" .}}
+                {{else if eq .Page "smbenum_results"}}
+                    {{template "page_smbenum_results" .}}
+                {{else if eq .Page "adpentest"}}
+                    {{template "page_adpentest" .}}
+                {{else if eq .Page "adpentest_results"}}
+                    {{template "page_adpentest_results" .}}
+                {{else if eq .Page "brutef"}}
+                    {{template "page_brutef" .}}
+                {{else if eq .Page "brutef_results"}}
+                    {{template "page_brutef_results" .}}
+                {{else if eq .Page "whoisinfo"}}
+                    {{template "page_whoisinfo" .}}
+                {{else if eq .Page "whoisinfo_results"}}
+                    {{template "page_whoisinfo_results" .}}
+                {{else if eq .Page "emailharvest"}}
+                    {{template "page_emailharvest" .}}
+                {{else if eq .Page "emailharvest_results"}}
+                    {{template "page_emailharvest_results" .}}
+                {{else if eq .Page "leakscan"}}
+                    {{template "page_leakscan" .}}
+                {{else if eq .Page "leakscan_results"}}
+                    {{template "page_leakscan_results" .}}
+                {{else if eq .Page "snmpenum"}}
+                    {{template "page_snmpenum" .}}
+                {{else if eq .Page "snmpenum_results"}}
+                    {{template "page_snmpenum_results" .}}
+                {{else if eq .Page "jwt"}}
+                    {{template "page_jwt" .}}
+                {{else if eq .Page "jwt_results"}}
+                    {{template "page_jwt_results" .}}
+                {{else if eq .Page "paramdisc"}}
+                    {{template "page_paramdisc" .}}
+                {{else if eq .Page "paramdisc_results"}}
+                    {{template "page_paramdisc_results" .}}
+                {{else if eq .Page "concurtest"}}
+                    {{template "page_concurtest" .}}
+                {{else if eq .Page "concurtest_results"}}
+                    {{template "page_concurtest_results" .}}
+                {{else if eq .Page "advancedweb"}}
+                    {{template "page_advancedweb" .}}
+                {{else if eq .Page "advancedweb_results"}}
+                    {{template "page_advancedweb_results" .}}
+                {{else if eq .Page "takeover"}}
+                    {{template "page_takeover" .}}
+                {{else if eq .Page "takeover_results"}}
+                    {{template "page_takeover_results" .}}
+                {{else if eq .Page "corsscan"}}
+                    {{template "page_corsscan" .}}
+                {{else if eq .Page "corsscan_results"}}
+                    {{template "page_corsscan_results" .}}
+                {{else if eq .Page "openredirect"}}
+                    {{template "page_openredirect" .}}
+                {{else if eq .Page "openredirect_results"}}
+                    {{template "page_openredirect_results" .}}
+                {{else if eq .Page "cvematch"}}
+                    {{template "page_cvematch" .}}
+                {{else if eq .Page "cvematch_results"}}
+                    {{template "page_cvematch_results" .}}
+                {{else if eq .Page "graphqlscan"}}
+                    {{template "page_graphqlscan" .}}
+                {{else if eq .Page "graphqlscan_results"}}
+                    {{template "page_graphqlscan_results" .}}
+                {{else if eq .Page "authtest"}}
+                    {{template "page_authtest" .}}
+                {{else if eq .Page "authtest_results"}}
+                    {{template "page_authtest_results" .}}
+                {{else if eq .Page "assetdisc"}}
+                    {{template "page_assetdisc" .}}
+                {{else if eq .Page "assetdisc_results"}}
+                    {{template "page_assetdisc_results" .}}
+                {{else if eq .Page "oob"}}
+                    {{template "page_oob" .}}
+                {{else if eq .Page "oob_results"}}
+                    {{template "page_oob_results" .}}
+                {{else if eq .Page "sstiscan"}}
+                    {{template "page_sstiscan" .}}
+                {{else if eq .Page "sstiscan_results"}}
+                    {{template "page_sstiscan_results" .}}
+                {{else if eq .Page "cachepoison"}}
+                    {{template "page_cachepoison" .}}
+                {{else if eq .Page "cachepoison_results"}}
+                    {{template "page_cachepoison_results" .}}
+                {{else if eq .Page "settings"}}
+                    {{template "page_settings" .}}
+                {{else if eq .Page "users"}}
+                    {{template "page_users" .}}
+                {{else if eq .Page "user_detail"}}
+                    {{template "page_user_detail" .}}
+                {{else if eq .Page "logs"}}
+                    {{template "page_logs" .}}
+                {{else if eq .Page "update"}}
+                    {{template "page_update" .}}
+                {{end}}
+            </main>
+        </div>
+    </div>
+    {{template "export_modal" .}}
+    {{template "raw_panel_script" .}}
+    {{template "empty_toggle_script" .}}
+    {{template "modal_script" .}}
+
+    <!-- Send-to-Burp on-demand helper. Result templates render a small
+         button on each finding row that calls sendToBurp(url, method).
+         Routes through /scans/send-to-burp which uses the user's
+         configured proxy. Method defaults to GET. -->
+    <!-- Click-to-show info-icon tooltip. The default `title` attribute is
+         hover-only; on touch (and many keyboard users) you need an explicit
+         pop. We use a single floating bubble positioned near the clicked
+         icon, auto-dismiss on next click/Escape. -->
+    <script>
+    (function() {
+        var tip;
+        function ensureTip() {
+            if (tip) return tip;
+            tip = document.createElement('div');
+            tip.className = 'fixed z-[10000] hidden max-w-sm px-3 py-2 text-[11px] leading-snug rounded-lg shadow-xl border';
+            tip.style.background = '#1f2937';
+            tip.style.borderColor = '#374151';
+            tip.style.color = '#e5e7eb';
+            tip.style.pointerEvents = 'none';
+            document.body.appendChild(tip);
+            return tip;
+        }
+        function hide() { if (tip) tip.classList.add('hidden'); }
+        document.addEventListener('click', function(e) {
+            if (!tip || tip.classList.contains('hidden')) return;
+            if (e.target && e.target.closest && e.target.closest('[data-info]')) return;
+            hide();
+        }, true);
+        document.addEventListener('keydown', function(e) { if (e.key === 'Escape') hide(); });
+        window.__showInfoTip = function(btn) {
+            if (!btn) return;
+            var msg = btn.getAttribute('data-info') || btn.getAttribute('title') || '';
+            if (!msg) return;
+            var t = ensureTip();
+            t.textContent = msg;
+            t.classList.remove('hidden');
+            var r = btn.getBoundingClientRect();
+            // Default below the icon; if it'd clip, flip above.
+            var tr = t.getBoundingClientRect();
+            var top = r.bottom + 6;
+            if (top + tr.height > window.innerHeight - 8) top = r.top - tr.height - 6;
+            var left = Math.min(window.innerWidth - tr.width - 8, Math.max(8, r.left - 4));
+            t.style.top = top + 'px';
+            t.style.left = left + 'px';
+        };
+    })();
+    </script>
+
+    <script>
+    window.sendToBurp = function(url, method) {
+        if (!url) return;
+        var btn = (typeof event !== 'undefined' && event && event.currentTarget) ? event.currentTarget : null;
+        var body = 'url=' + encodeURIComponent(url);
+        if (method) body += '&method=' + encodeURIComponent(method);
+        if (btn) { btn.disabled = true; var prev = btn.textContent; btn.textContent = '…'; setTimeout(function(){ btn.disabled = false; btn.textContent = prev; }, 1500); }
+        fetch('/scans/send-to-burp', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: body
+        }).then(function(r) {
+            if (r.status === 204 && btn) { btn.textContent = '✓ sent'; setTimeout(function(){ btn.textContent = prev || '→ Burp'; }, 1500); }
+            else if (r.status === 412) { alert('No proxy configured — set it in Settings → HTTP Proxy.'); }
+            else if (!r.ok) { alert('Send to Burp failed: HTTP ' + r.status); }
+        }).catch(function(e) { alert('Send to Burp failed: ' + e); });
+    };
+    </script>
+
+    <!-- Reusable sortable-table helper. Bind by calling
+         bindSortableTable('#myTable') after the table is in the DOM.
+         Each <th data-sort-key="X" data-sort-type="number|string"> sorts
+         rows by their data-X attribute. Default: string.
+         Click = single-column sort, click again toggles direction.
+         Shift+Click = add as secondary/tertiary sort key (toggles dir
+         if already in the chain). Active columns show their rank
+         (1, 2, …) next to the arrow when more than one is active. -->
+    <script>
+    window.bindSortableTable = function(tableSel, opts) {
+        opts = opts || {};
+        var table = (typeof tableSel === 'string') ? document.querySelector(tableSel) : tableSel;
+        if (!table) return;
+        var tbody = table.querySelector('tbody');
+        if (!tbody) return;
+        var ths = table.querySelectorAll('thead th[data-sort-key]');
+
+        // Active sort chain. Each entry: {key, type, dir}. The chain is
+        // walked left-to-right when comparing rows, so [0] is primary,
+        // [1] secondary, etc. Compound sorts persist across re-clicks
+        // unless the user does a plain click on a fresh column (which
+        // resets to single-column).
+        var sortKeys = [];
+
+        function findIdx(key) {
+            for (var i = 0; i < sortKeys.length; i++) {
+                if (sortKeys[i].key === key) return i;
+            }
+            return -1;
+        }
+        function updateArrows() {
+            var multi = sortKeys.length > 1;
+            ths.forEach(function(t) {
+                var key = t.getAttribute('data-sort-key');
+                var idx = findIdx(key);
+                var arrow = t.querySelector('.sort-arrow');
+                if (!arrow) {
+                    arrow = document.createElement('span');
+                    arrow.className = 'sort-arrow ml-1 text-dark-500';
+                    t.appendChild(arrow);
+                }
+                if (idx >= 0) {
+                    var d = sortKeys[idx].dir;
+                    var rank = multi ? (idx + 1) + ' ' : '';
+                    arrow.textContent = rank + (d === 'asc' ? '▲' : '▼');
+                } else {
+                    arrow.textContent = '⇅';
+                }
+            });
+        }
+        function compareRows(a, b) {
+            for (var i = 0; i < sortKeys.length; i++) {
+                var sk = sortKeys[i];
+                var av = a.getAttribute('data-' + sk.key) || '';
+                var bv = b.getAttribute('data-' + sk.key) || '';
+                var c;
+                if (sk.type === 'number') {
+                    c = (parseFloat(av) || 0) - (parseFloat(bv) || 0);
+                } else {
+                    c = av.localeCompare(bv);
+                }
+                if (c !== 0) return sk.dir === 'asc' ? c : -c;
+            }
+            return 0;
+        }
+        // Some tables interleave detail rows after their parent (e.g. the
+        // expandable Advanced Host Scanner results). Detail rows wear a
+        // `sortable-skip` class and a `data-row-follow="<id>"` matching
+        // their parent's `data-row-pair`. We sort only the parent rows and
+        // re-thread their detail rows immediately afterwards.
+        function sortableRows() {
+            return Array.prototype.slice.call(tbody.querySelectorAll('tr'))
+                .filter(function(r) { return !r.classList.contains('sortable-skip'); });
+        }
+        function detailFor(parent) {
+            var pair = parent.getAttribute('data-row-pair');
+            if (!pair) return null;
+            return tbody.querySelector('tr.sortable-skip[data-row-follow="' + pair + '"]');
+        }
+        function applySorted(rows) {
+            rows.forEach(function(r) {
+                tbody.appendChild(r);
+                var d = detailFor(r);
+                if (d) tbody.appendChild(d);
+            });
+        }
+        function applyCurrentSort() {
+            if (sortKeys.length === 0) {
+                updateArrows();
+                return;
+            }
+            var rows = sortableRows();
+            rows.sort(compareRows);
+            applySorted(rows);
+            updateArrows();
+            if (typeof opts.onSort === 'function') {
+                // Back-compat: report primary key first as positional args,
+                // and the full chain as a third argument for new callers.
+                var primary = sortKeys[0];
+                opts.onSort(primary.key, primary.dir, sortKeys.slice());
+            }
+        }
+        ths.forEach(function(th) {
+            th.style.cursor = 'pointer';
+            th.classList.add('select-none');
+            th.title = (th.title ? th.title + ' · ' : '') + 'Click to sort · Shift+Click to add as secondary sort';
+            th.addEventListener('click', function(ev) {
+                var key = th.getAttribute('data-sort-key');
+                var type = th.getAttribute('data-sort-type') || 'string';
+                var idx = findIdx(key);
+                if (ev.shiftKey) {
+                    // Cumulative: toggle dir if already in chain, else append.
+                    if (idx >= 0) {
+                        sortKeys[idx].dir = sortKeys[idx].dir === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        sortKeys.push({key: key, type: type, dir: 'asc'});
+                    }
+                } else {
+                    // Plain click: single-column. Toggle dir if it's already
+                    // the *only* sort column, otherwise reset to just this one.
+                    if (sortKeys.length === 1 && idx === 0) {
+                        sortKeys[0].dir = sortKeys[0].dir === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        sortKeys = [{key: key, type: type, dir: 'asc'}];
+                    }
+                }
+                applyCurrentSort();
+            });
+        });
+        // Initial: pick a default sort if requested via opts.defaultKey/dir.
+        if (opts.defaultKey) {
+            var initTh = table.querySelector('thead th[data-sort-key="' + opts.defaultKey + '"]');
+            if (initTh) {
+                sortKeys = [{
+                    key: opts.defaultKey,
+                    type: initTh.getAttribute('data-sort-type') || 'string',
+                    dir: opts.defaultDir || 'asc'
+                }];
+                applyCurrentSort();
+                return;
+            }
+        }
+        updateArrows();
+    };
+    </script>
+    <script>
+    // Live line/target counter for any targets input. Opt in by adding the
+    // bare attribute  data-line-count  to a <textarea> or <input>; the script
+    // inserts a small muted counter right after it and updates on every edit,
+    // counting NON-EMPTY lines (blank lines don't count as targets).
+    (function () {
+        function render(el) {
+            var out = el.nextElementSibling;
+            if (!out || !out.classList || !out.classList.contains('js-line-count-out')) {
+                out = document.createElement('p');
+                out.className = 'js-line-count-out text-[10px] text-dark-500 mt-1';
+                el.insertAdjacentElement('afterend', out);
+            }
+            var n = (el.value || '').split('\n').filter(function (s) { return s.trim() !== ''; }).length;
+            out.textContent = n === 0 ? '' : n + (n === 1 ? ' hedef' : ' hedef');
+        }
+        function wire(root) {
+            (root || document).querySelectorAll('textarea[data-line-count],input[data-line-count]').forEach(function (el) {
+                if (el.__lineCountWired) return;
+                el.__lineCountWired = true;
+                el.addEventListener('input', function () { render(el); });
+                render(el);
+            });
+        }
+        document.addEventListener('DOMContentLoaded', function () { wire(document); });
+        document.addEventListener('htmx:afterSwap', function (e) { wire(e.target || document); });
+    })();
+    </script>
+</body>
+</html>
+{{end}}

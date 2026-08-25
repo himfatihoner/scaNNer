@@ -1,0 +1,66 @@
+{{define "page_assetdisc"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Asset Discovery</span>
+</div>
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">🛰️</span> Asset Discovery</h2>
+        <p class="text-sm text-dark-400 mt-1">Shodan + Censys queries scoped to org / ASN / hostname / SSL certs.</p>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Scan</h3>
+            <form action="/modules/assetdisc/run" method="POST">
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Queries <span class="text-danger">*</span>{{template "info_icon" "One query per line. Shodan supports org:Foo, ssl:bar, hostname:baz, http.title:..., etc. Censys uses similar filters."}}</label>
+                        <textarea name="queries" rows="4" placeholder="org:&quot;Acme Corp&quot;&#10;ssl:acme.com&#10;hostname:.acme.com" class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                    </div>
+                    <label class="flex items-center gap-2 text-xs text-dark-300">
+                        <input type="checkbox" name="use_shodan" {{if .HasShodanKey}}checked{{else}}disabled{{end}} class="rounded border-dark-600 bg-dark-800 text-accent-500">
+                        <span>Use Shodan {{if not .HasShodanKey}}<span class="text-warning">(no API key — set in <a href="/settings" class="text-accent-400">Settings</a>)</span>{{end}}</span>
+                    </label>
+                    <label class="flex items-center gap-2 text-xs text-dark-300">
+                        <input type="checkbox" name="use_censys" {{if .HasCensysKey}}checked{{else}}disabled{{end}} class="rounded border-dark-600 bg-dark-800 text-accent-500">
+                        <span>Use Censys {{if not .HasCensysKey}}<span class="text-warning">(no ID/Secret — set in <a href="/settings" class="text-accent-400">Settings</a>)</span>{{end}}</span>
+                    </label>
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Max Pages per Query{{template "info_icon" "How many API pages to fetch per query. Shodan and Censys return 100 results/page. Values above 1 consume additional query credits on paid Shodan plans. Default 1."}}</label>
+                        <input type="number" name="max_pages" value="1" min="1" max="20" class="w-full bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent-500">
+                    </div>
+                    {{template "http_tuning" (dict "TuneConcHint" $.TuneConcHint "TuneTimeoutHint" "30")}}
+                </div>
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Discover Assets
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}
+            <div class="space-y-2">
+                {{range .Scans}}
+                <a href="/modules/assetdisc/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200">Scan #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                    </div>
+                </a>
+                {{end}}
+            </div>
+            {{else}}<div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No scans yet</p></div>{{end}}
+        </div>
+    </div>
+</div>
+{{end}}

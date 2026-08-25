@@ -1,0 +1,87 @@
+{{define "page_wafdetect"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">WAF Detector</span>
+</div>
+
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">🛡️</span> WAF Detector</h2>
+        <p class="text-sm text-dark-400 mt-1">Detect Web Application Firewalls via headers, cookies, error pages, and payload probing</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Scan</h3>
+            <form action="/modules/wafdetect/run" method="POST">
+                <div class="space-y-4">
+                    {{template "workspace_targets" .}}
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Manual Targets{{template "info_icon" "URLs or domains to check. https:// is assumed if not specified."}}</label>
+                        <textarea name="manual_targets" rows="4" placeholder="https://example.com&#10;https://target.com&#10;domain.com"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                        <p class="text-[11px] text-dark-500 mt-1">URLs or domains. https:// will be prepended if missing.</p>
+                    </div>
+
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                        <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-2">Detection Methods</p>
+                        <ul class="text-[11px] text-dark-400 space-y-1">
+                            <li class="flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-accent-400"></span>HTTP header fingerprinting</li>
+                            <li class="flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-accent-400"></span>Cookie name analysis</li>
+                            <li class="flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-accent-400"></span>Error page content matching</li>
+                            <li class="flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-accent-400"></span>XSS / SQLi / LFI / RFI payload probing</li>
+                            <li class="flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-accent-400"></span>User-Agent anomaly testing</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                        <label class="flex items-start gap-2 cursor-pointer">
+                            <input type="hidden" name="enable_payloads_present" value="1">
+                            <input type="checkbox" name="enable_payloads" value="1" checked
+                                   class="mt-0.5 accent-accent-500">
+                            <span>
+                                <span class="text-xs text-dark-200">Enable payload probing</span>
+                                <span class="block text-[10px] text-dark-500">Sends XSS/SQLi/LFI/RFI/UA probes. Disable for read-only signature-only scans against fragile targets.</span>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+                {{template "http_options" .}}
+                <div class="mt-4">{{template "http_tuning" (dict "TuneConcHint" $.TuneConcHint "TuneTimeoutHint" "10")}}</div>
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Start WAF Detection
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}
+            <div class="space-y-2">
+                {{range .Scans}}
+                <a href="/modules/wafdetect/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all group">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200 group-hover:text-white">Scan #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                    </div>
+                    <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                {{end}}
+            </div>
+            {{else}}
+            <div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No scans yet</p></div>
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}

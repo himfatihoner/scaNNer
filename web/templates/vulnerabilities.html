@@ -1,0 +1,495 @@
+{{define "page_vulnerabilities"}}
+<span id="vulnState" data-ready="{{if .VulnReady}}1{{else}}0{{end}}" data-running="{{if .HasRunning}}1{{else}}0{{end}}" hidden></span>
+<div class="mb-4">
+    <h1 class="text-2xl font-bold text-white">Vulnerabilities</h1>
+    <p class="text-sm text-dark-400 mt-1">Every severity-bearing finding across every asset in this workspace, from all modules.</p>
+</div>
+
+<div class="flex items-center gap-1 border-b border-dark-800 mb-4">
+    <a href="/vulnerabilities" class="px-4 py-2 text-sm font-medium border-b-2 {{if ne .ActiveTab "archive"}}border-accent-500 text-white{{else}}border-transparent text-dark-400 hover:text-white{{end}}">Active</a>
+    <a href="/vulnerabilities?tab=archive" class="px-4 py-2 text-sm font-medium border-b-2 {{if eq .ActiveTab "archive"}}border-accent-500 text-white{{else}}border-transparent text-dark-400 hover:text-white{{end}}">Archive{{if .ArchivedCount}} <span class="text-[10px] px-1.5 py-0.5 rounded bg-dark-800 text-dark-300">{{.ArchivedCount}}</span>{{end}}</a>
+</div>
+
+{{if .RescanNotice}}
+<div class="mb-4 flex items-center gap-2 bg-emerald-600/10 border border-emerald-500/30 rounded-lg px-4 py-2.5 text-xs text-emerald-200">
+    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+    {{.RescanNotice}} rescan başlatıldı{{if and .RescanSkipped (ne .RescanSkipped "0")}} · {{.RescanSkipped}} atlandı (kaynak modül rescan hedefi taşımıyor){{end}}. Doğrulanamayan zafiyetler, rescan tamamlanınca otomatik olarak Archive sekmesine taşınır.
+</div>
+{{end}}
+
+{{if ne .ActiveTab "archive"}}
+<div class="flex flex-wrap items-center gap-2 mb-4">
+    <button type="button" data-vsev="" onclick="setVulnSev(this)" class="vuln-sev-chip px-3 py-1.5 text-xs rounded-lg bg-accent-600 text-white">All</button>
+    <button type="button" data-vsev="4" onclick="setVulnSev(this)" class="vuln-sev-chip px-3 py-1.5 text-xs rounded-lg bg-dark-850 border border-dark-700 text-red-300 hover:text-white">Critical {{.VCrit}}</button>
+    <button type="button" data-vsev="3" onclick="setVulnSev(this)" class="vuln-sev-chip px-3 py-1.5 text-xs rounded-lg bg-dark-850 border border-dark-700 text-orange-300 hover:text-white">High {{.VHigh}}</button>
+    <button type="button" data-vsev="2" onclick="setVulnSev(this)" class="vuln-sev-chip px-3 py-1.5 text-xs rounded-lg bg-dark-850 border border-dark-700 text-yellow-300 hover:text-white">Medium {{.VMed}}</button>
+    <button type="button" data-vsev="1" onclick="setVulnSev(this)" class="vuln-sev-chip px-3 py-1.5 text-xs rounded-lg bg-dark-850 border border-dark-700 text-blue-300 hover:text-white">Low {{.VLow}}</button>
+    <input id="vulnSearch" type="search" placeholder="Search host, finding, CVE, module…" oninput="applyVulnFilter()"
+           class="w-64 mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+    <select id="vulnModuleFilter" onchange="applyVulnFilter()" class="bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
+        <option value="">All modules</option>
+        {{range .VulnModules}}<option value="{{.}}">{{moduleDisplayName .}}</option>{{end}}
+    </select>
+    {{if .Vulns}}
+    <button type="button" id="rescanSelectedBtn" onclick="rescanSelected()" class="ml-auto opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white" title="Re-run the source scan of each selected finding, scoped to its asset, to re-verify it. Findings the rescan no longer detects are moved to Archive automatically.">⟳ Rescan Selected (<span id="rescanSelCount">0</span>)</button>
+    <button type="button" id="archiveSelectedBtn" onclick="archiveSelected('archive')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-dark-700 hover:bg-dark-600 text-dark-200" title="Move the selected findings to the Archive tab.">🗄 Archive</button>
+    <details id="exportSelectedMenu" class="vexport relative opacity-50 pointer-events-none">
+        <summary class="cursor-pointer list-none select-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white">☑ Export Selected (<span id="selCount">0</span>)</summary>
+        <div class="absolute right-0 z-20 mt-1 w-52 bg-dark-850 border border-dark-700 rounded-lg shadow-xl p-1 text-[11px]">
+            <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-dark-500">Tek dosya (birleşik)</div>
+            <a href="javascript:void(0)" onclick="exportSelected('pdf','tr')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">PDF · Türkçe</a>
+            <a href="javascript:void(0)" onclick="exportSelected('pdf','en')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">PDF · English</a>
+            <a href="javascript:void(0)" onclick="exportSelected('docx','tr')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">DOCX · Türkçe</a>
+            <a href="javascript:void(0)" onclick="exportSelected('docx','en')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">DOCX · English</a>
+            <div class="border-t border-dark-700 my-1"></div>
+            <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-dark-500">Ayrı dosyalar (.zip)</div>
+            <a href="javascript:void(0)" onclick="exportSelected('pdf','tr',1)" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">PDF · Türkçe (her biri ayrı)</a>
+            <a href="javascript:void(0)" onclick="exportSelected('docx','tr',1)" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">DOCX · Türkçe (her biri ayrı)</a>
+        </div>
+    </details>
+    <details class="vexport relative">
+        <summary class="cursor-pointer list-none select-none text-xs px-3 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white">⤓ Export All</summary>
+        <div class="absolute right-0 z-20 mt-1 w-52 bg-dark-850 border border-dark-700 rounded-lg shadow-xl p-1 text-[11px]">
+            <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-dark-500">Tek dosya (birleşik)</div>
+            <a href="javascript:void(0)" onclick="exportAllURL('pdf','tr')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">PDF · Türkçe</a>
+            <a href="javascript:void(0)" onclick="exportAllURL('pdf','en')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">PDF · English</a>
+            <a href="javascript:void(0)" onclick="exportAllURL('docx','tr')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">DOCX · Türkçe</a>
+            <a href="javascript:void(0)" onclick="exportAllURL('docx','en')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">DOCX · English</a>
+            <div class="border-t border-dark-700 my-1"></div>
+            <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-dark-500">Ayrı dosyalar (.zip)</div>
+            <a href="javascript:void(0)" onclick="exportAllURL('pdf','tr',1)" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">PDF · Türkçe (her biri ayrı)</a>
+            <a href="javascript:void(0)" onclick="exportAllURL('docx','tr',1)" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">DOCX · Türkçe (her biri ayrı)</a>
+        </div>
+    </details>
+    <span id="vulnResultCount" class="text-[11px] text-dark-500"></span>
+    {{else}}
+    <span id="vulnResultCount" class="ml-auto text-[11px] text-dark-500"></span>
+    {{end}}
+</div>
+
+{{if not .VulnReady}}
+<div class="mb-4 flex items-center gap-2 bg-accent-600/10 border border-accent-500/30 rounded-lg px-4 py-2.5 text-xs text-accent-200">
+    <span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+    Building the vulnerability index from scan results… refresh in a moment for the full list.
+</div>
+{{end}}
+
+{{if .Vulns}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+    <table id="vulnTable" class="w-full text-sm">
+        <thead class="bg-dark-850 border-b border-dark-800 text-left">
+            <tr>
+                <th class="px-3 py-3 w-8"><input type="checkbox" id="vulnSelectAll" onclick="toggleSelectAllVisible(this)" class="align-middle cursor-pointer accent-emerald-500" title="Select all visible"></th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="id" data-sort-type="string">ID</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="sev" data-sort-type="number">Severity</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="title" data-sort-type="string">Finding</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="host" data-sort-type="string">Asset</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="product" data-sort-type="string" title="Software the finding is about — e.g. the product a tech-detection CVE was matched against">Software</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="module" data-sort-type="string">Source</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">CVEs</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">Scan</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="firstseen" data-sort-type="string" title="Earliest scan that reported this finding">First Seen</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="lastseen" data-sort-type="string" title="Most recent scan that reported this finding">Last Seen</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold text-right">Export</th>
+            </tr>
+        </thead>
+        <tbody id="vulnTbody" class="divide-y divide-dark-800">
+            {{range .Vulns}}
+            <tr class="vuln-row hover:bg-dark-850/60 cursor-pointer"
+                data-sev="{{.SevRank}}"
+                data-id="{{.ID}}"
+                data-row-pair="{{.ID}}"
+                data-title="{{.Title}}"
+                data-host="{{.Host}}"
+                data-module="{{.Module}}"
+                data-search="{{.ID}} {{.Host}} {{.Product}} {{.Title}} {{.Module}} {{.Tool}} {{range .CVEs}}{{.}} {{end}}"
+                onclick="toggleVulnDetail(event, this)">
+                <td class="px-3 py-2.5"><input type="checkbox" class="vuln-cb align-middle cursor-pointer accent-emerald-500" value="{{.ID}}" onclick="onVulnCbClick(event)"></td>
+                <td class="px-4 py-2.5 whitespace-nowrap"><span class="mono text-[10px] text-dark-400" data-sort-val="{{.ID}}">{{.ID}}</span></td>
+                <td class="px-4 py-2.5 whitespace-nowrap"><span class="mono text-[10px] px-1.5 py-0.5 rounded
+                    {{if eq .SevRank 4}}bg-red-500/20 text-red-300
+                    {{else if eq .SevRank 3}}bg-orange-500/20 text-orange-300
+                    {{else if eq .SevRank 2}}bg-yellow-500/20 text-yellow-300
+                    {{else}}bg-blue-500/20 text-blue-300{{end}}">{{.Severity}}</span></td>
+                <td class="px-4 py-2.5"><span class="vuln-caret inline-block text-dark-500 mr-1 transition-transform select-none">▸</span><span class="text-[12px] text-white">{{.Title}}</span>{{if gt .Count 1}} <span class="text-[10px] text-dark-500">×{{.Count}}</span>{{end}}</td>
+                <td class="px-4 py-2.5" data-sort-val="{{.Host}}">{{if .Host}}<a href="/assets/{{assetKey .Host}}" onclick="event.stopPropagation()" class="mono text-[11px] text-accent-400 hover:text-accent-300 break-all" title="Bu varlığın sayfasına git">{{.Host}}</a>{{else}}<span class="text-dark-600 text-[11px]" title="No host/URL was associated with this finding (e.g. a manual product-version CVE lookup). The software is shown in the Software column.">—</span>{{end}}</td>
+                <td class="px-4 py-2.5" data-sort-val="{{.Product}}">{{if .Product}}<span class="text-[11px] text-dark-200 break-all">{{.Product}}</span>{{else}}<span class="text-dark-600 text-[11px]">—</span>{{end}}</td>
+                <td class="px-4 py-2.5 whitespace-nowrap"><span class="text-[10px] text-dark-200 bg-dark-850 border border-dark-700 px-1.5 py-0.5 rounded">{{if .Tool}}{{moduleDisplayName .Tool}}{{else}}{{moduleDisplayName .Module}}{{end}}</span>{{if and .Tool (ne .Tool .Module)}} <span class="text-[9px] text-dark-500">via {{moduleDisplayName .Module}}</span>{{end}}</td>
+                <td class="px-4 py-2.5">
+                    {{if .CVEs}}<div class="flex flex-wrap gap-1">{{range .CVEs}}<a href="https://nvd.nist.gov/vuln/detail/{{.}}" target="_blank" rel="noopener" class="text-[10px] mono px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 hover:bg-red-500/25">{{.}}</a>{{end}}</div>{{else}}<span class="text-dark-600 text-[11px]">—</span>{{end}}
+                </td>
+                <td class="px-4 py-2.5 whitespace-nowrap"><a href="{{.ScanURL}}" class="text-[11px] text-accent-400 hover:text-accent-300">&rarr; scan</a></td>
+                <td class="px-4 py-2.5 whitespace-nowrap text-[11px] text-dark-400 mono" data-sort-val="{{if not .FirstSeen.IsZero}}{{.FirstSeen.Format "2006-01-02"}}{{end}}">{{if not .FirstSeen.IsZero}}{{.FirstSeen.Format "2006-01-02"}}{{else}}<span class="text-dark-600">—</span>{{end}}</td>
+                <td class="px-4 py-2.5 whitespace-nowrap text-[11px] text-dark-400 mono" data-sort-val="{{if not .LastSeen.IsZero}}{{.LastSeen.Format "2006-01-02"}}{{end}}">{{if not .LastSeen.IsZero}}{{.LastSeen.Format "2006-01-02"}}{{else}}<span class="text-dark-600">—</span>{{end}}</td>
+                <td class="px-4 py-2.5 whitespace-nowrap text-right">
+                    <button type="button" onclick="event.stopPropagation(); rescanVulns(['{{.ID}}'], this)" {{if .Rescanning}}disabled{{end}} class="rescan-btn mr-2 text-[11px] {{if .Rescanning}}text-emerald-400{{else}}text-accent-400 hover:text-accent-300{{end}}" title="{{if .Rescanning}}Rescan in progress — verifying this finding…{{else}}Rescan this finding's asset to re-verify it; if the rescan no longer detects it, it moves to Archive.{{end}}"><span class="rescan-spin inline-block {{if .Rescanning}}animate-spin{{end}}">⟳</span> {{if .Rescanning}}Rescanning…{{else}}Rescan{{end}}</button>
+                    <details class="vexport relative inline-block">
+                        <summary class="cursor-pointer list-none select-none text-[11px] text-accent-400 hover:text-accent-300">⤓ Export</summary>
+                        <div class="absolute right-0 z-10 mt-1 w-36 bg-dark-850 border border-dark-700 rounded-lg shadow-xl p-1 text-[11px] text-left">
+                            <a href="/vulnerabilities/export?id={{.ID}}&format=pdf&lang=tr" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">PDF · Türkçe</a>
+                            <a href="/vulnerabilities/export?id={{.ID}}&format=pdf&lang=en" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">PDF · English</a>
+                            <a href="/vulnerabilities/export?id={{.ID}}&format=docx&lang=tr" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">DOCX · Türkçe</a>
+                            <a href="/vulnerabilities/export?id={{.ID}}&format=docx&lang=en" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">DOCX · English</a>
+                        </div>
+                    </details>
+                </td>
+            </tr>
+            <tr class="vuln-detail sortable-skip hidden" data-row-follow="{{.ID}}">
+                <td colspan="12" class="px-6 py-4 bg-dark-950/50 border-t border-dark-800">
+                    <div class="vuln-detail-body text-[12px] text-dark-500" data-id="{{.ID}}" data-loaded="0">Yükleniyor…</div>
+                </td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{else}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
+    <p class="text-sm">{{if .VulnReady}}No vulnerabilities found across this workspace's scans.{{else}}Indexing…{{end}}</p>
+</div>
+{{end}}
+{{end}}{{/* /active tab */}}
+
+{{if eq .ActiveTab "archive"}}
+{{if .ArchivedVulns}}
+<div class="flex flex-wrap items-center gap-2 mb-4">
+    <input id="archSearch" type="search" placeholder="Search host, finding, CVE…" oninput="applyArchiveFilter()"
+           class="w-64 mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+    <span class="text-[11px] text-dark-500">Findings a rescan could no longer confirm land here and are hidden from the Active tab.</span>
+    <button type="button" id="restoreSelectedBtn" onclick="archiveSelected('unarchive')" class="ml-auto opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white" title="Move the selected findings back to the Active tab.">↺ Restore (<span id="archSelCount">0</span>)</button>
+    <button type="button" id="deleteSelectedBtn" onclick="deleteArchivedSelected()" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white" title="Permanently remove the selected findings from every view. Cannot be undone.">🗑 Delete (<span id="archDelCount">0</span>)</button>
+</div>
+<div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+    <table id="archTable" class="w-full text-sm">
+        <thead class="bg-dark-850 border-b border-dark-800 text-left">
+            <tr>
+                <th class="px-3 py-3 w-8"><input type="checkbox" onclick="toggleArchiveSelectAll(this)" class="align-middle cursor-pointer accent-emerald-500" title="Select all"></th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="sev" data-sort-type="number">Severity</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="title" data-sort-type="string">Finding</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="host" data-sort-type="string">Asset</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">Software</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">Reason</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold text-right">Actions</th>
+            </tr>
+        </thead>
+        <tbody id="archTbody" class="divide-y divide-dark-800">
+            {{range .ArchivedVulns}}
+            <tr class="arch-row hover:bg-dark-850/60" data-sev="{{.SevRank}}" data-search="{{.ID}} {{.Host}} {{.Product}} {{.Title}} {{.Module}} {{range .CVEs}}{{.}} {{end}}">
+                <td class="px-3 py-2.5"><input type="checkbox" class="arch-cb align-middle cursor-pointer accent-emerald-500" value="{{.ID}}" onclick="refreshArchSelCount()"></td>
+                <td class="px-4 py-2.5 whitespace-nowrap"><span class="mono text-[10px] px-1.5 py-0.5 rounded
+                    {{if eq .SevRank 4}}bg-red-500/20 text-red-300
+                    {{else if eq .SevRank 3}}bg-orange-500/20 text-orange-300
+                    {{else if eq .SevRank 2}}bg-yellow-500/20 text-yellow-300
+                    {{else}}bg-blue-500/20 text-blue-300{{end}}">{{.Severity}}</span></td>
+                <td class="px-4 py-2.5"><span class="text-[12px] text-dark-200">{{.Title}}</span></td>
+                <td class="px-4 py-2.5">{{if .Host}}<a href="/assets/{{assetKey .Host}}" class="mono text-[11px] text-accent-400 hover:text-accent-300 break-all" title="Bu varlığın sayfasına git">{{.Host}}</a>{{else}}<span class="text-dark-600 text-[11px]">—</span>{{end}}</td>
+                <td class="px-4 py-2.5">{{if .Product}}<span class="text-[11px] text-dark-300 break-all">{{.Product}}</span>{{else}}<span class="text-dark-600 text-[11px]">—</span>{{end}}</td>
+                <td class="px-4 py-2.5"><span class="text-[11px] text-dark-500 break-all">{{if .ArchiveReason}}{{.ArchiveReason}}{{else}}Archived{{end}}</span></td>
+                <td class="px-4 py-2.5 whitespace-nowrap text-right">
+                    <button type="button" onclick="archiveVulns(['{{.ID}}'],'unarchive')" class="text-[11px] text-emerald-400 hover:text-emerald-300" title="Move this finding back to the Active tab.">↺ Restore</button>
+                    <button type="button" onclick="deleteArchivedVulns(['{{.ID}}'])" class="ml-3 text-[11px] text-red-400 hover:text-red-300" title="Permanently remove this finding from every view. Cannot be undone.">🗑 Sil</button>
+                </td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{else}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
+    <p class="text-sm">No archived vulnerabilities. Findings a rescan can no longer confirm are moved here automatically.</p>
+</div>
+{{end}}
+{{end}}{{/* /archive tab */}}
+
+<script>
+// Severity chips are MULTI-select: each specific severity toggles independently
+// and the filter shows findings matching ANY selected severity. "All" (data-vsev
+// empty) is the reset — selecting it clears every severity; when no severity is
+// selected it auto-activates so a state is always visible.
+function _vsevOn(b){ b.classList.add('bg-accent-600','text-white'); b.classList.remove('bg-dark-850','border','border-dark-700'); }
+function _vsevOff(b){ b.classList.remove('bg-accent-600','text-white'); b.classList.add('bg-dark-850','border','border-dark-700'); }
+function _vsevAllBtn(){ return document.querySelector('.vuln-sev-chip[data-vsev=""]'); }
+function setVulnSev(btn) {
+    var val = btn.getAttribute('data-vsev')||'';
+    var chips = document.querySelectorAll('.vuln-sev-chip');
+    if(val===''){ // "All" — clear every severity selection
+        chips.forEach(function(b){ (b.getAttribute('data-vsev')||'')===''?_vsevOn(b):_vsevOff(b); });
+    } else {
+        var allBtn=_vsevAllBtn(); if(allBtn) _vsevOff(allBtn);
+        if(btn.classList.contains('bg-accent-600')) _vsevOff(btn); else _vsevOn(btn);
+        // nothing left selected → fall back to All
+        if(_activeVulnSevs().length===0 && allBtn) _vsevOn(allBtn);
+    }
+    applyVulnFilter();
+}
+function _activeVulnSevs(){
+    var out=[];
+    document.querySelectorAll('.vuln-sev-chip.bg-accent-600').forEach(function(b){
+        var v=b.getAttribute('data-vsev')||''; if(v!=='') out.push(v);
+    });
+    return out;
+}
+function exportAllURL(fmt, lang, separate){
+    showExportBusy();
+    var q=(document.getElementById('vulnSearch').value||'').trim();
+    var mod=document.getElementById('vulnModuleFilter').value||'';
+    var sevs=_activeVulnSevs();
+    var u='/vulnerabilities/export?all=1&format='+encodeURIComponent(fmt)+'&lang='+encodeURIComponent(lang);
+    if(sevs.length) u+='&sev='+encodeURIComponent(sevs.join(','));
+    if(mod) u+='&module='+encodeURIComponent(mod);
+    if(q) u+='&q='+encodeURIComponent(q);
+    if(separate) u+='&separate=1'; // one file per vuln, zipped
+    // close the popover, then trigger the download
+    document.querySelectorAll('details.vexport[open]').forEach(function(d){ d.removeAttribute('open'); });
+    window.location.href=u;
+}
+// ---- Multi-select export ----
+function selectedVulnIds(){
+    return Array.prototype.slice.call(document.querySelectorAll('.vuln-cb:checked')).map(function(cb){return cb.value;});
+}
+function refreshSelCount(){
+    var ids=selectedVulnIds();
+    var c=document.getElementById('selCount'); if(c) c.textContent=ids.length;
+    var rc=document.getElementById('rescanSelCount'); if(rc) rc.textContent=ids.length;
+    var on=ids.length>0;
+    ['exportSelectedMenu','rescanSelectedBtn','archiveSelectedBtn'].forEach(function(bid){
+        var el=document.getElementById(bid); if(!el) return;
+        if(on){ el.classList.remove('opacity-50','pointer-events-none'); }
+        else { el.classList.add('opacity-50','pointer-events-none'); if(el.removeAttribute) el.removeAttribute('open'); }
+    });
+}
+function onVulnCbClick(e){ e.stopPropagation(); refreshSelCount(); }
+// ---- Rescan / Archive actions ----
+function postIdsForm(action, ids, extra){
+    if(!ids || !ids.length) return;
+    var f=document.createElement('form'); f.method='POST'; f.action=action; f.style.display='none';
+    function add(n,v){ var i=document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; f.appendChild(i); }
+    add('ids', ids.join(','));
+    if(extra){ for(var k in extra){ add(k, extra[k]); } }
+    document.body.appendChild(f); f.submit();
+}
+function rescanVulns(ids, btn){
+    // Optimistic instant feedback: spin the clicked row's icon right away (the
+    // page reloads immediately after, then the server-rendered state + live
+    // poll keep it spinning until the rescan resolves).
+    if(btn){ var s=btn.querySelector('.rescan-spin'); if(s) s.classList.add('animate-spin'); }
+    postIdsForm('/vulnerabilities/rescan', ids);
+}
+function rescanSelected(){ rescanVulns(selectedVulnIds()); }
+function archiveVulns(ids, action){ postIdsForm('/vulnerabilities/archive', ids, {action: action, from: (action==='unarchive'?'archive':'active')}); }
+function archiveSelected(action){ archiveVulns((action==='unarchive')?selectedArchiveIds():selectedVulnIds(), action); }
+function deleteArchivedVulns(ids){
+    if(!ids || !ids.length) return;
+    var msg = ids.length===1 ? 'Bu bulgu her görünümden kalıcı olarak silinecek. Bu işlem geri alınamaz.'
+                             : (ids.length+' bulgu her görünümden kalıcı olarak silinecek. Bu işlem geri alınamaz.');
+    if(!confirm(msg)) return;
+    postIdsForm('/vulnerabilities/archive', ids, {action: 'delete', from: 'archive'});
+}
+function deleteArchivedSelected(){ deleteArchivedVulns(selectedArchiveIds()); }
+// ---- Archive tab ----
+function selectedArchiveIds(){ return Array.prototype.slice.call(document.querySelectorAll('.arch-cb:checked')).map(function(cb){return cb.value;}); }
+function refreshArchSelCount(){
+    var ids=selectedArchiveIds();
+    var c=document.getElementById('archSelCount'); if(c) c.textContent=ids.length;
+    var dc=document.getElementById('archDelCount'); if(dc) dc.textContent=ids.length;
+    ['restoreSelectedBtn','deleteSelectedBtn'].forEach(function(bid){
+        var b=document.getElementById(bid);
+        if(b){ if(ids.length>0){ b.classList.remove('opacity-50','pointer-events-none'); } else { b.classList.add('opacity-50','pointer-events-none'); } }
+    });
+}
+function toggleArchiveSelectAll(master){
+    document.querySelectorAll('#archTbody .arch-row').forEach(function(row){
+        if(row.style.display==='none') return;
+        var cb=row.querySelector('.arch-cb'); if(cb) cb.checked=master.checked;
+    });
+    refreshArchSelCount();
+}
+function applyArchiveFilter(){
+    var el=document.getElementById('archSearch'); var q=(el?el.value:'').toLowerCase().trim();
+    var tbody=document.getElementById('archTbody'); if(!tbody) return;
+    tbody.querySelectorAll('.arch-row').forEach(function(row){
+        var s=(row.getAttribute('data-search')||'').toLowerCase();
+        row.style.display=(!q||s.indexOf(q)!==-1)?'':'none';
+    });
+}
+// Expand/collapse a vuln's detail drawer (details + PoC) when its row is clicked.
+function toggleVulnDetail(e, row){
+    if(e.target.closest('a,input,summary,button,details,label')) return;
+    var pair=row.getAttribute('data-row-pair'); if(!pair) return;
+    var detail=document.querySelector('tr.vuln-detail[data-row-follow="'+(window.CSS&&CSS.escape?CSS.escape(pair):pair)+'"]');
+    if(!detail) return;
+    var willShow=detail.classList.contains('hidden');
+    detail.classList.toggle('hidden');
+    var caret=row.querySelector('.vuln-caret');
+    if(caret) caret.style.transform=detail.classList.contains('hidden')?'':'rotate(90deg)';
+    // Lazy-load the drawer body on first open — the page ships with empty
+    // drawers so it stays small/fast; the report+PoC is fetched on demand.
+    if(willShow){
+        var body=detail.querySelector('.vuln-detail-body');
+        if(body && body.getAttribute('data-loaded')==='0'){
+            body.setAttribute('data-loaded','1');
+            fetch('/vulnerabilities/detail?id='+encodeURIComponent(body.getAttribute('data-id')))
+                .then(function(r){ return r.ok ? r.text() : Promise.reject(r.status); })
+                .then(function(html){ body.innerHTML=html; })
+                .catch(function(err){ body.setAttribute('data-loaded','0'); body.textContent='Detay yüklenemedi ('+err+')'; });
+        }
+    }
+}
+function toggleSelectAllVisible(master){
+    document.querySelectorAll('#vulnTbody .vuln-row').forEach(function(row){
+        if(row.style.display==='none') return; // only rows passing the current filter
+        var cb=row.querySelector('.vuln-cb'); if(cb) cb.checked=master.checked;
+    });
+    refreshSelCount();
+}
+// Lightweight "generating…" indicator — bulk report generation happens
+// server-side after the click, so give feedback until the download starts.
+// (A precise % bar would need server-side progress streaming.)
+function showExportBusy(){
+    var el=document.getElementById('exportBusy');
+    if(!el){
+        el=document.createElement('div');
+        el.id='exportBusy';
+        el.className='fixed bottom-4 right-4 z-[60] bg-dark-850 border border-dark-700 rounded-lg px-4 py-2.5 text-xs text-accent-200 shadow-2xl flex items-center gap-2';
+        el.innerHTML='<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span> Rapor hazırlanıyor…';
+        document.body.appendChild(el);
+    }
+    el.style.display='flex';
+    clearTimeout(window._exportBusyT);
+    window._exportBusyT=setTimeout(function(){ el.style.display='none'; }, 8000);
+}
+function exportSelected(fmt,lang,separate){
+    var ids=selectedVulnIds();
+    if(!ids.length) return;
+    showExportBusy();
+    // POST form so a large selection isn't capped by URL length; the download
+    // arrives via Content-Disposition just like the GET export links.
+    var f=document.createElement('form');
+    f.method='POST'; f.action='/vulnerabilities/export'; f.style.display='none';
+    function add(n,v){ var i=document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; f.appendChild(i); }
+    add('ids', ids.join(',')); add('format', fmt); add('lang', lang);
+    if(separate) add('separate','1'); // one file per vuln, zipped
+    document.body.appendChild(f);
+    document.querySelectorAll('details.vexport[open]').forEach(function(d){ d.removeAttribute('open'); });
+    f.submit();
+}
+// Close any open export popover when clicking elsewhere.
+document.addEventListener('click', function(e){
+    document.querySelectorAll('details.vexport[open]').forEach(function(d){
+        if(!d.contains(e.target)) d.removeAttribute('open');
+    });
+});
+function applyVulnFilter() {
+    var q=(document.getElementById('vulnSearch').value||'').toLowerCase().trim();
+    var mod=document.getElementById('vulnModuleFilter').value;
+    var sevs=_activeVulnSevs();
+    var tbody=document.getElementById('vulnTbody'); if(!tbody) return;
+    var rows=Array.prototype.slice.call(tbody.querySelectorAll('.vuln-row'));
+    var vis=0;
+    rows.forEach(function(row){
+        var s=(row.getAttribute('data-search')||'').toLowerCase();
+        var matchQ=!q||s.indexOf(q)!==-1;
+        var matchMod=!mod||row.getAttribute('data-module')===mod;
+        var matchSev=sevs.length===0||sevs.indexOf(row.getAttribute('data-sev'))!==-1;
+        var show=matchQ&&matchMod&&matchSev;
+        row.style.display=show?'':'none'; if(show)vis++;
+        // Keep the detail row in sync: force-hide when the parent is filtered
+        // out; otherwise let its own `hidden` (expanded) state decide.
+        var pair=row.getAttribute('data-row-pair');
+        if(pair){
+            var d=document.querySelector('tr.vuln-detail[data-row-follow="'+(window.CSS&&CSS.escape?CSS.escape(pair):pair)+'"]');
+            if(d) d.style.display=show?'':'none';
+        }
+    });
+    var c=document.getElementById('vulnResultCount'); if(c) c.textContent=vis+' / '+rows.length+' shown';
+}
+document.addEventListener('DOMContentLoaded', function(){
+{{if eq .ActiveTab "archive"}}
+    if(window.bindSortableTable) bindSortableTable('#archTable',{defaultKey:'sev',defaultDir:'desc'});
+    refreshArchSelCount();
+    return;
+{{end}}
+    if(window.bindSortableTable) bindSortableTable('#vulnTable',{defaultKey:'sev',defaultDir:'desc'});
+    applyVulnFilter();
+    refreshSelCount();
+    // Restore scroll after a full reload (used only for the empty→table
+    // structural transition below) so the table doesn't jump to the top.
+    try { var _y = sessionStorage.getItem('vulnScrollY'); if (_y !== null) { window.scrollTo(0, parseInt(_y, 10) || 0); sessionStorage.removeItem('vulnScrollY'); } } catch(e){}
+    // Live auto-refresh while the index is still building, OR while any scan is
+    // running (its findings are extracted from partial results live).
+    //
+    // We do NOT reload the whole page — a full reload closed any open vuln-detail
+    // drawer and jumped the scroll while the operator was reading. Instead we
+    // fetch the page in the background, and ONLY when the row set actually changed
+    // do we swap just #vulnTbody, restoring: scroll position, every open detail
+    // drawer (with its already-loaded body), and the checkbox selection. When
+    // nothing changed we touch nothing at all — reading is never interrupted.
+    {{if or (not .VulnReady) .HasRunning}}
+    (function(){
+        var POLL = {{if .VulnReady}}5000{{else}}4000{{end}};
+        var timer = null;
+        function esc(s){ return (window.CSS && CSS.escape) ? CSS.escape(s) : s; }
+        function poll(){
+            fetch(window.location.pathname + window.location.search, {cache:'no-store', credentials:'same-origin'})
+                .then(function(r){ return r.ok ? r.text() : Promise.reject(r.status); })
+                .then(function(html){
+                    var doc = new DOMParser().parseFromString(html, 'text/html');
+                    var freshTb = doc.getElementById('vulnTbody');
+                    var curTb   = document.getElementById('vulnTbody');
+                    var state   = doc.getElementById('vulnState');
+                    var stillRunning = state && state.getAttribute('data-running') === '1';
+                    var nowReady     = state && state.getAttribute('data-ready')   === '1';
+                    // Structural change (Indexing-placeholder ↔ table): one of the
+                    // tbodies is absent — fall back to a full reload, preserving scroll.
+                    if(!freshTb || !curTb){
+                        try { sessionStorage.setItem('vulnScrollY', String(window.scrollY)); } catch(e){}
+                        location.reload();
+                        return;
+                    }
+                    var freshHTML = freshTb.innerHTML;
+                    // First poll only records the baseline — never swaps on load.
+                    if(window._vulnLastFetchHTML === undefined){
+                        window._vulnLastFetchHTML = freshHTML;
+                    } else if(freshHTML !== window._vulnLastFetchHTML){
+                        window._vulnLastFetchHTML = freshHTML;
+                        // ---- capture interaction state ----
+                        var openDetails = {}; // id -> loaded body HTML, or null if not yet loaded
+                        document.querySelectorAll('#vulnTbody tr.vuln-detail:not(.hidden)').forEach(function(d){
+                            var id = d.getAttribute('data-row-follow');
+                            var body = d.querySelector('.vuln-detail-body');
+                            openDetails[id] = (body && body.getAttribute('data-loaded') === '1') ? body.innerHTML : null;
+                        });
+                        var checked = {}; selectedVulnIds().forEach(function(id){ checked[id] = 1; });
+                        var sy = window.scrollY;
+                        // ---- swap ----
+                        curTb.innerHTML = freshHTML;
+                        // ---- restore open drawers (+ their loaded bodies) ----
+                        Object.keys(openDetails).forEach(function(id){
+                            var d = document.querySelector('#vulnTbody tr.vuln-detail[data-row-follow="'+esc(id)+'"]');
+                            if(!d) return; // that vuln is gone from the new set
+                            d.classList.remove('hidden');
+                            var row = document.querySelector('#vulnTbody tr.vuln-row[data-row-pair="'+esc(id)+'"]');
+                            if(row){ var caret = row.querySelector('.vuln-caret'); if(caret) caret.style.transform = 'rotate(90deg)'; }
+                            var body = d.querySelector('.vuln-detail-body');
+                            if(body && openDetails[id] !== null){ body.setAttribute('data-loaded','1'); body.innerHTML = openDetails[id]; }
+                        });
+                        // ---- restore selection ----
+                        document.querySelectorAll('#vulnTbody .vuln-cb').forEach(function(cb){ if(checked[cb.value]) cb.checked = true; });
+                        // ---- re-bind sort, re-apply filter, restore scroll/counters ----
+                        if(window.bindSortableTable) bindSortableTable('#vulnTable',{defaultKey:'sev',defaultDir:'desc'});
+                        applyVulnFilter();
+                        refreshSelCount();
+                        window.scrollTo(0, sy);
+                    }
+                    // Index finished building AND no scan is running any more →
+                    // this was the final swap; stop polling.
+                    if(nowReady && !stillRunning){ if(timer) clearInterval(timer); }
+                })
+                .catch(function(){ /* transient (VPN blip, etc.) — retry next tick */ });
+        }
+        timer = setInterval(poll, POLL);
+    })();
+    {{end}}
+});
+</script>
+{{end}}

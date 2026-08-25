@@ -1,0 +1,156 @@
+{{define "workspace_targets"}}
+{{/* Reusable grouped target picker — each TargetList becomes a
+     collapsible <details> with a header checkbox that toggles every
+     member, and member checkboxes that auto-keep the header in
+     check/uncheck/indeterminate sync. URL members are split into
+     https:// vs http:// sub-sections (scheme lives in the Value prefix),
+     each with its OWN select-all checkbox so you can pick every https (or
+     every http) host in one click. Members are alphabetically sorted
+     server-side. Used by every module form that accepts targets from the
+     active workspace.
+
+     Required data:
+       .WSTargetGroups []TargetGroup    (from h.groupTargetsByList)
+     Optional: .WSPickerInputName       (default "targets")
+*/}}
+{{$inputName := "targets"}}
+{{if .WSPickerInputName}}{{$inputName = .WSPickerInputName}}{{end}}
+{{/* ValueField selects what each checkbox POSTs: "value" (the target string,
+     default — module forms) or "id" (the target ID — the New Target List form,
+     which files existing targets into a category by ID). */}}
+{{$valueField := "value"}}
+{{if .WSPickerValueField}}{{$valueField = .WSPickerValueField}}{{end}}
+{{$label := "Targets from Workspace"}}
+{{if .WSPickerLabel}}{{$label = .WSPickerLabel}}{{end}}
+{{if .WSTargetGroups}}
+<div>
+    <label class="block text-sm text-dark-300 mb-1.5">
+        {{$label}}{{template "info_icon" "Workspace targets grouped by list, split into https/http. Tick a list header to select every member, or a scheme header (https/http) to select just that scheme. Un-tick individual rows to exclude specific hosts."}}
+    </label>
+    <div class="max-h-64 overflow-y-auto bg-dark-850 border border-dark-700 rounded-lg p-2 space-y-2">
+        {{range $gi, $g := .WSTargetGroups}}
+        <details class="wstg-group" open>
+            <summary class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-dark-800 cursor-pointer list-none">
+                <input type="checkbox" data-wstg-group="{{$gi}}"
+                       onclick="event.stopPropagation()"
+                       onchange="wstgToggleGroup(this)"
+                       class="rounded border-dark-600 bg-dark-800 text-accent-500">
+                <svg class="w-3 h-3 text-dark-500 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                <span class="text-xs font-medium text-dark-100 flex-1">{{$g.Name}}</span>
+                <span class="text-[10px] mono px-1.5 py-0.5 rounded bg-dark-800 text-dark-300 border border-dark-700">{{len $g.Targets}} hedef</span>
+            </summary>
+            <div class="pl-6 space-y-1 mt-1">
+                {{if $g.HTTPS}}
+                <div>
+                    <label class="flex items-center gap-1.5 px-2 py-0.5 rounded hover:bg-dark-800 cursor-pointer">
+                        <input type="checkbox" data-wstg-scheme-toggle="{{$gi}}-https" data-wstg-scheme-group="{{$gi}}"
+                               onchange="wstgToggleScheme(this)"
+                               class="rounded border-dark-600 bg-dark-800 text-accent-500">
+                        <span class="text-[9px] mono uppercase tracking-wider px-1 py-0.5 rounded bg-success/15 text-success">https</span>
+                        <span class="text-[10px] text-dark-500">{{len $g.HTTPS}}</span>
+                    </label>
+                    {{template "wstg_members" (dict "Members" $g.HTTPS "InputName" $inputName "GI" $gi "SchemeKey" (printf "%d-https" $gi) "ValueField" $valueField)}}
+                </div>
+                {{end}}
+                {{if $g.HTTP}}
+                <div>
+                    <label class="flex items-center gap-1.5 px-2 py-0.5 rounded hover:bg-dark-800 cursor-pointer">
+                        <input type="checkbox" data-wstg-scheme-toggle="{{$gi}}-http" data-wstg-scheme-group="{{$gi}}"
+                               onchange="wstgToggleScheme(this)"
+                               class="rounded border-dark-600 bg-dark-800 text-accent-500">
+                        <span class="text-[9px] mono uppercase tracking-wider px-1 py-0.5 rounded bg-warning/15 text-warning">http</span>
+                        <span class="text-[10px] text-dark-500">{{len $g.HTTP}}</span>
+                    </label>
+                    {{template "wstg_members" (dict "Members" $g.HTTP "InputName" $inputName "GI" $gi "SchemeKey" (printf "%d-http" $gi) "ValueField" $valueField)}}
+                </div>
+                {{end}}
+                {{if $g.Other}}
+                <div>
+                    {{if or $g.HTTPS $g.HTTP}}
+                    <label class="flex items-center gap-1.5 px-2 py-0.5 rounded hover:bg-dark-800 cursor-pointer">
+                        <input type="checkbox" data-wstg-scheme-toggle="{{$gi}}-other" data-wstg-scheme-group="{{$gi}}"
+                               onchange="wstgToggleScheme(this)"
+                               class="rounded border-dark-600 bg-dark-800 text-accent-500">
+                        <span class="text-[9px] mono uppercase tracking-wider px-1 py-0.5 rounded bg-dark-700 text-dark-300">host</span>
+                        <span class="text-[10px] text-dark-500">{{len $g.Other}}</span>
+                    </label>
+                    {{end}}
+                    {{template "wstg_members" (dict "Members" $g.Other "InputName" $inputName "GI" $gi "SchemeKey" (printf "%d-other" $gi) "ValueField" $valueField)}}
+                </div>
+                {{end}}
+            </div>
+        </details>
+        {{end}}
+    </div>
+    <p class="text-[10px] text-dark-500 mt-1">Seçili: <span id="wstgSelectedCount" class="text-dark-300">0</span> hedef</p>
+</div>
+<script>
+// Parent ↔ child checkbox sync across three levels: group header, per-scheme
+// header (https/http/host), and individual member rows. Any change resyncs
+// the group + scheme headers (checked / indeterminate) and the live total.
+function wstgSync(gi) {
+    var members = document.querySelectorAll('input[data-wstg-member="' + gi + '"]');
+    var parent = document.querySelector('input[data-wstg-group="' + gi + '"]');
+    if (parent && members.length !== 0) {
+        var c = 0;
+        members.forEach(function(cb) { if (cb.checked) c++; });
+        parent.checked = c === members.length;
+        parent.indeterminate = c > 0 && c < members.length;
+    }
+    // Per-scheme headers within this group.
+    document.querySelectorAll('input[data-wstg-scheme-group="' + gi + '"]').forEach(function(st) {
+        var key = st.getAttribute('data-wstg-scheme-toggle');
+        var sm = document.querySelectorAll('input[data-wstg-scheme="' + key + '"]');
+        var sc = 0;
+        sm.forEach(function(cb) { if (cb.checked) sc++; });
+        st.checked = sm.length !== 0 && sc === sm.length;
+        st.indeterminate = sc > 0 && sc < sm.length;
+    });
+    wstgUpdateSelected();
+}
+// Group header → tick/untick every member in the list.
+function wstgToggleGroup(parent) {
+    var gi = parent.getAttribute('data-wstg-group');
+    var checked = parent.checked;
+    document.querySelectorAll('input[data-wstg-member="' + gi + '"]').forEach(function(cb) {
+        cb.checked = checked;
+    });
+    wstgSync(gi);
+}
+// Scheme header → tick/untick every member of just that scheme (one click
+// to pick all https, or all http).
+function wstgToggleScheme(st) {
+    var key = st.getAttribute('data-wstg-scheme-toggle');
+    var gi = st.getAttribute('data-wstg-scheme-group');
+    var checked = st.checked;
+    document.querySelectorAll('input[data-wstg-scheme="' + key + '"]').forEach(function(cb) {
+        cb.checked = checked;
+    });
+    wstgSync(gi);
+}
+// Live total of picked targets across every list/scheme.
+function wstgUpdateSelected() {
+    var out = document.getElementById('wstgSelectedCount');
+    if (!out) return;
+    out.textContent = document.querySelectorAll('input[data-wstg-member]:checked').length;
+}
+document.addEventListener('DOMContentLoaded', wstgUpdateSelected);
+</script>
+{{end}}
+{{end}}
+
+{{define "wstg_members"}}
+{{$inputName := .InputName}}
+{{$gi := .GI}}
+{{$scheme := .SchemeKey}}
+{{$valueField := .ValueField}}
+{{range .Members}}
+<label class="flex items-center gap-2 px-2 py-1 rounded hover:bg-dark-800 cursor-pointer">
+    <input type="checkbox" name="{{$inputName}}" value="{{if eq $valueField "id"}}{{.ID}}{{else}}{{.Value}}{{end}}"
+           data-wstg-member="{{$gi}}" data-wstg-scheme="{{$scheme}}"
+           onchange="wstgSync({{$gi}})"
+           class="rounded border-dark-600 bg-dark-800 text-accent-500">
+    <span class="mono text-xs text-dark-200">{{.Value}}</span>
+</label>
+{{end}}
+{{end}}

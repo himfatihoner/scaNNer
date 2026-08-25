@@ -1,0 +1,322 @@
+{{define "page_sslscan_results"}}
+<!-- Breadcrumb -->
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="/modules/sslscan" class="hover:text-accent-400 transition-colors">SSL/TLS Scanner</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Results</span>
+</div>
+
+{{template "scan_actions" .}}
+
+{{if eq (print .Scan.Status) "done"}}
+<div class="flex items-center justify-end gap-2 mb-4">
+    <span class="text-[11px] text-dark-500 mr-1">Sort:</span>
+    <div class="flex bg-dark-850 border border-dark-700 rounded-lg overflow-hidden">
+        <a href="/modules/sslscan/results/{{.Scan.ID}}?sort=severity"
+           class="px-3 py-1.5 text-xs transition-colors {{if eq .SortMode "severity"}}text-white bg-accent-600{{else}}text-dark-400 hover:text-white{{end}}">
+            Severity
+        </a>
+        <a href="/modules/sslscan/results/{{.Scan.ID}}?sort=alpha"
+           class="px-3 py-1.5 text-xs transition-colors {{if eq .SortMode "alpha"}}text-white bg-accent-600{{else}}text-dark-400 hover:text-white{{end}}">
+            A-Z
+        </a>
+    </div>
+</div>
+{{end}}
+
+{{if or (eq (print .Scan.Status) "running") (eq (print .Scan.Status) "pending")}}
+{{template "scan_progress" .}}
+{{end}}
+
+<div id="scanContent">
+{{template "sslscan_results_inner" .}}
+</div>
+
+{{end}}
+
+{{define "sslscan_results_inner"}}
+<!-- Severity Summary -->
+<div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">Total</p>
+        <p class="text-2xl font-bold text-white">{{.TotalFindings}}</p>
+    </div>
+    <div class="bg-dark-900 border border-red-900/50 rounded-xl p-4 text-center">
+        <p class="text-xs text-red-400 uppercase tracking-wider mb-1">Critical</p>
+        <p class="text-2xl font-bold {{if .CriticalCount}}text-red-400{{else}}text-dark-600{{end}}">{{.CriticalCount}}</p>
+    </div>
+    <div class="bg-dark-900 border border-orange-900/50 rounded-xl p-4 text-center">
+        <p class="text-xs text-orange-400 uppercase tracking-wider mb-1">High</p>
+        <p class="text-2xl font-bold {{if .HighCount}}text-orange-400{{else}}text-dark-600{{end}}">{{.HighCount}}</p>
+    </div>
+    <div class="bg-dark-900 border border-yellow-900/50 rounded-xl p-4 text-center">
+        <p class="text-xs text-yellow-400 uppercase tracking-wider mb-1">Medium</p>
+        <p class="text-2xl font-bold {{if .MediumCount}}text-yellow-400{{else}}text-dark-600{{end}}">{{.MediumCount}}</p>
+    </div>
+    <div class="bg-dark-900 border border-blue-900/50 rounded-xl p-4 text-center">
+        <p class="text-xs text-blue-400 uppercase tracking-wider mb-1">Low</p>
+        <p class="text-2xl font-bold {{if .LowCount}}text-blue-400{{else}}text-dark-600{{end}}">{{.LowCount}}</p>
+    </div>
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
+        <p class="text-xs text-dark-400 uppercase tracking-wider mb-1">Info</p>
+        <p class="text-2xl font-bold {{if .InfoCount}}text-dark-300{{else}}text-dark-600{{end}}">{{.InfoCount}}</p>
+    </div>
+</div>
+
+<!-- Search -->
+{{if .Results}}
+<div class="flex flex-wrap items-center gap-2 mb-3">
+    <input id="sslSearch" type="search" placeholder="Ana bilgisayar, bulgu, şifre takımı, protokol, CVE, sertifika ara…" oninput="filterSslHosts()"
+           class="w-full md:w-[28rem] bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+    <span id="sslSearchCount" class="text-[11px] text-dark-500"></span>
+</div>
+{{end}}
+
+<!-- Results per host -->
+{{if .Results}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl mb-4 overflow-hidden">
+    {{template "empty_toggle" (dict "Scope" "sslscan-targets" "ContainerSel" "#sslScanGroups" "Group" "aw-suite" "Label" "Hide unreachable hosts")}}
+    <div id="sslScanGroups" class="max-h-[85vh] overflow-y-auto p-3 space-y-3">
+{{end}}
+{{range .Results}}
+{{/* Only unreachable hosts are "empty" (hideable). Every reachable target —
+     TLS hosts with findings AND reachable-but-no-TLS hosts — is shown so the
+     operator sees the full picture of what was scanned and what came back. */}}
+{{$empty := not .Reachable}}
+<div class="ssl-host-card bg-dark-900 border border-dark-800 rounded-xl overflow-hidden" data-empty="{{if $empty}}true{{else}}false{{end}}"
+     data-search="{{.Host}}:{{.Port}} {{range .Findings}}{{.Title}} {{.Description}} {{.Component}} {{range .CVEs}}{{.}} {{end}}{{end}} {{range .Ciphers}}{{.Name}} {{end}} {{range .Protocols}}{{.Name}} {{end}} {{with .CertInfo}}{{.Subject}} {{.Issuer}} {{.SigAlg}}{{end}}">
+    <!-- Host Header -->
+    <div class="flex items-center justify-between px-5 py-4 border-b border-dark-800">
+        <div class="flex items-center gap-3">
+            {{if .Reachable}}
+            <span class="w-2.5 h-2.5 rounded-full bg-success"></span>
+            {{else}}
+            <span class="w-2.5 h-2.5 rounded-full bg-danger"></span>
+            {{end}}
+            <span class="mono text-base font-semibold text-white">{{.Host}}:{{.Port}}</span>
+            {{if not .Reachable}}
+            <span class="text-[10px] uppercase tracking-wider text-danger bg-danger/10 border border-danger/20 px-2 py-0.5 rounded">Unreachable</span>
+            {{else if .HasTLS}}
+            <span class="text-[10px] uppercase tracking-wider text-success bg-success/10 border border-success/20 px-2 py-0.5 rounded">TLS</span>
+            {{else}}
+            <span class="text-[10px] uppercase tracking-wider text-dark-400 bg-dark-800 border border-dark-700 px-2 py-0.5 rounded" title="Port responded but no TLS/SSL handshake completed">No TLS</span>
+            {{end}}
+        </div>
+        {{if .Findings}}
+        <span class="text-xs text-dark-400">{{len .Findings}} findings</span>
+        {{end}}
+    </div>
+
+    {{if .Reachable}}
+    <div class="p-5 space-y-5">
+        <!-- Protocols -->
+        <div>
+            <h4 class="text-xs font-semibold text-dark-400 uppercase tracking-wider mb-2">Protocol Support</h4>
+            <div class="flex flex-wrap gap-2">
+                {{range .Protocols}}
+                {{if .Untested}}
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs rounded-lg bg-dark-850 text-dark-400 border border-dark-700 border-dashed" title="Go stdlib cannot probe this protocol — run sslscan/testssl.sh to verify">
+                    <span class="w-1.5 h-1.5 rounded-full bg-dark-500"></span>
+                    {{.Name}} <span class="text-[10px] text-dark-500">(not tested)</span>
+                </span>
+                {{else if .Supported}}
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs rounded-lg
+                    {{if or (eq .Name "SSL 2.0") (eq .Name "SSL 3.0")}}bg-red-500/10 text-red-400 border border-red-500/20
+                    {{else if eq .Name "TLS 1.0"}}bg-orange-500/10 text-orange-400 border border-orange-500/20
+                    {{else if eq .Name "TLS 1.1"}}bg-yellow-500/10 text-yellow-400 border border-yellow-500/20
+                    {{else}}bg-success/10 text-success border border-success/20
+                    {{end}}">
+                    <span class="w-1.5 h-1.5 rounded-full
+                        {{if or (eq .Name "SSL 2.0") (eq .Name "SSL 3.0")}}bg-red-400
+                        {{else if eq .Name "TLS 1.0"}}bg-orange-400
+                        {{else if eq .Name "TLS 1.1"}}bg-yellow-400
+                        {{else}}bg-success
+                        {{end}}"></span>
+                    {{.Name}}
+                </span>
+                {{else}}
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs rounded-lg bg-dark-850 text-dark-500 border border-dark-700">
+                    <span class="w-1.5 h-1.5 rounded-full bg-dark-600"></span>
+                    {{.Name}}
+                </span>
+                {{end}}
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Certificate -->
+        {{if .CertInfo}}
+        <div>
+            <h4 class="text-xs font-semibold text-dark-400 uppercase tracking-wider mb-2">Certificate</h4>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div class="bg-dark-850 rounded-lg p-3">
+                    <p class="text-[10px] text-dark-500 uppercase">Subject</p>
+                    <p class="text-xs text-dark-200 truncate mt-0.5">{{.CertInfo.Subject}}</p>
+                </div>
+                <div class="bg-dark-850 rounded-lg p-3">
+                    <p class="text-[10px] text-dark-500 uppercase">Issuer</p>
+                    <p class="text-xs text-dark-200 truncate mt-0.5">{{.CertInfo.Issuer}}</p>
+                </div>
+                <div class="bg-dark-850 rounded-lg p-3">
+                    <p class="text-[10px] text-dark-500 uppercase">Expires</p>
+                    <p class="text-xs mt-0.5 {{if .CertInfo.IsExpired}}text-danger{{else if (le .CertInfo.DaysLeft 30)}}text-warning{{else}}text-success{{end}}">
+                        {{.CertInfo.NotAfter.Format "2006-01-02"}}
+                        {{if .CertInfo.IsExpired}}(EXPIRED){{else}}({{.CertInfo.DaysLeft}}d left){{end}}
+                    </p>
+                </div>
+                <div class="bg-dark-850 rounded-lg p-3">
+                    <p class="text-[10px] text-dark-500 uppercase">Signature</p>
+                    <p class="text-xs text-dark-200 mt-0.5">{{.CertInfo.SigAlg}}</p>
+                </div>
+            </div>
+        </div>
+        {{end}}
+
+        <!-- Cipher Suites -->
+        {{if .Ciphers}}
+        <div>
+            <h4 class="text-xs font-semibold text-dark-400 uppercase tracking-wider mb-2">Cipher Suites ({{len .Ciphers}})</h4>
+            <div class="bg-dark-850 rounded-lg overflow-hidden">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-dark-700">
+                            <th class="text-left px-3 py-2 text-[10px] text-dark-500 uppercase">Cipher</th>
+                            <th class="text-left px-3 py-2 text-[10px] text-dark-500 uppercase">Protocols</th>
+                            <th class="text-left px-3 py-2 text-[10px] text-dark-500 uppercase">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .Ciphers}}
+                        <tr class="border-b border-dark-700/50">
+                            <td class="px-3 py-2 mono text-[11px] text-dark-200">{{.Name}}</td>
+                            <td class="px-3 py-2 text-[11px] text-dark-400">{{range $i, $v := .Versions}}{{if $i}}, {{end}}{{$v}}{{end}}</td>
+                            <td class="px-3 py-2 text-[11px] text-success">Supported</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {{end}}
+
+        <!-- Findings -->
+        {{if .Findings}}
+        <div>
+            <h4 class="text-xs font-semibold text-dark-400 uppercase tracking-wider mb-2">Findings ({{len .Findings}})</h4>
+            <div class="space-y-2">
+                {{range .Findings}}
+                <div class="flex items-start gap-3 px-4 py-3 rounded-lg
+                    {{if eq (print .Severity) "CRITICAL"}}bg-red-500/5 border border-red-500/20
+                    {{else if eq (print .Severity) "HIGH"}}bg-orange-500/5 border border-orange-500/20
+                    {{else if eq (print .Severity) "MEDIUM"}}bg-yellow-500/5 border border-yellow-500/20
+                    {{else if eq (print .Severity) "LOW"}}bg-blue-500/5 border border-blue-500/20
+                    {{else}}bg-dark-850 border border-dark-700
+                    {{end}}">
+                    <span class="shrink-0 mt-0.5 px-2 py-0.5 text-[10px] font-bold uppercase rounded
+                        {{if eq (print .Severity) "CRITICAL"}}bg-red-500/20 text-red-400
+                        {{else if eq (print .Severity) "HIGH"}}bg-orange-500/20 text-orange-400
+                        {{else if eq (print .Severity) "MEDIUM"}}bg-yellow-500/20 text-yellow-400
+                        {{else if eq (print .Severity) "LOW"}}bg-blue-500/20 text-blue-400
+                        {{else}}bg-dark-700 text-dark-400
+                        {{end}}">{{.Severity}}</span>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                            <p class="text-sm font-medium text-white">{{.Title}}</p>
+                            {{if and (eq .Component "cipher") (gt .Count 1)}}
+                            <span class="text-[10px] text-dark-500 bg-dark-800 px-1.5 py-0.5 rounded">{{.Count}} ciphers</span>
+                            {{end}}
+                        </div>
+                        <p class="text-xs text-dark-400 mt-0.5">{{.Description}}</p>
+                        {{if .CVEs}}
+                        <div class="flex flex-wrap gap-1 mt-1.5">
+                            {{range .CVEs}}
+                            <span class="mono text-[10px] text-dark-400 bg-dark-800 px-1.5 py-0.5 rounded">{{.}}</span>
+                            {{end}}
+                        </div>
+                        {{end}}
+                        {{if or .PoCCommand .PoCOutput}}
+                        <details class="mt-2">
+                            <summary class="cursor-pointer text-[11px] text-emerald-400/80 hover:text-emerald-300 select-none">PoC — çalıştırılan komut ve çıktısı</summary>
+                            <div class="mt-1.5 rounded-lg border border-dark-700 bg-dark-950 overflow-hidden">
+                                {{if .PoCCommand}}
+                                <div class="px-3 py-2 border-b border-dark-800 bg-dark-900">
+                                    <span class="mono text-[11px] text-emerald-300 break-all">$ {{.PoCCommand}}</span>
+                                </div>
+                                {{end}}
+                                {{if .PoCOutput}}
+                                <pre class="mono text-[10.5px] leading-relaxed text-dark-300 px-3 py-2 overflow-auto max-h-72 whitespace-pre">{{.PoCOutput}}</pre>
+                                {{end}}
+                            </div>
+                        </details>
+                        {{end}}
+                    </div>
+                    <span class="text-[10px] text-dark-500 uppercase shrink-0">{{.Component}}</span>
+                </div>
+                {{end}}
+            </div>
+        </div>
+        {{end}}
+
+        {{if not .Findings}}
+        <div class="flex items-center gap-3 px-4 py-3 bg-success/5 border border-success/20 rounded-lg">
+            <svg class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+            <div>
+                <p class="text-sm font-medium text-success">No vulnerabilities found</p>
+                <p class="text-xs text-dark-400">SSL/TLS configuration looks secure (within this module's scope — see limitations below)</p>
+            </div>
+        </div>
+        {{end}}
+
+        {{if .Limitations}}
+        <div class="mt-4 px-4 py-3 bg-warning/5 border border-warning/30 rounded-lg">
+            <div class="flex items-center gap-2 mb-2">
+                <svg class="w-4 h-4 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.732-3L13.732 4a2 2 0 00-3.464 0L3.268 16A2 2 0 005 19z"/></svg>
+                <p class="text-xs font-semibold text-warning uppercase tracking-wider">Scan limitations — false negatives possible</p>
+            </div>
+            <ul class="text-[11px] text-dark-300 space-y-1 list-disc list-inside">
+                {{range .Limitations}}<li>{{.}}</li>{{end}}
+            </ul>
+        </div>
+        {{end}}
+    </div>
+    {{else}}
+    <div class="p-5">
+        <p class="text-sm text-danger">{{.Error}}</p>
+    </div>
+    {{end}}
+</div>
+{{end}}
+{{if .Results}}
+    </div>{{/* close sslScanGroups */}}
+</div>{{/* close wrapper */}}
+{{end}}
+
+{{if not .Results}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
+    <p class="text-sm">{{if eq (print .Scan.Status) "running"}}Waiting for first results...{{else}}No results available{{end}}</p>
+</div>
+{{end}}
+
+<script>
+// Filter the per-host SSL/TLS cards by host / finding / cipher / protocol / CVE
+// / certificate text. Cheap client-side substring match over each card's
+// data-search blob.
+function filterSslHosts(){
+    var input=document.getElementById('sslSearch'); if(!input) return;
+    var q=(input.value||'').toLowerCase().trim();
+    var cards=document.querySelectorAll('.ssl-host-card');
+    var vis=0;
+    cards.forEach(function(c){
+        var s=(c.getAttribute('data-search')||'').toLowerCase();
+        var show=!q||s.indexOf(q)!==-1;
+        c.style.display=show?'':'none'; if(show)vis++;
+    });
+    var el=document.getElementById('sslSearchCount');
+    if(el) el.textContent=q?(vis+' / '+cards.length+' host'):'';
+}
+</script>
+{{end}}

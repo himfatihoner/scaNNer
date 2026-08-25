@@ -1,0 +1,201 @@
+{{define "page_concurtest"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Concurrency Tester</span>
+</div>
+
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">⚡</span> Concurrency Tester</h2>
+        <p class="text-sm text-dark-400 mt-1">Probe a target's practical concurrency limit using a ramp test, sustained-load test, and burst test.</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Test</h3>
+
+            <div class="bg-warning/10 border border-warning/30 rounded-lg p-3 mb-4">
+                <p class="text-[11px] text-warning font-medium">⚠ This module deliberately stresses the target. A default run sends ~3 000 requests per target. Only run against systems you own or have explicit authorization to load-test.</p>
+            </div>
+
+            <form action="/modules/concurtest/run" method="POST">
+                <div class="space-y-5">
+                    {{template "workspace_targets" .}}
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Manual Targets <span class="text-danger">*</span></label>
+                        <textarea name="manual_targets" rows="3" placeholder="https://example.com&#10;https://api.target.com/health"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                        <p class="text-[11px] text-dark-500 mt-1">One URL per line. https:// is assumed if missing.</p>
+                    </div>
+
+                    <!-- Probe mode -->
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                        <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-2">Probe Mode</p>
+                        <div class="space-y-2">
+                            <label class="flex items-start gap-2 cursor-pointer">
+                                <input type="radio" name="probe_mode" value="varied" checked
+                                       class="mt-0.5 border-dark-600 bg-dark-800 text-accent-500">
+                                <div>
+                                    <p class="text-xs font-medium text-accent-400">Varied paths <span class="text-[10px] text-dark-500 ml-1">— recommended for scan tuning</span></p>
+                                    <p class="text-[11px] text-dark-400 mt-0.5">Each request gets a random path segment (e.g. <span class="mono">/abc12def34xy</span>). Most hits 404 fast — exactly the load profile direnum / brute-force scans actually create. Use this to find a concurrency you can safely set on real scans.</p>
+                                </div>
+                            </label>
+                            <label class="flex items-start gap-2 cursor-pointer">
+                                <input type="radio" name="probe_mode" value="single"
+                                       class="mt-0.5 border-dark-600 bg-dark-800 text-accent-500">
+                                <div>
+                                    <p class="text-xs font-medium text-dark-300">Single URL</p>
+                                    <p class="text-[11px] text-dark-400 mt-0.5">Hammers the exact URL given (with a <span class="mono">?_=…</span> cache-buster). Use when you want to measure one specific endpoint's capacity — e.g. a search API, a heavy report page.</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Ramp scenario -->
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                        <p class="text-[10px] uppercase tracking-wider text-accent-400 font-semibold mb-2">Ramp Test (always run)</p>
+                        <p class="text-[11px] text-dark-400 mb-3">Steps through concurrency levels 1, 2, 5, 10, 25, 50, 100, 200, … up to the cap. At each level it fires N requests in parallel and reports success rate, p50/p95/p99 latency, status-code mix and error breakdown. The "practical max" is the highest level that holds ≥98% success and p95 within 2× baseline.</p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[10px] uppercase text-dark-500 mb-1">Max concurrency</label>
+                                <input type="number" name="max_concurrency" value="200" min="2" max="10000"
+                                       class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
+                                <p class="text-[10px] text-dark-600 mt-1">Up to 10 000 (C10K). Past that needs OS-level tuning.</p>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] uppercase text-dark-500 mb-1">Requests per level</label>
+                                <input type="number" name="reqs_per_level" value="30" min="5" max="200"
+                                       class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sustained scenario -->
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                        <label class="flex items-start gap-2 cursor-pointer mb-2">
+                            <input type="checkbox" name="run_sustained" checked class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500">
+                            <div>
+                                <p class="text-[11px] uppercase tracking-wider text-accent-400 font-semibold">Sustained Load</p>
+                                <p class="text-[11px] text-dark-400 mt-1">Holds a fixed concurrency for a while. Detects rate-limiters that only kick in after the first burst (token-bucket / leaky-bucket throttling), latency drift, and connection-pool exhaustion.</p>
+                            </div>
+                        </label>
+                        <div class="grid grid-cols-2 gap-3 mt-2">
+                            <div>
+                                <label class="block text-[10px] uppercase text-dark-500 mb-1">Concurrency (0 = auto from ramp)</label>
+                                <input type="number" name="sustained_concurrency" value="0" min="0" max="10000"
+                                       class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] uppercase text-dark-500 mb-1">Duration (sec)</label>
+                                <input type="number" name="sustained_duration" value="30" min="5" max="300"
+                                       class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Burst scenario -->
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                        <label class="flex items-start gap-2 cursor-pointer mb-2">
+                            <input type="checkbox" name="run_burst" checked class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500">
+                            <div>
+                                <p class="text-[11px] uppercase tracking-wider text-accent-400 font-semibold">Burst Test</p>
+                                <p class="text-[11px] text-dark-400 mt-1">Fires N requests at once, idles, repeats. Reveals anti-burst defenses that allow sustained traffic but cap rapid surges (CDN edge protection, AWS surge limits, etc.).</p>
+                            </div>
+                        </label>
+                        <div class="grid grid-cols-3 gap-3 mt-2">
+                            <div>
+                                <label class="block text-[10px] uppercase text-dark-500 mb-1">Burst size</label>
+                                <input type="number" name="burst_size" value="50" min="5" max="1000"
+                                       class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] uppercase text-dark-500 mb-1">Burst count</label>
+                                <input type="number" name="burst_count" value="5" min="1" max="20"
+                                       class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] uppercase text-dark-500 mb-1">Idle (ms)</label>
+                                <input type="number" name="burst_idle" value="3000" min="0" max="30000"
+                                       class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Request shape -->
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                        <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-2">Request Shape</p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[10px] uppercase text-dark-500 mb-1">HTTP method</label>
+                                <select name="http_method" class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
+                                    <option value="GET" selected>GET</option>
+                                    <option value="POST">POST</option>
+                                    <option value="PUT">PUT</option>
+                                    <option value="PATCH">PATCH</option>
+                                    <option value="DELETE">DELETE</option>
+                                    <option value="HEAD">HEAD</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] uppercase text-dark-500 mb-1">Content-Type (when body set)</label>
+                                <input type="text" name="http_content_type" placeholder="application/json"
+                                       class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <label class="block text-[10px] uppercase text-dark-500 mb-1">Body (raw, optional)</label>
+                            <textarea name="http_body" rows="3" placeholder='{"q":"load test"}'
+                                      class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                            <p class="text-[10px] text-dark-500 mt-1">Use for POST/PUT/PATCH endpoints (search APIs, GraphQL, login).</p>
+                        </div>
+                        <label class="flex items-start gap-2 cursor-pointer mt-3">
+                            <input type="checkbox" name="force_http1" checked class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500">
+                            <div>
+                                <p class="text-[11px] font-medium text-dark-300">Force HTTP/1.1 <span class="text-[10px] text-dark-500 ml-1">— recommended for capacity testing</span></p>
+                                <p class="text-[11px] text-dark-400 mt-0.5">HTTP/2 multiplexes many requests over one TCP conn, masking the server's real concurrency ceiling. Disable only when probing an h2-only origin or when you genuinely want to measure multiplexed throughput.</p>
+                            </div>
+                        </label>
+                    </div>
+
+                </div>
+
+                {{template "http_options" .}}
+
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Start Concurrency Test
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}
+            <div class="space-y-2">
+                {{range .Scans}}
+                <a href="/modules/concurtest/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all group">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200 group-hover:text-white">Scan #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "01-02 15:04"}}</span>
+                    </div>
+                    <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                {{end}}
+            </div>
+            {{else}}
+            <div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No scans yet</p></div>
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}

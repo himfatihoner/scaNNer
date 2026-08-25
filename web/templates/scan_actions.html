@@ -1,0 +1,216 @@
+{{define "scan_actions"}}
+{{/*
+    Reusable header actions row used by every <module>_results.html page.
+    Shows: ← back button, status badge, then on the right side Restart / Delete /
+    Export buttons. Restart works for any scan (re-runs with original config),
+    Delete drops the record, Export only shows when status=done.
+
+    Required data: .Scan
+*/}}
+<div class="flex items-start justify-between mb-6">
+    <div class="flex items-start gap-3">
+        <button type="button" onclick="window.history.length>1?window.history.back():window.location.href='/scans'"
+                title="Back"
+                class="mt-1 w-9 h-9 flex items-center justify-center bg-dark-850 border border-dark-700 hover:border-accent-500/50 text-dark-300 hover:text-accent-400 rounded-lg transition-colors shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+        </button>
+        <div>
+            <h2 class="text-xl font-bold text-white">Scan #{{.Scan.ID | printf "%.8s"}}
+                {{if eq (print .Scan.Status) "done"}}<span class="text-[10px] uppercase text-success bg-success/10 px-2 py-1 rounded ml-2">Done</span>
+                {{else if eq (print .Scan.Status) "running"}}<span class="text-[10px] uppercase text-accent-400 bg-accent-600/10 px-2 py-1 rounded ml-2 scan-pulse">Running</span>
+                {{else if eq (print .Scan.Status) "pending"}}<span class="text-[10px] uppercase text-accent-400 bg-accent-600/10 px-2 py-1 rounded ml-2">Pending</span>
+                {{else if eq (print .Scan.Status) "cancelled"}}<span class="text-[10px] uppercase text-warning bg-warning/10 px-2 py-1 rounded ml-2">Cancelled</span>
+                {{else if eq (print .Scan.Status) "error"}}<span class="text-[10px] uppercase text-danger bg-danger/10 px-2 py-1 rounded ml-2">Error</span>
+                {{else if eq (print .Scan.Status) "paused"}}<span class="text-[10px] uppercase text-warning bg-warning/10 px-2 py-1 rounded ml-2">Paused</span>
+                {{else if eq (print .Scan.Status) "queued"}}<span class="text-[10px] uppercase text-accent-300 bg-accent-600/10 px-2 py-1 rounded ml-2">Queued</span>{{end}}
+            </h2>
+            <p class="text-[11px] text-dark-500 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                <span class="text-dark-300">{{moduleDisplayName .Scan.Module}}</span>
+                <span title="Created at — when this scan was queued"><span class="text-dark-600">created</span> {{.Scan.CreatedAt.Format "2006-01-02 15:04:05"}}</span>
+                {{if .Scan.StartedAt}}
+                <span title="Scan launched"><span class="text-dark-600">started</span> {{.Scan.StartedAt.Format "15:04:05"}}</span>
+                {{end}}
+                {{if .Scan.FinishedAt}}
+                <span title="Scan completed"><span class="text-dark-600">finished</span> {{.Scan.FinishedAt.Format "15:04:05"}}</span>
+                <span class="text-accent-400" title="Total wall-clock duration"><span class="text-dark-600">·</span> {{formatDuration (.Scan.FinishedAt.Sub (deref .Scan.StartedAt))}}</span>
+                {{end}}{{/* the live "Running" badge in the h2 (updated by the status poller) is the single source of truth; the old static "running…" span here never flipped to done on completion, so it's removed */}}
+            </p>
+            {{/* Raw-vs-unique finding count: this page counts raw findings per
+                 severity; the Vulnerabilities page deduplicates the same finding
+                 seen on the same asset (e.g. across ports), so its total is
+                 lower. Surface both so the difference isn't confusing. */}}
+            {{$vc := scanVulnCounts .Scan.ID}}
+            {{if gt $vc.Unique 0}}
+            <p class="text-[11px] text-dark-500 mt-1.5" title="This scan's results count RAW findings; the Vulnerabilities page shows one row per distinct asset+finding (deduplicated across ports/duplicates), so its count is lower.">
+                <span class="text-dark-400 mono">{{$vc.Raw}}</span> findings ·
+                <a href="/vulnerabilities" class="text-accent-400 hover:text-accent-300 mono">{{$vc.Unique}} unique</a>
+                on the Vulnerabilities page (after dedup)
+                {{$diff := false}}{{range $vc.Sevs}}{{if .Differs}}{{$diff = true}}{{end}}{{end}}
+                {{if $diff}}<span class="text-dark-600"> — </span>{{range $vc.Sevs}}{{if .Differs}}<span class="mono">{{.Label}} <span class="text-dark-400">{{.Raw}}</span>→<span class="text-accent-400">{{.Unique}}</span></span>&nbsp;&nbsp;{{end}}{{end}}{{end}}
+            </p>
+            {{end}}
+        </div>
+    </div>
+
+    <div class="flex items-center gap-2 shrink-0">
+        {{if eq (print .Scan.Status) "done"}}
+        <button onclick="openExportModal('{{.Scan.ID}}')"
+                class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-dark-300 hover:text-white bg-dark-850 border border-dark-700 hover:border-dark-600 rounded-lg transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Export
+        </button>
+        {{end}}
+
+        {{if eq (print .Scan.Status) "paused"}}
+        <form action="/scans/resume/" method="POST" class="inline">
+            <input type="hidden" name="id" value="{{.Scan.ID}}">
+            <button type="submit"
+                    class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-accent-200 hover:text-white bg-accent-600/15 border border-accent-500/40 hover:bg-accent-600/25 rounded-lg transition-colors"
+                    title="Resume this scan from where it left off (continues the remaining work)">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Resume
+            </button>
+        </form>
+        {{end}}
+
+        {{if eq (print .Scan.Status) "queued"}}
+        <form action="/scans/stop/" method="POST" class="inline">
+            <input type="hidden" name="id" value="{{.Scan.ID}}">
+            <button type="submit"
+                    class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-warning hover:text-white bg-warning/10 border border-warning/30 hover:bg-warning/20 rounded-lg transition-colors"
+                    title="Remove this scan from the queue (it will not run)">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                Cancel queue
+            </button>
+        </form>
+        {{end}}
+
+        {{if or (eq (print .Scan.Status) "done") (eq (print .Scan.Status) "error") (eq (print .Scan.Status) "cancelled") (eq (print .Scan.Status) "paused")}}
+        <form action="/scans/restart/" method="POST" class="inline">
+            <input type="hidden" name="id" value="{{.Scan.ID}}">
+            <button type="submit"
+                    class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-dark-300 hover:text-accent-400 bg-dark-850 border border-dark-700 hover:border-accent-500/50 rounded-lg transition-colors"
+                    title="Restart this scan with its original config">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Restart
+            </button>
+        </form>
+        <form action="/scans/archive/" method="POST" class="inline">
+            <input type="hidden" name="id" value="{{.Scan.ID}}">
+            <input type="hidden" name="action" value="{{if .Scan.Archived}}unarchive{{else}}archive{{end}}">
+            <button type="submit"
+                    class="flex items-center justify-center w-9 h-9 text-dark-500 hover:text-accent-400 bg-dark-850 border border-dark-700 hover:border-accent-500/50 rounded-lg transition-colors"
+                    title="{{if .Scan.Archived}}Unarchive — move back to active scans{{else}}Archive — hide from /scans without deleting{{end}}">
+                {{if .Scan.Archived}}
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2zm5 8l2-2m0 0l2-2m-2 2v6"/></svg>
+                {{else}}
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+                {{end}}
+            </button>
+        </form>
+        {{end}}
+
+        <form action="/scans/delete/" method="POST" class="inline" onsubmit="return confirm('Delete this scan permanently? Its findings are also removed from the Vulnerabilities page and assets. Export first if you need them.')">
+            <input type="hidden" name="id" value="{{.Scan.ID}}">
+            <button type="submit"
+                    class="flex items-center justify-center w-9 h-9 text-dark-500 hover:text-danger bg-dark-850 border border-dark-700 hover:border-danger/40 rounded-lg transition-colors"
+                    title="Delete this scan">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+        </form>
+    </div>
+</div>
+
+{{/* Error banner — when a scan errored, surface WHY. MarkScanError stores the
+     (translated, human-readable) reason in progress_msg; previously only the
+     "Error" badge showed and the message was invisible. */}}
+{{if and (eq (print .Scan.Status) "error") .Scan.ProgressMsg}}
+<div class="mb-5 flex items-start gap-3 bg-danger/5 border border-danger/30 rounded-xl px-4 py-3">
+    <svg class="w-5 h-5 text-danger shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <div class="min-w-0">
+        <p class="text-xs font-semibold text-danger uppercase tracking-wider mb-0.5">Scan failed</p>
+        <p class="text-sm text-dark-200 whitespace-pre-wrap break-words">{{.Scan.ProgressMsg}}</p>
+    </div>
+</div>
+{{end}}
+
+{{/* Paused banner — the connectivity monitor paused this scan; its partial
+     results are preserved and it auto-resumes when the internet is back. */}}
+{{if eq (print .Scan.Status) "paused"}}
+<div class="mb-5 flex items-start gap-3 bg-warning/5 border border-warning/30 rounded-xl px-4 py-3">
+    <svg class="w-5 h-5 text-warning shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <div class="min-w-0">
+        <p class="text-xs font-semibold text-warning uppercase tracking-wider mb-0.5">Scan paused</p>
+        <p class="text-sm text-dark-200 whitespace-pre-wrap break-words">{{if .Scan.ProgressMsg}}{{.Scan.ProgressMsg}}{{else}}Connectivity lost — the scan paused with its results preserved.{{end}} It will auto-resume when the internet is back, or click <span class="text-accent-300 font-medium">Resume</span> to continue now.</p>
+    </div>
+</div>
+{{end}}
+
+{{/* Queued banner — sequential scanning parked this scan; it starts
+     automatically once the workspace's active scan finishes. */}}
+{{if eq (print .Scan.Status) "queued"}}
+<div class="mb-5 flex items-start gap-3 bg-accent-600/5 border border-accent-500/30 rounded-xl px-4 py-3">
+    <svg class="w-5 h-5 text-accent-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <div class="min-w-0">
+        <p class="text-xs font-semibold text-accent-300 uppercase tracking-wider mb-0.5">Scan queued</p>
+        <p class="text-sm text-dark-200 whitespace-pre-wrap break-words">{{if .Scan.ProgressMsg}}{{.Scan.ProgressMsg}}{{else}}Waiting for the active scan in this workspace to finish.{{end}} It starts automatically — no action needed. This page updates itself when it begins.</p>
+    </div>
+</div>
+{{/* scan_progress (the live poll) only renders for running/pending, so while
+     queued we poll here and reload once the scheduler dispatches this scan —
+     the reloaded page then shows the running view. Runs once on full-page load;
+     the partial refresh never re-fetches scan_actions. */}}
+<script>
+(function(){
+    var url = "/modules/{{.Scan.Module}}/status/{{.Scan.ID}}";
+    var iv = setInterval(function(){
+        fetch(url).then(function(r){return r.json();}).then(function(d){
+            if (d && d.status && d.status !== "queued") { clearInterval(iv); location.reload(); }
+        }).catch(function(){});
+    }, 3000);
+})();
+</script>
+{{end}}
+
+{{/* Command history — every external command the scanner emitted via the
+     "$ " convention. Populated by db.UpdateScanProgress, persisted in
+     scans.commands. Visible after the scan finishes (the live console
+     panel in scan_progress hides on completion). */}}
+{{$cmds := .Scan.CommandLines}}
+{{if $cmds}}
+{{/* Open by default — users were missing this panel and could not see
+     what nmap/whatweb/curl actually ran. The panel is collapsible if
+     they want to hide it, but the default-open state makes "what
+     command produced this finding?" answerable at a glance. */}}
+<details open class="mb-5 bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+    <summary class="flex items-center gap-2 px-4 py-2.5 cursor-pointer text-xs uppercase tracking-wider text-dark-400 hover:text-white">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        Commands run
+        <span class="mono text-[10px] text-dark-500">({{len $cmds}})</span>
+        <button type="button" onclick="event.preventDefault();event.stopPropagation();navigator.clipboard.writeText(this.previousElementSibling.parentElement.parentElement.querySelector('pre').textContent.trim());this.textContent='✓ copied';setTimeout(()=>this.textContent='copy all',1500);" class="ml-auto text-[10px] px-2 py-0.5 rounded bg-dark-850 text-dark-300 hover:bg-dark-800 border border-dark-700">copy all</button>
+    </summary>
+    <pre class="mono text-[11px] text-dark-300 bg-dark-950 px-4 py-3 whitespace-pre-wrap border-t border-dark-800 max-h-80 overflow-auto">{{range $cmds}}{{.}}
+{{end}}</pre>
+</details>
+{{end}}
+
+{{/* Full console — the complete progress-message stream (every line, not just
+     the "$ " command crumbs). Rendered on load so a finished/reloaded scan
+     shows the whole run (the live console panel in scan_progress hides on
+     completion). Persisted in scans.console_log. */}}
+{{$log := .Scan.ConsoleLines}}
+{{if $log}}
+<details class="mb-5 bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+    <summary class="flex items-center gap-2 px-4 py-2.5 cursor-pointer text-xs uppercase tracking-wider text-dark-400 hover:text-white">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Console
+        <span class="mono text-[10px] text-dark-500">({{len $log}})</span>
+        <button type="button" onclick="event.preventDefault();event.stopPropagation();navigator.clipboard.writeText(this.parentElement.parentElement.querySelector('pre').textContent.trim());this.textContent='✓ copied';setTimeout(()=>this.textContent='copy all',1500);" class="ml-auto text-[10px] px-2 py-0.5 rounded bg-dark-850 text-dark-300 hover:bg-dark-800 border border-dark-700">copy all</button>
+    </summary>
+    <pre class="mono text-[11px] text-dark-300 bg-dark-950 px-4 py-3 whitespace-pre-wrap break-words border-t border-dark-800 max-h-96 overflow-auto" style="overflow-wrap:anywhere">{{range $log}}{{.}}
+{{end}}</pre>
+</details>
+{{end}}
+{{end}}

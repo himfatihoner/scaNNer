@@ -1,0 +1,212 @@
+#!/usr/bin/env bash
+#
+# scanner-tune — runtime network-stack re-tuning helper for scaNNer.
+#
+# Installed by scripts/install.sh to /usr/local/sbin/scanner-tune (root:root,
+# mode 0755). The RUNNING scanner invokes it from its Settings -> "Network
+# Tuning" panel as:
+#
+#     sudo -n /usr/local/sbin/scanner-tune KEY=VAL [KEY=VAL ...]
+#
+# and parses this program's stdout (see OUTPUT CONTRACT below).
+#
+# ===========================================================================
+# SECURITY MODEL — why granting this NOPASSWD via sudoers is safe
+# ===========================================================================
+# The sudoers rule (scanner-tune) lets the unprivileged scanner user run THIS
+# program as root with ANY arguments. That is safe only because privilege is
+# bounded *inside* this program, on three independent axes:
+#
+#   1. FIXED PATH. sudoers authorises exactly /usr/local/sbin/scanner-tune,
+#      which is root-owned and mode 0755 (only root can replace it). The user
+#      cannot point sudo at a different script.
+#
+#   2. STRICT ARG ALLOWLIST. Only six keys are accepted: port_lo, port_hi,
+#      fin_timeout, tw_reuse, conntrack_max, tw_buckets. Any other token — an
+#      unknown key, a bare word, a flag — is rejected before anything happens.
+#
+#   3. NUMERIC VALIDATION. Every value must be a plain non-negative integer in
+#      a sane range. Values only ever flow into integer `[ -ge ]` tests and
+#      printf '%s' into the config file. They are NEVER eval'd, never used as a
+#      command, never expanded as a path. sysctl reads the file WE wrote, not
+#      the caller's arguments, so there is no argument-injection surface.
+#
+# Net effect: the worst a compromised scanner process can do through this helper
+# is set the six kernel tunables to other in-range integer values. It cannot
+# run arbitrary commands, touch other files, or escalate further.
+# ===========================================================================
+#
+# OUTPUT CONTRACT (machine-readable — parsed by the Go handler):
+#   success -> exit 0, stdout is:
+#                OK
+#                port_lo=<n>
+#                port_hi=<n>
+#                fin_timeout=<n>
+#                tw_reuse=<n>
+#                tw_buckets=<n>
+#                conntrack_max=<n>      (only when applicable)
+#   failure -> non-zero exit, a single "ERROR: <reason>" line on stderr,
+#              and NOTHING on stdout.
+#
+# Note: no `set -e` — we handle every failure explicitly so the ERROR: line is
+# always emitted. We do use `set -u` (catch unset vars) and pipefail.
+set -u
+set -o pipefail
+
+CONF="/etc/sysctl.d/99-scanner.conf"
+
+die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+
+# ---------------------------------------------------------------------------
+# Must be root (we are invoked via sudo). Refuse otherwise.
+# ---------------------------------------------------------------------------
+[ "$(id -u)" -eq 0 ] || { printf 'ERROR: scanner-tune must run as root (via: sudo -n /usr/local/sbin/scanner-tune ...)\n' >&2; exit 2; }
+
+[ "$#" -ge 1 ] || die "no arguments; expected KEY=VAL from {port_lo,port_hi,fin_timeout,tw_reuse,conntrack_max,tw_buckets}"
+
+# ---------------------------------------------------------------------------
+# Validation helpers.
+# ---------------------------------------------------------------------------
+is_uint() {
+  case "${1:-}" in
+    ''|*[!0-9]*) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+# conf_get <sysctl.key> — print the value from the existing managed file (the
+# text after '='), skipping comment lines. Empty if the key is absent.
+conf_get() {
+  [ -f "$CONF" ] || return 0
+  awk -v k="$1" '
+    /^[[:space:]]*#/ { next }
+    {
+      eq = index($0, "=")
+      if (eq == 0) next
+      key = substr($0, 1, eq - 1)
+      val = substr($0, eq + 1)
+      gsub(/[[:space:]]/, "", key)
+      sub(/^[[:space:]]+/, "", val)
+      sub(/[[:space:]]+$/, "", val)
+      if (key == k) { print val; exit }
+    }
+  ' "$CONF"
+}
+
+# kernel_get <proc-relative-path> — live kernel value, whitespace-normalised.
+kernel_get() {
+  local p="/proc/sys/$1"
+  [ -r "$p" ] && xargs <"$p" 2>/dev/null || true
+}
+
+# ---------------------------------------------------------------------------
+# Resolve each tunable with precedence:  CLI arg  >  existing file  >  kernel.
+# This means a call that specifies only one key preserves the others exactly as
+# they are on the system, and never regresses an existing setting.
+# ---------------------------------------------------------------------------
+# Seed from the live kernel.
+krange="$(kernel_get net/ipv4/ip_local_port_range)"   # e.g. "32768 60999"
+PORT_LO="${krange%%[[:space:]]*}"
+PORT_HI="${krange##*[[:space:]]}"
+FIN_TIMEOUT="$(kernel_get net/ipv4/tcp_fin_timeout)"
+TW_REUSE="$(kernel_get net/ipv4/tcp_tw_reuse)"
+TW_BUCKETS="$(kernel_get net/ipv4/tcp_max_tw_buckets)"
+CONNTRACK_MAX="$(kernel_get net/netfilter/nf_conntrack_max)"
+
+# Overlay values already recorded in the managed file (if present).
+if [ -f "$CONF" ]; then
+  fr="$(conf_get net.ipv4.ip_local_port_range)"
+  if [ -n "$fr" ]; then PORT_LO="${fr%%[[:space:]]*}"; PORT_HI="${fr##*[[:space:]]}"; fi
+  v="$(conf_get net.ipv4.tcp_fin_timeout)";     [ -n "$v" ] && FIN_TIMEOUT="$v"
+  v="$(conf_get net.ipv4.tcp_tw_reuse)";        [ -n "$v" ] && TW_REUSE="$v"
+  v="$(conf_get net.ipv4.tcp_max_tw_buckets)";  [ -n "$v" ] && TW_BUCKETS="$v"
+  v="$(conf_get net.netfilter.nf_conntrack_max)"; [ -n "$v" ] && CONNTRACK_MAX="$v"
+fi
+
+# Overlay the caller's key=value arguments (the allowlist gate).
+for a in "$@"; do
+  case "$a" in
+    port_lo=*)       PORT_LO="${a#*=}" ;;
+    port_hi=*)       PORT_HI="${a#*=}" ;;
+    fin_timeout=*)   FIN_TIMEOUT="${a#*=}" ;;
+    tw_reuse=*)      TW_REUSE="${a#*=}" ;;
+    conntrack_max=*) CONNTRACK_MAX="${a#*=}" ;;
+    tw_buckets=*)    TW_BUCKETS="${a#*=}" ;;
+    *) die "rejected argument '$a' (allowed keys: port_lo, port_hi, fin_timeout, tw_reuse, conntrack_max, tw_buckets)" ;;
+  esac
+done
+
+# ---------------------------------------------------------------------------
+# Validate the resolved set. Every reachable value must be numeric + in range.
+# ---------------------------------------------------------------------------
+is_uint "$PORT_LO"     || die "port_lo must be a non-negative integer (got '$PORT_LO')"
+is_uint "$PORT_HI"     || die "port_hi must be a non-negative integer (got '$PORT_HI')"
+is_uint "$FIN_TIMEOUT" || die "fin_timeout must be a non-negative integer (got '$FIN_TIMEOUT')"
+is_uint "$TW_REUSE"    || die "tw_reuse must be a non-negative integer (got '$TW_REUSE')"
+is_uint "$TW_BUCKETS"  || die "tw_buckets must be a non-negative integer (got '$TW_BUCKETS')"
+
+{ [ "$PORT_LO" -ge 1024 ] && [ "$PORT_LO" -le 65534 ]; } || die "port_lo out of range [1024..65534] (got $PORT_LO)"
+{ [ "$PORT_HI" -ge 1025 ] && [ "$PORT_HI" -le 65535 ]; } || die "port_hi out of range [1025..65535] (got $PORT_HI)"
+[ "$PORT_LO" -lt "$PORT_HI" ] || die "require port_lo < port_hi (got $PORT_LO >= $PORT_HI)"
+{ [ "$FIN_TIMEOUT" -ge 1 ] && [ "$FIN_TIMEOUT" -le 600 ]; } || die "fin_timeout out of range [1..600] (got $FIN_TIMEOUT)"
+{ [ "$TW_REUSE" -ge 0 ] && [ "$TW_REUSE" -le 2 ]; } || die "tw_reuse out of range [0..2] (got $TW_REUSE)"
+{ [ "$TW_BUCKETS" -ge 1024 ] && [ "$TW_BUCKETS" -le 33554432 ]; } || die "tw_buckets out of range [1024..33554432] (got $TW_BUCKETS)"
+
+# conntrack may legitimately be absent (module not loaded). Validate only if a
+# value survived resolution.
+if [ -n "${CONNTRACK_MAX:-}" ]; then
+  is_uint "$CONNTRACK_MAX" || die "conntrack_max must be a non-negative integer (got '$CONNTRACK_MAX')"
+  { [ "$CONNTRACK_MAX" -ge 1024 ] && [ "$CONNTRACK_MAX" -le 33554432 ]; } || die "conntrack_max out of range [1024..33554432] (got $CONNTRACK_MAX)"
+fi
+
+# Try to expose the nf_conntrack param so we can actually write/apply it.
+modprobe nf_conntrack >/dev/null 2>&1 || true
+CT_PARAM=0
+[ -r /proc/sys/net/netfilter/nf_conntrack_max ] && CT_PARAM=1
+
+# ---------------------------------------------------------------------------
+# Re-write the managed file atomically (same format as install.sh).
+# ---------------------------------------------------------------------------
+umask 022
+tmp="$(mktemp)" || die "mktemp failed"
+{
+  printf '# Managed by scaNNer — %s\n' "$CONF"
+  printf '# Rewritten by scanner-tune at %s.\n' "$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+  printf '# Network stack tuning to avoid ephemeral-port exhaustion under heavy scans.\n'
+  printf 'net.ipv4.ip_local_port_range = %s %s\n' "$PORT_LO" "$PORT_HI"
+  printf 'net.ipv4.tcp_fin_timeout = %s\n' "$FIN_TIMEOUT"
+  printf 'net.ipv4.tcp_tw_reuse = %s\n' "$TW_REUSE"
+  printf 'net.ipv4.tcp_max_tw_buckets = %s\n' "$TW_BUCKETS"
+  if [ -n "${CONNTRACK_MAX:-}" ] && [ "$CT_PARAM" -eq 1 ]; then
+    printf 'net.netfilter.nf_conntrack_max = %s\n' "$CONNTRACK_MAX"
+  elif [ -n "${CONNTRACK_MAX:-}" ]; then
+    printf '# net.netfilter.nf_conntrack_max = %s  (skipped: nf_conntrack param not present)\n' "$CONNTRACK_MAX"
+  fi
+} >"$tmp" || { rm -f "$tmp"; die "failed to render config"; }
+chmod 0644 "$tmp"
+mv -f "$tmp" "$CONF" || { rm -f "$tmp"; die "failed to install $CONF"; }
+
+# ---------------------------------------------------------------------------
+# Apply. Prefer 'sysctl --system' (reloads all drop-ins); if that fails for an
+# unrelated drop-in, fall back to applying only our file so we don't report a
+# false failure — but if OUR file won't load, that's a real error.
+# ---------------------------------------------------------------------------
+if ! sysctl --system >/dev/null 2>&1; then
+  if ! sysctl -p "$CONF" >/dev/null 2>&1; then
+    die "sysctl failed to apply $CONF"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# Success — emit the machine-readable result (stdout only).
+# ---------------------------------------------------------------------------
+printf 'OK\n'
+printf 'port_lo=%s\n' "$PORT_LO"
+printf 'port_hi=%s\n' "$PORT_HI"
+printf 'fin_timeout=%s\n' "$FIN_TIMEOUT"
+printf 'tw_reuse=%s\n' "$TW_REUSE"
+printf 'tw_buckets=%s\n' "$TW_BUCKETS"
+if [ -n "${CONNTRACK_MAX:-}" ] && [ "$CT_PARAM" -eq 1 ]; then
+  printf 'conntrack_max=%s\n' "$CONNTRACK_MAX"
+fi
+exit 0

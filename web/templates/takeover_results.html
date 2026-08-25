@@ -1,0 +1,88 @@
+{{define "page_takeover_results"}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="/modules/takeover" class="hover:text-accent-400 transition-colors">Subdomain Takeover</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Results</span>
+</div>
+{{template "scan_actions" .}}
+{{template "scan_progress" .}}
+<div id="scanContent">{{template "takeover_results_inner" .}}</div>
+{{end}}
+
+{{define "takeover_results_inner"}}
+{{if .Findings}}
+<div class="bg-dark-900 border border-danger/40 rounded-xl p-5 mb-6">
+    <h3 class="text-sm font-semibold text-danger mb-3 flex items-center gap-2">
+        <span class="text-base">⚠</span> {{len .Findings}} probable takeover candidate(s)
+    </h3>
+    <div class="space-y-2">
+        {{range .Findings}}
+        <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+            <div class="flex items-center justify-between gap-3 flex-wrap">
+                <div class="flex items-center gap-2">
+                    <span class="mono text-xs px-2 py-0.5 rounded
+                        {{if eq .Severity "CRITICAL"}}bg-red-500/20 text-red-300
+                        {{else if eq .Severity "HIGH"}}bg-orange-500/20 text-orange-300
+                        {{else if eq .Severity "MEDIUM"}}bg-yellow-500/20 text-yellow-300
+                        {{else}}bg-blue-500/20 text-blue-300{{end}}">{{.Severity}}</span>
+                    <span class="mono text-sm text-white">{{.Subdomain}}</span>
+                    <span class="text-[10px] text-dark-500">{{.Service}}</span>
+                </div>
+                <button type="button" onclick="sendToBurp('https://{{.Subdomain}}/')" title="Send to configured proxy"
+                        class="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/30 hover:bg-orange-500/20">→ Burp</button>
+            </div>
+            <div class="grid grid-cols-2 gap-3 mt-2 text-[11px]">
+                <div><span class="text-dark-500">CNAME:</span> <span class="mono text-dark-200">{{.CNAME}}</span></div>
+                <div><span class="text-dark-500">HTTP:</span> <span class="mono text-dark-200">{{if .HTTPStatus}}{{.HTTPStatus}}{{else}}-{{end}}</span></div>
+                {{if .IPs}}<div class="col-span-2"><span class="text-dark-500">IPs:</span> <span class="mono text-dark-200">{{range $i, $ip := .IPs}}{{if $i}}, {{end}}{{$ip}}{{end}}</span></div>{{end}}
+            </div>
+            {{if .MatchedPattern}}<p class="text-[10px] text-dark-500 mt-1">Matched: <span class="mono text-warning">{{.MatchedPattern}}</span></p>{{end}}
+            {{if .BodySnippet}}<pre class="mono text-[10px] text-dark-300 bg-dark-950 border border-dark-800 rounded p-2 mt-1.5 max-h-32 overflow-auto whitespace-pre-wrap">{{.BodySnippet}}</pre>{{end}}
+            {{if .Note}}<p class="text-[10px] text-dark-400 mt-1.5">💡 {{.Note}}</p>{{end}}
+        </div>
+        {{end}}
+    </div>
+</div>
+{{end}}
+
+<div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+    <div class="px-5 py-3 border-b border-dark-800 flex items-center justify-between">
+        <h3 class="text-sm font-semibold text-white">All Subdomains ({{len .Results}})</h3>
+    </div>
+    {{if .Results}}
+    <table class="w-full">
+        <thead>
+            <tr class="border-b border-dark-800 bg-dark-850">
+                <th class="text-left px-5 py-2 text-[10px] font-semibold text-dark-500 uppercase">Subdomain</th>
+                <th class="text-left px-5 py-2 text-[10px] font-semibold text-dark-500 uppercase">Status</th>
+                <th class="text-left px-5 py-2 text-[10px] font-semibold text-dark-500 uppercase">CNAME</th>
+                <th class="text-left px-5 py-2 text-[10px] font-semibold text-dark-500 uppercase">IPs</th>
+                <th class="text-left px-5 py-2 text-[10px] font-semibold text-dark-500 uppercase">Note</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Results}}
+            <tr class="border-b border-dark-800/50">
+                <td class="px-5 py-2 mono text-xs text-accent-400">{{.Subdomain}}</td>
+                <td class="px-5 py-2">
+                    <span class="mono text-[10px] px-2 py-0.5 rounded
+                        {{if eq .Status "vulnerable"}}bg-danger/20 text-danger
+                        {{else if eq .Status "candidate"}}bg-warning/20 text-warning
+                        {{else if eq .Status "unreachable"}}bg-dark-700 text-dark-400
+                        {{else if eq .Status "resolved_normal"}}bg-success/10 text-success
+                        {{else}}bg-dark-700 text-dark-500{{end}}">{{.Status}}</span>
+                </td>
+                <td class="px-5 py-2 mono text-[11px] text-dark-300 truncate max-w-xs">{{if .CNAME}}{{.CNAME}}{{else}}-{{end}}</td>
+                <td class="px-5 py-2 mono text-[11px] text-dark-300 truncate max-w-[200px]">{{if .IPs}}{{range $i, $ip := .IPs}}{{if $i}}, {{end}}{{$ip}}{{end}}{{else}}-{{end}}</td>
+                <td class="px-5 py-2 text-[11px] text-dark-400">{{.Note}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <div class="p-8 text-center text-dark-500"><p class="text-sm">No results yet</p></div>
+    {{end}}
+</div>
+{{end}}

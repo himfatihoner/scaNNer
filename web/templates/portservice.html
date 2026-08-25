@@ -1,0 +1,369 @@
+{{define "page_portservice"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Advanced Host Scanner</span>
+</div>
+<!-- Hero card — explains the 4-phase scan strategy upfront so the user knows
+     why this module is heavier than Host Discovery. -->
+<div class="bg-gradient-to-br from-accent-600/10 via-dark-900 to-dark-900 border border-accent-500/30 rounded-xl p-6 mb-6">
+    <div class="flex items-start gap-4">
+        <div class="w-12 h-12 rounded-lg bg-accent-600/20 border border-accent-500/30 flex items-center justify-center text-2xl shrink-0">🛰️</div>
+        <div class="flex-1">
+            <h2 class="text-xl font-bold text-white">Advanced Host Scanner</h2>
+            <p class="text-sm text-dark-300 mt-1">Nessus-style deep scan: parallel port discovery → firewall detection → version-aware NSE scripts → banner grab → Nuclei vulnerability sweep.</p>
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-2 mt-4">
+                <div class="px-3 py-2 bg-dark-900/60 border border-dark-800 rounded-lg">
+                    <p class="text-[9px] uppercase tracking-wider text-dark-500">Phase 1</p>
+                    <p class="text-[11px] text-dark-200">Parallel port disc.<br>(ping + -Pn)</p>
+                </div>
+                <div class="px-3 py-2 bg-dark-900/60 border border-dark-800 rounded-lg">
+                    <p class="text-[9px] uppercase tracking-wider text-warning">Triage</p>
+                    <p class="text-[11px] text-dark-200">100+ ports<br>= firewall flag</p>
+                </div>
+                <div class="px-3 py-2 bg-dark-900/60 border border-dark-800 rounded-lg">
+                    <p class="text-[9px] uppercase tracking-wider text-dark-500">Phase 2</p>
+                    <p class="text-[11px] text-dark-200">-A + service<br>scripts</p>
+                </div>
+                <div class="px-3 py-2 bg-dark-900/60 border border-dark-800 rounded-lg">
+                    <p class="text-[9px] uppercase tracking-wider text-dark-500">Phase 3</p>
+                    <p class="text-[11px] text-dark-200">Follow-up for<br>new services</p>
+                </div>
+                <div class="px-3 py-2 bg-dark-900/60 border border-dark-800 rounded-lg">
+                    <p class="text-[9px] uppercase tracking-wider text-accent-400">Phase 4</p>
+                    <p class="text-[11px] text-dark-200">Banners +<br>Nuclei</p>
+                </div>
+            </div>
+            <p class="text-[11px] text-dark-400 mt-3">
+                <span class="text-dark-500">Parallelism:</span>
+                <a href="/settings" class="text-accent-400 hover:text-accent-300 hover:underline">{{.EffectiveConcurrency}} host{{if ne .EffectiveConcurrency 1}}s{{end}}</a>
+                <span class="text-dark-500">at a time — sourced from <em>Settings → Network Scan Defaults → Max Concurrent</em>. Each host runs phase 1a/1b in parallel internally and phase 2/3 sequentially. Soft cap: 50.</span>
+            </p>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                New Scan
+            </h3>
+            <form action="/modules/portservice/run" method="POST" id="ahsForm">
+                <div class="space-y-4">
+                    {{if .WSTargetGroups}}
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Targets from Workspace{{template "info_icon" "Workspace targets grouped by list. Tick a list header to select every member; un-tick individual rows to exclude specific hosts."}}</label>
+                        <div class="max-h-64 overflow-y-auto bg-dark-850 border border-dark-700 rounded-lg p-2 space-y-2">
+                            {{range $gi, $g := .WSTargetGroups}}
+                            <details class="ahs-group" open>
+                                <summary class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-dark-800 cursor-pointer list-none">
+                                    <input type="checkbox" data-ahs-group="{{$gi}}"
+                                           onclick="event.stopPropagation()"
+                                           onchange="ahsToggleGroup(this)"
+                                           class="rounded border-dark-600 bg-dark-800 text-accent-500">
+                                    <svg class="w-3 h-3 text-dark-500 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                    <span class="text-xs font-medium text-dark-100 flex-1">{{$g.Name}}</span>
+                                    <span class="text-[10px] mono text-dark-500">{{len $g.Targets}}</span>
+                                </summary>
+                                <div class="pl-6 space-y-0.5 mt-1">
+                                    {{range $g.Targets}}
+                                    <label class="flex items-center gap-2 px-2 py-1 rounded hover:bg-dark-800 cursor-pointer">
+                                        <input type="checkbox" name="targets" value="{{.Value}}"
+                                               data-ahs-member="{{$gi}}"
+                                               onchange="ahsRefreshGroupHeader({{$gi}})"
+                                               class="rounded border-dark-600 bg-dark-800 text-accent-500">
+                                        <span class="mono text-xs text-dark-200">{{.Value}}</span>
+                                    </label>
+                                    {{end}}
+                                </div>
+                            </details>
+                            {{end}}
+                        </div>
+                    </div>
+                    <script>
+                    // Parent ↔ child checkbox sync. Ticking a group ticks
+                    // every member; un-ticking a member auto-untics the
+                    // parent so the user knows the selection is partial.
+                    function ahsToggleGroup(parent) {
+                        var gi = parent.getAttribute('data-ahs-group');
+                        var checked = parent.checked;
+                        document.querySelectorAll('input[data-ahs-member="' + gi + '"]').forEach(function(cb) {
+                            cb.checked = checked;
+                        });
+                    }
+                    function ahsRefreshGroupHeader(gi) {
+                        var members = document.querySelectorAll('input[data-ahs-member="' + gi + '"]');
+                        var parent = document.querySelector('input[data-ahs-group="' + gi + '"]');
+                        if (!parent || members.length === 0) return;
+                        var checkedCount = 0;
+                        members.forEach(function(cb) { if (cb.checked) checkedCount++; });
+                        parent.checked = checkedCount === members.length;
+                        parent.indeterminate = checkedCount > 0 && checkedCount < members.length;
+                    }
+                    </script>
+                    {{end}}
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Manual Targets{{template "info_icon" "Hostnames or IPs, one per line. CIDR is supported by nmap directly."}}</label>
+                        <textarea name="manual_targets" rows="3" placeholder="192.168.1.1&#10;192.168.2.0/24&#10;192.168.3.10-50&#10;example.com"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                    </div>
+
+                    <!-- Smart Ports input. Preset chips set scope + port_spec
+                         simultaneously; typing into the free text field auto-
+                         flips scope to custom/range/full based on syntax so the
+                         user can't pick "Common" by accident while typing -p. -->
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="text-sm text-dark-300">Ports <span class="text-danger">*</span></label>
+                            <span id="portsHint" class="text-[10px] text-dark-500 mono">Common (top 1000)</span>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5 mb-2">
+                            <button type="button" data-preset="common" onclick="ahsPickPreset(this)"
+                                    class="ahs-chip px-2.5 py-1 text-[11px] rounded-md border border-success/40 bg-success/10 text-success">Common</button>
+                            <button type="button" data-preset="top100" onclick="ahsPickPreset(this)"
+                                    class="ahs-chip px-2.5 py-1 text-[11px] rounded-md border border-dark-700 bg-dark-850 text-dark-300 hover:text-white">Top 100</button>
+                            <button type="button" data-preset="web" onclick="ahsPickPreset(this)"
+                                    class="ahs-chip px-2.5 py-1 text-[11px] rounded-md border border-dark-700 bg-dark-850 text-dark-300 hover:text-white">Web</button>
+                            <button type="button" data-preset="full" onclick="ahsPickPreset(this)"
+                                    class="ahs-chip px-2.5 py-1 text-[11px] rounded-md border border-dark-700 bg-dark-850 text-dark-300 hover:text-white">Full (1-65535)</button>
+                        </div>
+                        <input type="text" id="ahsPortSpec" name="port_spec" oninput="ahsOnPortInput()"
+                               placeholder="22,80,443  or  1-1024  or  80,443,8000-9000"
+                               class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                        <input type="hidden" id="ahsScope" name="scope" value="common">
+                        <p class="text-[10px] text-dark-500 mt-1">Type ports to override: <span class="mono">22,80,443</span> → custom · <span class="mono">1-1024</span> → range · empty → preset.</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Speed{{template "info_icon" "Maps directly to nmap timing templates. -T0/T1/T2 evade IDS at the cost of speed; -T3 is nmap default; -T4 (Fast) is scaNNer's default; -T5/Insane/Blast are loud and likely to set off alarms. Stealth pins --max-rate 50 packets/sec for very-low-noise audits."}}</label>
+                        <select name="speed" class="w-full bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent-500">
+                            <optgroup label="Stealth (slower, harder to detect)">
+                                <option value="paranoid">Paranoid (-T0) — 5+ min between probes</option>
+                                <option value="sneaky">Sneaky (-T1) — slip past most IDS</option>
+                                <option value="stealth">Stealth (-T2 --max-rate 50) — throttled</option>
+                                <option value="polite">Polite (-T2) — minimal bandwidth</option>
+                            </optgroup>
+                            <optgroup label="Balanced">
+                                <option value="normal">Normal (-T3) — nmap default</option>
+                                <option value="fast" selected>Fast (-T4) — recommended</option>
+                            </optgroup>
+                            <optgroup label="Loud (faster, may be detected)">
+                                <option value="aggressive">Aggressive (-T5) — louder</option>
+                                <option value="insane">Insane (-T5 --max-rate 1500) — fast, capped</option>
+                                <option value="blast">Blast (-T5 --min-rate 5000) — no patience</option>
+                            </optgroup>
+                        </select>
+                    </div>
+
+                    {{/* Advanced options collapsible — Concurrency, NSE
+                         script depth, brute wordlists, UDP scan.
+                         Folded by default so the form's required knobs
+                         (targets + scope + speed) stay above the fold.
+                         Operators with the muscle memory open it; first-
+                         timers don't get overwhelmed by 4 extra knobs. */}}
+                    <details class="bg-dark-925 border border-dark-800 rounded-lg">
+                        <summary class="px-3 py-2 text-xs font-medium text-dark-300 hover:text-white cursor-pointer select-none flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5 transition-transform" style="transform:rotate(0deg)" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                            Advanced options
+                            <span class="ml-auto text-[10px] text-dark-500">concurrency · NSE depth · brute lists · UDP</span>
+                        </summary>
+                        <div class="p-3 border-t border-dark-800 space-y-4">
+
+                    {{/* Concurrency — how many hosts to scan in parallel.
+                         Slider + numeric input bound to the same form value.
+                         Default 10 (sweet spot), max 50. Above 25 needs
+                         dedicated infrastructure + ulimit -n bump. */}}
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Concurrency{{template "info_icon" "How many hosts run nmap in parallel. Each host = 2 nmap subprocesses (with-ping + no-ping). Going from 3 → 10 ≈ 3× faster scan with zero accuracy loss. Above 25 needs `ulimit -n 65535` and dedicated VPS — laptop Wi-Fi / NAT routers will choke."}}</label>
+                        <div class="flex items-center gap-3">
+                            <input type="range" id="ahsConcRange" name="concurrency_range" min="1" max="50" value="10" step="1"
+                                   oninput="document.getElementById('ahsConcNum').value=this.value;ahsUpdateConcHint(this.value)"
+                                   class="flex-1 accent-accent-500">
+                            <input type="number" id="ahsConcNum" name="concurrency" min="1" max="50" value="10"
+                                   oninput="document.getElementById('ahsConcRange').value=Math.min(50,Math.max(1,this.value||10));ahsUpdateConcHint(this.value)"
+                                   class="w-16 bg-dark-850 border border-dark-700 rounded-lg px-2 py-1 text-xs text-white text-center focus:outline-none focus:border-accent-500">
+                        </div>
+                        <p id="ahsConcHint" class="text-[10px] text-dark-500 mt-1">Balanced — good fit for laptops / VMs. ~3× faster than the legacy default of 3.</p>
+                    </div>
+                    <script>
+                    function ahsUpdateConcHint(v) {
+                        var n = parseInt(v, 10) || 10;
+                        var hint = document.getElementById('ahsConcHint');
+                        if (!hint) return;
+                        if (n <= 5) {
+                            hint.textContent = 'Conservative — minimal load, slow for big target lists.';
+                            hint.className = 'text-[10px] text-dark-500 mt-1';
+                        } else if (n <= 12) {
+                            hint.textContent = 'Balanced — good fit for laptops / VMs. ~' + (n/3).toFixed(1) + '× faster than legacy default.';
+                            hint.className = 'text-[10px] text-dark-500 mt-1';
+                        } else if (n <= 20) {
+                            hint.textContent = 'Fast — needs solid network. Likely to trip light IDS rules.';
+                            hint.className = 'text-[10px] text-accent-300 mt-1';
+                        } else if (n <= 30) {
+                            hint.textContent = '⚠ Aggressive — may degrade home-router NAT tables, will trip most IDS. Use on dedicated VPS, not laptop Wi-Fi.';
+                            hint.className = 'text-[10px] text-warning mt-1';
+                        } else {
+                            hint.textContent = '⚠ Maximum throughput — needs `ulimit -n 65535`, dedicated VPS, and tolerant network. ' + n + ' parallel hosts × 2 nmap = ' + (n*2) + ' subprocesses. Will trip every IDS.';
+                            hint.className = 'text-[10px] text-danger mt-1';
+                        }
+                    }
+                    </script>
+
+                    {{/* Script depth presets — controls which nmap NSE
+                         categories run on Phase 2. EXTERNAL + DOS are
+                         hard-excluded regardless of depth (OPSEC + crash
+                         risk). Brute + auth only fire when wordlists below
+                         are populated. */}}
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-2">Script depth{{template "info_icon" "Safe = curated vuln/discovery scripts only (production-safe, ~30s overhead). Deep = adds intrusive, fuzzer, exploit categories (much louder, may crash services, may take 10+ min per host). EXTERNAL and DOS categories are NEVER enabled in either preset."}}</label>
+                        <div class="space-y-2">
+                            <label class="flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-success has-[:checked]:bg-success/5">
+                                <input type="radio" name="script_depth" value="safe" class="mt-0.5 rounded-full border-dark-600 bg-dark-800 text-success" checked>
+                                <div>
+                                    <p class="text-xs font-medium text-dark-200">Safe — default + version + curated vuln scripts</p>
+                                    <p class="text-[11px] text-dark-500 mt-0.5">Production-safe NSE set: ssl-cert, ssl-heartbleed, http-shellshock, smb-vuln-*, vb. Servisi crash etmez, brute denemez. ~30sn ek süre/host.</p>
+                                    <p class="text-[10px] text-dark-600 mt-0.5 mono">categories: default, version, safe + selective vuln/discovery</p>
+                                </div>
+                            </label>
+                            <label class="flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-danger has-[:checked]:bg-danger/5">
+                                <input type="radio" name="script_depth" value="deep" class="mt-0.5 rounded-full border-dark-600 bg-dark-800 text-danger">
+                                <div>
+                                    <p class="text-xs font-medium text-dark-200">Deep — adds intrusive + fuzzer + exploit categories</p>
+                                    <p class="text-[11px] text-dark-500 mt-0.5">NSE'nin tüm vuln/exploit scriptleri tetiklenir. Bazı scriptler servisi geçici olarak crashleyebilir, NIDS alarmları büyük olasılıkla tetiklenir. 10+ dakika/host.</p>
+                                    <p class="text-[10px] text-warning mt-0.5 mono">⚠ adds: intrusive, fuzzer, exploit · still excludes: external, dos</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    {{/* Brute / auth wordlists. NSE brute scripts (ftp-brute,
+                         ssh-brute, http-brute, smb-brute, vb.) only activate
+                         when BOTH lists are populated — empty wordlist
+                         means nmap brute errors immediately, so we don't
+                         bother adding brute+auth categories at all. */}}
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                        <p class="text-[11px] uppercase tracking-wider text-dark-300 mb-1">Brute / auth wordlists <span class="text-dark-500 normal-case lowercase font-normal">(optional)</span></p>
+                        <p class="text-[10px] text-dark-500 mb-3">Both fields must be filled for brute/auth NSE scripts (ftp-brute, ssh-brute, http-brute, smb-brute, mysql-brute, …) to fire. One entry per line, or comma-separated. Leaving either empty silently skips brute — no error.</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[10px] uppercase text-dark-500 mb-1">Usernames</label>
+                                <textarea name="username_list" rows="4" placeholder="admin&#10;root&#10;administrator"
+                                          class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] uppercase text-dark-500 mb-1">Passwords</label>
+                                <textarea name="password_list" rows="4" placeholder="admin&#10;password&#10;123456"
+                                          class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{/* UDP scan toggle. Off by default — UDP scanning is
+                         rate-limited by RFC 1812 so a /24 with -sU can take
+                         hours. Useful for catching DNS / SNMP / NTP / DHCP /
+                         NetBIOS services that don't answer on TCP. */}}
+                    <div>
+                        <label class="flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-warning has-[:checked]:bg-warning/5">
+                            <input type="checkbox" name="udp_scan" class="mt-0.5 rounded border-dark-600 bg-dark-800 text-warning">
+                            <div>
+                                <p class="text-xs font-medium text-dark-200">Also run UDP scan (-sU){{template "info_icon" "Adds an nmap -sU pass alongside the TCP discovery passes. Catches DNS (53/udp), SNMP (161), NTP (123), DHCP (67), TFTP (69), NetBIOS (137/138), VPN gateways. Requires root/CAP_NET_RAW. Significantly slower than TCP."}}</p>
+                                <p class="text-[11px] text-dark-500 mt-0.5">Catches DNS, SNMP, NTP, NetBIOS, VPN services that TCP scan misses.</p>
+                                <p class="text-[10px] text-warning mt-0.5">⚠ Slow — nmap rate-limits UDP to ~1pps per closed port. A /24 can take 30+ minutes. Needs root privileges.</p>
+                            </div>
+                        </label>
+                    </div>
+                        </div>
+                    </details>
+                </div>
+                {{template "queue_option" .}}
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Start Port &amp; Service Scan
+                </button>
+            </form>
+            <script>
+            (function() {
+                var presets = {
+                    common: { spec: '',                     scope: 'common', label: 'Common (top 1000)' },
+                    top100: { spec: '',                     scope: 'top100', label: 'Top 100' },
+                    web:    { spec: '80,443,8000-8100,8443,8888,9000-9001', scope: 'custom', label: 'Web ports' },
+                    full:   { spec: '1-65535',              scope: 'full',   label: 'Full (1-65535)' }
+                };
+                window.ahsPickPreset = function(btn) {
+                    var key = btn.getAttribute('data-preset');
+                    var p = presets[key];
+                    if (!p) return;
+                    document.querySelectorAll('.ahs-chip').forEach(function(b) {
+                        b.classList.remove('border-success/40','bg-success/10','text-success');
+                        b.classList.add('border-dark-700','bg-dark-850','text-dark-300','hover:text-white');
+                    });
+                    btn.classList.remove('border-dark-700','bg-dark-850','text-dark-300','hover:text-white');
+                    btn.classList.add('border-success/40','bg-success/10','text-success');
+                    document.getElementById('ahsPortSpec').value = p.spec;
+                    document.getElementById('ahsScope').value = p.scope;
+                    document.getElementById('portsHint').textContent = p.label;
+                };
+                window.ahsOnPortInput = function() {
+                    var v = (document.getElementById('ahsPortSpec').value || '').trim();
+                    var hint = document.getElementById('portsHint');
+                    var scope = document.getElementById('ahsScope');
+                    // Empty → fall back to whichever preset chip is active.
+                    if (v === '') {
+                        // Find active chip and reapply it
+                        var active = document.querySelector('.ahs-chip.text-success');
+                        if (active) {
+                            scope.value = active.getAttribute('data-preset');
+                            hint.textContent = presets[scope.value].label;
+                        }
+                        return;
+                    }
+                    // De-select all chips since text overrides them.
+                    document.querySelectorAll('.ahs-chip').forEach(function(b) {
+                        b.classList.remove('border-success/40','bg-success/10','text-success');
+                        b.classList.add('border-dark-700','bg-dark-850','text-dark-300','hover:text-white');
+                    });
+                    // Auto-classify: range if a single A-B without commas, else custom.
+                    if (/^\d+-\d+$/.test(v)) {
+                        scope.value = 'range';
+                        hint.textContent = 'Range';
+                    } else if (v === '1-65535' || v === '-' || v.toLowerCase() === 'all') {
+                        scope.value = 'full';
+                        hint.textContent = 'Full (1-65535)';
+                    } else {
+                        scope.value = 'custom';
+                        hint.textContent = 'Custom';
+                    }
+                };
+            })();
+            </script>
+        </div>
+    </div>
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}
+            <div class="space-y-2">
+                {{range .Scans}}
+                <a href="/modules/portservice/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all group">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200 group-hover:text-white">Scan #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                    </div>
+                    <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                {{end}}
+            </div>
+            {{else}}
+            <div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No scans yet</p></div>
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}

@@ -1,0 +1,17 @@
+{{define "info_icon"}}
+{{/*
+    Centered info icon — uses a real SVG glyph so the "i" stays optically
+    centered inside its 14px circle (the previous unicode ⓘ shifted up-left
+    on most fonts). Wrapped in a button so click ALSO surfaces the tooltip
+    (native title attribute is hover-only and doesn't work on touch). The
+    inline JS reads data-info on click and pops a positioned bubble.
+*/}}
+<button type="button" data-info="{{.}}"
+        onclick="event.preventDefault();event.stopPropagation();window.__showInfoTip&&window.__showInfoTip(this)"
+        title="{{.}}"
+        class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-dark-700 text-dark-300 hover:bg-accent-500/20 hover:text-accent-300 cursor-help transition-colors ml-1 align-middle leading-none focus:outline-none focus:ring-1 focus:ring-accent-500/40">
+    <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zm0 12A5.5 5.5 0 1 1 8 2.5a5.5 5.5 0 0 1 0 11zm-.75-8.25a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0zM7.25 7a.75.75 0 0 1 1.5 0v4a.75.75 0 0 1-1.5 0V7z"/>
+    </svg>
+</button>
+{{end}}

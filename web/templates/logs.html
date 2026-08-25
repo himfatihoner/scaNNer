@@ -1,0 +1,70 @@
+{{define "page_logs"}}
+<div class="p-6 max-w-6xl mx-auto">
+    <div class="mb-4">
+        <h1 class="text-xl font-bold">Audit Logs</h1>
+        <p class="text-sm text-dark-400">Access and scan activity. This log is append-only — it survives scan deletion and cannot be edited or purged from the app, even by an admin.</p>
+    </div>
+
+    <form method="GET" action="/logs" class="flex flex-wrap items-end gap-3 mb-5 bg-dark-900 border border-dark-800 rounded-xl p-4">
+        <div>
+            <label class="block text-xs text-dark-300 mb-1.5">Category</label>
+            <select name="category" class="rounded-lg bg-dark-950 border border-dark-700 px-3 py-2 text-sm">
+                <option value="" {{if eq .FilterCategory ""}}selected{{end}}>All</option>
+                <option value="access" {{if eq .FilterCategory "access"}}selected{{end}}>Access</option>
+                <option value="scan" {{if eq .FilterCategory "scan"}}selected{{end}}>Scan</option>
+                <option value="admin" {{if eq .FilterCategory "admin"}}selected{{end}}>Admin</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs text-dark-300 mb-1.5">User</label>
+            <input name="user" value="{{.FilterUser}}" placeholder="username" class="rounded-lg bg-dark-950 border border-dark-700 px-3 py-2 text-sm">
+        </div>
+        <div>
+            <label class="block text-xs text-dark-300 mb-1.5">Action</label>
+            <input name="action" value="{{.FilterAction}}" placeholder="e.g. login.success" class="rounded-lg bg-dark-950 border border-dark-700 px-3 py-2 text-sm">
+        </div>
+        <button type="submit" class="rounded-lg bg-accent-600 hover:bg-accent-500 text-white text-sm font-medium px-4 py-2">Filter</button>
+        <a href="/logs" class="text-sm text-dark-400 hover:text-white px-2 py-2">Reset</a>
+    </form>
+
+    <div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-dark-925 text-dark-400 text-xs uppercase tracking-wide">
+                    <tr>
+                        <th class="text-left font-medium px-4 py-2.5">Time</th>
+                        <th class="text-left font-medium px-4 py-2.5">User</th>
+                        <th class="text-left font-medium px-4 py-2.5">Category</th>
+                        <th class="text-left font-medium px-4 py-2.5">Action</th>
+                        <th class="text-left font-medium px-4 py-2.5">Context</th>
+                        <th class="text-left font-medium px-4 py-2.5">IP</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-dark-800">
+                    {{range .Entries}}
+                    <tr class="hover:bg-dark-850">
+                        <td class="px-4 py-2.5 whitespace-nowrap text-dark-300 font-mono text-xs">{{.TS.Format "2006-01-02 15:04:05"}}</td>
+                        <td class="px-4 py-2.5">{{if .Username}}{{.Username}}{{else}}<span class="text-dark-500">—</span>{{end}}</td>
+                        <td class="px-4 py-2.5">
+                            {{if eq .Category "access"}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-accent-600/20 text-accent-400 uppercase">access</span>
+                            {{else if eq .Category "scan"}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-success/20 text-success uppercase">scan</span>
+                            {{else}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-warning/20 text-warning uppercase">admin</span>{{end}}
+                        </td>
+                        <td class="px-4 py-2.5 font-mono text-xs">{{.Action}}</td>
+                        <td class="px-4 py-2.5 text-dark-300 text-xs">
+                            {{if .Module}}<span class="text-dark-200">{{.Module}}</span>{{end}}
+                            {{if .WorkspaceName}} · {{.WorkspaceName}}{{end}}
+                            {{if .Target}} · {{.Target}}{{end}}
+                            {{if .Detail}} · <span class="text-dark-400">{{.Detail}}</span>{{end}}
+                        </td>
+                        <td class="px-4 py-2.5 font-mono text-xs text-dark-400">{{.IP}}</td>
+                    </tr>
+                    {{else}}
+                    <tr><td colspan="6" class="px-4 py-8 text-center text-dark-500">No matching log entries.</td></tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{{end}}

@@ -1,0 +1,36 @@
+{{define "twofactor_page"}}
+{{template "auth_head" .}}
+<body class="h-full bg-dark-950 text-dark-100 antialiased">
+    <div class="min-h-full flex items-center justify-center px-4 py-12">
+        <div class="w-full max-w-sm">
+            <div class="flex flex-col items-center text-center mb-8">
+                <div class="w-14 h-14 rounded-2xl bg-accent-600 flex items-center justify-center ring-1 ring-white/10 shadow-lg shadow-accent-600/30 mb-4">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                </div>
+                <div class="text-3xl font-bold tracking-tight text-white">sca<span class="text-accent-400">NN</span>er</div>
+                <p class="text-dark-400 text-sm mt-1">Two-factor verification</p>
+            </div>
+            {{if .Error}}
+            <div class="mb-4 rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">{{.Error}}</div>
+            {{end}}
+            <form method="POST" action="/login/2fa" class="space-y-4 bg-dark-900 border border-dark-800 rounded-xl p-6">
+                <input type="hidden" name="next" value="{{.Next}}">
+                <p class="text-sm text-dark-300">
+                    {{if eq .Method "email"}}Enter the 6-digit code we e-mailed you.{{else}}Enter the 6-digit code from your authenticator app.{{end}}
+                </p>
+                <div>
+                    <label class="block text-xs font-medium text-dark-300 mb-1.5" for="code">Verification code</label>
+                    <input id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autofocus required
+                        class="w-full rounded-lg bg-dark-950 border border-dark-700 px-3 py-2.5 text-center text-lg tracking-[0.4em] focus:border-accent-500 focus:outline-none">
+                </div>
+                <button type="submit"
+                    class="w-full rounded-lg bg-accent-600 hover:bg-accent-500 text-white text-sm font-medium py-2.5 transition-colors">Verify</button>
+            </form>
+            <p class="text-center text-xs text-dark-500 mt-6"><a href="/logout" class="hover:text-dark-300">Cancel and sign out</a></p>
+        </div>
+    </div>
+</body>
+</html>
+{{end}}

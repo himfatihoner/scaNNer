@@ -1,0 +1,197 @@
+{{define "page_cvematch_results"}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="/modules/cvematch" class="hover:text-accent-400 transition-colors">CVE Matcher</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Results</span>
+</div>
+{{template "scan_actions" .}}
+{{template "scan_progress" .}}
+<div id="scanContent">{{template "cvematch_results_inner" .}}</div>
+{{end}}
+
+{{define "cvematch_results_inner"}}
+<div class="grid grid-cols-5 gap-3 mb-6">
+    <div class="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+        <p class="text-[10px] text-red-300 uppercase tracking-wider">Critical</p>
+        <p class="text-2xl font-bold text-red-300">{{index .SeverityCounts "CRITICAL"}}</p>
+    </div>
+    <div class="bg-orange-500/10 border border-orange-500/30 rounded-lg p-3">
+        <p class="text-[10px] text-orange-300 uppercase tracking-wider">High</p>
+        <p class="text-2xl font-bold text-orange-300">{{index .SeverityCounts "HIGH"}}</p>
+    </div>
+    <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+        <p class="text-[10px] text-yellow-300 uppercase tracking-wider">Medium</p>
+        <p class="text-2xl font-bold text-yellow-300">{{index .SeverityCounts "MEDIUM"}}</p>
+    </div>
+    <div class="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+        <p class="text-[10px] text-blue-300 uppercase tracking-wider">Low</p>
+        <p class="text-2xl font-bold text-blue-300">{{index .SeverityCounts "LOW"}}</p>
+    </div>
+    {{/* Unknown bucket — NVD rows without CVSS metrics
+         (reserved/rejected/too-new) get a "UNKNOWN" severity from
+         pickSeverity. Without this card the totals undercounted. */}}
+    <div class="bg-dark-500/10 border border-dark-500/30 rounded-lg p-3">
+        <p class="text-[10px] text-dark-300 uppercase tracking-wider">Unknown</p>
+        <p class="text-2xl font-bold text-dark-300">{{index .SeverityCounts "UNKNOWN"}}</p>
+    </div>
+</div>
+
+{{if .UnverifiedCount}}
+<div class="mb-4 px-4 py-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-[12px] text-yellow-200">
+    <strong>{{.UnverifiedCount}}</strong> match(es) below are flagged
+    <em>unverified version</em> — the input arrived without version info, so
+    the affected-range check was skipped. Confirm the running version manually
+    before reporting.
+</div>
+{{end}}
+
+{{if .Matches}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden mb-6">
+    <div class="px-5 py-3 border-b border-dark-800">
+        <h3 class="text-sm font-semibold text-white">CVE Matches ({{len .Matches}})</h3>
+    </div>
+    {{/* Inner scroll: long CVE lists were pushing entire page off
+         screen. Sticky thead keeps the sortable headers visible while
+         the user scrolls 200 rows down the table. */}}
+    <div class="max-h-[600px] overflow-y-auto">
+    <table class="w-full" id="cveMatchesTable">
+        <thead class="sticky top-0 bg-dark-850 z-10">
+            <tr class="border-b border-dark-800 bg-dark-850">
+                <th class="text-left px-5 py-2 text-[10px] font-semibold text-dark-500 uppercase cursor-pointer select-none" data-sort-key="target" data-sort-type="string">Target</th>
+                <th class="text-left px-5 py-2 text-[10px] font-semibold text-dark-500 uppercase cursor-pointer select-none" data-sort-key="cve" data-sort-type="string">CVE</th>
+                <th class="text-left px-5 py-2 text-[10px] font-semibold text-dark-500 uppercase cursor-pointer select-none" data-sort-key="sev-rank" data-sort-type="number">Severity</th>
+                <th class="text-left px-5 py-2 text-[10px] font-semibold text-dark-500 uppercase cursor-pointer select-none" data-sort-key="cvss" data-sort-type="number">CVSS</th>
+                <th class="text-left px-5 py-2 text-[10px] font-semibold text-dark-500 uppercase cursor-pointer select-none" data-sort-key="product" data-sort-type="string">Product · Version</th>
+                <th class="text-left px-5 py-2 text-[10px] font-semibold text-dark-500 uppercase cursor-pointer select-none" data-sort-key="fixed" data-sort-type="string">Fixed In</th>
+                <th class="text-left px-5 py-2 text-[10px] font-semibold text-dark-500 uppercase">Description &amp; Remediation</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Matches}}
+            {{$sevRank := 0}}{{if eq .Severity "CRITICAL"}}{{$sevRank = 4}}{{else if eq .Severity "HIGH"}}{{$sevRank = 3}}{{else if eq .Severity "MEDIUM"}}{{$sevRank = 2}}{{else if eq .Severity "LOW"}}{{$sevRank = 1}}{{end}}
+            <tr class="border-b border-dark-800/50 align-top {{if .UnverifiedVersion}}bg-yellow-500/5{{end}}"
+                data-target="{{.URL}}"
+                data-cve="{{.CVE}}"
+                data-sev-rank="{{$sevRank}}"
+                data-cvss="{{.CVSS}}"
+                data-product="{{.Product}} {{.Version}}"
+                data-fixed="{{.FixedIn}}">
+                <td class="px-5 py-3 mono text-[11px] max-w-[200px]">
+                    {{if .URL}}
+                    <a href="{{.URL}}" target="_blank" rel="noopener"
+                       class="text-accent-400 hover:text-accent-300 break-all"
+                       title="{{.URL}}">{{.URL}}</a>
+                    {{else}}
+                    <span class="text-dark-600">— manual input —</span>
+                    {{end}}
+                    {{/* Input.Source = "techdetect" | "manual" | "portservice".
+                         Reach the embedded field explicitly — the outer
+                         Match used to shadow it with a same-named field. */}}
+                    {{if .Input.Source}}<br><span class="text-[9px] text-dark-500 uppercase tracking-wider">via {{.Input.Source}}</span>{{end}}
+                </td>
+                <td class="px-5 py-3"><a href="{{.Reference}}" target="_blank" class="mono text-[11px] text-accent-400 hover:text-accent-300">{{.CVE}}</a>
+                    {{/* MatchSource = "builtin" | "cache" — where the CVE
+                         record itself came from, distinct from Input.Source. */}}
+                    {{if .MatchSource}}<br><span class="text-[9px] text-dark-500 uppercase tracking-wider">{{.MatchSource}}</span>{{end}}
+                    {{if .UnverifiedVersion}}<br><span class="text-[9px] text-yellow-400 uppercase tracking-wider">unverified version</span>{{end}}
+                </td>
+                <td class="px-5 py-3">{{template "severity_badge" .Severity}}</td>
+                <td class="px-5 py-3 mono text-[11px] text-dark-200">{{.CVSS}}</td>
+                <td class="px-5 py-3 mono text-[11px] text-dark-200">{{.Product}}<br><span class="text-[10px] text-dark-400">{{.Version}}</span></td>
+                <td class="px-5 py-3 mono text-[11px]">
+                    {{if .FixedIn}}<span class="text-success">{{.FixedIn}}</span>{{else}}<span class="text-dark-600">—</span>{{end}}
+                </td>
+                <td class="px-5 py-3 text-[11px] text-dark-200 max-w-xl">
+                    <p>{{.Description}}</p>
+                    {{if .Remediation}}
+                    <div class="mt-2 px-2 py-1.5 bg-success/5 border border-success/20 rounded">
+                        <p class="text-[9px] uppercase tracking-wider text-success font-semibold mb-0.5">Remediation</p>
+                        <p class="text-[11px] text-dark-200">{{.Remediation}}</p>
+                    </div>
+                    {{end}}
+                    <div class="flex items-center gap-3 mt-1.5 text-[10px] text-dark-500">
+                        <a href="{{.Reference}}" target="_blank" rel="noopener" class="text-accent-400 hover:text-accent-300">NVD link →</a>
+                    </div>
+                </td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    </div>
+</div>
+<script>
+// Wire the sortable-header helper so users can rank matches by severity,
+// CVSS, target host, etc. The helper compares rows by data-* attrs we
+// emit above. Severity uses data-sev-rank (4=critical … 1=low) so the
+// sort is ordered by impact, not by string ("CRITICAL" < "HIGH").
+(function() {
+    if (window.bindSortableTable) {
+        bindSortableTable('#cveMatchesTable', { defaultKey: 'sev-rank', defaultDir: 'desc' });
+    }
+})();
+</script>
+{{else}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-10 flex flex-col items-center text-dark-500">
+    <p class="text-sm">No matching CVEs in database for the supplied inputs.</p>
+    <p class="text-[11px] mt-1">Either the products aren't in the curated set, or detected versions are newer than known-bad ranges.</p>
+</div>
+{{end}}
+
+{{if .SkippedNoVersion}}
+<div class="bg-dark-900 border border-yellow-500/25 rounded-xl overflow-hidden mt-4">
+    <div class="px-5 py-3 border-b border-dark-800 flex items-center gap-2">
+        <svg class="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.732-3L13.732 4a2 2 0 00-3.464 0L3.268 16A2 2 0 005 19z"/></svg>
+        <h3 class="text-sm font-semibold text-white">Detected — version unknown, not CVE-checked ({{len .SkippedNoVersion}})</h3>
+    </div>
+    <div class="px-5 py-2 text-[11px] text-dark-400">
+        These products have known CVEs, but their version could not be determined, so no vulnerability matching was performed (a version-less match would be a guess). Determine the version manually to assess exposure.
+    </div>
+    <table class="w-full">
+        <thead>
+            <tr class="border-b border-dark-800 bg-dark-850">
+                <th class="text-left px-5 py-2 text-[10px] font-semibold text-dark-500 uppercase">Product</th>
+                <th class="text-left px-5 py-2 text-[10px] font-semibold text-dark-500 uppercase">Source</th>
+                <th class="text-left px-5 py-2 text-[10px] font-semibold text-dark-500 uppercase">URL</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .SkippedNoVersion}}
+            <tr class="border-b border-dark-800/50">
+                <td class="px-5 py-2 text-xs text-white">{{.Product}}</td>
+                <td class="px-5 py-2 text-[11px] text-dark-400">{{.Source}}</td>
+                <td class="px-5 py-2 mono text-[10px] text-accent-400 truncate max-w-xs">{{.URL}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{end}}
+
+<div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+    <div class="px-5 py-3 border-b border-dark-800">
+        <h3 class="text-sm font-semibold text-white">All Inputs ({{len .Inputs}})</h3>
+    </div>
+    <table class="w-full">
+        <thead>
+            <tr class="border-b border-dark-800 bg-dark-850">
+                <th class="text-left px-5 py-2 text-[10px] font-semibold text-dark-500 uppercase">Product</th>
+                <th class="text-left px-5 py-2 text-[10px] font-semibold text-dark-500 uppercase">Version</th>
+                <th class="text-left px-5 py-2 text-[10px] font-semibold text-dark-500 uppercase">Source</th>
+                <th class="text-left px-5 py-2 text-[10px] font-semibold text-dark-500 uppercase">URL</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Inputs}}
+            <tr class="border-b border-dark-800/50">
+                <td class="px-5 py-2 text-xs text-white">{{.Product}}</td>
+                <td class="px-5 py-2 mono text-[11px] text-dark-200">{{if .Version}}{{.Version}}{{else}}<span class="text-dark-600">(no version)</span>{{end}}</td>
+                <td class="px-5 py-2 text-[11px] text-dark-400">{{.Source}}</td>
+                <td class="px-5 py-2 mono text-[10px] text-accent-400 truncate max-w-xs">{{.URL}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{end}}

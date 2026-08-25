@@ -1,0 +1,154 @@
+{{define "page_hostdiscovery_results"}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="/modules/hostdiscovery" class="hover:text-accent-400 transition-colors">Host Discovery</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Results</span>
+</div>
+{{template "scan_actions" .}}
+
+{{if or (eq (print .Scan.Status) "running") (eq (print .Scan.Status) "pending")}}
+{{template "scan_progress" .}}
+{{end}}
+
+<div id="scanContent">
+{{template "hostdiscovery_results_inner" .}}
+</div>
+{{end}}
+
+{{define "hostdiscovery_results_inner"}}
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">Hosts Up</p>
+        <p class="text-2xl font-bold {{if .UpHosts}}text-success{{else}}text-dark-600{{end}}">{{.UpHosts}}</p>
+    </div>
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">Hosts Down</p>
+        <p class="text-2xl font-bold {{if .DownHosts}}text-danger{{else}}text-dark-600{{end}}">{{.DownHosts}}</p>
+    </div>
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">ICMP Filtered</p>
+        <p class="text-2xl font-bold {{if .FilteredHosts}}text-warning{{else}}text-dark-600{{end}}">{{.FilteredHosts}}</p>
+    </div>
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">Open Ports</p>
+        <p class="text-2xl font-bold {{if .TotalPorts}}text-accent-400{{else}}text-dark-600{{end}}">{{.TotalPorts}}</p>
+    </div>
+</div>
+
+{{if .Results}}
+<!-- Filter / sort bar. Port filter narrows the table to hosts that have a
+     specific TCP/UDP port open — useful for spotting "all SSH boxes" etc. -->
+<div class="flex flex-wrap items-center gap-2 mb-3">
+    <input id="hdSearch" type="search" placeholder="Search target / IP / hostname..."
+           oninput="applyHDFilter()"
+           class="w-72 mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"/>
+    <input id="hdPortFilter" type="search" placeholder="Port (e.g. 22, 80, 443)"
+           oninput="applyHDFilter()"
+           class="w-44 mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"/>
+    <select id="hdStateFilter" onchange="applyHDFilter()"
+            class="bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
+        <option value="">All states</option>
+        <option value="up">Up</option>
+        <option value="filtered">ICMP Filtered</option>
+        <option value="firewall">Potential Firewall</option>
+        <option value="down">Down</option>
+        <option value="error">Error</option>
+    </select>
+    <span id="hdResultCount" class="ml-auto text-[11px] text-dark-500"></span>
+</div>
+
+<div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+    <table id="hdTable" class="w-full text-sm">
+        <thead class="bg-dark-850 border-b border-dark-800 text-left">
+            <tr>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="target" data-sort-type="string">Target</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="ip-num" data-sort-type="number">IP</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="host" data-sort-type="string">Hostname</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="state" data-sort-type="string">State</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="opencount" data-sort-type="number">Open</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">Ports</th>
+            </tr>
+        </thead>
+        <tbody id="hdTbody" class="divide-y divide-dark-800">
+            {{range .Results}}
+            <tr class="hd-row hover:bg-dark-850/50 transition-colors"
+                data-target="{{.Target}}"
+                data-ip="{{.IP}}"
+                data-ip-num="{{ipToNum .IP}}"
+                data-host="{{.Host}}"
+                data-state="{{if .Error}}error{{else if .SuspectedFirewall}}firewall{{else if not .HostUp}}down{{else if .IcmpFiltered}}filtered{{else}}up{{end}}"
+                data-opencount="{{.OpenCount}}"
+                data-ports="{{range .Ports}}{{if eq .State "open"}}{{.Port}}/{{.Protocol}} {{end}}{{end}}">
+                <td class="px-4 py-2.5 mono text-xs text-accent-400 align-top">{{.Target}}</td>
+                <td class="px-4 py-2.5 mono text-xs text-dark-200 align-top">{{if .IP}}{{.IP}}{{else}}—{{end}}</td>
+                <td class="px-4 py-2.5 mono text-[11px] text-dark-400 align-top">{{if .Host}}{{.Host}}{{else}}—{{end}}</td>
+                <td class="px-4 py-2.5 align-top">
+                    {{if and .Error (not .HostUp)}}<span class="text-[10px] uppercase tracking-wider text-danger bg-danger/10 px-2 py-0.5 rounded" title="{{.Error}}">Error</span>
+                    {{else if .SuspectedFirewall}}<span class="text-[10px] uppercase tracking-wider text-warning bg-warning/10 px-2 py-0.5 rounded" title="nmap reported {{.FirewalledCount}}+ open ports — likely a firewall reflecting probes">Potential FW</span>
+                    {{else if not .HostUp}}<span class="text-[10px] uppercase tracking-wider text-danger bg-danger/10 px-2 py-0.5 rounded">Down</span>
+                    {{else if .IcmpFiltered}}<span class="text-[10px] uppercase tracking-wider text-warning bg-warning/10 px-2 py-0.5 rounded">ICMP Filt.</span>
+                    {{else}}<span class="text-[10px] uppercase tracking-wider text-success bg-success/10 px-2 py-0.5 rounded">Up</span>{{end}}
+                </td>
+                <td class="px-4 py-2.5 mono text-xs align-top">
+                    {{if .SuspectedFirewall}}<span class="text-warning">+{{.FirewalledCount}}<span class="text-[10px] text-dark-500">?</span></span>
+                    {{else}}<span class="text-dark-200">{{.OpenCount}}</span>{{end}}
+                </td>
+                <td class="px-4 py-2.5 align-top">
+                    {{if .SuspectedFirewall}}
+                    <span class="text-[11px] text-warning bg-warning/10 border border-warning/30 px-2 py-1 rounded" title="Run portservice on this IP to verify which (if any) of these are real services.">⚠ +{{.FirewalledCount}} open ports — potential firewall (further scan skipped)</span>
+                    {{else if .Error}}
+                    <span class="text-[11px] text-danger bg-danger/10 border border-danger/30 px-2 py-1 rounded" title="{{.Error}}">⚠ nmap error: {{.Error}}</span>
+                    {{else if .Ports}}
+                    <div class="flex flex-wrap gap-1 max-w-[520px]">
+                        {{range .Ports}}{{if eq .State "open"}}
+                        <span class="mono text-[10px] px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20" title="{{if .Service}}{{.Service}}{{end}}">{{.Port}}/{{.Protocol}}</span>
+                        {{end}}{{end}}
+                    </div>
+                    {{else}}<span class="text-[11px] text-dark-600">—</span>{{end}}
+                </td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+<script>
+function applyHDFilter() {
+    var q = (document.getElementById('hdSearch').value || '').trim().toLowerCase();
+    var port = (document.getElementById('hdPortFilter').value || '').trim().toLowerCase();
+    var state = document.getElementById('hdStateFilter').value;
+    var rows = document.querySelectorAll('.hd-row');
+    var visible = 0;
+    rows.forEach(function(r) {
+        var target = (r.getAttribute('data-target') || '').toLowerCase();
+        var ip = (r.getAttribute('data-ip') || '').toLowerCase();
+        var host = (r.getAttribute('data-host') || '').toLowerCase();
+        var ports = (r.getAttribute('data-ports') || '').toLowerCase();
+        var rowState = r.getAttribute('data-state');
+        var matchSearch = !q || target.indexOf(q) !== -1 || ip.indexOf(q) !== -1 || host.indexOf(q) !== -1;
+        var matchState = !state || state === rowState;
+        var matchPort = !port || ports.split(' ').some(function(p) {
+            // accept "22", "22/tcp", or substring match
+            return p.indexOf(port) === 0 || p === port;
+        });
+        var show = matchSearch && matchState && matchPort;
+        r.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+    var counter = document.getElementById('hdResultCount');
+    if (counter) counter.textContent = visible + ' / ' + rows.length + ' host' + (rows.length === 1 ? '' : 's');
+}
+(function() {
+    if (window.bindSortableTable) bindSortableTable('#hdTable', { defaultKey: 'ip-num', defaultDir: 'asc' });
+    applyHDFilter();
+})();
+</script>
+{{end}}
+
+{{if not .Results}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
+    <p class="text-sm">{{if eq (print .Scan.Status) "running"}}Waiting for first results...{{else}}No results available{{end}}</p>
+</div>
+{{end}}
+{{end}}

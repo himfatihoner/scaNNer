@@ -1,0 +1,209 @@
+{{define "page_modules"}}
+<div class="mb-6">
+    <h2 class="text-xl font-bold text-white">Scanning Modules</h2>
+    <p class="text-sm text-dark-400 mt-1">Manage and configure your scanning modules</p>
+</div>
+
+<!-- Advanced Modules (hidden when the user lacks the advancedweb grant) -->
+{{if .CanAdvancedWeb}}
+<div class="mb-3 flex items-center gap-2">
+    <span class="text-[10px] uppercase tracking-[0.2em] text-accent-400 font-bold">⚡ Advanced Suites</span>
+    <div class="flex-1 h-px bg-gradient-to-r from-accent-500/40 via-dark-800 to-transparent"></div>
+    <span class="text-[10px] text-dark-500">Orchestrated multi-module pipelines</span>
+</div>
+<div class="grid grid-cols-1 gap-5 mb-10">
+    <!-- Advanced Web Application Scanner -->
+    <a href="/modules/advanced-web" class="group relative flex items-stretch overflow-hidden rounded-2xl ring-1 ring-violet-500/40 hover:ring-2 hover:ring-violet-400/80 shadow-[0_0_40px_-15px_rgba(139,92,246,0.5)] hover:shadow-[0_0_60px_-10px_rgba(139,92,246,0.7)] transition-all duration-300">
+        <!-- Left hero panel -->
+        <div class="relative w-44 shrink-0 bg-gradient-to-br from-violet-600 via-violet-600 to-fuchsia-500 flex flex-col items-center justify-between py-6 px-4 overflow-hidden">
+            <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(circle at 25% 25%, rgba(255,255,255,0.3) 1px, transparent 1px); background-size: 16px 16px;"></div>
+            <div class="relative text-[10px] font-bold tracking-[0.3em] text-white/80 uppercase">Advanced</div>
+            <div class="relative w-20 h-20 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center shadow-inner backdrop-blur-sm">
+                <!-- Browser-window stencil with HTTP angle-brackets — reads instantly as "web app". -->
+                <svg class="w-11 h-11 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="4" width="18" height="16" rx="2"/>
+                    <path d="M3 8h18"/>
+                    <circle cx="6" cy="6" r="0.6" fill="currentColor"/>
+                    <circle cx="8.2" cy="6" r="0.6" fill="currentColor"/>
+                    <circle cx="10.4" cy="6" r="0.6" fill="currentColor"/>
+                    <path d="M8.5 13l-2 2 2 2M15.5 13l2 2-2 2M13 12l-2 6"/>
+                </svg>
+            </div>
+            <div class="relative text-[9px] font-semibold text-white/70 tracking-wider uppercase">Web Suite</div>
+        </div>
+        <!-- Right content -->
+        <div class="flex-1 bg-dark-900 p-6 flex flex-col justify-between border-l border-violet-500/20">
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <h4 class="text-lg font-bold text-white">Advanced Web Application Scanner</h4>
+                    <span class="w-2 h-2 rounded-full bg-success scan-pulse"></span>
+                </div>
+                <p class="text-xs text-dark-300 leading-relaxed mb-4">Chains multiple web-focused modules in sequence — tech detection, WAF fingerprinting, security headers, directory enumeration, spidering and WPScan — to produce a single consolidated assessment of a web target.</p>
+                <div class="flex flex-wrap gap-1.5 mb-4">
+                    <span class="text-[10px] px-2 py-0.5 bg-violet-500/10 border border-violet-500/20 rounded text-violet-300">httpx</span>
+                    <span class="text-[10px] px-2 py-0.5 bg-violet-500/10 border border-violet-500/20 rounded text-violet-300">tech</span>
+                    <span class="text-[10px] px-2 py-0.5 bg-violet-500/10 border border-violet-500/20 rounded text-violet-300">waf</span>
+                    <span class="text-[10px] px-2 py-0.5 bg-violet-500/10 border border-violet-500/20 rounded text-violet-300">headers</span>
+                    <span class="text-[10px] px-2 py-0.5 bg-violet-500/10 border border-violet-500/20 rounded text-violet-300">spider</span>
+                    <span class="text-[10px] px-2 py-0.5 bg-violet-500/10 border border-violet-500/20 rounded text-violet-300">direnum</span>
+                    <span class="text-[10px] px-2 py-0.5 bg-violet-500/10 border border-violet-500/20 rounded text-violet-300">wpscan</span>
+                </div>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-[11px] text-dark-500">7 modules · unified report</span>
+                <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-violet-400 group-hover:text-white group-hover:gap-2.5 transition-all">
+                    Launch Suite
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5-5 5M6 12h12"/></svg>
+                </span>
+            </div>
+        </div>
+    </a>
+
+</div>
+{{end}}
+
+<div class="mb-3 flex items-center gap-3 flex-wrap">
+    <span class="text-[10px] uppercase tracking-[0.15em] text-dark-400 font-semibold">Modules</span>
+    <div class="flex-1 h-px bg-dark-800 min-w-[20px]"></div>
+    <div class="relative">
+        <svg class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-dark-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input id="moduleSearch" type="search" placeholder="Search modules..." oninput="filterModules()"
+               class="bg-dark-850 border border-dark-700 rounded-lg pl-7 pr-3 py-1.5 text-xs text-white placeholder-dark-500 focus:outline-none focus:border-accent-500 w-44">
+    </div>
+    <div id="categoryFilter" class="flex bg-dark-850 border border-dark-700 rounded-lg overflow-hidden">
+        <button type="button" data-cat="all" class="cat-btn px-3 py-1.5 text-xs text-white bg-accent-600">All</button>
+        <button type="button" data-cat="web" class="cat-btn px-3 py-1.5 text-xs text-dark-400 hover:text-white transition-colors">Web</button>
+        <button type="button" data-cat="network" class="cat-btn px-3 py-1.5 text-xs text-dark-400 hover:text-white transition-colors">Network</button>
+        <button type="button" data-cat="recon" class="cat-btn px-3 py-1.5 text-xs text-dark-400 hover:text-white transition-colors">Recon</button>
+        <button type="button" data-cat="vuln" class="cat-btn px-3 py-1.5 text-xs text-dark-400 hover:text-white transition-colors">Vuln</button>
+    </div>
+    <label class="flex items-center gap-1.5 cursor-pointer select-none">
+        <input id="vulnOnly" type="checkbox" onchange="applyModuleFilters()"
+               class="rounded border-dark-600 bg-dark-800 text-rose-500 focus:ring-rose-500/50">
+        <span class="text-[11px] text-dark-300">⚠ Findings only</span>
+    </label>
+</div>
+
+{{if .Modules}}
+<div id="modulesGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    {{range .Modules}}
+    {{$vuln := isVulnEmitter .Name}}
+    <a href="/modules/{{.Name}}" class="module-card group block bg-dark-900 border {{if $vuln}}border-rose-500/25 hover:border-rose-400/60{{else}}border-dark-800{{end}} rounded-xl p-5 transition-all duration-200 cursor-pointer relative"
+       data-category="{{.Category}}" data-name="{{.DisplayName}}" data-desc="{{.Description}}" data-vuln="{{if $vuln}}1{{else}}0{{end}}">
+        {{if $vuln}}
+        <span class="absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-500/40 text-[9px] uppercase tracking-wider text-rose-300 font-semibold"
+              title="This module emits vulnerability findings directly into the pentest report (severity-labeled or CVE-tagged).">
+            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+            Findings
+        </span>
+        {{end}}
+        <div class="flex items-start justify-between mb-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg {{if $vuln}}bg-rose-500/15{{else}}bg-accent-600/20{{end}} flex items-center justify-center text-xl">
+                    {{.Icon}}
+                </div>
+                <div>
+                    <h4 class="text-sm font-semibold text-white group-hover:text-accent-400 transition-colors">{{.DisplayName}}</h4>
+                    <span class="inline-block mt-0.5 text-[10px] uppercase tracking-wider text-dark-500 bg-dark-850 px-2 py-0.5 rounded">{{.Category}}</span>
+                </div>
+            </div>
+            <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400 transition-colors mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+        </div>
+        <p class="text-xs text-dark-400 leading-relaxed">{{.Description}}</p>
+    </a>
+    {{end}}
+</div>
+<p id="modulesEmpty" class="hidden text-center py-10 text-sm text-dark-500">No modules in this category.</p>
+<script>
+var __activeCat = 'all';
+function applyModuleFilters() {
+    var q = (document.getElementById('moduleSearch') || {}).value || '';
+    q = q.trim().toLowerCase();
+    var cards = document.querySelectorAll('#modulesGrid .module-card');
+    var empty = document.getElementById('modulesEmpty');
+    var grid  = document.getElementById('modulesGrid');
+    var visible = 0;
+    var vulnOnly = (document.getElementById('vulnOnly') || {}).checked;
+    // Re-rank when a search query is active: title-prefix matches first,
+    // then title-substring, then description/category matches. Without
+    // this, typing "te" returned every module whose description happened
+    // to contain "te" alongside Tech Detection itself.
+    var ranked = [];
+    cards.forEach(function(c) {
+        var cat  = c.getAttribute('data-category') || '';
+        var name = (c.getAttribute('data-name') || '').toLowerCase();
+        var desc = (c.getAttribute('data-desc') || '').toLowerCase();
+        var vuln = c.getAttribute('data-vuln') === '1';
+        var catOK = __activeCat === 'all' || cat === __activeCat;
+        var vOK   = !vulnOnly || vuln;
+        var rank = -1;
+        if (q === '') {
+            rank = 4; // no query — keep DOM order
+        } else if (name.indexOf(q) === 0) {
+            rank = 0; // title starts with query → highest
+        } else if (name.indexOf(' ' + q) !== -1) {
+            rank = 1; // matches at a word boundary inside the title
+        } else if (name.indexOf(q) !== -1) {
+            rank = 2; // matches anywhere in the title
+        } else if (desc.indexOf(q) !== -1 || cat.indexOf(q) !== -1) {
+            rank = 3; // only description/category match → lowest
+        }
+        var show = catOK && vOK && rank >= 0;
+        if (show) {
+            ranked.push({card: c, rank: rank, name: name});
+            visible++;
+        } else {
+            c.style.display = 'none';
+        }
+    });
+    // Stable sort by rank, then keep alphabetical fallback within a tier.
+    ranked.sort(function(a, b) {
+        if (a.rank !== b.rank) return a.rank - b.rank;
+        return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+    });
+    ranked.forEach(function(r) {
+        r.card.style.display = '';
+        grid.appendChild(r.card); // re-attach in new order
+    });
+    if (empty) {
+        empty.textContent = q && visible === 0 ? 'No modules match your search.' : 'No modules in this category.';
+        empty.classList.toggle('hidden', visible !== 0);
+    }
+    if (grid) grid.classList.toggle('hidden', visible === 0);
+}
+function filterModules() { applyModuleFilters(); }
+(function() {
+    var btns = document.querySelectorAll('#categoryFilter .cat-btn');
+    function setActive(btn) {
+        btns.forEach(function(b) {
+            b.classList.remove('bg-accent-600','text-white');
+            b.classList.add('text-dark-400','hover:text-white','transition-colors');
+        });
+        btn.classList.add('bg-accent-600','text-white');
+        btn.classList.remove('text-dark-400');
+    }
+    btns.forEach(function(b) {
+        b.addEventListener('click', function() {
+            setActive(b);
+            __activeCat = b.getAttribute('data-cat');
+            applyModuleFilters();
+        });
+    });
+})();
+</script>
+{{else}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center justify-center">
+    <div class="w-16 h-16 rounded-full bg-dark-850 flex items-center justify-center mb-4">
+        <svg class="w-8 h-8 text-dark-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+        </svg>
+    </div>
+    <h3 class="text-lg font-semibold text-white mb-1">No Modules Installed</h3>
+    <p class="text-sm text-dark-500 text-center max-w-md">Scanning modules will be added here. Each module provides a specific scanning capability like port scanning, subdomain enumeration, or vulnerability detection.</p>
+</div>
+{{end}}
+{{end}}

@@ -1,0 +1,89 @@
+{{define "page_spider"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Web Spider</span>
+</div>
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">🕷️</span> Web Spider</h2>
+        <p class="text-sm text-dark-400 mt-1">Crawl websites to discover directories, files, and endpoints</p>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Crawl</h3>
+            <form action="/modules/spider/run" method="POST">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Target URLs{{template "info_icon" "Seed URLs to start crawling from. Only same-host links are followed."}} <span class="text-danger">*</span></label>
+                        {{template "workspace_targets" .}}
+                        <textarea name="urls" rows="5" data-line-count placeholder="https://example.com&#10;https://target.com/app"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-dark-400 mb-1">Max Depth{{template "info_icon" "How many link-hops away from the seed URL to follow. No hard cap — the crawl is bounded by Max Pages, so a high depth just means 'go as deep as the page budget allows'."}}</label>
+                            <input type="number" name="max_depth" value="5" min="1"
+                                   class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-dark-400 mb-1">Max Pages{{template "info_icon" "Hard limit on total pages visited before stopping. Prevents infinite crawls."}}</label>
+                            <input type="number" name="max_pages" value="500" min="10" max="10000"
+                                   class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent-500">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-dark-400 mb-1">Request Delay (ms){{template "info_icon" "Delay applied before every page fetch. Use for rate-limited or fragile production targets."}}</label>
+                            <input type="number" name="request_delay_ms" value="0" min="0" max="60000"
+                                   class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent-500">
+                        </div>
+                        <div class="flex items-end">
+                            <label class="flex items-center gap-2 text-xs text-dark-300 cursor-pointer">
+                                <input type="checkbox" name="include_subdomains" value="on" class="w-4 h-4 text-accent-600 bg-dark-850 border-dark-700 rounded focus:ring-accent-500">
+                                <span>Include subdomains{{template "info_icon" "Follow links across the whole registered domain (last two dotted labels of the seed host), not just the exact seed host."}}</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-dark-400 mb-1">Exclude Regex{{template "info_icon" "One regex per line; any URL path (as normalised: scheme://host/path) that matches is skipped. Use for destructive/state-changing links (^/delete, /logout, /unsubscribe)."}}</label>
+                        <textarea name="exclude_regex" rows="2" placeholder="^/(logout|signout|admin/delete)"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                    </div>
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                        <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1.5">Extraction Sources</p>
+                        <p class="text-[11px] text-dark-400">href, src, action, srcset, CSS url(), JS string paths, form actions, robots.txt + sitemap.xml</p>
+                    </div>
+                </div>
+                {{template "http_options" .}}
+                {{template "http_tuning" (dict "TuneConcHint" $.TuneConcHint "TuneTimeoutHint" "30")}}
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Start Crawl
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}<div class="space-y-2">{{range .Scans}}
+                <a href="/modules/spider/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all group">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200 group-hover:text-white">Scan #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                    </div>
+                    <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+            {{end}}</div>
+            {{else}}<div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No scans yet</p></div>{{end}}
+        </div>
+    </div>
+</div>
+{{end}}

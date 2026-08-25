@@ -1,0 +1,85 @@
+{{define "page_techdetect"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Tech Detector</span>
+</div>
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">🧬</span> Tech Detector</h2>
+        <p class="text-sm text-dark-400 mt-1">Detect web technologies via WhatWeb + header/body fingerprinting</p>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Scan</h3>
+            <form action="/modules/techdetect/run" method="POST">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Target URLs{{template "info_icon" "URLs to fingerprint. Each is fetched once and analyzed for CMS, frameworks, servers, CDNs, analytics, and JS libraries."}} <span class="text-danger">*</span></label>
+                        {{template "workspace_targets" .}}
+                        <textarea name="urls" rows="6" data-line-count placeholder="https://example.com&#10;https://github.com&#10;https://shopify.com"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                        <p class="text-[11px] text-dark-500 mt-1">One URL per line. https:// prepended if missing.</p>
+                    </div>
+
+                    <!-- Chain to CVE Matcher: each detected (Name, Version) flows directly
+                         into a follow-up cvematch scan as (Product, Version). Same shape,
+                         no conversion needed. The spawned scan ID is recorded on this scan
+                         so the results page can link straight to the CVE list. -->
+                    <label class="flex items-start gap-2 cursor-pointer p-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-colors">
+                        <input type="checkbox" name="auto_cvematch" class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500 focus:ring-accent-500/50">
+                        <span class="flex-1">
+                            <span class="block text-xs font-medium text-white">Auto-run CVE Matcher after detection
+                                <span class="text-[10px] mono px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30 align-middle">⚠ Findings</span>
+                            </span>
+                            <span class="block text-[11px] text-dark-400 mt-0.5 leading-relaxed">When this scan finishes, each detected (Technology, Version) pair is auto-fed into the CVE Matcher module. Results link is shown on this scan's results page. The two modules' input shapes already match — no data conversion is performed.</span>
+                        </span>
+                    </label>
+
+                    <!-- WhatWeb aggression: default is -a 1 (passive, single GET). -a 3
+                         issues extra GETs/POSTs against known plugin paths — can consume
+                         CSRF tokens on login forms, trigger account lockouts, and reliably
+                         trips CDN WAFs (Cloudflare bot-defense in particular). Off by
+                         default so first-time users don't get surprised. -->
+                    <label class="flex items-start gap-2 cursor-pointer p-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-colors">
+                        <input type="checkbox" name="aggressive_whatweb" class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500 focus:ring-accent-500/50">
+                        <span class="flex-1">
+                            <span class="block text-xs font-medium text-white">Aggressive WhatWeb probe (-a 3)
+                                <span class="text-[10px] mono px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 align-middle">⚠ Noisy</span>
+                            </span>
+                            <span class="block text-[11px] text-dark-400 mt-0.5 leading-relaxed">Extra GETs/POSTs against known plugin paths for deeper fingerprinting. May consume CSRF tokens, POST to login forms, and trip WAFs / bot defenses. Leave off for stealth or WAF-fronted targets. Default is passive (-a 1).</span>
+                        </span>
+                    </label>
+                </div>
+                {{template "http_options" .}}
+                {{template "queue_option" .}}
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Detect Technologies
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}<div class="space-y-2">{{range .Scans}}
+                <a href="/modules/techdetect/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all group">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200 group-hover:text-white">Scan #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                    </div>
+                    <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+            {{end}}</div>
+            {{else}}<div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No scans yet</p></div>{{end}}
+        </div>
+    </div>
+</div>
+{{end}}

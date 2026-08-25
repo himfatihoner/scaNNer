@@ -1,0 +1,144 @@
+{{define "page_hostdiscovery"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Host Discovery</span>
+</div>
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">📡</span> Host Discovery</h2>
+        <p class="text-sm text-dark-400 mt-1">Port scan with nmap. Pings first; falls back to <span class="mono text-dark-300">-Pn</span> so ICMP-filtered hosts aren't missed.</p>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Scan</h3>
+            <form action="/modules/hostdiscovery/run" method="POST">
+                <div class="space-y-4">
+                    {{template "workspace_targets" .}}
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Manual Targets{{template "info_icon" "Hostnames or IPs, one per line. CIDR is supported by nmap directly (e.g. 10.0.0.0/24)."}}</label>
+                        <textarea name="manual_targets" rows="3" placeholder="192.168.1.1&#10;192.168.2.0/24&#10;192.168.3.10-50&#10;example.com"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-2">Port Scope{{template "info_icon" "Common = top 1000 nmap ports. Custom = your list. Range = a-b. Full = all 65535 ports."}} <span class="text-danger">*</span></label>
+                        <div class="space-y-2">
+                            <label class="flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-success has-[:checked]:bg-success/5">
+                                <input type="radio" name="scope" value="common" checked class="mt-0.5 rounded-full border-dark-600 bg-dark-800 text-success">
+                                <div>
+                                    <p class="text-xs font-medium text-dark-200">Common (top 1000)</p>
+                                    <p class="text-[11px] text-dark-500">Fast — typical web/services ports</p>
+                                </div>
+                            </label>
+                            <label class="flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-warning has-[:checked]:bg-warning/5">
+                                <input type="radio" name="scope" value="custom" class="mt-0.5 rounded-full border-dark-600 bg-dark-800 text-warning">
+                                <div>
+                                    <p class="text-xs font-medium text-dark-200">Custom list</p>
+                                    <p class="text-[11px] text-dark-500">Comma-separated (e.g. <span class="mono">22,80,443,8080</span>)</p>
+                                </div>
+                            </label>
+                            <label class="flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-accent-500 has-[:checked]:bg-accent-600/10">
+                                <input type="radio" name="scope" value="range" class="mt-0.5 rounded-full border-dark-600 bg-dark-800 text-accent-500">
+                                <div>
+                                    <p class="text-xs font-medium text-dark-200">Range</p>
+                                    <p class="text-[11px] text-dark-500">e.g. <span class="mono">1-1024</span></p>
+                                </div>
+                            </label>
+                            <label class="flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-danger has-[:checked]:bg-danger/5">
+                                <input type="radio" name="scope" value="full" class="mt-0.5 rounded-full border-dark-600 bg-dark-800 text-danger">
+                                <div>
+                                    <p class="text-xs font-medium text-dark-200">Full (1-65535)</p>
+                                    <p class="text-[11px] text-dark-500">All ports — slow, very thorough</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Custom / Range value{{template "info_icon" "Required when scope is Custom or Range. Examples: 80,443 or 1-1024."}}</label>
+                        <input type="text" name="port_spec" placeholder="80,443,8080 or 1-1024"
+                               class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                    </div>
+
+                    {{/* Concurrency slider + numeric input — mirrors the
+                         Advanced Host Scanner pattern. 1-50 range; default
+                         10 fits laptops, above 25 needs ulimit + dedicated
+                         infra. Each unit = 2 parallel nmap subprocesses
+                         (with-ping + no-ping passes). */}}
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Concurrency{{template "info_icon" "How many hosts run nmap in parallel. Each host = 2 nmap subprocesses (with-ping + no-ping). Going from 4 → 10 ≈ 2.5× faster scan with zero accuracy loss. Above 25 needs `ulimit -n 65535` and dedicated VPS — laptop Wi-Fi / NAT routers will choke. Defaults to the global Settings value."}}</label>
+                        <div class="flex items-center gap-3">
+                            <input type="range" id="hdConcRange" min="1" max="50" value="{{.DefaultConcurrency}}" step="1"
+                                   oninput="document.getElementById('hdConcNum').value=this.value;hdUpdateConcHint(this.value)"
+                                   class="flex-1 accent-accent-500">
+                            <input type="number" id="hdConcNum" name="concurrency" min="1" max="50" value="{{.DefaultConcurrency}}"
+                                   oninput="document.getElementById('hdConcRange').value=Math.min(50,Math.max(1,this.value||{{.DefaultConcurrency}}));hdUpdateConcHint(this.value)"
+                                   class="w-16 bg-dark-850 border border-dark-700 rounded-lg px-2 py-1 text-xs text-white text-center focus:outline-none focus:border-accent-500">
+                        </div>
+                        <p id="hdConcHint" class="text-[10px] text-dark-500 mt-1">Inherits global "Network max concurrent" setting (currently {{.DefaultConcurrency}}).</p>
+                    </div>
+                    <script>
+                    function hdUpdateConcHint(v) {
+                        var n = parseInt(v, 10) || {{.DefaultConcurrency}};
+                        var hint = document.getElementById('hdConcHint');
+                        if (!hint) return;
+                        if (n <= 5) {
+                            hint.textContent = 'Conservative — minimal load, slow for big target lists.';
+                            hint.className = 'text-[10px] text-dark-500 mt-1';
+                        } else if (n <= 12) {
+                            hint.textContent = 'Balanced — good fit for laptops / VMs. ~' + (n/4).toFixed(1) + '× faster than legacy default.';
+                            hint.className = 'text-[10px] text-dark-500 mt-1';
+                        } else if (n <= 20) {
+                            hint.textContent = 'Fast — needs solid network. Likely to trip light IDS rules.';
+                            hint.className = 'text-[10px] text-accent-300 mt-1';
+                        } else if (n <= 30) {
+                            hint.textContent = '⚠ Aggressive — may degrade home-router NAT tables, will trip most IDS. Use on dedicated VPS, not laptop Wi-Fi.';
+                            hint.className = 'text-[10px] text-warning mt-1';
+                        } else {
+                            hint.textContent = '⚠ Maximum throughput — needs `ulimit -n 65535`, dedicated VPS, and tolerant network. ' + n + ' parallel hosts × 2 nmap = ' + (n*2) + ' subprocesses. Will trip every IDS.';
+                            hint.className = 'text-[10px] text-danger mt-1';
+                        }
+                    }
+                    // Refresh the hint label to match the initial slider value
+                    // (which now comes from the global Settings default).
+                    hdUpdateConcHint({{.DefaultConcurrency}});
+                    </script>
+                </div>
+                {{template "queue_option" .}}
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Start Discovery
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}
+            <div class="space-y-2">
+                {{range .Scans}}
+                <a href="/modules/hostdiscovery/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all group">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200 group-hover:text-white">Scan #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                    </div>
+                    <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                {{end}}
+            </div>
+            {{else}}
+            <div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No scans yet</p></div>
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}

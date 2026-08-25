@@ -1,0 +1,99 @@
+{{define "page_emailharvest"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Email Harvester</span>
+</div>
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">📧</span> Email Harvester</h2>
+        <p class="text-sm text-dark-400 mt-1">Harvests emails, hosts, and IPs from public sources via theHarvester.</p>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Harvest</h3>
+            <form action="/modules/emailharvest/run" method="POST">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Domains <span class="text-danger">*</span>{{template "info_icon" "One per line. Use the apex domain (example.com), not URLs."}}</label>
+                        <textarea name="domains" rows="4" required placeholder="example.com&#10;target.org"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-2">Sources{{template "info_icon" (printf "Public sources to query. Leaving none ticks the safe defaults (%s)." .DefaultSourcesList)}}</label>
+                        <div class="grid grid-cols-2 gap-1.5">
+                            {{$defaults := .DefaultSources}}
+                            {{range .AllSources}}
+                            <label class="cursor-pointer">
+                                <input type="checkbox" name="sources" value="{{.}}" {{if index $defaults .}}checked{{end}} class="peer sr-only">
+                                <span class="block text-[11px] text-dark-300 bg-dark-850 border border-dark-700 px-2 py-1 rounded transition-colors peer-checked:bg-accent-600 peer-checked:text-white peer-checked:border-accent-500 hover:border-accent-500/50 text-center">{{.}}</span>
+                            </label>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Per-source result limit{{template "info_icon" "Caps how many results theHarvester pulls per source. Higher = more coverage but slower."}}</label>
+                        <input type="number" name="limit" min="50" max="2000" value="200"
+                               class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent-500">
+                    </div>
+
+                    <!-- Enrichment phases -->
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3 space-y-2">
+                        <p class="text-[10px] text-dark-500 uppercase tracking-wider">Enrichment</p>
+
+                        <label class="flex items-start gap-2.5 cursor-pointer">
+                            <input type="checkbox" name="dns_auth" checked class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500">
+                            <div>
+                                <p class="text-xs font-medium text-dark-200">DNS Auth (MX / SPF / DMARC / DKIM){{template "info_icon" "Resolves the domain's mail-authentication records. Detects mail provider, flags weak SPF (?all/+all/missing), weak DMARC (p=none/missing), and probes 18 common DKIM selectors."}}</p>
+                                <p class="text-[10px] text-dark-500 mt-0.5">Reveals mail provider + spoofing posture.</p>
+                            </div>
+                        </label>
+
+                        <label class="flex items-start gap-2.5 cursor-pointer">
+                            <input type="checkbox" name="hibp_check" checked class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500">
+                            <div>
+                                <p class="text-xs font-medium text-dark-200">HIBP Domain Breach Check{{template "info_icon" "Queries Have I Been Pwned's free /breaches?domain= endpoint to list every breach involving the target domain."}}</p>
+                                <p class="text-[10px] text-dark-500 mt-0.5">Domain-level check is free and works without a key. {{if .HasHIBPKey}}<span class="text-success">✓ HIBP key configured</span> — sent on the /breaches request.{{else}}A key can be added in <a href="/settings" class="text-accent-400 hover:underline">Settings</a> (per-account lookups not enabled by default — HIBP's free-tier rate-limit makes them slow).{{end}}</p>
+                            </div>
+                        </label>
+                    </div>
+
+                    {{template "http_tuning" (dict "TuneConcHint" $.TuneConcHint "TuneTimeoutHint" "30")}}
+                </div>
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Start Harvest
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}
+            <div class="space-y-2">
+                {{range .Scans}}
+                <a href="/modules/emailharvest/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all group">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200 group-hover:text-white">Scan #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                    </div>
+                    <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                {{end}}
+            </div>
+            {{else}}
+            <div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No scans yet</p></div>
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}

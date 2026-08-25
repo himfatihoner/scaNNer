@@ -1,0 +1,279 @@
+{{define "page_direnum_results"}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="/modules/direnum" class="hover:text-accent-400 transition-colors">Directory Enumerator</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Results</span>
+</div>
+{{template "scan_actions" .}}
+
+{{if or (eq (print .Scan.Status) "running") (eq (print .Scan.Status) "pending")}}
+{{template "scan_progress" .}}
+{{end}}
+
+<div id="scanContent">
+{{template "direnum_results_inner" .}}
+</div>
+
+{{end}}
+
+{{define "direnum_results_inner"}}
+<div class="flex flex-wrap items-center gap-2 -mt-2 mb-4">
+    <div class="flex items-center gap-1.5 bg-dark-850 border border-dark-700 rounded-lg p-1">
+        <button type="button" data-tab="findings"
+                class="direnum-tab-btn px-3 py-1 text-xs rounded transition-colors text-accent-300 bg-accent-600/15">
+            Findings
+        </button>
+        <button type="button" data-tab="directories"
+                class="direnum-tab-btn px-3 py-1 text-xs rounded transition-colors text-dark-300 hover:text-white">
+            Directories
+        </button>
+    </div>
+    <p class="text-sm text-dark-400 ml-2">{{.TotalFound}} paths discovered so far
+        <span class="text-[11px] text-dark-500 ml-2">· tip: Shift+Click a column to add a secondary sort</span>
+    </p>
+</div>
+
+<div id="direnumTab-findings">
+{{range $tri, $tr := .Results}}
+{{with $tr}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl mb-6 overflow-hidden">
+    <div class="px-5 py-4 border-b border-dark-800 flex items-center justify-between">
+        <div>
+            <span class="mono text-sm font-semibold text-accent-400">{{.URL}}</span>
+            <span class="text-xs text-dark-400 ml-3">{{.TotalFound}} found / {{.TotalRequests}} requests</span>
+        </div>
+        {{if .FPCodes}}
+        <div class="flex flex-wrap items-center gap-2 max-w-xl">
+            <span class="text-[10px] text-dark-500">FP filtered:</span>
+            {{range $ext, $sig := .FPCodes}}
+            <span class="mono text-[10px] text-dark-400 bg-dark-800 px-1.5 py-0.5 rounded" title="Extension {{if $ext}}{{$ext}}{{else}}(directory){{end}}">
+                {{if $ext}}{{$ext}}{{else}}dir{{end}}
+                {{if ne $sig.Code -1}}→{{$sig.Code}}{{end}}
+                {{if $sig.Sizes}}
+                · {{len $sig.Sizes}} size{{if ne (len $sig.Sizes) 1}}s{{end}}
+                {{end}}
+            </span>
+            {{end}}
+        </div>
+        {{end}}
+    </div>
+
+    {{if .Entries}}
+    <div class="max-h-[600px] overflow-y-auto">
+        <table id="direnumTable-{{$tri}}" class="w-full">
+            <thead class="sticky top-0 bg-dark-900">
+                <tr class="border-b border-dark-800">
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase" data-sort-key="path"   data-sort-type="string">Path</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase" data-sort-key="type"   data-sort-type="string">Type</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase" data-sort-key="status" data-sort-type="number">Status</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase" data-sort-key="size"   data-sort-type="number">Size</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase" data-sort-key="ct"     data-sort-type="string">Content-Type</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase" data-sort-key="redirect" data-sort-type="string">Redirect</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Entries}}
+                <tr class="border-b border-dark-800/50 hover:bg-dark-850/50 transition-colors"
+                    data-path="{{.Path}}"
+                    data-type="{{if .IsDir}}dir{{else}}file{{end}}"
+                    data-status="{{.StatusCode}}"
+                    data-size="{{.Size}}"
+                    data-ct="{{.ContentType}}"
+                    data-redirect="{{.RedirectTo}}">
+                    <td class="px-5 py-2">
+                        <a href="{{.URL}}" target="_blank" class="mono text-xs text-accent-400 hover:text-accent-300">{{.Path}}</a>
+                        <button type="button" onclick="sendToBurp('{{.URL}}')" title="Send this request to the configured proxy (Burp Repeater)"
+                                class="ml-2 text-[9px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/30 hover:bg-orange-500/20">→ Burp</button>
+                    </td>
+                    <td class="px-5 py-2">
+                        {{if .IsDir}}<span class="text-[11px] text-accent-400">📁 dir</span>
+                        {{else}}<span class="text-[11px] text-success">📄 file</span>{{end}}
+                    </td>
+                    <td class="px-5 py-2">
+                        <span class="mono text-[11px] px-1.5 py-0.5 rounded
+                            {{if and (ge .StatusCode 200) (lt .StatusCode 300)}}bg-success/10 text-success
+                            {{else if and (ge .StatusCode 300) (lt .StatusCode 400)}}bg-accent-500/10 text-accent-400
+                            {{else}}bg-warning/10 text-warning{{end}}">{{.StatusCode}}</span>
+                    </td>
+                    <td class="px-5 py-2 mono text-[11px] text-dark-400">{{if ge .Size 0}}{{.Size}}{{else}}-{{end}}</td>
+                    <td class="px-5 py-2 text-[11px] text-dark-400 max-w-[150px] truncate">{{if .ContentType}}{{.ContentType}}{{else}}-{{end}}</td>
+                    <td class="px-5 py-2 mono text-[11px] text-dark-500 max-w-[200px] truncate">{{if .RedirectTo}}{{.RedirectTo}}{{else}}-{{end}}</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+    {{else}}
+    <div class="p-8 text-center text-dark-500"><p class="text-sm">No paths discovered yet</p></div>
+    {{end}}
+</div>
+{{end}}
+{{end}}
+{{if not .Results}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500"><p class="text-sm">{{if eq (print .Scan.Status) "running"}}Waiting for first results...{{else}}No results{{end}}</p></div>
+{{end}}
+</div>{{/* end Findings tab */}}
+
+<div id="direnumTab-directories" class="hidden">
+{{$running := or (eq (print .Scan.Status) "running") (eq (print .Scan.Status) "pending")}}
+<p class="text-[11px] text-dark-500 mb-3">
+    {{if $running}}Click <span class="text-warning">Skip</span> on any directory you don't want recursed into — already-fired requests aren't aborted, but queued and deeper-level work for that subtree gets dropped.{{else}}This scan has finished. Skipping is only available for running scans.{{end}}
+</p>
+{{range $tri, $tr := .Results}}
+{{with $tr}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl mb-6 overflow-hidden">
+    <div class="px-5 py-4 border-b border-dark-800">
+        <span class="mono text-sm font-semibold text-accent-400">{{.URL}}</span>
+    </div>
+    <div class="max-h-[600px] overflow-y-auto">
+        <table id="direnumDirsTable-{{$tri}}" class="w-full">
+            <thead class="sticky top-0 bg-dark-900">
+                <tr class="border-b border-dark-800">
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase" data-sort-key="path"   data-sort-type="string">Path</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase" data-sort-key="status" data-sort-type="number">Status</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase" data-sort-key="size"   data-sort-type="number">Size</th>
+                    <th class="text-right px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+            {{range .Entries}}{{if .IsDir}}
+            <tr class="border-b border-dark-800/50 hover:bg-dark-850/50 transition-colors direnum-dir-row"
+                data-path="{{.Path}}"
+                data-status="{{.StatusCode}}"
+                data-size="{{.Size}}"
+                data-skip-url="{{.URL}}">
+                <td class="px-5 py-2"><a href="{{.URL}}" target="_blank" class="mono text-xs text-accent-400 hover:text-accent-300">{{.Path}}</a></td>
+                <td class="px-5 py-2">
+                    <span class="mono text-[11px] px-1.5 py-0.5 rounded
+                        {{if and (ge .StatusCode 200) (lt .StatusCode 300)}}bg-success/10 text-success
+                        {{else if and (ge .StatusCode 300) (lt .StatusCode 400)}}bg-accent-500/10 text-accent-400
+                        {{else}}bg-warning/10 text-warning{{end}}">{{.StatusCode}}</span>
+                </td>
+                <td class="px-5 py-2 mono text-[11px] text-dark-400">{{if ge .Size 0}}{{.Size}}{{else}}-{{end}}</td>
+                <td class="px-5 py-2 text-right">
+                    {{if $running}}
+                    <button type="button" data-skip-btn data-skip-url="{{.URL}}"
+                            onclick="direnumSkip(this)"
+                            class="px-2.5 py-1 text-[11px] rounded bg-warning/10 text-warning hover:bg-warning/20 border border-warning/30 transition-colors">
+                        Skip
+                    </button>
+                    {{else}}
+                    <span class="text-[10px] text-dark-600">—</span>
+                    {{end}}
+                </td>
+            </tr>
+            {{end}}{{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+{{end}}
+{{end}}
+</div>{{/* end Directories tab */}}
+
+<script>
+(function() {
+    var SCAN_ID = "{{.Scan.ID}}";
+
+    // Tab switching. Persist the choice on `window` so partial-refresh
+    // mid-scan (which re-runs this script) restores whatever the user
+    // had selected — innerHTML swap doesn't clear window state.
+    function applyTab(name) {
+        window._direnumActiveTab = name;
+        document.querySelectorAll('.direnum-tab-btn').forEach(function(b) {
+            var on = b.getAttribute('data-tab') === name;
+            b.classList.toggle('text-accent-300', on);
+            b.classList.toggle('bg-accent-600/15', on);
+            b.classList.toggle('text-dark-300', !on);
+        });
+        var f = document.getElementById('direnumTab-findings');
+        var d = document.getElementById('direnumTab-directories');
+        if (f) f.classList.toggle('hidden', name !== 'findings');
+        if (d) d.classList.toggle('hidden', name !== 'directories');
+    }
+    document.querySelectorAll('.direnum-tab-btn').forEach(function(b) {
+        b.addEventListener('click', function() { applyTab(b.getAttribute('data-tab')); });
+    });
+    applyTab(window._direnumActiveTab || 'findings');
+
+    // Bind sortable on every direnum table — Findings panels and the
+    // per-target Directories tables both. Run on first load AND every
+    // time refreshContent() swaps the inner markup.
+    function bindAllSortables() {
+        if (!window.bindSortableTable) return;
+        document.querySelectorAll('table[id^="direnumTable-"]').forEach(function(t) {
+            bindSortableTable(t, { defaultKey: 'status', defaultDir: 'asc' });
+        });
+        document.querySelectorAll('table[id^="direnumDirsTable-"]').forEach(function(t) {
+            bindSortableTable(t, { defaultKey: 'path', defaultDir: 'asc' });
+        });
+    }
+    bindAllSortables();
+
+    // Skip click → POST to /modules/direnum/skip/<scanID>?url=<entry url>.
+    // The server adds the URL prefix to the per-scan skip set; the BFS
+    // recursion picks it up before queuing or firing. We grey out the
+    // row optimistically — the next refreshSkipState() pass keeps it
+    // consistent if the request silently fails.
+    window.direnumSkip = function(btn) {
+        var url = btn.getAttribute('data-skip-url');
+        if (!url) return;
+        btn.disabled = true;
+        var prev = btn.textContent;
+        btn.textContent = 'Skipping…';
+        var body = 'url=' + encodeURIComponent(url);
+        fetch('/modules/direnum/skip/' + encodeURIComponent(SCAN_ID), {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: body
+        }).then(function(r) {
+            if (r.ok || r.status === 204) {
+                markRowSkipped(btn.closest('tr'));
+            } else {
+                btn.disabled = false;
+                btn.textContent = prev;
+            }
+        }).catch(function() {
+            btn.disabled = false;
+            btn.textContent = prev;
+        });
+    };
+
+    function markRowSkipped(row) {
+        if (!row) return;
+        row.classList.add('opacity-40');
+        var btn = row.querySelector('[data-skip-btn]');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Skipped';
+            btn.classList.remove('hover:bg-warning/20');
+        }
+    }
+
+    // Pull the current skip set on every render and apply it. This keeps
+    // rows consistently greyed across partial refreshes (server-rendered
+    // markup is fresh — without this, a row that was already skipped
+    // would lose its visual state every ~4s tick).
+    function refreshSkipState() {
+        fetch('/modules/direnum/skipped/' + encodeURIComponent(SCAN_ID))
+            .then(function(r){ return r.json(); })
+            .then(function(d) {
+                var set = (d && d.skipped) || [];
+                if (set.length === 0) return;
+                document.querySelectorAll('.direnum-dir-row').forEach(function(row) {
+                    var u = row.getAttribute('data-skip-url') || '';
+                    for (var i = 0; i < set.length; i++) {
+                        if (u === set[i] || u.indexOf(set[i]) === 0) {
+                            markRowSkipped(row);
+                            return;
+                        }
+                    }
+                });
+            }).catch(function(){});
+    }
+    refreshSkipState();
+})();
+</script>
+{{end}}

@@ -1,0 +1,130 @@
+{{define "page_brutef"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Service Brute Forcer</span>
+</div>
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">🔑</span> Service Brute Forcer</h2>
+        <p class="text-sm text-dark-400 mt-1">Hydra-powered credential brute-force for SSH, FTP, RDP, SMB, MSSQL, MySQL, PostgreSQL, VNC, LDAP, Telnet. Streams successful logins live.</p>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Attack</h3>
+            <form action="/modules/brutef/run" method="POST">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-2">Protocol <span class="text-danger">*</span></label>
+                        <select name="protocol" required
+                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent-500">
+                            <option value="ssh" selected>SSH (22)</option>
+                            <option value="ftp">FTP (21)</option>
+                            <option value="rdp">RDP (3389)</option>
+                            <option value="smb">SMB (445)</option>
+                            <option value="mssql">MSSQL (1433)</option>
+                            <option value="mysql">MySQL (3306)</option>
+                            <option value="postgres">PostgreSQL (5432)</option>
+                            <option value="vnc">VNC (5900)</option>
+                            <option value="ldap3">LDAP (389)</option>
+                            <option value="telnet">Telnet (23)</option>
+                        </select>
+                    </div>
+
+                    {{template "workspace_targets" .}}
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Manual Targets <span class="text-danger">*</span></label>
+                        <textarea name="manual_targets" rows="2" placeholder="192.168.1.10&#10;192.168.1.10-50&#10;target.local"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Custom Port{{template "info_icon" "Leave blank to use the protocol default (SSH 22, FTP 21, RDP 3389, SMB 445, MSSQL 1433, MySQL 3306, PostgreSQL 5432, VNC 5900, LDAP 389, Telnet 23)."}}</label>
+                        <input type="number" name="port" min="1" max="65535" placeholder="default"
+                               class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Single Username{{template "info_icon" "Optional. If provided, hydra runs -l <user> against the password list. Leave empty to use the username list below."}}</label>
+                        <input type="text" name="single_user" placeholder="e.g. root"
+                               class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Username List{{template "info_icon" "One per line. Ignored if Single Username is set."}}</label>
+                        <textarea name="user_list" rows="4" placeholder="root&#10;admin&#10;user&#10;test"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Password List <span class="text-danger">*</span>{{template "info_icon" "One per line. Try a small set first; brute-force is slow."}}</label>
+                        <textarea name="pass_list" rows="6" required placeholder="123456&#10;password&#10;admin&#10;root&#10;toor"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm text-dark-300 mb-1.5">Threads{{template "info_icon" "Hydra -t. Parallel logins per target. Default 16."}}</label>
+                            <input type="number" name="threads" min="1" max="64" placeholder="16"
+                                   class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                        </div>
+                        <div class="flex items-end">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" name="stop_on_first" checked class="rounded border-dark-600 bg-dark-800 text-accent-500">
+                                <span class="text-xs text-dark-300">Stop on first hit</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" name="include_defaults" class="rounded border-dark-600 bg-dark-800 text-accent-500">
+                            <span class="text-xs text-dark-300">Include defaults</span>
+                        </label>
+                        {{template "info_icon" "Prepend per-service vendor defaults (admin:admin, root:calvin, postgres:postgres, etc.) to the wordlists. Recommended as a quick first pass."}}
+                    </div>
+
+                    <p class="text-[11px] text-dark-500">Concurrency capped at 4 parallel hydra processes regardless of the Settings value (each hydra already spawns Threads parallel logins).</p>
+
+                    <div class="flex items-start gap-2 px-3 py-2 bg-warning/5 border border-warning/20 rounded-lg">
+                        <svg class="w-4 h-4 text-warning mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                        <p class="text-[11px] text-dark-400">Only run against systems you're authorized to test. Brute force generates real failed-login traffic.</p>
+                    </div>
+                </div>
+                {{template "queue_option" .}}
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Start Brute Force
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}
+            <div class="space-y-2">
+                {{range .Scans}}
+                <a href="/modules/brutef/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all group">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200 group-hover:text-white">Scan #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                    </div>
+                    <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                {{end}}
+            </div>
+            {{else}}
+            <div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No scans yet</p></div>
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}

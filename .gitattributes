@@ -1,0 +1,16 @@
+# GitHub Linguist — keep the language bar honest (scaNNer is a Go project).
+
+# Third-party front-end libraries bundled for offline use — not our code.
+web/static/js/tailwind.js  linguist-vendored
+web/static/js/htmx.min.js  linguist-vendored
+web/static/**/*.min.js     linguist-vendored
+
+# Seed/config data, not hand-written source.
+data/module_profiles.json  linguist-generated
+data/resolvers.txt         linguist-generated
+
+# Normalize line endings so Go/HTML/JS stay text with LF.
+*.go   text eol=lf
+*.html text eol=lf
+*.js   text eol=lf
+*.sh   text eol=lf

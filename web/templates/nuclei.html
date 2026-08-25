@@ -1,0 +1,150 @@
+{{define "page_nuclei"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Nuclei</span>
+</div>
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">🌋</span> Nuclei</h2>
+        <p class="text-sm text-dark-400 mt-1">Template-driven vulnerability scanner — CVEs, exposures, default credentials, misconfigurations</p>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Scan</h3>
+            <form action="/modules/nuclei/run" method="POST">
+                <div class="space-y-4">
+                    {{template "workspace_targets" .}}
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Target URLs{{template "info_icon" "URLs to scan with Nuclei templates. One per line."}} <span class="text-danger">*</span></label>
+                        <textarea name="urls" rows="5" placeholder="https://example.com&#10;http://target.local" data-line-count
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-2">Severity{{template "info_icon" "Filter templates by severity. Pick one or more — leave all unchecked to run every severity."}}</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <label class="flex items-center gap-2 px-2.5 py-1.5 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-red-500 has-[:checked]:bg-red-500/10">
+                                <input type="checkbox" name="severity" value="critical" checked class="rounded border-dark-600 bg-dark-800 text-red-500">
+                                <span class="text-xs text-red-400 font-medium">Critical</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-2.5 py-1.5 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-orange-500 has-[:checked]:bg-orange-500/10">
+                                <input type="checkbox" name="severity" value="high" checked class="rounded border-dark-600 bg-dark-800 text-orange-500">
+                                <span class="text-xs text-orange-400 font-medium">High</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-2.5 py-1.5 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-yellow-500 has-[:checked]:bg-yellow-500/10">
+                                <input type="checkbox" name="severity" value="medium" checked class="rounded border-dark-600 bg-dark-800 text-yellow-500">
+                                <span class="text-xs text-yellow-400 font-medium">Medium</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-2.5 py-1.5 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500/10">
+                                <input type="checkbox" name="severity" value="low" class="rounded border-dark-600 bg-dark-800 text-blue-500">
+                                <span class="text-xs text-blue-400 font-medium">Low</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-2.5 py-1.5 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-dark-500 has-[:checked]:bg-dark-700">
+                                <input type="checkbox" name="severity" value="info" class="rounded border-dark-600 bg-dark-800 text-dark-400">
+                                <span class="text-xs text-dark-300 font-medium">Info</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-2">Aggressiveness{{template "info_icon" "Throughput preset: sets nuclei rate-limit + concurrency + bulk-size together. Polite = slow & quiet for fragile targets; Normal = balanced default; Aggressive = loud & fast."}}</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <label class="flex flex-col gap-0.5 px-2.5 py-2 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-success has-[:checked]:bg-success/10">
+                                <span class="flex items-center gap-2">
+                                    <input type="radio" name="nuclei_level" value="polite" class="border-dark-600 bg-dark-800 text-success">
+                                    <span class="text-xs text-success font-medium">Polite</span>
+                                </span>
+                                <span class="text-[10px] text-dark-500 mono">rl 25 · c 10</span>
+                            </label>
+                            <label class="flex flex-col gap-0.5 px-2.5 py-2 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-accent-500 has-[:checked]:bg-accent-500/10">
+                                <span class="flex items-center gap-2">
+                                    <input type="radio" name="nuclei_level" value="normal" checked class="border-dark-600 bg-dark-800 text-accent-500">
+                                    <span class="text-xs text-accent-400 font-medium">Normal</span>
+                                </span>
+                                <span class="text-[10px] text-dark-500 mono">rl 150 · c 25</span>
+                            </label>
+                            <label class="flex flex-col gap-0.5 px-2.5 py-2 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-danger has-[:checked]:bg-danger/10">
+                                <span class="flex items-center gap-2">
+                                    <input type="radio" name="nuclei_level" value="aggressive" class="border-dark-600 bg-dark-800 text-danger">
+                                    <span class="text-xs text-danger font-medium">Aggressive</span>
+                                </span>
+                                <span class="text-[10px] text-dark-500 mono">rl 500 · c 50</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Tags{{template "info_icon" "Comma-separated Nuclei tags (e.g. cve,xss,rce). Leave empty to run all matching templates."}}</label>
+                        <input type="text" name="tags" placeholder="cve,xss,rce"
+                               class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Specific Templates{{template "info_icon" "Optional explicit -t selectors. Template IDs (e.g. wordpress-detect) or paths (e.g. http/cves/2023/CVE-2023-12345.yaml). One per line."}}</label>
+                        <textarea name="templates" rows="3" placeholder="http/cves/2023/CVE-2023-12345.yaml"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                    </div>
+
+                    <p class="text-[11px] text-dark-500 italic">Rate limit &amp; concurrency follow the Aggressiveness preset above (overriding global <a href="/settings" class="text-accent-400 hover:underline">Settings</a>).</p>
+
+                    <label class="flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer hover:border-accent-500/40 transition-colors">
+                        <input type="checkbox" name="update_templates" class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500">
+                        <div>
+                            <p class="text-xs font-medium text-dark-200">Update templates first</p>
+                            <p class="text-[11px] text-dark-500 mt-0.5">Runs <span class="mono">nuclei -ut</span> before scanning so checks include the latest CVEs. Adds a few seconds.</p>
+                        </div>
+                    </label>
+
+                    <label class="flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer hover:border-accent-500/40 transition-colors">
+                        <input type="checkbox" name="follow_redirects" class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500">
+                        <div>
+                            <p class="text-xs font-medium text-dark-200">Follow redirects</p>
+                            <p class="text-[11px] text-dark-500 mt-0.5">Pass <span class="mono">-fr</span> to nuclei so templates follow 30x responses. Useful for post-login scans.</p>
+                        </div>
+                    </label>
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">SNI Override{{template "info_icon" "Optional Server Name Indication hostname to send during TLS. Useful when the target's vhost differs from the URL host (passed as -sni)."}}</label>
+                        <input type="text" name="sni_host" placeholder="example.com"
+                               class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                    </div>
+
+                    {{template "http_options" .}}
+                    {{template "queue_option" .}}
+                </div>
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Start Nuclei Scan
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}
+            <div class="space-y-2">
+                {{range .Scans}}
+                <a href="/modules/nuclei/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all group">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200 group-hover:text-white">Scan #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                    </div>
+                    <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                {{end}}
+            </div>
+            {{else}}
+            <div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No scans yet</p></div>
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}

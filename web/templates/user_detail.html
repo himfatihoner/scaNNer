@@ -1,0 +1,53 @@
+{{define "page_user_detail"}}
+<div class="p-6 max-w-5xl mx-auto">
+    <div class="mb-6 flex items-center justify-between">
+        <div>
+            <a href="/users" class="text-xs text-dark-400 hover:text-white">← Users</a>
+            <h1 class="text-xl font-bold mt-1">Permissions — {{.Target.Username}}</h1>
+            <p class="text-sm text-dark-400">Check the modules this user may run in each workspace. Unchecked = denied. Admins are not shown here (they can run everything).</p>
+        </div>
+    </div>
+
+    {{if .Saved}}<div class="mb-4 rounded-lg border border-success/40 bg-success/10 px-4 py-3 text-sm text-success">Permissions saved.</div>{{end}}
+
+    {{if .Target.IsAdmin}}
+    <div class="rounded-xl border border-accent-600/40 bg-accent-600/10 px-5 py-4 text-sm text-accent-300">{{.Target.Username}} is an administrator and can run every module in every workspace. Change their role on the Users page to scope access.</div>
+    {{else}}
+    <form method="POST" action="/users/permissions">
+        <input type="hidden" name="id" value="{{.Target.ID}}">
+        <label class="flex items-center gap-2 text-sm text-dark-200 bg-dark-900 border border-dark-800 rounded-xl p-4 mb-5 cursor-pointer">
+            <input type="checkbox" name="can_add_targets" {{if .CanAddTargets}}checked{{end}}>
+            <span>May add new targets <span class="text-dark-500">— when off, the user can only scan targets an admin added.</span></span>
+        </label>
+        <div class="space-y-5">
+            {{range $ws := .Workspaces}}
+            <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-sm font-semibold">{{$ws.Name}}</h2>
+                    <div class="flex gap-3 text-xs">
+                        <button type="button" class="text-accent-400 hover:underline" onclick="this.closest('.rounded-xl').querySelectorAll('input[type=checkbox]').forEach(c=>c.checked=true)">Select all</button>
+                        <button type="button" class="text-dark-400 hover:underline" onclick="this.closest('.rounded-xl').querySelectorAll('input[type=checkbox]').forEach(c=>c.checked=false)">Clear</button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {{range $mod := $.AllModules}}
+                    <label class="flex items-center gap-2 text-sm text-dark-200 rounded-lg px-2 py-1.5 hover:bg-dark-850 cursor-pointer">
+                        <input type="checkbox" name="perm" value="{{$ws.ID}}::{{$mod.Name}}" {{if index $.Granted (printf "%s::%s" $ws.ID $mod.Name)}}checked{{end}}>
+                        <span class="truncate">{{$mod.DisplayName}}</span>
+                    </label>
+                    {{end}}
+                </div>
+                <div class="mt-4 pt-4 border-t border-dark-800">
+                    <label class="block text-xs font-medium text-dark-300 mb-1.5">Allowed domains in this workspace <span class="text-dark-500">— one domain or IP/CIDR per line; blank = unrestricted. Subdomains are included automatically.</span></label>
+                    <textarea name="domains_{{$ws.ID}}" rows="2" placeholder="example.com&#10;10.0.0.0/24" class="w-full mono bg-dark-950 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">{{index $.DomainScope $ws.ID}}</textarea>
+                </div>
+            </div>
+            {{end}}
+        </div>
+        <div class="mt-6 flex justify-end">
+            <button type="submit" class="rounded-lg bg-accent-600 hover:bg-accent-500 text-white text-sm font-medium px-5 py-2.5">Save permissions</button>
+        </div>
+    </form>
+    {{end}}
+</div>
+{{end}}

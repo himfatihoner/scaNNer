@@ -1,0 +1,43 @@
+{{define "http_tuning"}}
+{{/* Per-scan overrides of the global web-scan defaults (Settings → Web tier).
+     A field left blank INHERITS the global default. Optional dict hints:
+       TuneTimeoutHint / TuneConcHint / TuneRateHint  → placeholder text
+       TuneConcMax                                    → max attr for concurrency
+       TuneShowRate                                   → render the rate-limit input
+     Handlers read req_timeout / max_concurrent / rate_limit via
+     Handler.applyHTTPTuning(r, opts). */}}
+{{$tHint := "inherit"}}{{if .TuneTimeoutHint}}{{$tHint = .TuneTimeoutHint}}{{end}}
+{{$cHint := "inherit"}}{{if .TuneConcHint}}{{$cHint = .TuneConcHint}}{{end}}
+{{$rHint := "inherit"}}{{if .TuneRateHint}}{{$rHint = .TuneRateHint}}{{end}}
+{{$cMax := "1000"}}{{if .TuneConcMax}}{{$cMax = .TuneConcMax}}{{end}}
+<div>
+    <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('svg').classList.toggle('rotate-180')"
+            class="flex items-center gap-2 text-xs text-dark-400 hover:text-accent-400 transition-colors mb-2">
+        <svg class="w-3 h-3 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        Performance tuning (timeout · concurrency{{if .TuneShowRate}} · rate{{end}}) — optional
+    </button>
+    <div class="hidden bg-dark-850 border border-dark-700 rounded-lg p-3">
+        <div class="grid {{if .TuneShowRate}}grid-cols-3{{else}}grid-cols-2{{end}} gap-3">
+            <div>
+                <label class="block text-[11px] text-dark-400 mb-1">Request timeout (s){{template "info_icon" "Per-request timeout for THIS scan only. Blank = inherit the global Web timeout from Settings."}}</label>
+                <input type="number" name="req_timeout" min="1" max="600" placeholder="{{$tHint}}"
+                       class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+            </div>
+            <div>
+                <label class="block text-[11px] text-dark-400 mb-1">Max concurrent{{template "info_icon" "How many targets/requests run in parallel for THIS scan. Higher = faster but noisier / heavier on fragile targets. Blank = inherit from Settings."}}</label>
+                <input type="number" name="max_concurrent" min="1" max="{{$cMax}}" placeholder="{{$cHint}}"
+                       class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+            </div>
+            {{if .TuneShowRate}}
+            <div>
+                <label class="block text-[11px] text-dark-400 mb-1">Rate limit (req/s){{template "info_icon" "Cap on requests per second for THIS scan. 0 = unlimited. Blank = inherit from Settings."}}</label>
+                <input type="number" name="rate_limit" min="0" max="10000" placeholder="{{$rHint}}"
+                       class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+            </div>
+            {{end}}
+        </div>
+        <p class="text-[10px] text-dark-500 mt-2">Blank = inherit the global Web defaults (Settings). Overrides apply to this scan only.</p>
+    </div>
+    {{template "queue_option" .}}
+</div>
+{{end}}

@@ -1,0 +1,144 @@
+{{define "page_snmpenum"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">SNMP Enum</span>
+</div>
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">📶</span> SNMP Enum</h2>
+        <p class="text-sm text-dark-400 mt-1">Brute community strings via onesixtyone, then walk system info, interfaces, processes and more via snmpwalk.</p>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Scan</h3>
+            <form action="/modules/snmpenum/run" method="POST">
+                <div class="space-y-4">
+                    {{template "workspace_targets" .}}
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Manual Targets <span class="text-danger">*</span></label>
+                        <textarea name="manual_targets" rows="3" placeholder="192.168.1.1&#10;192.168.1.1-50&#10;router.local"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Forced Community{{template "info_icon" "If you already know the community string, set it here to skip brute-force entirely."}}</label>
+                        <input type="text" name="forced_community" placeholder="(optional, e.g. public)"
+                               class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Community Wordlist{{template "info_icon" "One community string per line. Defaults shown — replace as needed."}}</label>
+                        <textarea name="communities" rows="6"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none">{{.DefaultCommunities}}</textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-2">Walks{{template "info_icon" "Which OID branches to enumerate after a community is found."}}</label>
+                        <div class="flex flex-wrap gap-1.5">
+                            {{range .Branches}}
+                            <label class="cursor-pointer">
+                                <input type="checkbox" name="walks" value="{{.}}" {{if or (eq . "system") (eq . "interfaces") (eq . "processes")}}checked{{end}} class="peer sr-only">
+                                <span class="text-[11px] text-dark-300 bg-dark-850 border border-dark-700 px-2 py-1 rounded transition-colors peer-checked:bg-accent-600 peer-checked:text-white peer-checked:border-accent-500 hover:border-accent-500/50 inline-block">{{.}}</span>
+                            </label>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <details class="bg-dark-850 border border-dark-700 rounded-lg">
+                        <summary class="cursor-pointer px-3 py-2 text-xs font-medium text-dark-200 hover:text-white select-none">
+                            SNMPv3 (USM){{template "info_icon" "Modern SNMP uses per-user authentication + optional privacy. If you fill in v3 User, the scanner will skip community brute and connect via -v3 instead. Leave blank to use v1/v2c with the community wordlist above."}}
+                        </summary>
+                        <div class="px-3 pb-3 pt-1 space-y-3">
+                            <div>
+                                <label class="block text-[11px] text-dark-400 mb-1">v3 User</label>
+                                <input type="text" name="v3_user" placeholder="(leave blank to disable v3)"
+                                       class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] text-dark-400 mb-1">Security Level</label>
+                                <select name="v3_sec_level"
+                                        class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white focus:outline-none focus:border-accent-500">
+                                    <option value="authPriv">authPriv (auth + encrypt — recommended)</option>
+                                    <option value="authNoPriv">authNoPriv (auth, no encrypt)</option>
+                                    <option value="noAuthNoPriv">noAuthNoPriv (no auth — like v2c)</option>
+                                </select>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-[11px] text-dark-400 mb-1">Auth Proto</label>
+                                    <select name="v3_auth_proto"
+                                            class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white focus:outline-none focus:border-accent-500">
+                                        <option value="SHA">SHA</option>
+                                        <option value="MD5">MD5</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] text-dark-400 mb-1">Auth Password</label>
+                                    <input type="password" name="v3_auth_pass" placeholder="≥ 8 chars"
+                                           class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-[11px] text-dark-400 mb-1">Priv Proto</label>
+                                    <select name="v3_priv_proto"
+                                            class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white focus:outline-none focus:border-accent-500">
+                                        <option value="AES">AES</option>
+                                        <option value="DES">DES</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] text-dark-400 mb-1">Priv Password</label>
+                                    <input type="password" name="v3_priv_pass" placeholder="≥ 8 chars"
+                                           class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                                </div>
+                            </div>
+                            <p class="text-[10px] text-dark-500 leading-relaxed">
+                                Only used when "v3 User" is set. For authNoPriv: fill Auth Proto + Auth Password. For authPriv: also fill Priv Proto + Priv Password.
+                            </p>
+                        </div>
+                    </details>
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Concurrency{{template "info_icon" "Number of targets probed in parallel. Default 16; higher values speed up large CIDRs but increase UDP load on the local network stack. Hard-capped at 128."}}</label>
+                        <input type="number" name="concurrency" min="1" max="128" value="16"
+                               class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                    </div>
+                </div>
+                {{template "queue_option" .}}
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Start SNMP Enumeration
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}
+            <div class="space-y-2">
+                {{range .Scans}}
+                <a href="/modules/snmpenum/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all group">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200 group-hover:text-white">Scan #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                    </div>
+                    <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                {{end}}
+            </div>
+            {{else}}
+            <div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No scans yet</p></div>
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}

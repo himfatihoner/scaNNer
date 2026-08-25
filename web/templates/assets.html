@@ -1,0 +1,576 @@
+{{define "page_assets"}}
+<span id="assetState" data-running="{{if .AssetRunning}}1{{else}}0{{end}}" hidden></span>
+<!-- Workspace context -->
+<div class="flex items-center gap-2 text-xs text-dark-500 mb-5">
+    <svg class="w-3.5 h-3.5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+    </svg>
+    <span class="text-dark-300">{{.ActiveWorkspace.Name}}</span>
+</div>
+
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white">Assets</h2>
+        <p class="text-sm text-dark-400 mt-1">All hosts, IPs and URLs that have been scanned in this workspace</p>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4">
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">Total Assets</p>
+        <p class="text-2xl font-bold text-white">{{.AssetTotal}}</p>
+    </div>
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4">
+        <div class="flex items-center gap-2 mb-1">
+            <span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+            <p class="text-xs text-dark-500 uppercase tracking-wider">Scanning</p>
+        </div>
+        <p class="text-2xl font-bold text-white">{{.AssetRunning}}</p>
+    </div>
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4">
+        <div class="flex items-center gap-2 mb-1">
+            <span class="w-2 h-2 rounded-full bg-success"></span>
+            <p class="text-xs text-dark-500 uppercase tracking-wider">IPv4</p>
+        </div>
+        <p class="text-2xl font-bold text-white">{{.AssetIPv4}}</p>
+    </div>
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4">
+        <div class="flex items-center gap-2 mb-1">
+            <span class="w-2 h-2 rounded-full bg-warning"></span>
+            <p class="text-xs text-dark-500 uppercase tracking-wider">Domain</p>
+        </div>
+        <p class="text-2xl font-bold text-white">{{.AssetDomain}}</p>
+    </div>
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4">
+        <div class="flex items-center gap-2 mb-1">
+            <span class="w-2 h-2 rounded-full bg-danger"></span>
+            <p class="text-xs text-dark-500 uppercase tracking-wider">FQDN</p>
+        </div>
+        <p class="text-2xl font-bold text-white">{{.AssetFQDN}}</p>
+    </div>
+</div>
+
+{{/* Asset-list strip + "New list" modal were removed — assets are now
+     purely the read-only set of things any scan has touched. No user-
+     curated grouping; the type tabs and search box below remain. */}}
+
+<!-- Filter / Sort bar -->
+<div class="flex flex-wrap items-center gap-2 mb-4">
+    <button type="button" data-asset-tab="fqdn" onclick="setAssetTypeTab(this)" class="asset-tab px-3 py-1.5 text-xs rounded-lg transition-colors {{if eq .FilterType "ip"}}bg-dark-850 border border-dark-700 text-dark-300 hover:text-white{{else}}bg-accent-600 text-white{{end}}">FQDN</button>
+    <button type="button" data-asset-tab="ip" onclick="setAssetTypeTab(this)" class="asset-tab px-3 py-1.5 text-xs rounded-lg transition-colors {{if eq .FilterType "ip"}}bg-accent-600 text-white{{else}}bg-dark-850 border border-dark-700 text-dark-300 hover:text-white{{end}}">IP</button>
+    <input id="assetSearch" type="search" placeholder="Search host, port, service or technology (e.g. nginx, 443, wordpress)…" oninput="applyAssetFilter()"
+           class="w-64 mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+    <select id="assetStatusFilter" onchange="applyAssetFilter()"
+            class="bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
+        <option value="">All statuses</option>
+        <option value="running">Running</option>
+        <option value="idle">Idle</option>
+    </select>
+    <span id="assetResultCount" class="ml-auto text-[11px] text-dark-500"></span>
+</div>
+
+{{/* Base-domain filter — one chip per distinct registrable domain (eTLD+1)
+     among the hostname assets, so you can narrow the list to a single domain
+     and all of its subdomains. */}}
+{{if .AssetBaseDomains}}
+<div class="flex flex-wrap items-center gap-1.5 mb-4">
+    <span class="text-[10px] uppercase tracking-wider text-dark-500 mr-1">Base domain</span>
+    <button type="button" data-basedomain="" onclick="setBaseDomain(this)" class="asset-bd-chip px-2.5 py-1 text-[11px] rounded-lg bg-accent-600 text-white">All</button>
+    {{range .AssetBaseDomains}}{{$c := index $.AssetBaseDomainCounts .}}
+    <button type="button" data-basedomain="{{.}}" onclick="setBaseDomain(this)" class="asset-bd-chip px-2.5 py-1 text-[11px] rounded-lg bg-dark-850 border border-dark-700 text-dark-300 hover:text-white">{{.}} <span class="opacity-60 mono">{{$c}}</span></button>
+    {{end}}
+</div>
+{{end}}
+
+{{if .Assets}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+    <table id="assetsTable" class="w-full text-sm">
+        <thead class="bg-dark-850 border-b border-dark-800 text-left">
+            <tr>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="value" data-sort-type="string">Asset</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="type" data-sort-type="string">Type</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">IP</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="live" data-sort-type="number">Status</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">Modules</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">Ports / Services</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">Services / Technologies</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">Related (IP ↔ Host)</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold text-center" data-sort-key="scans" data-sort-type="number">Scans</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="last-scanned" data-sort-type="number">Last Scanned</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="running" data-sort-type="number">Activity</th>
+            </tr>
+        </thead>
+        <tbody id="assetsTbody" class="divide-y divide-dark-800">
+            {{range .Assets}}
+            <tr class="asset-row hover:bg-dark-850/60 transition-colors cursor-pointer"
+                onclick="if(event.target.tagName!=='A' && event.target.tagName!=='BUTTON'){window.location='/assets/{{.Value}}'}"
+                data-value="{{.Value}}"
+                data-type="{{.Type}}"
+                data-search="{{.Search}}"
+                data-basedomain="{{.BaseDomain}}"
+                data-live="{{.LiveStatus}}"
+                data-scans="{{.ScanCount}}"
+                data-running="{{.RunningJobs}}"
+                data-last-scanned="{{if not .LastScanned.IsZero}}{{.LastScanned.Unix}}{{else}}0{{end}}">
+                <td class="px-4 py-3">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full {{if eq .Type "ipv4"}}bg-success{{else if eq .Type "domain"}}bg-warning{{else if eq .Type "fqdn"}}bg-danger{{else}}bg-dark-500{{end}}"></span>
+                        <a href="/assets/{{.Value}}" class="mono text-sm text-dark-100 hover:text-accent-400 transition-colors">{{.Value}}</a>
+                        {{if .InWorkspace}}
+                        <span class="text-[9px] uppercase tracking-wider text-accent-300 bg-accent-500/10 border border-accent-500/20 px-1.5 py-0.5 rounded">In WS</span>
+                        {{end}}
+                        {{if .Discovered}}
+                        <span class="text-[9px] uppercase tracking-wider text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded" title="Discovered from scan results (not an explicit scan target)">Discovered</span>
+                        {{end}}
+                    </div>
+                </td>
+                <td class="px-4 py-3">
+                    {{if eq .Type "ipv4"}}
+                    <span class="text-[10px] uppercase tracking-wider text-success bg-success/10 px-2 py-0.5 rounded">IPv4</span>
+                    {{else if eq .Type "domain"}}
+                    <span class="text-[10px] uppercase tracking-wider text-warning bg-warning/10 px-2 py-0.5 rounded">Domain</span>
+                    {{else if eq .Type "fqdn"}}
+                    <span class="text-[10px] uppercase tracking-wider text-danger bg-danger/10 px-2 py-0.5 rounded">FQDN</span>
+                    {{else}}
+                    <span class="text-[10px] uppercase tracking-wider text-dark-400 bg-dark-800 px-2 py-0.5 rounded">{{.Type}}</span>
+                    {{end}}
+                </td>
+                <td class="px-4 py-3">
+                    {{if .ResolvedIPs}}
+                    <div class="flex flex-wrap gap-1 max-w-[11rem]">
+                        {{range $i, $ip := .ResolvedIPs}}{{if lt $i 4}}
+                        <a href="/assets/{{$ip}}" onclick="event.stopPropagation()" class="mono text-[10px] text-dark-300 bg-dark-850 border border-dark-700 hover:border-accent-500/50 hover:text-accent-300 px-1.5 py-0.5 rounded">{{$ip}}</a>
+                        {{end}}{{end}}
+                        {{if gt (len .ResolvedIPs) 4}}<span class="text-[10px] text-dark-500 self-center">+{{add (len .ResolvedIPs) -4}}</span>{{end}}
+                    </div>
+                    {{else}}<span class="text-[11px] text-dark-600">—</span>{{end}}
+                </td>
+                <td class="px-4 py-3">
+                    {{if .RedirectTo}}
+                    <div class="flex flex-col gap-0.5">
+                        <span class="inline-flex w-fit items-center gap-1 text-[10px] uppercase tracking-wider text-warning bg-warning/10 border border-warning/20 px-2 py-0.5 rounded" title="redirects to {{.RedirectTo}}">Redirect</span>
+                        <span class="mono text-[10px] text-dark-500 max-w-[12rem] truncate" title="{{.RedirectTo}}">&rarr; {{.RedirectTo}}</span>
+                    </div>
+                    {{else if .Live}}
+                    <span class="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-success bg-success/10 border border-success/20 px-2 py-0.5 rounded">Live{{if .LiveStatus}} <span class="mono opacity-70">{{.LiveStatus}}</span>{{end}}</span>
+                    {{else}}<span class="text-[11px] text-dark-600">—</span>{{end}}
+                </td>
+                <td class="px-4 py-3">
+                    <div class="flex flex-wrap gap-1">
+                        {{range .Modules}}
+                        <span class="text-[10px] text-dark-300 bg-dark-850 border border-dark-700 px-1.5 py-0.5 rounded">{{moduleDisplayName .}}</span>
+                        {{end}}
+                    </div>
+                </td>
+                <td class="px-4 py-3">
+                    {{if .PortSummary}}<span class="mono text-[11px] text-accent-300">{{.PortSummary}}</span>
+                    {{else}}<span class="text-[11px] text-dark-600">—</span>{{end}}
+                </td>
+                <td class="px-4 py-3">
+                    {{if .Technologies}}
+                    <div class="flex flex-wrap gap-1 max-w-md">
+                        {{range .Technologies}}
+                        <span class="text-[10px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">{{.}}</span>
+                        {{end}}
+                    </div>
+                    {{else}}<span class="text-[11px] text-dark-600">—</span>{{end}}
+                </td>
+                <td class="px-4 py-3">
+                    {{if .Related}}
+                    <div class="flex flex-wrap gap-1 max-w-xs">
+                        {{range .Related}}
+                        <a href="/assets/{{.}}" onclick="event.stopPropagation()" class="mono text-[10px] text-dark-300 bg-dark-850 border border-dark-700 hover:border-accent-500/50 hover:text-accent-300 px-1.5 py-0.5 rounded">{{.}}</a>
+                        {{end}}
+                    </div>
+                    {{else}}<span class="text-[11px] text-dark-600">—</span>{{end}}
+                </td>
+                <td class="px-4 py-3 text-center">
+                    <span class="mono text-sm text-dark-200">{{.ScanCount}}</span>
+                </td>
+                <td class="px-4 py-3">
+                    <span class="mono text-xs text-dark-400">{{.LastScanned.Format "2006-01-02 15:04"}}</span>
+                </td>
+                <td class="px-4 py-3">
+                    {{if gt .RunningJobs 0}}
+                    <span class="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-accent-400 bg-accent-600/10 px-2 py-0.5 rounded">
+                        <span class="w-1.5 h-1.5 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{.RunningJobs}} running
+                    </span>
+                    {{else}}
+                    <span class="text-[10px] uppercase tracking-wider text-success bg-success/10 px-2 py-0.5 rounded">Idle</span>
+                    {{end}}
+                </td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{else}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center justify-center">
+    <div class="w-16 h-16 rounded-full bg-dark-850 flex items-center justify-center mb-4">
+        <svg class="w-8 h-8 text-dark-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+    </div>
+    <h3 class="text-lg font-semibold text-white mb-1">No Assets Yet</h3>
+    <p class="text-sm text-dark-500 text-center max-w-md">Assets appear here after you run your first scan. Every target, URL, or domain scanned through any module is aggregated into this view.</p>
+    <a href="/modules" class="mt-4 px-4 py-2 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors">Go to Modules</a>
+</div>
+{{end}}
+
+<script>
+function setAssetTypeTab(btn) {
+    document.querySelectorAll('.asset-tab').forEach(function(b) {
+        b.classList.remove('bg-accent-600', 'text-white');
+        b.classList.add('bg-dark-850', 'border', 'border-dark-700', 'text-dark-300', 'hover:text-white');
+    });
+    btn.classList.remove('bg-dark-850', 'border', 'border-dark-700', 'text-dark-300', 'hover:text-white');
+    btn.classList.add('bg-accent-600', 'text-white');
+    var t = btn.getAttribute('data-asset-tab') || 'fqdn';
+    var url = new URL(window.location);
+    // FQDN is the default view, so keep its URL clean; only pin ?type=ip.
+    if (t === 'ip') url.searchParams.set('type', t); else url.searchParams.delete('type');
+    history.replaceState(null, '', url);
+    applyAssetFilter();
+}
+function _activeAssetTab() {
+    var active = document.querySelector('.asset-tab.bg-accent-600');
+    return active ? (active.getAttribute('data-asset-tab') || 'fqdn') : 'fqdn';
+}
+// setAssetListTab + _activeAssetListTab were removed along with the
+// asset-lists feature — assets are now a flat read-only view.
+// Active base-domain chip (registrable-domain filter). "" = All.
+function setBaseDomain(btn) {
+    document.querySelectorAll('.asset-bd-chip').forEach(function(b) {
+        b.classList.remove('bg-accent-600', 'text-white');
+        if (b !== btn) b.classList.add('bg-dark-850', 'border', 'border-dark-700', 'text-dark-300');
+    });
+    btn.classList.add('bg-accent-600', 'text-white');
+    btn.classList.remove('bg-dark-850', 'border', 'border-dark-700', 'text-dark-300');
+    applyAssetFilter();
+}
+function _activeBaseDomain() {
+    var active = document.querySelector('.asset-bd-chip.bg-accent-600');
+    return active ? (active.getAttribute('data-basedomain') || '') : '';
+}
+function applyAssetFilter() {
+    var q = (document.getElementById('assetSearch').value || '').toLowerCase().trim();
+    var statusFilter = document.getElementById('assetStatusFilter').value;
+    var typeTab = _activeAssetTab();
+    var bd = _activeBaseDomain().toLowerCase();
+    var tbody = document.getElementById('assetsTbody');
+    if (!tbody) return;
+    var rows = Array.prototype.slice.call(tbody.querySelectorAll('.asset-row'));
+    var visible = 0;
+    rows.forEach(function(row) {
+        var v = (row.getAttribute('data-value') || '').toLowerCase();
+        var t = (row.getAttribute('data-type') || '').toLowerCase();
+        var s = (row.getAttribute('data-search') || '').toLowerCase();
+        var running = parseInt(row.getAttribute('data-running') || '0', 10);
+        // Match the host, the type, OR the finding tokens (ports/services/tech).
+        var matchSearch = !q || v.indexOf(q) !== -1 || t.indexOf(q) !== -1 || s.indexOf(q) !== -1;
+        var matchStatus = true;
+        if (statusFilter === 'running') matchStatus = running > 0;
+        else if (statusFilter === 'idle') matchStatus = running === 0;
+        // Type tab: "ip" shows only IPv4 assets; "fqdn" (default) shows everything else.
+        var matchType = (typeTab === 'ip') ? (t === 'ipv4') : (t !== 'ipv4');
+        // Base domain: exact-match the row's registrable domain (blank chip = All).
+        var rowBd = (row.getAttribute('data-basedomain') || '').toLowerCase();
+        var matchBaseDomain = !bd || rowBd === bd;
+        var show = matchSearch && matchStatus && matchType && matchBaseDomain;
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+    var counter = document.getElementById('assetResultCount');
+    if (counter) counter.textContent = visible + ' / ' + rows.length + ' shown';
+}
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.bindSortableTable) {
+        bindSortableTable('#assetsTable', { defaultKey: 'last-scanned', defaultDir: 'desc' });
+    }
+    applyAssetFilter();
+    // Live auto-refresh while any scan is running: assets are derived from the
+    // running-aware background index, so discovered hosts / new tech appear as the
+    // scan progresses. We swap only #assetsTbody when the row set actually changed
+    // (preserving scroll + the active search/type/base-domain filter), and stop
+    // once no scan is running.
+    {{if .AssetRunning}}
+    (function(){
+        var timer = setInterval(function(){
+            fetch(window.location.pathname + window.location.search, {cache:'no-store', credentials:'same-origin'})
+                .then(function(r){ return r.ok ? r.text() : Promise.reject(r.status); })
+                .then(function(html){
+                    var doc = new DOMParser().parseFromString(html, 'text/html');
+                    var fresh = doc.getElementById('assetsTbody');
+                    var cur = document.getElementById('assetsTbody');
+                    var state = doc.getElementById('assetState');
+                    var stillRunning = state && state.getAttribute('data-running') === '1';
+                    if (fresh && cur) {
+                        var freshHTML = fresh.innerHTML;
+                        if (window._assetLastHTML === undefined) {
+                            window._assetLastHTML = freshHTML;
+                        } else if (freshHTML !== window._assetLastHTML) {
+                            window._assetLastHTML = freshHTML;
+                            var sy = window.scrollY;
+                            cur.innerHTML = freshHTML;
+                            if (window.bindSortableTable) bindSortableTable('#assetsTable', { defaultKey: 'last-scanned', defaultDir: 'desc' });
+                            applyAssetFilter();
+                            window.scrollTo(0, sy);
+                        }
+                    }
+                    if (!stillRunning && timer) { clearInterval(timer); }
+                })
+                .catch(function(){ /* transient — retry next tick */ });
+        }, 5000);
+    })();
+    {{end}}
+});
+</script>
+{{end}}
+
+
+{{define "page_asset_detail"}}
+<!-- Breadcrumb -->
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/assets" class="hover:text-accent-400 transition-colors">Assets</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200 mono">{{.Asset.Value}}</span>
+</div>
+
+<!-- Asset header -->
+<div class="bg-gradient-to-br from-accent-600/10 via-dark-900 to-dark-900 border border-accent-500/30 rounded-xl p-6 mb-6">
+    <div class="flex items-start justify-between mb-4">
+        <div class="flex items-start gap-4">
+            <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-accent-500/30 to-accent-700/20 border border-accent-500/30 flex items-center justify-center">
+                {{if eq .Asset.Type "ipv4"}}
+                <span class="text-2xl">🖥️</span>
+                {{else if eq .Asset.Type "domain"}}
+                <span class="text-2xl">🌐</span>
+                {{else if eq .Asset.Type "fqdn"}}
+                <span class="text-2xl">🔗</span>
+                {{else}}
+                <span class="text-2xl">📦</span>
+                {{end}}
+            </div>
+            <div>
+                <h2 class="text-xl font-bold text-white mono mb-1">{{.Asset.Value}}</h2>
+                <div class="flex flex-wrap items-center gap-2">
+                    {{if eq .Asset.Type "ipv4"}}
+                    <span class="text-[10px] uppercase tracking-wider text-success bg-success/10 px-2 py-0.5 rounded">IPv4</span>
+                    {{else if eq .Asset.Type "domain"}}
+                    <span class="text-[10px] uppercase tracking-wider text-warning bg-warning/10 px-2 py-0.5 rounded">Domain</span>
+                    {{else if eq .Asset.Type "fqdn"}}
+                    <span class="text-[10px] uppercase tracking-wider text-danger bg-danger/10 px-2 py-0.5 rounded">FQDN</span>
+                    {{else}}
+                    <span class="text-[10px] uppercase tracking-wider text-dark-300 bg-dark-800 px-2 py-0.5 rounded">{{.Asset.Type}}</span>
+                    {{end}}
+                    {{if .Asset.InWorkspace}}
+                    <span class="text-[10px] uppercase tracking-wider text-accent-300 bg-accent-500/10 border border-accent-500/20 px-2 py-0.5 rounded">In Workspace</span>
+                    {{end}}
+                    {{if gt .Asset.RunningJobs 0}}
+                    <span class="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-accent-400 bg-accent-600/10 px-2 py-0.5 rounded">
+                        <span class="w-1.5 h-1.5 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{.Asset.RunningJobs}} running
+                    </span>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="bg-dark-900/60 border border-dark-800 rounded-lg p-3">
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1">Total Scans</p>
+            <p class="text-xl font-bold text-white">{{.Asset.ScanCount}}</p>
+        </div>
+        <div class="bg-dark-900/60 border border-dark-800 rounded-lg p-3">
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1">Modules Used</p>
+            <p class="text-xl font-bold text-white">{{len .Groups}}</p>
+        </div>
+        <div class="bg-dark-900/60 border border-dark-800 rounded-lg p-3">
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1">Running</p>
+            <p class="text-xl font-bold text-white">{{.Asset.RunningJobs}}</p>
+        </div>
+        <div class="bg-dark-900/60 border border-dark-800 rounded-lg p-3">
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1">Last Scanned</p>
+            <p class="text-sm font-medium text-white mono mt-1">{{if not .Asset.LastScanned.IsZero}}{{.Asset.LastScanned.Format "2006-01-02 15:04"}}{{else}}—{{end}}</p>
+        </div>
+    </div>
+</div>
+
+{{if .FindingSet.HasAny}}
+<!-- Findings: every distinct discovery for this target, with the scan date(s) it was seen. -->
+<div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden mb-6">
+    <div class="px-5 py-3 bg-dark-850 border-b border-dark-800 flex items-center gap-2 flex-wrap">
+        <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/>
+        </svg>
+        <h3 class="text-sm font-semibold text-white">Findings</h3>
+        <span class="text-[10px] text-dark-500">every discovery across all scans, with detection dates</span>
+        {{with .FindingSet}}
+        <div class="ml-auto flex items-center gap-1.5">
+            {{if .CritCount}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-300">Crit {{.CritCount}}</span>{{end}}
+            {{if .HighCount}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-300">High {{.HighCount}}</span>{{end}}
+            {{if .MedCount}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-300">Med {{.MedCount}}</span>{{end}}
+            {{if .LowCount}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300">Low {{.LowCount}}</span>{{end}}
+        </div>
+        {{end}}
+    </div>
+
+    {{with .FindingSet}}
+    <div class="p-5 space-y-6">
+
+        {{/* ---- Severity-sorted vulnerability table (each row carries first/last detection date + scan link) ---- */}}
+        {{if .Vulns}}
+        <div>
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-2">🚨 Vulnerabilities ({{len .Vulns}})</p>
+            <div class="border border-dark-800 rounded-lg overflow-hidden">
+                <div class="max-h-[460px] overflow-y-auto overflow-x-auto">
+                <table class="w-full" id="targetVulnTable">
+                    <thead class="sticky top-0 bg-dark-850 z-10">
+                        <tr class="border-b border-dark-800">
+                            <th class="text-left px-3 py-2 text-[10px] font-semibold text-dark-500 uppercase cursor-pointer select-none" data-sort-key="sev-rank" data-sort-type="number">Severity</th>
+                            <th class="text-left px-3 py-2 text-[10px] font-semibold text-dark-500 uppercase cursor-pointer select-none" data-sort-key="title" data-sort-type="string">Finding</th>
+                            <th class="text-left px-3 py-2 text-[10px] font-semibold text-dark-500 uppercase cursor-pointer select-none" data-sort-key="module" data-sort-type="string">Module</th>
+                            <th class="text-left px-3 py-2 text-[10px] font-semibold text-dark-500 uppercase cursor-pointer select-none" data-sort-key="firstseen" data-sort-type="number">First seen</th>
+                            <th class="text-left px-3 py-2 text-[10px] font-semibold text-dark-500 uppercase cursor-pointer select-none" data-sort-key="lastseen" data-sort-type="number">Last seen</th>
+                            <th class="text-left px-3 py-2 text-[10px] font-semibold text-dark-500 uppercase">Scan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .Vulns}}
+                        <tr class="border-b border-dark-800/50 align-top"
+                            data-sev-rank="{{.SevRank}}"
+                            data-title="{{.Title}}"
+                            data-module="{{.Module}}"
+                            data-firstseen="{{.FirstSeen.Unix}}"
+                            data-lastseen="{{.LastSeen.Unix}}">
+                            <td class="px-3 py-2 whitespace-nowrap"><span class="mono text-[10px] px-1.5 py-0.5 rounded
+                                {{if eq .Severity "CRITICAL"}}bg-red-500/20 text-red-300
+                                {{else if eq .Severity "HIGH"}}bg-orange-500/20 text-orange-300
+                                {{else if eq .Severity "MEDIUM"}}bg-yellow-500/20 text-yellow-300
+                                {{else if eq .Severity "LOW"}}bg-blue-500/20 text-blue-300
+                                {{else}}bg-dark-700 text-dark-300{{end}}">{{if .Severity}}{{.Severity}}{{else}}INFO{{end}}</span></td>
+                            <td class="px-3 py-2">
+                                <p class="text-[12px] text-white">{{.Title}}</p>
+                                {{if .Detail}}<p class="text-[11px] text-dark-400 mt-0.5 line-clamp-2">{{.Detail}}</p>{{end}}
+                                {{if .Locus}}<p class="text-[10px] text-dark-500 mono mt-0.5 break-all">{{.Locus}}</p>{{end}}
+                                {{if .CVEs}}<p class="mt-1 flex flex-wrap gap-1">{{range .CVEs}}<a href="https://nvd.nist.gov/vuln/detail/{{.}}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="text-[10px] mono px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 hover:bg-red-500/25">{{.}}</a>{{end}}</p>{{end}}
+                                {{if .HasDetailDrawer}}
+                                <details class="mt-1.5">
+                                    <summary class="text-[10px] text-accent-400 hover:text-accent-300 cursor-pointer select-none">▸ details</summary>
+                                    <div class="mt-1.5 space-y-2 text-[11px]">
+                                        {{if .Evidence}}<div><span class="text-[9px] uppercase tracking-wider text-dark-500">Evidence</span><pre class="mono text-[10px] text-dark-200 bg-dark-950 border border-dark-800 rounded p-2 mt-0.5 whitespace-pre-wrap break-all max-h-40 overflow-auto">{{.Evidence}}</pre></div>{{end}}
+                                        {{if .Remediation}}<div><span class="text-[9px] uppercase tracking-wider text-dark-500">Remediation</span><p class="text-dark-200 mt-0.5">{{.Remediation}}</p></div>{{end}}
+                                        {{if .References}}<div><span class="text-[9px] uppercase tracking-wider text-dark-500">References</span><div class="flex flex-col gap-0.5 mt-0.5">{{range .References}}<a href="{{.}}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="text-accent-400 hover:text-accent-300 break-all">{{.}}</a>{{end}}</div></div>{{end}}
+                                        {{if .RawRequest}}<div><span class="text-[9px] uppercase tracking-wider text-dark-500">Request</span><pre class="mono text-[10px] text-dark-300 bg-dark-950 border border-dark-800 rounded p-2 mt-0.5 whitespace-pre-wrap break-all max-h-52 overflow-auto">{{.RawRequest}}</pre></div>{{end}}
+                                        {{if .RawResponse}}<div><span class="text-[9px] uppercase tracking-wider text-dark-500">Response</span><pre class="mono text-[10px] text-dark-300 bg-dark-950 border border-dark-800 rounded p-2 mt-0.5 whitespace-pre-wrap break-all max-h-52 overflow-auto">{{.RawResponse}}</pre></div>{{end}}
+                                    </div>
+                                </details>
+                                {{end}}
+                            </td>
+                            <td class="px-3 py-2 whitespace-nowrap"><span class="text-[10px] text-dark-300 bg-dark-850 border border-dark-700 px-1.5 py-0.5 rounded">{{.Module}}</span></td>
+                            <td class="px-3 py-2 whitespace-nowrap mono text-[11px] text-dark-400">{{.FirstSeen.Format "2006-01-02"}}</td>
+                            <td class="px-3 py-2 whitespace-nowrap mono text-[11px] text-dark-200">{{.LastSeen.Format "2006-01-02"}}{{if gt .Count 1}} <span class="text-dark-500">×{{.Count}}</span>{{end}}</td>
+                            <td class="px-3 py-2 whitespace-nowrap"><a href="{{.ScanURL}}" class="text-[11px] text-accent-400 hover:text-accent-300">&rarr; scan</a></td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+                </div>
+            </div>
+            <script>(function(){ if (window.bindSortableTable) bindSortableTable('#targetVulnTable', { defaultKey: 'sev-rank', defaultDir: 'desc' }); })();</script>
+        </div>
+        {{end}}
+
+        {{/* ---- Informational category boxes; each chip carries its last-seen date (hover for first/last + detail) ---- */}}
+        {{if .Categories}}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+            {{range .Categories}}
+            <div{{if or (eq .Name "SMB / AD") (eq .Name "Credentials & Secrets")}} class="md:col-span-2"{{end}}>
+                <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-2">{{.Icon}} {{.Name}} ({{len .Items}})</p>
+                <div class="flex flex-wrap gap-1">
+                    {{range .Items}}
+                    <span class="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border
+                        {{if eq .Category "Credentials & Secrets"}}text-danger bg-danger/10 border-danger/20
+                        {{else if eq .Category "WAF"}}text-warning bg-warning/10 border-warning/20
+                        {{else if eq .Category "Headers / Web-Misconfig"}}text-warning bg-warning/5 border-warning/20
+                        {{else}}text-dark-200 bg-dark-850 border-dark-700{{end}}"
+                        title="first {{.FirstSeen.Format "2006-01-02"}} &middot; last {{.LastSeen.Format "2006-01-02"}}{{if gt .Count 1}} &middot; seen &times;{{.Count}}{{end}}{{if .Detail}} &mdash; {{.Detail}}{{end}}">
+                        <span class="mono break-all">{{.Title}}</span>
+                        <span class="text-[9px] text-dark-500 whitespace-nowrap">{{.LastSeen.Format "01-02"}}</span>
+                    </span>
+                    {{end}}
+                </div>
+            </div>
+            {{end}}
+        </div>
+        {{end}}
+
+    </div>
+    {{end}}{{/* end with .FindingSet */}}
+</div>
+{{end}}
+
+{{if .Groups}}
+<div class="space-y-4">
+    {{range .Groups}}
+    <div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+        <div class="flex items-center justify-between px-5 py-3 bg-dark-850 border-b border-dark-800">
+            <div class="flex items-center gap-3">
+                <h3 class="text-sm font-semibold text-white">{{.DisplayName}}</h3>
+                <span class="text-[10px] uppercase tracking-wider text-dark-500 bg-dark-900 px-2 py-0.5 rounded">{{len .Scans}} scan{{if ne (len .Scans) 1}}s{{end}}</span>
+            </div>
+            <a href="/modules/{{.Module}}" class="text-[11px] text-accent-400 hover:text-accent-300 transition-colors">Open module →</a>
+        </div>
+        <div class="divide-y divide-dark-800">
+            {{range .Scans}}
+            <a href="{{scanResultsURL .}}" class="flex items-center justify-between px-5 py-3 hover:bg-dark-850/60 transition-colors group">
+                <div class="flex items-center gap-3">
+                    {{if eq (print .Status) "done"}}
+                    <span class="w-2 h-2 rounded-full bg-success"></span>
+                    {{else if eq (print .Status) "running"}}
+                    <span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                    {{else if eq (print .Status) "error"}}
+                    <span class="w-2 h-2 rounded-full bg-danger"></span>
+                    {{else if eq (print .Status) "cancelled"}}
+                    <span class="w-2 h-2 rounded-full bg-dark-500"></span>
+                    {{else}}
+                    <span class="w-2 h-2 rounded-full bg-dark-500"></span>
+                    {{end}}
+                    <span class="text-sm text-dark-200 group-hover:text-white mono">Scan #{{.ID | printf "%.8s"}}</span>
+                    <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                    {{if gt .ProgressTotal 0}}
+                    <span class="text-[11px] text-dark-500">{{.ProgressDone}}/{{.ProgressTotal}}</span>
+                    {{end}}
+                </div>
+                <div class="flex items-center gap-2">
+                    {{if eq (print .Status) "done"}}
+                    <span class="text-[10px] uppercase tracking-wider text-success bg-success/10 px-2 py-0.5 rounded">Done</span>
+                    {{else if eq (print .Status) "running"}}
+                    <span class="text-[10px] uppercase tracking-wider text-accent-400 bg-accent-600/10 px-2 py-0.5 rounded">Running</span>
+                    {{else if eq (print .Status) "error"}}
+                    <span class="text-[10px] uppercase tracking-wider text-danger bg-danger/10 px-2 py-0.5 rounded">Error</span>
+                    {{else if eq (print .Status) "cancelled"}}
+                    <span class="text-[10px] uppercase tracking-wider text-dark-400 bg-dark-800 px-2 py-0.5 rounded">Cancelled</span>
+                    {{else}}
+                    <span class="text-[10px] uppercase tracking-wider text-dark-500 bg-dark-800 px-2 py-0.5 rounded">Pending</span>
+                    {{end}}
+                    <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </div>
+            </a>
+            {{end}}
+        </div>
+    </div>
+    {{end}}
+</div>
+{{else}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-10 flex flex-col items-center justify-center">
+    <svg class="w-10 h-10 text-dark-700 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+    <p class="text-sm text-dark-300">No scan results for this asset</p>
+    <a href="/modules" class="mt-4 px-4 py-2 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors">Go to Modules</a>
+</div>
+{{end}}
+{{end}}

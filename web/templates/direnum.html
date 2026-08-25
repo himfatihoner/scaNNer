@@ -1,0 +1,204 @@
+{{define "page_direnum"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Directory Enumerator</span>
+</div>
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">📂</span> Directory Enumerator</h2>
+        <p class="text-sm text-dark-400 mt-1">Technology-aware directory and file brute-forcing with smart false-positive filtering</p>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Scan</h3>
+            <form action="/modules/direnum/run" method="POST">
+                <div class="space-y-5">
+                    <!-- URLs -->
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Target URLs{{template "info_icon" "Full URLs of web apps to scan. http(s)://... including path. One per line."}} <span class="text-danger">*</span></label>
+                        {{template "workspace_targets" .}}
+                        <textarea name="urls" rows="3" data-line-count placeholder="https://example.com&#10;https://target.com/app"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                    </div>
+
+                    <!-- Technologies -->
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-2">Technologies{{template "info_icon" "Which tech stacks the target uses. Each adds its own extensions and wordlists (PHP, ASP.NET, Java, Node, WordPress, API, General)."}}</label>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            {{range .TechProfiles}}
+                            <label class="flex items-start gap-2 p-2.5 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer hover:border-dark-600 has-[:checked]:border-accent-500 has-[:checked]:bg-accent-600/5 transition-all">
+                                <input type="checkbox" name="techs" value="{{.ID}}" {{if eq .ID "general"}}checked{{end}}
+                                       class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500">
+                                <div>
+                                    <p class="text-xs font-medium text-dark-200">{{.Name}}</p>
+                                    <p class="text-[10px] text-dark-500 mt-0.5">{{len .Extensions}} ext</p>
+                                </div>
+                            </label>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <!-- Scan Level -->
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-2">Scan Level{{template "info_icon" "Light ~4K words · Normal ~50K · Aggressive ~300K+. Larger = more coverage, longer scan."}}</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="level" value="light" class="peer sr-only">
+                                <div class="p-3 bg-dark-850 border border-dark-700 rounded-lg peer-checked:border-success peer-checked:bg-success/5 transition-all text-center">
+                                    <p class="text-xs font-medium text-dark-300">Light</p>
+                                    <p class="text-[10px] text-dark-500">~4K words</p>
+                                </div>
+                            </label>
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="level" value="normal" class="peer sr-only" checked>
+                                <div class="p-3 bg-dark-850 border border-dark-700 rounded-lg peer-checked:border-warning peer-checked:bg-warning/5 transition-all text-center">
+                                    <p class="text-xs font-medium text-dark-300">Normal</p>
+                                    <p class="text-[10px] text-dark-500">~50K words</p>
+                                </div>
+                            </label>
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="level" value="aggressive" class="peer sr-only">
+                                <div class="p-3 bg-dark-850 border border-dark-700 rounded-lg peer-checked:border-danger peer-checked:bg-danger/5 transition-all text-center">
+                                    <p class="text-xs font-medium text-dark-300">Aggressive</p>
+                                    <p class="text-[10px] text-dark-500">~300K+ words</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Smart Scan -->
+                        <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                            <label class="flex items-start gap-2.5 cursor-pointer">
+                                <input type="checkbox" name="smart_scan" value="on" checked
+                                       class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500">
+                                <div>
+                                    <p class="text-xs font-medium text-accent-400">Smart Scan{{template "info_icon" "Sends ~2304 probes per extension (6 charsets × 8 lengths × 6 shapes × 8 reps) to fingerprint soft-404 responses, then filters real results against that baseline. Adapts during the scan if a (code, size) pair recurs. Adds a few minutes per scan; turn off only if you already know the target's FP behaviour or speed is critical."}}</p>
+                                    <p class="text-[10px] text-dark-500 mt-0.5">~2304 probes per extension fingerprint the soft-404 baseline before the brute-force starts</p>
+                                </div>
+                            </label>
+                        </div>
+
+                        <!-- Filter Codes -->
+                        <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                            <p class="text-xs font-medium text-dark-300 mb-2">Filter Status Codes{{template "info_icon" "Manually hide responses with these status codes regardless of body content. Tick the common ones or type your own."}}</p>
+                            <div class="flex flex-wrap gap-1.5 mb-2">
+                                {{range $code := (list 400 401 403 405 500 502 503)}}
+                                <label class="cursor-pointer">
+                                    <input type="checkbox" name="filter_codes" value="{{$code}}" class="peer sr-only">
+                                    <span class="mono text-[11px] text-dark-300 bg-dark-900 border border-dark-700 px-2 py-1 rounded transition-colors peer-checked:bg-accent-600 peer-checked:text-white peer-checked:border-accent-500 hover:border-accent-500/50 inline-block">{{$code}}</span>
+                                </label>
+                                {{end}}
+                            </div>
+                            <input type="text" name="filter_codes_custom" placeholder="Custom codes (e.g. 302, 418, 451)"
+                                   class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                        </div>
+                    </div>
+
+                    <!-- Exclude paths. Skipped before any request is fired
+                         and excluded from BFS recursion seeds. Matching is
+                         prefix-based: "/admin" excludes /admin, /admin/users,
+                         /admin.php but not /administrator (different segment). -->
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                        <p class="text-xs font-medium text-dark-300 mb-2">
+                            Exclude Paths
+                            {{template "info_icon" "Path prefixes the scanner should never hit. Prefix-based matching: /admin excludes /admin, /admin/users, /admin.php — but not /administrator. One per line, or comma/semicolon separated. Useful for logout endpoints, already-known admin areas, or branches you don't want to spend requests on."}}
+                        </p>
+                        <textarea name="exclude_paths" rows="3" placeholder="/admin&#10;/logout&#10;/profile/delete"
+                                  class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                        <p class="text-[10px] text-dark-600 mt-1.5">Prefix-based · "/admin" matches /admin, /admin/users, /admin.php — but not /administrator. Recursion also avoids excluded dirs.</p>
+                    </div>
+
+                    <!-- Custom wordlists. Filesystem paths to extra
+                         wordlists the operator wants matrixed against
+                         the extension set, alongside the tech-profile
+                         wordlists. Missing files fall through to the
+                         embedded fallback with a log line, so a typo
+                         doesn't silently zero-out the scan. Capped at
+                         16 paths in the handler. -->
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                        <p class="text-xs font-medium text-dark-300 mb-2">
+                            Custom Wordlists
+                            {{template "info_icon" "Filesystem paths to extra wordlists (one per line, or comma/semicolon separated). Each list is loaded with the same parser as tech profiles — blank lines and # comments are skipped. Words are matrixed against the active extension set just like profile words. Use this for engagement-specific lists, OneListForAll, OWASP-tuned lists, or anything else not covered by the baked-in profiles. Max 16 paths."}}
+                        </p>
+                        <textarea name="custom_wordlists" rows="2" placeholder="/usr/share/seclists/Discovery/Web-Content/raft-large-words.txt&#10;/home/kali/lists/custom.txt"
+                                  class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                        <p class="text-[10px] text-dark-600 mt-1.5">Filesystem paths · loaded with the same parser as tech profiles · # comments skipped · missing files log a warning and fall through to the embedded fallback.</p>
+                    </div>
+
+                    <!-- Recursive scan toggle. When on, after the root-level
+                         brute-force finishes we BFS into every found
+                         directory and re-run the same wordlist + extensions
+                         under that prefix, up to Max Depth levels. Each
+                         extra level can multiply request volume by the
+                         number of dirs found at the previous level. -->
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                        <div class="flex items-start justify-between gap-3 flex-wrap">
+                            <label class="flex items-start gap-2.5 cursor-pointer flex-1 min-w-[220px]">
+                                <input type="checkbox" name="recursive" value="on" id="direnum-recursive"
+                                       onchange="document.getElementById('direnum-depth-wrap').classList.toggle('hidden', !this.checked)"
+                                       class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500">
+                                <div>
+                                    <p class="text-xs font-medium text-accent-400">Recursive enumeration{{template "info_icon" "When a directory is found (e.g. /admin/), the same wordlist + extensions are re-run inside that directory. Repeats for each level up to Max Depth."}}</p>
+                                    <p class="text-[10px] text-dark-500 mt-0.5">Found dirs become new roots — finds /admin/users.php, /uploads/2024/, etc.</p>
+                                </div>
+                            </label>
+                            <div id="direnum-depth-wrap" class="hidden">
+                                <label class="block text-[10px] uppercase tracking-wider text-dark-400 mb-1">Max depth</label>
+                                <select name="max_depth"
+                                        class="bg-dark-900 border border-dark-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-accent-500">
+                                    <option value="1">1 — root + 1 sublevel</option>
+                                    <option value="2" selected>2 — root + 2 sublevels (recommended)</option>
+                                    <option value="3">3 — root + 3 sublevels</option>
+                                    <option value="4">4 — root + 4 sublevels</option>
+                                    <option value="5">5 — root + 5 sublevels (very slow)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-warning mt-2 hidden" id="direnum-depth-warn">⚠ Each extra level can multiply request volume by the number of dirs found at the previous level. Enable Smart Scan to keep noise down.</p>
+                        <script>
+                        (function() {
+                            var cb = document.getElementById('direnum-recursive');
+                            var warn = document.getElementById('direnum-depth-warn');
+                            cb.addEventListener('change', function() {
+                                warn.classList.toggle('hidden', !cb.checked);
+                            });
+                        })();
+                        </script>
+                    </div>
+                </div>
+
+                {{template "http_options" .}}
+                {{template "http_tuning" (dict "TuneConcHint" $.TuneConcHint "TuneTimeoutHint" "30")}}
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Start Enumeration
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}<div class="space-y-2">{{range .Scans}}
+                <a href="/modules/direnum/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all group">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200 group-hover:text-white">Scan #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "01-02 15:04"}}</span>
+                    </div>
+                    <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+            {{end}}</div>
+            {{else}}<div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No scans yet</p></div>{{end}}
+        </div>
+    </div>
+</div>
+{{end}}

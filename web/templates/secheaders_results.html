@@ -1,0 +1,176 @@
+{{define "page_secheaders_results"}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="/modules/secheaders" class="hover:text-accent-400 transition-colors">Security Headers</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Results</span>
+</div>
+{{template "scan_actions" .}}
+
+{{if or (eq (print .Scan.Status) "running") (eq (print .Scan.Status) "pending")}}
+{{template "scan_progress" .}}
+{{end}}
+
+<div id="scanContent">
+{{template "secheaders_results_inner" .}}
+</div>
+
+{{end}}
+
+{{define "secheaders_results_inner"}}
+{{if .Results}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl mb-4 overflow-hidden">
+    {{template "empty_toggle" (dict "Scope" "secheaders-targets" "ContainerSel" "#secHeadersGroups" "Group" "aw-suite" "Label" "Hide URLs with A/A+ grades (no issues)")}}
+    <div id="secHeadersGroups" class="max-h-[600px] overflow-y-auto p-3 space-y-3">
+{{end}}
+{{range .Results}}
+{{$urlRes := .}}
+{{$noIssues := or (eq .Grade "A+") (eq .Grade "A")}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden" data-empty="{{if $noIssues}}true{{else}}false{{end}}">
+    <!-- Header with grade -->
+    <div class="px-5 py-4 border-b border-dark-800 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+            <div class="w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold
+                {{if or (eq .Grade "A+") (eq .Grade "A")}}bg-success/20 text-success
+                {{else if eq .Grade "B"}}bg-accent-500/20 text-accent-400
+                {{else if eq .Grade "C"}}bg-warning/20 text-warning
+                {{else if eq .Grade "D"}}bg-orange-500/20 text-orange-400
+                {{else}}bg-danger/20 text-danger{{end}}">{{.Grade}}</div>
+            <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="mono text-sm font-semibold text-white">{{.URL}}</span>
+                    <button type="button" onclick="sendToBurp('{{.URL}}')" title="Send this request to the configured proxy (Burp Repeater)"
+                            class="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/30 hover:bg-orange-500/20">→ Burp</button>
+                </div>
+                <p class="text-xs text-dark-400 mt-0.5">Score: {{.Score}}/100 · {{len .Probes}} methods returned 200 OK</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="p-5 space-y-4">
+        <!-- Probes summary -->
+        <div>
+            <h4 class="text-xs font-semibold text-dark-400 uppercase tracking-wider mb-2">200 OK Responses ({{len .Probes}})</h4>
+            <div class="flex flex-wrap gap-1.5">
+                {{range .Probes}}
+                <span class="text-[10px] mono px-2 py-0.5 rounded bg-success/10 text-success border border-success/20">{{.Variant}}</span>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Per-method findings — each probe is analyzed independently
+             so the user can see how different methods produce different
+             security headers. Default to first probe expanded. -->
+        {{if .Probes}}
+        <div>
+            <h4 class="text-xs font-semibold text-dark-400 uppercase tracking-wider mb-2">Per-Method Findings</h4>
+            <div class="space-y-2">
+                {{range $pi, $probe := .Probes}}
+                <details class="bg-dark-850 border border-dark-700 rounded-lg" {{if eq $pi 0}}open{{end}}>
+                    <summary class="cursor-pointer px-4 py-2.5 text-xs flex items-center justify-between hover:bg-dark-800 rounded-lg transition-colors">
+                        <div class="flex items-center gap-2">
+                            <span class="mono text-accent-400 font-semibold">{{$probe.Variant}}</span>
+                            {{if $probe.ContentType}}<span class="text-[10px] text-dark-500 mono">{{$probe.ContentType}}</span>{{end}}
+                        </div>
+                        <span class="text-[10px] text-dark-500">{{len $probe.Findings}} headers checked</span>
+                    </summary>
+                    <div class="px-4 pb-3 space-y-1.5">
+                        {{range $probe.Findings}}
+                        <div class="flex items-start gap-2 px-3 py-2 rounded
+                            {{if eq (print .Severity) "HIGH"}}bg-red-500/5 border border-red-500/20
+                            {{else if eq (print .Severity) "MEDIUM"}}bg-yellow-500/5 border border-yellow-500/20
+                            {{else if eq (print .Severity) "LOW"}}bg-blue-500/5 border border-blue-500/20
+                            {{else if eq (print .Severity) "PASS"}}bg-success/5 border border-success/20
+                            {{else}}bg-dark-900 border border-dark-700{{end}}">
+                            {{if eq (print .Severity) "PASS"}}
+                            <svg class="w-3.5 h-3.5 text-success mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            {{else if or (eq .Status "Missing") (eq .Status "Insecure")}}
+                            <svg class="w-3.5 h-3.5 text-danger mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            {{else if eq .Status "Weak"}}
+                            <svg class="w-3.5 h-3.5 text-warning mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                            {{else}}
+                            <span class="w-3.5 h-3.5 shrink-0"></span>
+                            {{end}}
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="mono text-[11px] font-medium {{if eq (print .Severity) "PASS"}}text-success{{else}}text-white{{end}}">{{.Header}}</span>
+                                    <span class="text-[10px] px-1.5 py-0.5 rounded
+                                        {{if eq .Status "Missing"}}bg-danger/20 text-danger
+                                        {{else if eq .Status "Insecure"}}bg-danger/20 text-danger
+                                        {{else if eq .Status "Weak"}}bg-warning/20 text-warning
+                                        {{else if eq .Status "Present"}}bg-success/20 text-success
+                                        {{else}}bg-dark-700 text-dark-400{{end}}">{{.Status}}</span>
+                                </div>
+                                {{if .Value}}<p class="mono text-[10px] text-dark-500 mt-1 truncate max-w-xl">{{.Value}}</p>{{end}}
+                            </div>
+                        </div>
+                        {{end}}
+                        {{template "raw_exchange" (dict "Request" $probe.RawRequest "Response" $probe.RawResponse "URL" $urlRes.URL "Method" $probe.Method)}}
+                    </div>
+                </details>
+                {{end}}
+            </div>
+        </div>
+        {{end}}
+
+        <!-- Aggregated worst-case + cross-method inconsistency findings.
+             Kept as the canonical "what's the URL's overall posture"
+             view; per-method section above shows the breakdown. -->
+        <div>
+            <h4 class="text-xs font-semibold text-dark-400 uppercase tracking-wider mb-2">Worst-case Across Methods ({{len .Findings}})</h4>
+            <div class="space-y-1.5">
+                {{range .Findings}}
+                <div class="flex items-start gap-3 px-4 py-2.5 rounded-lg
+                    {{if eq (print .Severity) "HIGH"}}bg-red-500/5 border border-red-500/20
+                    {{else if eq (print .Severity) "MEDIUM"}}bg-yellow-500/5 border border-yellow-500/20
+                    {{else if eq (print .Severity) "LOW"}}bg-blue-500/5 border border-blue-500/20
+                    {{else if eq (print .Severity) "PASS"}}bg-success/5 border border-success/20
+                    {{else}}bg-dark-850 border border-dark-700{{end}}">
+                    <!-- Status icon -->
+                    {{if eq (print .Severity) "PASS"}}
+                    <svg class="w-4 h-4 text-success mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    {{else if or (eq .Status "Missing") (eq .Status "Insecure")}}
+                    <svg class="w-4 h-4 text-danger mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    {{else if eq .Status "Weak"}}
+                    <svg class="w-4 h-4 text-warning mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                    {{else}}
+                    <span class="w-4 h-4 shrink-0"></span>
+                    {{end}}
+
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                            <span class="mono text-xs font-medium {{if eq (print .Severity) "PASS"}}text-success{{else}}text-white{{end}}">{{.Header}}</span>
+                            <span class="text-[10px] px-1.5 py-0.5 rounded
+                                {{if eq .Status "Missing"}}bg-danger/20 text-danger
+                                {{else if eq .Status "Insecure"}}bg-danger/20 text-danger
+                                {{else if eq .Status "Weak"}}bg-warning/20 text-warning
+                                {{else if eq .Status "Present"}}bg-success/20 text-success
+                                {{else if eq .Status "Exposed"}}bg-accent-500/20 text-accent-400
+                                {{else if eq .Status "Inconsistent"}}bg-orange-500/20 text-orange-400
+                                {{else}}bg-dark-700 text-dark-400{{end}}">{{.Status}}</span>
+                        </div>
+                        <p class="text-[11px] text-dark-400 mt-0.5">{{.Description}}</p>
+                        {{if .Value}}
+                        <p class="mono text-[10px] text-dark-500 mt-1 truncate max-w-xl">{{.Value}}</p>
+                        {{end}}
+                        {{if .Recommend}}
+                        <p class="text-[10px] text-accent-400 mt-1">Recommend: <span class="mono">{{.Recommend}}</span></p>
+                        {{end}}
+                    </div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
+{{if .Results}}
+    </div>{{/* close secHeadersGroups */}}
+</div>{{/* close wrapper */}}
+{{end}}
+
+{{if not .Results}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500"><p class="text-sm">{{if eq (print .Scan.Status) "running"}}Waiting for first results...{{else}}No results{{end}}</p></div>
+{{end}}
+{{end}}

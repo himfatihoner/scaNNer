@@ -1,0 +1,46 @@
+{{define "raw_exchange"}}
+{{/* Renders a collapsible "Raw HTTP" panel with the literal request and
+     response bytes plus a one-click "Send to Burp" action. Used by every
+     module result template that has captured raw req/resp bytes for a
+     finding.
+
+     Required data (passed via `dict`):
+       .Request  string  raw request bytes (httputil.DumpRequest output)
+       .Response string  raw response bytes (HTTP/x.y NNN ...)
+       .URL      string  optional — used to populate the → Burp button.
+       .Method   string  optional — defaults to GET.
+*/}}
+{{if or .Request .Response}}
+{{/* data-raw-key — stable per-finding identifier used by
+     scan_progress.html refreshContent() to preserve open <details>
+     across partial-HTML swaps. Without it the text-fingerprint
+     fallback changed every refresh (finding counts drift) and the
+     panel kept closing mid-read. Built from URL + Method + Idx;
+     when none of those are passed we fall back to text fingerprint. */}}
+<details class="mt-2 bg-dark-900/60 border border-dark-700/60 rounded"
+         {{if or .URL .Idx}}data-raw-key="{{.URL}}|{{.Method}}|{{.Idx}}"{{end}}>
+    <summary class="cursor-pointer px-2 py-1 text-[10px] font-medium text-dark-300 hover:text-white select-none flex items-center justify-between gap-2">
+        <span>📋 Raw HTTP</span>
+        {{if .URL}}
+        <button type="button" onclick="event.preventDefault();event.stopPropagation();sendToBurp('{{.URL}}'{{if .Method}}, '{{.Method}}'{{end}})"
+                title="Send this request to the configured proxy (Burp Repeater)"
+                class="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/30 hover:bg-orange-500/20">→ Burp</button>
+        {{end}}
+    </summary>
+    <div class="px-2 pb-2 pt-1 space-y-2">
+        {{if .Request}}
+        <div>
+            <p class="text-[9px] font-medium text-dark-500 uppercase tracking-wide mb-1">Request</p>
+            <pre class="mono text-[10px] text-dark-300 bg-dark-950 border border-dark-800 rounded p-2 overflow-x-auto max-h-64 whitespace-pre-wrap break-all">{{.Request}}</pre>
+        </div>
+        {{end}}
+        {{if .Response}}
+        <div>
+            <p class="text-[9px] font-medium text-dark-500 uppercase tracking-wide mb-1">Response</p>
+            <pre class="mono text-[10px] text-dark-300 bg-dark-950 border border-dark-800 rounded p-2 overflow-x-auto max-h-64 whitespace-pre-wrap break-all">{{.Response}}</pre>
+        </div>
+        {{end}}
+    </div>
+</details>
+{{end}}
+{{end}}

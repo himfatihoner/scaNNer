@@ -1,0 +1,47 @@
+{{define "page_sstiscan_results"}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="/modules/sstiscan" class="hover:text-accent-400 transition-colors">SSTI Probe</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Results</span>
+</div>
+{{template "scan_actions" .}}
+{{template "scan_progress" .}}
+<div id="scanContent">{{template "sstiscan_results_inner" .}}</div>
+{{end}}
+
+{{define "sstiscan_results_inner"}}
+<p class="text-sm text-dark-400 mb-4">{{.TotalFindings}} SSTI hit(s) across {{.TotalProbes}} probes / {{len .Results}} URL(s)</p>
+{{range .Results}}
+<div class="bg-dark-900 border {{if .Findings}}border-red-500/40{{else}}border-dark-800{{end}} rounded-xl mb-4 overflow-hidden">
+    <div class="px-5 py-3 border-b border-dark-800 flex items-center justify-between">
+        <span class="mono text-sm text-accent-400 break-all">{{.URL}}</span>
+        <span class="text-xs text-dark-500">{{.Tested}} probes · {{len .Findings}} hit(s)</span>
+    </div>
+    {{if .Error}}<div class="px-5 py-2 text-xs text-danger">{{.Error}}</div>{{end}}
+    {{if .Findings}}
+    <div class="p-3 space-y-2">
+        {{range .Findings}}
+        <div class="bg-dark-850 border border-red-500/40 rounded-lg p-3">
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="mono text-[10px] px-2 py-0.5 rounded bg-red-500/20 text-red-300">{{.Severity}}</span>
+                <span class="text-xs font-medium text-white">{{.Engine}}</span>
+                <span class="mono text-[10px] text-dark-300">param: <span class="text-warning">{{.Parameter}}</span></span>
+                <button type="button" onclick="sendToBurp('{{.URL}}')"
+                        class="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/30 hover:bg-orange-500/20">→ Burp</button>
+            </div>
+            <div class="grid grid-cols-1 gap-1 mt-2 text-[11px]">
+                <div><span class="text-dark-500">Payload:</span> <code class="mono text-accent-300">{{.Payload}}</code></div>
+                <div><span class="text-dark-500">Confirmed marker:</span> <code class="mono text-success">{{.Marker}}</code></div>
+                <div><span class="text-dark-500">Probe URL:</span> <a class="mono text-accent-400" href="{{.URL}}" target="_blank">{{.URL}}</a></div>
+            </div>
+            {{if .Note}}<p class="text-[10px] text-dark-400 mt-1.5">💡 {{.Note}}</p>{{end}}
+            {{template "raw_exchange" (dict "Request" .RawRequest "Response" .RawResponse "URL" .URL)}}
+        </div>
+        {{end}}
+    </div>
+    {{else}}<div class="px-5 py-3 text-xs text-success">✓ No template engine evaluated injected payloads.</div>{{end}}
+</div>
+{{end}}
+{{end}}

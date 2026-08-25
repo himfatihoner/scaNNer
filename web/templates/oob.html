@@ -1,0 +1,88 @@
+{{define "page_oob"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">OOB Collaborator</span>
+</div>
+<div class="flex items-start justify-between mb-4">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">📡</span> OOB Collaborator <span class="text-[11px] mono px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 normal-case font-medium">LOCAL ONLY</span></h2>
+        <p class="text-sm text-dark-400 mt-1">Built-in HTTP listener for SSRF/XXE/blind-XSS/SSTI proof callbacks. Local-listener-based — works only when the TARGET can reach scaNNer's host.</p>
+    </div>
+</div>
+
+<!-- HONESTY BANNER — when this module DOES and DOES NOT work -->
+<div class="mb-6 bg-amber-500/5 border border-amber-500/30 rounded-xl p-4">
+    <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 text-amber-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+        <div class="flex-1 text-[13px] leading-relaxed text-amber-50">
+            <p class="font-semibold text-amber-200 mb-1.5">Read before use — this module needs network reachability</p>
+            <p class="text-amber-100/90 mb-2">scaNNer opens a local HTTP listener. For the target server to call back, it must be able to reach this listener's IP:port. That means:</p>
+            <ul class="space-y-1 ml-5 text-amber-100/80 list-disc">
+                <li><span class="text-amber-200">✓ Works</span> when scaNNer runs on the same LAN as the target (internal pentest, CTF, lab)</li>
+                <li><span class="text-amber-200">✓ Works</span> when scaNNer is on a VPS / cloud host with a public IP and the listen port is firewall-open</li>
+                <li><span class="text-amber-200">✓ Works</span> when you've port-forwarded the listener through a VPN tunnel (Tailscale, WireGuard, ngrok HTTP)</li>
+                <li><span class="text-red-300">✗ DOES NOT work</span> from your laptop on residential NAT — outbound-only, target can't reach you</li>
+                <li><span class="text-red-300">✗ NO DNS authority</span> — XXE / blind-SSRF via subdomain queries won't surface here (no DNS server)</li>
+                <li><span class="text-red-300">✗ NO HTTPS</span> — modern targets may refuse to fetch plain-HTTP callbacks (mixed-content / strict TLS policies)</li>
+            </ul>
+            <p class="mt-3 text-amber-100/90">
+                <strong class="text-amber-200">For real public-target engagements, use:</strong>
+                <a href="https://github.com/projectdiscovery/interactsh" target="_blank" class="text-amber-300 underline hover:text-amber-200">Interactsh (oast.fun)</a> —
+                public DNS+HTTP+SMTP collaborator, polled via REST API; or
+                <a href="https://portswigger.net/burp/documentation/collaborator" target="_blank" class="text-amber-300 underline hover:text-amber-200">Burp Collaborator</a> — included in Burp Suite Pro.
+                These services solve the reachability + DNS + HTTPS problems you DON'T get from a local listener.
+            </p>
+        </div>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Session</h3>
+            <form action="/modules/oob/run" method="POST">
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Tokens to mint{{template "info_icon" "Each unique token = a separate callback URL. Useful to track multiple payloads in the same scan."}}</label>
+                        <input type="number" name="tokens" value="3" min="1" max="20" class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Public host / IP{{template "info_icon" "Hostname or IP that the target server must be able to reach. Empty = bind to localhost only (lab testing)."}}</label>
+                        <input type="text" name="base_domain" placeholder="oob.your-public-host.example  or  203.0.113.10:8088" class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Listen address{{template "info_icon" "Go-style listen string. :0 = random free port. Use :8088 for fixed."}}</label>
+                        <input type="text" name="listen_addr" value=":0" class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white">
+                    </div>
+                </div>
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Start Listener
+                </button>
+            </form>
+            <p class="text-[10px] text-dark-500 mt-3">Sessions stop on server restart. For long-running collaborator, expose a stable public host.</p>
+        </div>
+    </div>
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Active Sessions</h3>
+            {{if .Scans}}
+            <div class="space-y-2">
+                {{range .Scans}}
+                <a href="/modules/oob/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200">Session #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                    </div>
+                </a>
+                {{end}}
+            </div>
+            {{else}}<div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No sessions yet</p></div>{{end}}
+        </div>
+    </div>
+</div>
+{{end}}

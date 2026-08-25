@@ -1,0 +1,144 @@
+{{define "header"}}
+<header class="relative z-40 h-16 bg-dark-900/80 backdrop-blur border-b border-dark-800 flex items-center justify-between px-6 shrink-0">
+    <div class="flex items-center gap-4">
+        <h2 class="text-lg font-semibold text-white">{{pageHeading .Page}}</h2>
+    </div>
+
+    <div class="flex items-center gap-4">
+        <!-- Workspace Selector -->
+        <div class="relative" id="wsDropdown">
+            <button onclick="document.getElementById('wsMenu').classList.toggle('hidden')"
+                    class="flex items-center gap-2.5 px-3.5 py-2 bg-dark-850 border border-dark-700 rounded-lg hover:border-dark-600 transition-colors group">
+                <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                </svg>
+                <span class="text-sm text-dark-200 max-w-[160px] truncate">{{.ActiveWorkspace.Name}}</span>
+                <svg class="w-3.5 h-3.5 text-dark-500 group-hover:text-dark-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+
+            <!-- Dropdown Menu -->
+            <div id="wsMenu" class="hidden absolute right-0 top-full mt-1.5 w-72 bg-dark-900 border border-dark-800 rounded-xl shadow-2xl z-50 overflow-hidden">
+                <div class="px-4 py-3 border-b border-dark-800">
+                    <p class="text-[10px] font-semibold text-dark-500 uppercase tracking-widest">Switch Workspace</p>
+                </div>
+                <div class="max-h-64 overflow-y-auto py-1">
+                    {{range .Workspaces}}
+                    <form action="/workspace/switch" method="POST" class="contents">
+                        <input type="hidden" name="workspace_id" value="{{.ID}}">
+                        <button type="submit"
+                                class="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-dark-850 transition-colors {{if eq .ID $.ActiveWorkspace.ID}}bg-accent-600/10{{end}}">
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-sm {{if eq .ID $.ActiveWorkspace.ID}}text-accent-400 font-medium{{else}}text-dark-200{{end}} truncate">{{.Name}}</span>
+                                    {{if .IsDefault}}
+                                    <span class="text-[9px] uppercase tracking-wider text-dark-500 bg-dark-800 px-1.5 py-0.5 rounded shrink-0">default</span>
+                                    {{end}}
+                                </div>
+                                <span class="text-[11px] text-dark-500">{{.TargetCount}} targets</span>
+                            </div>
+                            {{if eq .ID $.ActiveWorkspace.ID}}
+                            <svg class="w-4 h-4 text-accent-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+                            {{end}}
+                        </button>
+                    </form>
+                    {{end}}
+                </div>
+                <div class="border-t border-dark-800 p-2">
+                    <a href="/settings" class="flex items-center gap-2 px-3 py-2 text-xs text-dark-400 hover:text-accent-400 hover:bg-dark-850 rounded-lg transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                        </svg>
+                        Manage Workspaces
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Theme toggle -->
+        <button id="themeToggle" type="button" onclick="toggleTheme()" title="Toggle light / dark theme"
+                class="flex items-center justify-center w-9 h-9 bg-dark-850 border border-dark-700 hover:border-accent-500/50 rounded-lg transition-colors">
+            <svg id="themeIconMoon" class="w-4 h-4 text-dark-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+            </svg>
+            <svg id="themeIconSun" class="hidden w-4 h-4 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.36-6.36l-1.42 1.42M6.06 17.94l-1.42 1.42m0-13.72l1.42 1.42m11.88 11.88l1.42 1.42M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+            </svg>
+        </button>
+
+        <!-- Connectivity status indicator — polled from /api/health (the
+             connectivity monitor probes every 5s). Green = reachable, amber =
+             degraded/throttled, red = offline. -->
+        <div id="netStatus" class="flex items-center gap-2 text-sm text-success" title="Checking connectivity…">
+            <svg id="netStatusIcon" class="w-4 h-4 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+            <span id="netStatusText" class="mono text-xs text-success">Ready</span>
+        </div>
+    </div>
+</header>
+
+<script>
+function toggleTheme() {
+    var html = document.documentElement;
+    var nowLight = !html.classList.contains('light');
+    html.classList.toggle('light', nowLight);
+    try { localStorage.setItem('scanner-theme', nowLight ? 'light' : 'dark'); } catch(e) {}
+    syncThemeIcon();
+}
+function syncThemeIcon() {
+    var light = document.documentElement.classList.contains('light');
+    var moon = document.getElementById('themeIconMoon');
+    var sun  = document.getElementById('themeIconSun');
+    if (moon) moon.classList.toggle('hidden', light);
+    if (sun)  sun.classList.toggle('hidden', !light);
+}
+syncThemeIcon();
+</script>
+
+<!-- Live connectivity indicator -->
+<script>
+(function(){
+    var icon = document.getElementById('netStatusIcon');
+    var text = document.getElementById('netStatusText');
+    var wrap = document.getElementById('netStatus');
+    if (!icon || !text) return;
+    var COLORS = ['text-success','text-warning','text-danger'];
+    var MAP = {
+        ok:       {c:'text-success', t:'Ready',    title:'Internet reachable'},
+        degraded: {c:'text-warning', t:'Degraded', title:'Network degraded — scans are auto-throttled'},
+        down:     {c:'text-danger',  t:'Offline',  title:'No internet connectivity — scans will pause'},
+        err:      {c:'text-danger',  t:'Offline',  title:'Cannot reach the scanner'}
+    };
+    function apply(s){
+        var m = MAP[s] || MAP.err;
+        COLORS.forEach(function(c){ icon.classList.remove(c); text.classList.remove(c); });
+        icon.classList.add(m.c); text.classList.add(m.c);
+        text.textContent = m.t;
+        if (wrap) wrap.title = m.title;
+    }
+    function poll(){
+        fetch('/api/health', {cache:'no-store'})
+            .then(function(r){ return r.ok ? r.json() : {status:'err'}; })
+            .then(function(d){ apply(d && d.status ? d.status : 'err'); })
+            .catch(function(){ apply('err'); });
+    }
+    poll();
+    setInterval(poll, 8000);
+})();
+</script>
+
+<!-- Close dropdown when clicking outside -->
+<script>
+document.addEventListener('click', function(e) {
+    var dd = document.getElementById('wsDropdown');
+    var menu = document.getElementById('wsMenu');
+    if (dd && menu && !dd.contains(e.target)) {
+        menu.classList.add('hidden');
+    }
+});
+</script>
+{{end}}

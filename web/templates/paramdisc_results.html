@@ -1,0 +1,87 @@
+{{define "page_paramdisc_results"}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="/modules/paramdisc" class="hover:text-accent-400 transition-colors">Parameter Discovery</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Results</span>
+</div>
+{{template "scan_actions" .}}
+
+{{if or (eq (print .Scan.Status) "running") (eq (print .Scan.Status) "pending")}}
+{{template "scan_progress" .}}
+{{end}}
+
+<div id="scanContent">
+{{template "paramdisc_results_inner" .}}
+</div>
+{{end}}
+
+{{define "paramdisc_results_inner"}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center mb-6">
+    <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">Hidden Parameters Found</p>
+    <p class="text-2xl font-bold {{if .TotalHits}}text-accent-400{{else}}text-dark-600{{end}}">{{.TotalHits}}</p>
+</div>
+
+{{range $ri, $r := .Results}}
+<div class="bg-dark-900 border {{if $r.Hits}}border-accent-500/30{{else}}border-dark-800{{end}} rounded-xl mb-4 overflow-hidden">
+    <div class="px-5 py-4 border-b border-dark-800 flex items-center justify-between">
+        <div>
+            <span class="mono text-sm font-semibold text-accent-400">{{$r.URL}}</span>
+            <p class="text-[11px] text-dark-500 mt-0.5">{{$r.Method}} · baseline: HTTP {{$r.BaselineCode}} ({{$r.BaselineSize}}b) · {{$r.Tested}} probes sent</p>
+        </div>
+        {{if $r.Hits}}<span class="text-xs font-medium text-accent-400">{{len $r.Hits}} hits</span>{{end}}
+    </div>
+    {{if $r.Error}}<div class="px-5 py-3 text-xs text-danger">{{$r.Error}}</div>{{end}}
+    {{if $r.Hits}}
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-dark-800">
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Parameter</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Method</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Status</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Length Δ</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Reflected</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Note</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{/* Audit fix (F4): id keyed on the per-section index
+                     ($ri) plus the per-hit index ($hi) instead of the
+                     raw URL. When Method=BOTH the scanner emits two
+                     TargetResult rows with the same URL, and URLs also
+                     contain characters (":", "/") that break attribute
+                     selectors — the old id="pd-raw-{URL}-{hi}" was both
+                     ambiguous and non-CSS-safe. */}}
+                {{range $hi, $hit := $r.Hits}}
+                <tr class="raw-row border-b border-dark-800/50 hover:bg-dark-850/50 cursor-pointer transition-colors" data-target="pd-raw-{{$ri}}-{{$hi}}">
+                    <td class="px-5 py-2 mono text-xs text-accent-400">
+                        <span class="inline-block w-3 text-dark-500 raw-caret mr-1">▸</span>{{$hit.Name}}
+                    </td>
+                    <td class="px-5 py-2 text-[11px] text-dark-300 mono">{{$hit.Method}}</td>
+                    <td class="px-5 py-2">
+                        <span class="mono text-[11px] {{if $hit.StatusDiff}}bg-warning/10 text-warning{{else}}bg-dark-700 text-dark-300{{end}} px-1.5 py-0.5 rounded">{{$hit.StatusCode}}</span>
+                    </td>
+                    <td class="px-5 py-2 text-[11px] text-dark-400 mono">{{if $hit.LengthDiff}}±{{$hit.LengthDiff}}{{else}}-{{end}}</td>
+                    <td class="px-5 py-2 text-[11px]">{{if $hit.Reflected}}<span class="text-danger">yes</span>{{else}}<span class="text-dark-500">-</span>{{end}}</td>
+                    <td class="px-5 py-2 text-[11px] text-dark-400">{{$hit.Note}}</td>
+                </tr>
+                <tr id="pd-raw-{{$ri}}-{{$hi}}" class="hidden bg-dark-925">
+                    <td colspan="6" class="px-5 py-3">
+                        {{template "raw_panel" (list "pd" (printf "%d-%d" $ri $hi) $hit.RawRequest $hit.RawResponse)}}
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+    {{end}}
+</div>
+{{end}}
+{{if not .Results}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
+    <p class="text-sm">{{if eq (print .Scan.Status) "running"}}Waiting for first results...{{else}}No results available{{end}}</p>
+</div>
+{{end}}
+{{end}}

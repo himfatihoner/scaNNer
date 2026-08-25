@@ -1,0 +1,21 @@
+services:
+  scanner:
+    build: .
+    container_name: scanner
+    ports:
+      - "9090:9090"
+    environment:
+      - PORT=9090
+    volumes:
+      - scanner_data:/app/data
+    cap_add:
+      - NET_RAW
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-kf", "https://localhost:9090/login"]
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+
+volumes:
+  scanner_data:

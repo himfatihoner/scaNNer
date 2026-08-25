@@ -1,0 +1,92 @@
+{{define "page_snmpenum_results"}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="/modules/snmpenum" class="hover:text-accent-400 transition-colors">SNMP Enum</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Results</span>
+</div>
+{{template "scan_actions" .}}
+
+{{if or (eq (print .Scan.Status) "running") (eq (print .Scan.Status) "pending")}}
+{{template "scan_progress" .}}
+{{end}}
+
+<div id="scanContent">
+{{template "snmpenum_results_inner" .}}
+</div>
+{{end}}
+
+{{define "snmpenum_results_inner"}}
+<div class="grid grid-cols-2 gap-3 mb-6">
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">Hosts with SNMP</p>
+        <p class="text-2xl font-bold {{if .OpenHosts}}text-success{{else}}text-dark-600{{end}}">{{.OpenHosts}}</p>
+    </div>
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">Communities Found</p>
+        <p class="text-2xl font-bold {{if .TotalCommunities}}text-warning{{else}}text-dark-600{{end}}">{{.TotalCommunities}}</p>
+    </div>
+</div>
+
+{{range .Results}}
+<div class="bg-dark-900 border {{if .ValidCommunities}}border-warning/30{{else}}border-dark-800{{end}} rounded-xl mb-4 overflow-hidden">
+    <div class="px-5 py-4 border-b border-dark-800 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <span class="w-7 h-7 rounded-lg {{if .ValidCommunities}}bg-warning/20{{else}}bg-dark-700{{end}} flex items-center justify-center text-sm">📶</span>
+            <div>
+                <span class="mono text-sm font-semibold text-accent-400">{{.Target}}</span>
+                {{if .SystemName}}<p class="text-[11px] text-dark-400 mt-0.5">{{.SystemName}}</p>{{end}}
+            </div>
+        </div>
+        {{if .ValidCommunities}}
+        {{$writeComms := .WriteCommunities}}
+        <div class="flex flex-wrap gap-1">
+            {{range .ValidCommunities}}
+                {{$comm := .}}
+                {{$isRW := false}}
+                {{range $writeComms}}{{if eq . $comm}}{{$isRW = true}}{{end}}{{end}}
+                {{if $isRW}}
+                    <span class="mono text-[11px] text-danger bg-danger/10 border border-danger/30 px-1.5 py-0.5 rounded" title="Write access confirmed (snmpset round-trip on sysContact)">{{$comm}} · RW</span>
+                {{else}}
+                    <span class="mono text-[11px] text-warning bg-warning/10 border border-warning/20 px-1.5 py-0.5 rounded">{{$comm}}</span>
+                {{end}}
+            {{end}}
+        </div>
+        {{end}}
+    </div>
+    {{if .Error}}<div class="px-5 py-3 text-xs text-danger">{{.Error}}</div>{{end}}
+
+    {{if .ValidCommunities}}
+    <div class="p-5 space-y-3">
+        {{if or .SystemDescr .SystemUptime .SystemLocation .SystemContact}}
+        <div class="bg-dark-850 rounded-lg p-3">
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-2">System</p>
+            <div class="space-y-1 text-[11px]">
+                {{if .SystemDescr}}<p><span class="text-dark-500">Description:</span> <span class="mono text-dark-200 break-words">{{.SystemDescr}}</span></p>{{end}}
+                {{if .SystemUptime}}<p><span class="text-dark-500">Uptime:</span> <span class="mono text-dark-200">{{.SystemUptime}}</span></p>{{end}}
+                {{if .SystemContact}}<p><span class="text-dark-500">Contact:</span> <span class="mono text-dark-200">{{.SystemContact}}</span></p>{{end}}
+                {{if .SystemLocation}}<p><span class="text-dark-500">Location:</span> <span class="mono text-dark-200">{{.SystemLocation}}</span></p>{{end}}
+            </div>
+        </div>
+        {{end}}
+
+        {{range .Walks}}
+        <details class="bg-dark-850 border border-dark-700 rounded">
+            <summary class="px-3 py-1.5 cursor-pointer text-[11px] text-accent-400 hover:text-accent-300 flex items-center justify-between">
+                <span>▸ {{.Label}} <span class="text-dark-500 mono">({{.OID}})</span></span>
+                <span class="text-[10px] text-dark-500">{{.LineCount}} lines</span>
+            </summary>
+            <pre class="mono text-[10px] text-dark-300 px-3 py-2 whitespace-pre-wrap max-h-72 overflow-auto border-t border-dark-700">{{.Output}}</pre>
+        </details>
+        {{end}}
+    </div>
+    {{end}}
+</div>
+{{end}}
+{{if not .Results}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
+    <p class="text-sm">{{if eq (print .Scan.Status) "running"}}Waiting for first results...{{else}}No results available{{end}}</p>
+</div>
+{{end}}
+{{end}}

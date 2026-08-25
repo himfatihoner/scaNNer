@@ -1,0 +1,310 @@
+{{define "page_dnsenum_results"}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="/modules/dnsenum" class="hover:text-accent-400 transition-colors">DNS Enumerator</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Results</span>
+</div>
+{{template "scan_actions" .}}
+
+{{if or (eq (print .Scan.Status) "running") (eq (print .Scan.Status) "pending")}}
+{{template "scan_progress" .}}
+{{end}}
+
+<div id="scanContent">
+{{template "dnsenum_results_inner" .}}
+</div>
+
+{{end}}
+
+{{define "dnsenum_results_inner"}}
+{{if .ParseError}}
+<div class="mb-4 px-4 py-3 bg-danger/10 border border-danger/40 rounded-lg flex items-start gap-3">
+    <svg class="w-5 h-5 text-danger flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.732-3L13.732 4a2 2 0 00-3.464 0L3.268 16A2 2 0 005 19z"/>
+    </svg>
+    <div>
+        <p class="text-sm font-medium text-danger">Could not parse scan result</p>
+        <p class="text-xs text-dark-300 mt-0.5 mono break-all">{{.ParseError}}</p>
+    </div>
+</div>
+{{end}}
+<p class="text-sm text-dark-400 mb-4">{{.TotalSubs}} subdomains discovered</p>
+
+{{/* Import-to-Targets panel: pushes discovered subdomains into the
+     workspace as Target rows in a list of the user's choice. Submits
+     via fetch() to /modules/dnsenum/import/<scanID> so the operator
+     gets inline feedback without leaving the results view. Hidden
+     while the scan is still running — re-importing partial results
+     would duplicate work the user would then need to deduplicate. */}}
+{{if and .Results (or (eq (print .Scan.Status) "done") (eq (print .Scan.Status) "error"))}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl mb-6 p-5">
+    <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-semibold text-white">Import discovered subdomains</h3>
+        <span class="text-[10px] text-dark-500 uppercase tracking-wider">→ Workspace targets</span>
+    </div>
+    <form id="dnsenumImportForm" class="space-y-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <label class="flex items-start gap-2 cursor-pointer">
+                <input type="checkbox" name="include_wildcards" class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500">
+                <span class="text-xs text-dark-300">Include wildcard-flagged subdomains</span>
+            </label>
+            <label class="flex items-start gap-2 cursor-pointer">
+                <input type="checkbox" name="only_resolved" checked class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500">
+                <span class="text-xs text-dark-300">Only resolved (skip subs with no IPs)</span>
+            </label>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+            <div class="md:col-span-2">
+                <label class="block text-[11px] text-dark-300 mb-1">Target list</label>
+                <select name="list_id" class="w-full bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500"
+                        onchange="(function(s){var n=document.getElementById('dnsenumNewListName');if(n){n.style.display=s.value==='__new__'?'block':'none';}})(this)">
+                    <option value="">(Uncategorized)</option>
+                    {{range .TargetLists}}
+                    <option value="{{.ID}}">{{.Name}}</option>
+                    {{end}}
+                    <option value="__new__">+ Create new list…</option>
+                </select>
+                <input type="text" id="dnsenumNewListName" name="new_list_name" placeholder="New list name"
+                       style="display:none"
+                       class="mt-2 w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+            </div>
+            <button type="submit"
+                    class="py-2 px-3 text-xs font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors">
+                Import to targets
+            </button>
+        </div>
+        <p id="dnsenumImportStatus" class="text-[11px]"></p>
+    </form>
+    <script>
+    (function() {
+        var form = document.getElementById('dnsenumImportForm');
+        if (!form || form.__wired) return;
+        form.__wired = true;
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var status = document.getElementById('dnsenumImportStatus');
+            status.innerHTML = '<span class="text-dark-400">Importing…</span>';
+            var fd = new FormData(form);
+            fetch('/modules/dnsenum/import/{{.Scan.ID}}', { method: 'POST', body: fd })
+                .then(function(r) { return r.json().then(function(j){return {ok:r.ok, body:j};}); })
+                .then(function(res) {
+                    if (!res.ok || res.body.error) {
+                        status.innerHTML = '<span class="text-danger">' + (res.body.error || 'Import failed') + '</span>';
+                        return;
+                    }
+                    var b = res.body;
+                    status.innerHTML = '<span class="text-success">Added ' + b.added + '</span>' +
+                        ' <span class="text-dark-500">·</span> ' +
+                        '<span class="text-dark-400">' + b.skipped + ' skipped · ' + b.invalid + ' invalid</span>' +
+                        ' <span class="text-dark-500">→ ' + (b.list_name || 'Uncategorized') + '</span>';
+                })
+                .catch(function(err) {
+                    status.innerHTML = '<span class="text-danger">Import failed: ' + err + '</span>';
+                });
+        });
+    })();
+    </script>
+</div>
+{{end}}
+
+{{/* Suite view passes the FULL flat list of subdomains in BulkText so
+     Copy-all can dump every discovered name, not just the rendered 50.
+     We emit it once at the top under a deterministic ID so the inner
+     buttons can all reach it (previously each <pre> reused the same
+     "__dnsenumBulk" ID inside the per-domain range, only the first
+     was reachable and its content was the post-cap slice). */}}
+{{if .BulkText}}
+<pre id="__dnsenumBulkAll" class="hidden">{{.BulkText}}</pre>
+{{end}}
+
+<!-- Import discovered subdomains into the workspace's Targets. The user
+     picks an existing TargetList or names a new one. Filters honor
+     "include wildcards" + "only resolved-with-IPs". Submits via fetch()
+     so the user gets inline feedback without losing the results view. -->
+{{range .Results}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl mb-6 overflow-hidden">
+    <div class="px-5 py-4 border-b border-dark-800">
+        <div class="flex items-center justify-between">
+            <div>
+                <span class="mono text-base font-semibold text-accent-400">{{.Domain}}</span>
+                <span class="text-xs text-dark-400 ml-3">{{.TotalFound}} subdomains</span>
+            </div>
+            <div class="flex items-center gap-3">
+                {{range $src, $cnt := .Sources}}
+                <span class="text-[10px] text-dark-500 bg-dark-800 px-2 py-0.5 rounded">{{$src}}: {{$cnt}}</span>
+                {{end}}
+            </div>
+        </div>
+        {{if .Nameservers}}
+        <div class="flex items-center gap-2 mt-2">
+            <span class="text-[10px] text-dark-500 uppercase tracking-wider">NS:</span>
+            {{range .Nameservers}}
+            <span class="mono text-[11px] text-dark-400 bg-dark-850 px-2 py-0.5 rounded">{{.}}</span>
+            {{end}}
+        </div>
+        {{end}}
+    </div>
+
+    {{if .Subdomains}}
+    {{/* Bulk-copy button: writes every Subdomain (one per line) to the
+         clipboard. Includes wildcard rows since the user may still want
+         to review them — they're rendered with opacity-50 below. */}}
+    <div class="px-5 py-2 flex items-center justify-between border-b border-dark-800 bg-dark-850/40">
+        <span class="text-[10px] text-dark-500 uppercase tracking-wider">{{len .Subdomains}} subdomains</span>
+        <button type="button" data-copy-subdomains
+                class="text-[10px] px-2 py-1 rounded bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700 transition-colors inline-flex items-center gap-1">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            Copy all
+        </button>
+    </div>
+    {{/* Per-domain copy source. When BulkText is set (suite view), every
+         button reads from the single top-level #__dnsenumBulkAll instead
+         — see the script below. Standalone view falls back to this
+         per-domain <pre>. The ID is intentionally not used inside the
+         range to avoid duplicate IDs colliding. */}}
+    <pre data-dnsenum-bulk class="hidden">{{range .Subdomains}}{{.Subdomain}}
+{{end}}</pre>
+    <script>
+    (function() {
+        var btns = document.querySelectorAll('[data-copy-subdomains]');
+        btns.forEach(function(btn) {
+            if (btn.__wired) return; btn.__wired = true;
+            btn.addEventListener('click', function() {
+                // Prefer the top-level bulk pre (suite passes full list
+                // there). Fall back to the per-section pre (standalone).
+                var all = document.getElementById('__dnsenumBulkAll');
+                var src;
+                if (all && all.textContent.trim()) {
+                    src = all;
+                } else {
+                    src = btn.closest('.bg-dark-900').querySelector('[data-dnsenum-bulk]');
+                }
+                if (!src) return;
+                navigator.clipboard.writeText(src.textContent.trim()).then(function() {
+                    var old = btn.innerHTML;
+                    btn.innerHTML = '✓ Copied';
+                    setTimeout(function() { btn.innerHTML = old; }, 1500);
+                });
+            });
+        });
+    })();
+    </script>
+    {{$limit := 0}}{{if $.DisplayLimit}}{{$limit = $.DisplayLimit}}{{end}}
+    {{$totalSubs := len .Subdomains}}
+    {{if and (gt $limit 0) (gt $totalSubs $limit)}}
+    <div class="px-5 py-1.5 bg-dark-850/60 border-b border-dark-800 text-[10px] text-dark-400">
+        Showing first <span class="mono text-dark-200">{{$limit}}</span> of <span class="mono text-dark-200">{{$totalSubs}}</span> subdomains —
+        <button type="button" data-copy-subdomains class="underline text-accent-400 hover:text-accent-300">Copy all</button> to grab the full list.
+    </div>
+    {{end}}
+    <div class="max-h-[600px] overflow-y-auto">
+        <table class="w-full">
+            <thead class="sticky top-0 bg-dark-900">
+                <tr class="border-b border-dark-800">
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase tracking-wider">Subdomain</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase tracking-wider">IP Address(es)</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase tracking-wider">Source</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase tracking-wider">Wildcard</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range $i, $s := .Subdomains}}
+                {{if or (le $limit 0) (lt $i $limit)}}
+                <tr class="border-b border-dark-800/50 hover:bg-dark-850/50 transition-colors {{if $s.IsWild}}opacity-50{{end}}">
+                    <td class="px-5 py-2 mono text-xs text-dark-200">{{$s.Subdomain}}</td>
+                    <td class="px-5 py-2 mono text-xs text-dark-400">{{range $j, $ip := $s.IPs}}{{if $j}}, {{end}}{{$ip}}{{end}}{{if not $s.IPs}}<span class="text-dark-600">-</span>{{end}}</td>
+                    <td class="px-5 py-2 text-[11px] text-dark-500">{{$s.Source}}</td>
+                    <td class="px-5 py-2 text-[11px]">{{if $s.IsWild}}<span class="text-warning">wildcard</span>{{else}}-{{end}}</td>
+                </tr>
+                {{end}}
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+    {{else}}
+    <div class="p-8 text-center text-dark-500">
+        <p class="text-sm">No subdomains found</p>
+    </div>
+    {{end}}
+
+    {{if .AXFRRecords}}
+    <div class="px-5 pb-5">
+        <h4 class="text-xs font-semibold text-warning uppercase tracking-wider mb-2">⚠ Zone Transfer Succeeded ({{len .AXFRRecords}} records)</h4>
+        <div class="bg-dark-850 rounded-lg overflow-hidden">
+            <table class="w-full">
+                <thead><tr class="border-b border-dark-700">
+                    <th class="text-left px-3 py-1.5 text-[10px] text-dark-500 uppercase">NS</th>
+                    <th class="text-left px-3 py-1.5 text-[10px] text-dark-500 uppercase">Name</th>
+                    <th class="text-left px-3 py-1.5 text-[10px] text-dark-500 uppercase">Type</th>
+                    <th class="text-left px-3 py-1.5 text-[10px] text-dark-500 uppercase">Value</th>
+                </tr></thead>
+                <tbody>
+                {{range .AXFRRecords}}
+                <tr class="border-b border-dark-700/50">
+                    <td class="px-3 py-1 mono text-[11px] text-dark-400">{{.NS}}</td>
+                    <td class="px-3 py-1 mono text-[11px] text-accent-400">{{.Name}}</td>
+                    <td class="px-3 py-1 text-[11px] text-warning">{{.Type}}</td>
+                    <td class="px-3 py-1 mono text-[11px] text-dark-200 break-all">{{.Value}}</td>
+                </tr>
+                {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {{end}}
+
+    {{if .ReverseDNS}}
+    <div class="px-5 pb-5">
+        <h4 class="text-xs font-semibold text-dark-400 uppercase tracking-wider mb-2">Reverse DNS ({{len .ReverseDNS}})</h4>
+        <div class="bg-dark-850 rounded-lg max-h-72 overflow-auto p-2">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-1">
+                {{range .ReverseDNS}}
+                <div class="flex items-center gap-2 px-2 py-1 bg-dark-900 rounded">
+                    <span class="mono text-[11px] text-dark-400 shrink-0">{{.IP}}</span>
+                    <span class="text-dark-600">→</span>
+                    <span class="mono text-[11px] text-accent-400 truncate">{{.Hostname}}</span>
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </div>
+    {{end}}
+
+    {{if .CrtShCerts}}
+    <div class="px-5 pb-5">
+        <details class="bg-dark-850 border border-dark-700 rounded">
+            <summary class="px-3 py-1.5 cursor-pointer text-[11px] text-accent-400 hover:text-accent-300">▸ crt.sh certificates ({{len .CrtShCerts}})</summary>
+            <div class="max-h-72 overflow-auto p-2">
+                <table class="w-full">
+                    <thead><tr class="border-b border-dark-700">
+                        <th class="text-left px-2 py-1 text-[10px] text-dark-500 uppercase">Hostname</th>
+                        <th class="text-left px-2 py-1 text-[10px] text-dark-500 uppercase">Issuer</th>
+                        <th class="text-left px-2 py-1 text-[10px] text-dark-500 uppercase">Valid From</th>
+                        <th class="text-left px-2 py-1 text-[10px] text-dark-500 uppercase">Valid Until</th>
+                    </tr></thead>
+                    <tbody>
+                    {{range .CrtShCerts}}
+                    <tr class="border-b border-dark-700/50">
+                        <td class="px-2 py-0.5 mono text-[11px] text-accent-400 break-all">{{.NameValue}}</td>
+                        <td class="px-2 py-0.5 text-[10px] text-dark-400 truncate max-w-[300px]" title="{{.Issuer}}">{{.Issuer}}</td>
+                        <td class="px-2 py-0.5 mono text-[10px] text-dark-500">{{.NotBefore}}</td>
+                        <td class="px-2 py-0.5 mono text-[10px] text-dark-500">{{.NotAfter}}</td>
+                    </tr>
+                    {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </details>
+    </div>
+    {{end}}
+</div>
+{{end}}
+
+{{if not .Results}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
+    <p class="text-sm">{{if eq (print .Scan.Status) "running"}}Waiting for first results...{{else}}No results available{{end}}</p>
+</div>
+{{end}}
+{{end}}

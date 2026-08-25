@@ -1,0 +1,125 @@
+{{/*
+    Shared severity rendering helpers — single source of truth for the
+    Critical/High/Medium/Low/Info color and copy.
+
+    Before this file existed, every result module re-implemented the
+    severity color mapping inline. Five modules drifted on case
+    (CRITICAL vs critical), shade (red-300 vs red-400), and container
+    opacity (red-500/5 vs red-500/20). Any future change required
+    editing 5+ files. Now they all dispatch to these defines.
+
+    Canonical form: UPPERCASE (CRITICAL / HIGH / MEDIUM / LOW / INFO).
+    Aligns with CVSS / NVD reporting standards. Callers can pass any
+    case — the badge/card defines normalize via the `upper` funcMap
+    helper before comparing.
+*/}}
+
+{{define "severity_badge"}}
+{{/*
+    Inline chip for a single finding row.
+
+    arg: severity string (case-insensitive). Empty / unknown values
+    render as the dark fallback so a malformed result doesn't crash
+    the template.
+
+    Visual: shrink-0 + uppercase + bold so it doesn't get squashed
+    when the row is dense. Same paddings/sizes everywhere.
+*/}}
+{{$s := upper (print .)}}
+<span class="shrink-0 px-2 py-0.5 text-[10px] font-bold uppercase rounded
+    {{if eq $s "CRITICAL"}}bg-red-500/20 text-red-300
+    {{else if eq $s "HIGH"}}bg-orange-500/20 text-orange-300
+    {{else if eq $s "MEDIUM"}}bg-yellow-500/20 text-yellow-300
+    {{else if eq $s "LOW"}}bg-blue-500/20 text-blue-300
+    {{else if eq $s "INFO"}}bg-dark-700 text-dark-300
+    {{else if eq $s "INFORMATIONAL"}}bg-dark-700 text-dark-300
+    {{else}}bg-dark-700 text-dark-400{{end}}">{{$s}}</span>
+{{end}}
+
+{{define "severity_card"}}
+{{/*
+    One severity-count card in the 6-card summary grid.
+
+    args (dict):
+      .Label string — display label (also drives color)
+      .Count int    — number to show; rendered grayed when zero so the
+                      grid stays visually full but the eye skips empties
+
+    Used by severity_summary below; can also be called directly when a
+    module wants to add a non-standard tone (e.g. "Total").
+*/}}
+{{$s := upper .Label}}
+<div class="bg-dark-900 border rounded-xl p-4 text-center
+    {{if eq $s "CRITICAL"}}border-red-900/50
+    {{else if eq $s "HIGH"}}border-orange-900/50
+    {{else if eq $s "MEDIUM"}}border-yellow-900/50
+    {{else if eq $s "LOW"}}border-blue-900/50
+    {{else if eq $s "INFO"}}border-dark-800
+    {{else}}border-dark-800{{end}}">
+    <p class="text-xs uppercase tracking-wider mb-1
+        {{if eq $s "CRITICAL"}}text-red-400
+        {{else if eq $s "HIGH"}}text-orange-400
+        {{else if eq $s "MEDIUM"}}text-yellow-400
+        {{else if eq $s "LOW"}}text-blue-400
+        {{else if eq $s "INFO"}}text-dark-400
+        {{else}}text-dark-500{{end}}">{{.Label}}</p>
+    <p class="text-2xl font-bold
+        {{if .Count}}
+            {{if eq $s "CRITICAL"}}text-red-400
+            {{else if eq $s "HIGH"}}text-orange-400
+            {{else if eq $s "MEDIUM"}}text-yellow-400
+            {{else if eq $s "LOW"}}text-blue-400
+            {{else if eq $s "INFO"}}text-dark-300
+            {{else}}text-white{{end}}
+        {{else}}text-dark-600{{end}}">{{.Count}}</p>
+</div>
+{{end}}
+
+{{define "severity_summary"}}
+{{/*
+    6-card severity summary grid used by nuclei, sslscan, cvematch,
+    advancedweb result pages.
+
+    args (dict):
+      .Total    int — total finding count across all severities
+      .Critical int
+      .High     int
+      .Medium   int
+      .Low      int
+      .Info     int
+
+    Hand-rolled in 4 templates before this define — ~80 lines duplicated.
+*/}}
+<div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">Total</p>
+        <p class="text-2xl font-bold text-white">{{.Total}}</p>
+    </div>
+    {{template "severity_card" (dict "Label" "Critical" "Count" .Critical)}}
+    {{template "severity_card" (dict "Label" "High" "Count" .High)}}
+    {{template "severity_card" (dict "Label" "Medium" "Count" .Medium)}}
+    {{template "severity_card" (dict "Label" "Low" "Count" .Low)}}
+    {{template "severity_card" (dict "Label" "Info" "Count" .Info)}}
+</div>
+{{end}}
+
+{{define "severity_chip"}}
+{{/*
+    Compact pill variant used in summary banners ("Critical: 4 · High: 7").
+    Renders nothing if count is zero so empty severities don't crowd
+    the summary line.
+
+    args (dict):
+      .Label string
+      .Count int
+*/}}
+{{if .Count}}
+{{$s := upper .Label}}
+<span class="text-[10px] mono px-1.5 py-0.5 rounded
+    {{if eq $s "CRITICAL"}}bg-red-500/15 text-red-300
+    {{else if eq $s "HIGH"}}bg-orange-500/15 text-orange-300
+    {{else if eq $s "MEDIUM"}}bg-yellow-500/15 text-yellow-300
+    {{else if eq $s "LOW"}}bg-blue-500/15 text-blue-300
+    {{else}}bg-dark-700 text-dark-300{{end}}">{{.Label}}: {{.Count}}</span>
+{{end}}
+{{end}}

@@ -1,0 +1,233 @@
+{{define "page_dnsenum"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">DNS Enumerator</span>
+</div>
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">🔎</span> DNS Enumerator</h2>
+        <p class="text-sm text-dark-400 mt-1">Advanced subdomain discovery — puredns, subfinder, amass, recon-ng, and authoritative NS brute-forcing</p>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Scan</h3>
+            <form action="/modules/dnsenum/run" method="POST">
+                <div class="space-y-4">
+                    <!-- Speed -->
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-2">Speed Profile{{template "info_icon" "Fast ~2-5 min · Normal ~10-20 min · Deep ~30-60+ min. Affects wordlist size, number of sources (recon-ng adds in Normal+), and per-NS brute-forcing."}} <span class="text-danger">*</span></label>
+                        <div class="space-y-2">
+                            <label class="flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-success has-[:checked]:bg-success/5">
+                                <input type="radio" name="speed" value="fast" class="mt-0.5 rounded-full border-dark-600 bg-dark-800 text-success" checked>
+                                <div>
+                                    <p class="text-xs font-medium text-dark-200">Fast</p>
+                                    <p class="text-[11px] text-dark-500">Passive sources + 100K wordlist brute. ~2-5 min</p>
+                                </div>
+                            </label>
+                            <label class="flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-warning has-[:checked]:bg-warning/5">
+                                <input type="radio" name="speed" value="normal" class="mt-0.5 rounded-full border-dark-600 bg-dark-800 text-warning">
+                                <div>
+                                    <p class="text-xs font-medium text-dark-200">Normal</p>
+                                    <p class="text-[11px] text-dark-500">All passive + recon-ng + 1.6M wordlist + NS brute. ~10-20 min</p>
+                                </div>
+                            </label>
+                            <label class="flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-danger has-[:checked]:bg-danger/5">
+                                <input type="radio" name="speed" value="deep" class="mt-0.5 rounded-full border-dark-600 bg-dark-800 text-danger">
+                                <div>
+                                    <p class="text-xs font-medium text-dark-200">Deep</p>
+                                    <p class="text-[11px] text-dark-500">All sources + 26M wordlist + all NS brute. ~30-60+ min</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    {{if .DomainTargets}}
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Workspace Domains{{template "info_icon" "Domain-type targets from this workspace."}}</label>
+                        <div class="max-h-32 overflow-y-auto bg-dark-850 border border-dark-700 rounded-lg p-2 space-y-1">
+                            {{range .DomainTargets}}
+                            <label class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-dark-800 cursor-pointer">
+                                <input type="checkbox" name="domains" value="{{.Value}}" class="rounded border-dark-600 bg-dark-800 text-accent-500">
+                                <span class="mono text-xs text-dark-200">{{.Value}}</span>
+                            </label>
+                            {{end}}
+                        </div>
+                    </div>
+                    {{end}}
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Manual Domains{{template "info_icon" "Domain names to enumerate. One per line."}}</label>
+                        <textarea name="manual_domains" rows="3" placeholder="example.com&#10;target.org"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                    </div>
+
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                        <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-2">Sources</p>
+                        <div class="grid grid-cols-2 gap-1 text-[11px] text-dark-400">
+                            <span class="flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-success"></span>subfinder</span>
+                            <span class="flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-success"></span>amass</span>
+                            <span class="flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-success"></span>crt.sh</span>
+                            <span class="flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-warning"></span>recon-ng</span>
+                            <span class="flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-accent-400"></span>puredns + massdns</span>
+                            <span class="flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-danger"></span>Auth NS brute</span>
+                        </div>
+                    </div>
+
+                    <!-- Optional extra phases -->
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3 space-y-2">
+                        <p class="text-[10px] text-dark-500 uppercase tracking-wider">Extra phases</p>
+
+                        <label class="flex items-start gap-2.5 cursor-pointer">
+                            <input type="checkbox" name="axfr" class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500">
+                            <div>
+                                <p class="text-xs font-medium text-dark-200">DNS Zone Transfer (AXFR){{template "info_icon" "Tries `dig axfr` against each authoritative NS. Almost always refused, but a single misconfigured NS leaks the entire zone."}}</p>
+                                <p class="text-[10px] text-dark-500 mt-0.5">Hits authoritative nameservers — adds a few seconds.</p>
+                            </div>
+                        </label>
+
+                        <label class="flex items-start gap-2.5 cursor-pointer">
+                            <input type="checkbox" name="reverse_dns" class="mt-0.5">
+                            <div>
+                                <p class="text-xs font-medium text-dark-200">Reverse DNS Sweep{{template "info_icon" "PTR-resolves every IP discovered during enumeration. Reveals neighboring services hosted on the same IP."}}</p>
+                                <p class="text-[10px] text-dark-500 mt-0.5">Operates on resolved IPs, or on the IPs / CIDRs you supply below (one per line, also accepts commas).</p>
+                            </div>
+                        </label>
+
+                        <textarea name="reverse_cidr" rows="3"
+                                  placeholder="Optional — IPs and/or CIDRs to PTR-sweep instead of resolved IPs:&#10;10.0.0.0/24&#10;192.168.1.1&#10;172.16.0.0/16"
+                                  oninput="window.__dnsValidateReverseTargets&&window.__dnsValidateReverseTargets(this)"
+                                  class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                        <p id="dnsReverseTargetsStatus" class="text-[10px] text-dark-500 -mt-1"></p>
+                        <script>
+                        // Live regex validation — green tick when every line parses
+                        // as IPv4 OR IPv4/CIDR; red flag listing the bad lines
+                        // otherwise. Doesn't BLOCK submission (the server is
+                        // tolerant) but warns early.
+                        window.__dnsValidateReverseTargets = function(ta) {
+                            var status = document.getElementById('dnsReverseTargetsStatus');
+                            if (!status) return;
+                            var v = (ta.value || '').trim();
+                            if (!v) { status.textContent = ''; return; }
+                            var ipRe   = /^(?:\d{1,3}\.){3}\d{1,3}$/;
+                            var cidrRe = /^(?:\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
+                            var bad = [];
+                            var okCount = 0;
+                            v.split(/[\s,;]+/).forEach(function(tok) {
+                                tok = tok.trim();
+                                if (!tok) return;
+                                if (ipRe.test(tok) || cidrRe.test(tok)) okCount++;
+                                else bad.push(tok);
+                            });
+                            if (bad.length === 0) {
+                                status.innerHTML = '<span class="text-success">✓ ' + okCount + ' valid IP/CIDR target' + (okCount === 1 ? '' : 's') + '</span>';
+                            } else {
+                                status.innerHTML = '<span class="text-warning">⚠ ' + okCount + ' valid · ' + bad.length + ' invalid: ' + bad.slice(0, 3).join(', ') + (bad.length > 3 ? '…' : '') + '</span>';
+                            }
+                        };
+                        </script>
+
+                        <!-- Max subdomain depth — filters discovered hits to ≤ N levels deep.
+                             depth=0 (default) means unlimited. -->
+                        <div class="grid grid-cols-3 gap-2 items-end">
+                            <div class="col-span-2">
+                                <label class="block text-[11px] text-dark-300">Max subdomain depth
+                                    {{template "info_icon" "Limit results to subdomains at-or-below N levels deep relative to the apex. e.g. depth=1 keeps foo.example.com but drops a.foo.example.com. depth=0 = no limit."}}
+                                </label>
+                                <p class="text-[10px] text-dark-500 mt-0.5">0 = unlimited · 1 = only foo.example.com · 2 = also bar.foo.example.com · 3+ deeper</p>
+                            </div>
+                            <input type="number" name="max_depth" value="0" min="0" max="10"
+                                   class="mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
+                        </div>
+
+                        <label class="flex items-start gap-2.5 cursor-pointer">
+                            <input type="checkbox" name="crtsh" checked class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500">
+                            <div>
+                                <p class="text-xs font-medium text-dark-200">Certificate Transparency (crt.sh){{template "info_icon" "Issuer + validity metadata from crt.sh certificates. The subdomain hostnames are imported regardless — this toggle controls only the cert metadata table on the results page."}}</p>
+                                <p class="text-[10px] text-dark-500 mt-0.5">Always fetched in the passive phase; toggle keeps issuer + validity dates.</p>
+                            </div>
+                        </label>
+                    </div>
+
+                    {{/* Advanced: DNS-load knobs. Hidden by default so the
+                         form stays uncluttered for typical scans. Setting
+                         any of these to 0 (the default) falls back to the
+                         per-speed defaults baked into the scanner. */}}
+                    <details class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                        <summary class="cursor-pointer text-[11px] text-dark-300 hover:text-accent-300 select-none">
+                            ▸ Advanced: DNS load (concurrency / rate-limit)
+                        </summary>
+                        <div class="mt-3 space-y-2">
+                            <div class="grid grid-cols-3 gap-2 items-end">
+                                <div class="col-span-2">
+                                    <label class="block text-[11px] text-dark-300">Resolve fan-out
+                                        {{template "info_icon" "Max concurrent per-subdomain A-record lookups in Phase 5. Default 50. Set lower (e.g. 10) when the target's resolver is small / monitored."}}
+                                    </label>
+                                </div>
+                                <input type="number" name="resolve_concurrency" min="0" max="500" placeholder="50"
+                                       class="mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 items-end">
+                                <div class="col-span-2">
+                                    <label class="block text-[11px] text-dark-300">puredns rate-limit (qps)
+                                        {{template "info_icon" "Overrides puredns --rate-limit. Default depends on speed (Fast=500, Normal=300, Deep=200). Lower this for corporate/internal DC resolvers."}}
+                                    </label>
+                                </div>
+                                <input type="number" name="brute_rate_limit" min="0" max="10000" placeholder="auto"
+                                       class="mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 items-end">
+                                <div class="col-span-2">
+                                    <label class="block text-[11px] text-dark-300">PTR sweep fan-out
+                                        {{template "info_icon" "Max concurrent PTR lookups during the optional Reverse-DNS sweep. Default 16."}}
+                                    </label>
+                                </div>
+                                <input type="number" name="ptr_concurrency" min="0" max="200" placeholder="16"
+                                       class="mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] text-dark-300">Custom wordlist path
+                                    {{template "info_icon" "Absolute path to a wordlist file (one word per line). Overrides the per-speed seclists default. Useful on non-Kali hosts or engagements with a bespoke list."}}
+                                </label>
+                                <input type="text" name="wordlist_path" placeholder="/usr/share/seclists/Discovery/DNS/..."
+                                       class="mt-1 w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                            </div>
+                        </div>
+                    </details>
+                </div>
+                {{template "queue_option" .}}
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Start Enumeration
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}
+            <div class="space-y-2">
+                {{range .Scans}}
+                <a href="/modules/dnsenum/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all group">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200 group-hover:text-white">Scan #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                    </div>
+                    <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                {{end}}
+            </div>
+            {{else}}
+            <div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No scans yet</p></div>
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}

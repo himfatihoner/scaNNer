@@ -1,0 +1,29 @@
+{{define "vuln_detail_inner"}}
+{{$r := vulnReport .}}
+<div class="space-y-3 text-[12px] max-w-5xl">
+    <div class="flex flex-wrap gap-2">
+        {{if $r.CVSS}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-dark-800 text-dark-200 break-all">CVSS {{$r.CVSS}}</span>{{end}}
+        {{if $r.CVECWE}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-dark-800 text-dark-300">{{$r.CVECWE}}</span>{{end}}
+        {{if $r.PortProto}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-dark-800 text-dark-300">{{$r.PortProto}}</span>{{end}}
+    </div>
+    <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] border-b border-dark-800 pb-2">
+        <span class="text-dark-500 uppercase tracking-wider text-[10px]">Tespit eden</span>
+        <span class="text-dark-100 font-medium">{{if .Tool}}{{moduleDisplayName .Tool}}{{else}}{{moduleDisplayName .Module}}{{end}}</span>
+        {{if and .Tool (ne .Tool .Module)}}<span class="text-dark-500">via {{moduleDisplayName .Module}}</span>{{end}}
+        <span class="text-dark-700">·</span>
+        <a href="{{.ScanURL}}" onclick="event.stopPropagation()" class="text-accent-400 hover:text-accent-300">→ tarama (SCN {{printf "%.8s" .ScanID}})</a>
+        {{if .Host}}<span class="text-dark-700">·</span><a href="/assets/{{assetKey .Host}}" onclick="event.stopPropagation()" class="text-accent-400 hover:text-accent-300">→ varlık: {{.Host}}</a>{{end}}
+    </div>
+    {{if $r.Description}}<div><span class="text-[10px] uppercase tracking-wider text-dark-500">Açıklama</span><p class="text-dark-200 mt-0.5">{{$r.Description}}</p></div>{{end}}
+    {{if $r.Preconditions}}<div><span class="text-[10px] uppercase tracking-wider text-dark-500">Ön Koşullar</span><p class="text-dark-200 mt-0.5">{{$r.Preconditions}}</p></div>{{end}}
+    {{if $r.Impact}}<div><span class="text-[10px] uppercase tracking-wider text-dark-500">Etkileri</span><p class="text-dark-200 mt-0.5">{{$r.Impact}}</p></div>{{end}}
+    {{if $r.Remediation}}<div><span class="text-[10px] uppercase tracking-wider text-dark-500">Çözüm Önerileri</span><p class="text-dark-200 mt-0.5">{{$r.Remediation}}</p></div>{{end}}
+    {{if .References}}<div><span class="text-[10px] uppercase tracking-wider text-dark-500">Kaynaklar</span><div class="flex flex-col gap-0.5 mt-0.5">{{range .References}}<a href="{{.}}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="text-accent-400 hover:text-accent-300 break-all">{{.}}</a>{{end}}</div></div>{{end}}
+    <div><span class="text-[10px] uppercase tracking-wider text-dark-500">Kavram Kanıtı (PoC)</span><pre class="mono text-[10px] text-dark-100 bg-dark-950 border border-dark-800 rounded p-2 mt-0.5 whitespace-pre-wrap break-all max-h-72 overflow-auto">{{$r.PoC}}</pre></div>
+    <div class="flex items-center gap-3 pt-0.5">
+        <a href="/vulnerabilities/export?id={{.ID}}&format=pdf&lang=tr" onclick="event.stopPropagation()" class="text-[11px] text-accent-400 hover:text-accent-300">⤓ PDF (TR)</a>
+        <a href="/vulnerabilities/export?id={{.ID}}&format=docx&lang=tr" onclick="event.stopPropagation()" class="text-[11px] text-accent-400 hover:text-accent-300">⤓ DOCX (TR)</a>
+        <a href="{{.ScanURL}}" onclick="event.stopPropagation()" class="text-[11px] text-dark-400 hover:text-dark-200">→ tarama sonucu</a>
+    </div>
+</div>
+{{end}}

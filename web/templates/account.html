@@ -1,0 +1,100 @@
+{{define "account_page"}}
+{{template "auth_head" .}}
+<body class="h-full bg-dark-950 text-dark-100 antialiased">
+    <div class="min-h-full flex items-start justify-center px-4 py-12">
+        <div class="w-full max-w-lg">
+            <div class="flex items-center justify-between mb-8">
+                <div>
+                    <div class="text-2xl font-bold tracking-tight">Account</div>
+                    <p class="text-dark-400 text-sm">{{.User.Username}}{{if .User.IsAdmin}} · admin{{end}}</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    {{if not (or .MustChangePassword .MustEnroll2FA)}}<a href="/" class="text-sm text-dark-300 hover:text-white">← Back to app</a>{{end}}
+                    <a href="/logout" class="text-sm text-dark-400 hover:text-danger">Sign out</a>
+                </div>
+            </div>
+
+            {{if .Success}}<div class="mb-4 rounded-lg border border-success/40 bg-success/10 px-4 py-3 text-sm text-success">{{.Success}}</div>{{end}}
+            {{if .Error}}<div class="mb-4 rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">{{.Error}}</div>{{end}}
+            {{if .MustChangePassword}}<div class="mb-4 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">You must set a new password before continuing.</div>{{end}}
+            {{if and .MustEnroll2FA (not .MustChangePassword)}}<div class="mb-4 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">An administrator requires two-factor authentication on your account. Set it up below to continue.</div>{{end}}
+
+            <!-- Change password -->
+            <div class="bg-dark-900 border border-dark-800 rounded-xl p-6 mb-6">
+                <h2 class="text-sm font-semibold mb-4">Change password</h2>
+                <form method="POST" action="/account/password" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-dark-300 mb-1.5">Current password</label>
+                        <input name="current_password" type="password" autocomplete="current-password" required
+                            class="w-full rounded-lg bg-dark-950 border border-dark-700 px-3 py-2.5 text-sm focus:border-accent-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-dark-300 mb-1.5">New password <span class="text-dark-500">(min 12 characters)</span></label>
+                        <input name="new_password" type="password" autocomplete="new-password" minlength="12" required
+                            class="w-full rounded-lg bg-dark-950 border border-dark-700 px-3 py-2.5 text-sm focus:border-accent-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-dark-300 mb-1.5">Confirm new password</label>
+                        <input name="confirm_password" type="password" autocomplete="new-password" minlength="12" required
+                            class="w-full rounded-lg bg-dark-950 border border-dark-700 px-3 py-2.5 text-sm focus:border-accent-500 focus:outline-none">
+                    </div>
+                    <button type="submit" class="rounded-lg bg-accent-600 hover:bg-accent-500 text-white text-sm font-medium px-4 py-2.5 transition-colors">Update password</button>
+                </form>
+            </div>
+
+            <!-- Two-factor -->
+            <div class="bg-dark-900 border border-dark-800 rounded-xl p-6">
+                <h2 class="text-sm font-semibold mb-1">Two-factor authentication</h2>
+                <p class="text-xs text-dark-400 mb-4">{{if .User.TwoFactorRequired}}Required by an administrator.{{else}}Optional — adds a second step at sign-in.{{end}}</p>
+
+                {{if .User.TwoFactorEnrolled}}
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-success">✓ Enabled — {{if eq .User.TwoFactorMethod "totp"}}authenticator app{{else}}e-mail codes{{end}}</span>
+                        {{if not .User.TwoFactorRequired}}
+                        <form method="POST" action="/account/2fa">
+                            <input type="hidden" name="action" value="disable">
+                            <button type="submit" class="text-xs text-danger hover:underline">Disable</button>
+                        </form>
+                        {{end}}
+                    </div>
+                {{else if .TOTPSetup}}
+                    <div class="space-y-4">
+                        <p class="text-sm text-dark-300">Scan this QR code with your authenticator app, then enter a code to confirm.</p>
+                        <div class="flex justify-center"><img src="{{.TOTPQR}}" alt="TOTP QR" class="rounded-lg bg-white p-2" width="200" height="200"></div>
+                        <p class="text-center text-xs text-dark-400">Or enter this secret manually:<br><span class="font-mono text-dark-200 break-all">{{.TOTPSecret}}</span></p>
+                        <form method="POST" action="/account/2fa" class="flex items-center gap-2">
+                            <input type="hidden" name="action" value="totp_confirm">
+                            <input name="code" type="text" inputmode="numeric" maxlength="6" placeholder="123456" required
+                                class="flex-1 rounded-lg bg-dark-950 border border-dark-700 px-3 py-2.5 text-center tracking-widest text-sm focus:border-accent-500 focus:outline-none">
+                            <button type="submit" class="rounded-lg bg-accent-600 hover:bg-accent-500 text-white text-sm font-medium px-4 py-2.5">Confirm</button>
+                        </form>
+                    </div>
+                {{else}}
+                    <div class="space-y-3">
+                        <form method="POST" action="/account/2fa">
+                            <input type="hidden" name="action" value="totp_init">
+                            <button type="submit" class="w-full text-left rounded-lg border border-dark-700 hover:border-accent-500 px-4 py-3 text-sm transition-colors">
+                                <div class="font-medium">Authenticator app (TOTP)</div>
+                                <div class="text-xs text-dark-400">Google Authenticator, Authy, 1Password, etc. Works offline.</div>
+                            </button>
+                        </form>
+                        <form method="POST" action="/account/2fa">
+                            <input type="hidden" name="action" value="email">
+                            <button type="submit" {{if or (not .SMTPConfigured) (eq .User.Email "")}}disabled{{end}}
+                                class="w-full text-left rounded-lg border border-dark-700 hover:border-accent-500 px-4 py-3 text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                                <div class="font-medium">E-mail codes</div>
+                                <div class="text-xs text-dark-400">
+                                    {{if eq .User.Email ""}}Needs an e-mail address on your account (ask an admin).
+                                    {{else if not .SMTPConfigured}}Needs SMTP configured by an admin.
+                                    {{else}}A code is sent to {{.User.Email}} at each sign-in.{{end}}
+                                </div>
+                            </button>
+                        </form>
+                    </div>
+                {{end}}
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+{{end}}

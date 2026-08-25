@@ -1,0 +1,67 @@
+{{define "page_assetdisc_results"}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="/modules/assetdisc" class="hover:text-accent-400 transition-colors">Asset Discovery</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Results</span>
+</div>
+{{template "scan_actions" .}}
+{{template "scan_progress" .}}
+<div id="scanContent">{{template "assetdisc_results_inner" .}}</div>
+{{end}}
+
+{{define "assetdisc_results_inner"}}
+<p class="text-sm text-dark-400 mb-4">{{.TotalAssets}} asset row(s) across {{len .Queries}} query result set(s)</p>
+{{if .Promoted}}<div class="mb-4 px-4 py-2 text-xs text-success bg-success/10 border border-success/30 rounded-lg">Added {{.Promoted}} asset(s) to workspace targets.</div>{{end}}
+<form method="POST" action="/modules/assetdisc/promote">
+<input type="hidden" name="scan_id" value="{{.Scan.ID}}">
+<div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
+    <label class="flex items-center gap-2 text-xs text-dark-300">
+        <input type="checkbox" onclick="document.querySelectorAll('input[name=asset]').forEach(cb=>cb.checked=this.checked)" class="rounded border-dark-600 bg-dark-800 text-accent-500">
+        <span>Select all</span>
+    </label>
+    <div class="flex items-center gap-2">
+        <button type="submit" class="px-3 py-1.5 text-xs font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors">Add selected to Targets</button>
+    </div>
+</div>
+{{range .Queries}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl mb-4 overflow-hidden">
+    <div class="px-5 py-3 border-b border-dark-800 flex items-center justify-between gap-2 flex-wrap">
+        <div class="flex items-center gap-2">
+            <span class="mono text-[10px] px-2 py-0.5 rounded bg-dark-700 text-dark-300">{{.Source}}</span>
+            <span class="mono text-sm text-accent-400">{{.Query}}</span>
+        </div>
+        <span class="text-xs text-dark-500">{{len .Assets}} of {{.Total}} returned</span>
+    </div>
+    {{if .Error}}<div class="px-5 py-2 text-xs text-danger">{{.Error}}</div>{{end}}
+    {{if .Assets}}
+    <table class="w-full">
+        <thead><tr class="border-b border-dark-800 bg-dark-850">
+            <th class="text-left px-5 py-2 text-[10px] text-dark-500 uppercase w-8"></th>
+            <th class="text-left px-5 py-2 text-[10px] text-dark-500 uppercase">IP</th>
+            <th class="text-left px-5 py-2 text-[10px] text-dark-500 uppercase">Port</th>
+            <th class="text-left px-5 py-2 text-[10px] text-dark-500 uppercase">Hostname</th>
+            <th class="text-left px-5 py-2 text-[10px] text-dark-500 uppercase">Org / ASN</th>
+            <th class="text-left px-5 py-2 text-[10px] text-dark-500 uppercase">OS / Product</th>
+            <th class="text-left px-5 py-2 text-[10px] text-dark-500 uppercase">Country</th>
+        </tr></thead>
+        <tbody>
+            {{range .Assets}}
+            <tr class="border-b border-dark-800/50">
+                <td class="px-5 py-1"><input type="checkbox" name="asset" value="{{if .Hostname}}{{.Hostname}}{{else}}{{.IP}}{{end}}" class="rounded border-dark-600 bg-dark-800 text-accent-500"></td>
+                <td class="px-5 py-1 mono text-[11px] text-accent-400">{{.IP}}</td>
+                <td class="px-5 py-1 mono text-[10px] text-dark-300">{{if .Port}}{{.Port}}{{else}}-{{end}}</td>
+                <td class="px-5 py-1 mono text-[11px] text-dark-200">{{.Hostname}}</td>
+                <td class="px-5 py-1 text-[10px] text-dark-300">{{if .Org}}{{.Org}}{{else}}{{.ASN}}{{end}}</td>
+                <td class="px-5 py-1 text-[10px] text-dark-300">{{if .Product}}{{.Product}}{{else}}{{.OS}}{{end}}</td>
+                <td class="px-5 py-1 text-[10px] text-dark-300">{{.Country}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{end}}
+</div>
+{{end}}
+</form>
+{{end}}

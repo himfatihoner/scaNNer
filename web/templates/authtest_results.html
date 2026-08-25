@@ -1,0 +1,83 @@
+{{define "page_authtest_results"}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="/modules/authtest" class="hover:text-accent-400 transition-colors">Auth Tester</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Results</span>
+</div>
+{{template "scan_actions" .}}
+{{template "scan_progress" .}}
+<div id="scanContent">{{template "authtest_results_inner" .}}</div>
+{{end}}
+
+{{define "authtest_results_inner"}}
+{{range .Results}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl mb-6 overflow-hidden">
+    <div class="px-5 py-3 border-b border-dark-800">
+        <div class="flex items-center gap-2 flex-wrap">
+            <span class="mono text-sm text-accent-400">{{.LoginURL}}</span>
+            <span class="text-[10px] mono px-2 py-0.5 rounded bg-dark-700 text-dark-300">{{.Method}}</span>
+            <button type="button" onclick="sendToBurp('{{.LoginURL}}', '{{.Method}}')"
+                    class="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/30 hover:bg-orange-500/20">→ Burp</button>
+        </div>
+    </div>
+    {{if .Findings}}
+    <div class="p-4 space-y-2">
+        {{range .Findings}}
+        <div class="bg-dark-850 border
+            {{if eq .Severity "CRITICAL"}}border-red-500/40
+            {{else if eq .Severity "HIGH"}}border-orange-500/40
+            {{else if eq .Severity "MEDIUM"}}border-yellow-500/40
+            {{else}}border-dark-700{{end}} rounded-lg p-3">
+            <div class="flex items-center gap-2">
+                <span class="mono text-[10px] px-2 py-0.5 rounded
+                    {{if eq .Severity "CRITICAL"}}bg-red-500/20 text-red-300
+                    {{else if eq .Severity "HIGH"}}bg-orange-500/20 text-orange-300
+                    {{else if eq .Severity "MEDIUM"}}bg-yellow-500/20 text-yellow-300
+                    {{else}}bg-dark-700 text-dark-300{{end}}">{{.Severity}}</span>
+                <span class="text-xs font-medium text-white">{{.Title}}</span>
+            </div>
+            <p class="text-[11px] text-dark-400 mt-1">{{.Detail}}</p>
+            {{if .Evidence}}<pre class="mono text-[10px] text-dark-300 bg-dark-950 border border-dark-800 rounded p-2 mt-1 max-h-32 overflow-auto whitespace-pre-wrap">{{.Evidence}}</pre>{{end}}
+            {{template "raw_exchange" (dict "Request" .RawRequest "Response" .RawResponse)}}
+        </div>
+        {{end}}
+    </div>
+    {{else}}
+    <div class="px-5 py-3 text-xs text-success">✓ No clear auth misconfiguration found with the supplied credentials.</div>
+    {{end}}
+
+    {{if .Attempts}}
+    <details class="border-t border-dark-800">
+        <summary class="cursor-pointer px-5 py-3 text-xs font-semibold text-dark-200 hover:text-white">Attempts ({{len .Attempts}})</summary>
+        <table class="w-full">
+            <thead><tr class="border-b border-dark-800 bg-dark-850">
+                <th class="text-left px-5 py-2 text-[10px] text-dark-500 uppercase">User</th>
+                <th class="text-left px-5 py-2 text-[10px] text-dark-500 uppercase">Pass</th>
+                <th class="text-left px-5 py-2 text-[10px] text-dark-500 uppercase">Status</th>
+                <th class="text-left px-5 py-2 text-[10px] text-dark-500 uppercase">Body Len</th>
+                <th class="text-left px-5 py-2 text-[10px] text-dark-500 uppercase">Outcome</th>
+            </tr></thead>
+            <tbody>
+                {{range .Attempts}}
+                <tr class="border-b border-dark-800/50">
+                    <td class="px-5 py-1 mono text-[11px] text-white">{{.Username}}</td>
+                    <td class="px-5 py-1 mono text-[11px] text-dark-400">{{.Password}}</td>
+                    <td class="px-5 py-1 mono text-[10px] text-dark-300">{{.StatusCode}}</td>
+                    <td class="px-5 py-1 mono text-[10px] text-dark-300">{{.BodyLen}}</td>
+                    <td class="px-5 py-1 text-[10px]
+                        {{if eq .Outcome "SUCCESS"}}text-danger
+                        {{else if eq .Outcome "baseline"}}text-dark-500
+                        {{else if eq .Outcome "userenum"}}text-warning
+                        {{else}}text-dark-400{{end}}">{{.Outcome}}</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </details>
+    {{end}}
+    {{if .Error}}<div class="px-5 py-2 text-xs text-danger">{{.Error}}</div>{{end}}
+</div>
+{{end}}
+{{end}}

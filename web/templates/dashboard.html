@@ -1,0 +1,861 @@
+{{define "dashboard"}}
+{{/*
+    Chart color tokens (audit Pillar 5). Until this block existed,
+    every chart line/dot/fill used a literal hex (#60a5fa, #a78bfa,
+    #f97316…). On a light-theme switch the dark dot fill (#0f172a)
+    stayed visible against a now-pale canvas — chart dots looked like
+    holes punched in the line. Hoisting to CSS variables means the
+    light theme override below shifts every chart in one place. The
+    JS reads them once into series-color JS vars before rendering.
+*/}}
+<style>
+:root {
+    --chart-canvas:   #0f172a;  /* dot inner fill — same as dark-950 */
+    --chart-grid:     #27272a;  /* light grid lines (dark-900) */
+    --chart-axis:     #696a74;  /* axis labels (dark-500) */
+    --chart-blue:     #60a5fa;  /* accent-400 — primary series */
+    --chart-purple:   #a78bfa;  /* secondary line / cumul */
+    --chart-orange:   #f97316;  /* vulns series */
+    --chart-green:    #22c55e;  /* success / ports / done */
+    --chart-pink:     #ec4899;  /* extra slot */
+    --chart-yellow:   #eab308;  /* cancelled */
+    --chart-red:      #ef4444;  /* error / danger */
+    --chart-gray:     #a3a3a3;  /* pending */
+}
+html.light {
+    --chart-canvas: #ffffff;
+    --chart-grid:   #d4dae3;
+    --chart-axis:   #5a6477;
+    --chart-blue:   #2563eb;
+    --chart-purple: #7c3aed;
+    --chart-orange: #ea580c;
+    --chart-green:  #16a34a;
+    --chart-pink:   #db2777;
+    --chart-yellow: #ca8a04;
+    --chart-red:    #dc2626;
+    --chart-gray:   #6b7280;
+}
+</style>
+
+<!-- Workspace context -->
+<div class="flex items-center gap-2 text-xs text-dark-500 mb-5">
+    <svg class="w-3.5 h-3.5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+    </svg>
+    <span class="text-dark-300">{{.ActiveWorkspace.Name}}</span>
+</div>
+
+<!-- Stats Row -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+        <div class="flex items-center justify-between mb-3">
+            <span class="text-sm font-semibold text-dark-300 uppercase tracking-wider">Total Scans</span>
+            <svg class="w-5 h-5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+        </div>
+        <p class="text-3xl font-bold text-white">{{.TotalScanCount}}</p>
+        <p class="text-sm text-dark-400 mt-1">{{if .TotalScanCount}}In this workspace{{else}}No scans yet{{end}}</p>
+    </div>
+
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+        <div class="flex items-center justify-between mb-3">
+            <span class="text-sm font-semibold text-dark-300 uppercase tracking-wider">Active</span>
+            <svg class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+        </div>
+        <p class="text-3xl font-bold text-white">{{.ActiveScanCount}}</p>
+        <p class="text-sm text-dark-400 mt-1">{{if .ActiveScanCount}}Running now{{else}}No active scans{{end}}</p>
+    </div>
+
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+        <div class="flex items-center justify-between mb-3">
+            <span class="text-sm font-semibold text-dark-300 uppercase tracking-wider">Modules</span>
+            <svg class="w-5 h-5 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+            </svg>
+        </div>
+        <p class="text-3xl font-bold text-white">{{len .Modules}}</p>
+        <p class="text-sm text-dark-400 mt-1">Loaded modules</p>
+    </div>
+
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+        <div class="flex items-center justify-between mb-3">
+            <span class="text-sm font-semibold text-dark-300 uppercase tracking-wider">Targets</span>
+            <svg class="w-5 h-5 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+        </div>
+        <p class="text-3xl font-bold text-white">{{.TotalCount}}</p>
+        <p class="text-sm text-dark-400 mt-1">Unique targets</p>
+    </div>
+</div>
+
+<!-- Live Network & Performance — real-time OS resource pressure vs scan throughput.
+     Always rendered (independent of historical ChartHasData); self-contained
+     renderer + 2s poll of /monitor/metrics.json. -->
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-5 mb-8">
+    <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
+        <h3 class="text-base font-semibold text-white flex items-center gap-2">
+            <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M3 12h4l3 8 4-16 3 8h4"/>
+            </svg>
+            Live Network &amp; Performance
+            <span id="perfHealth" class="text-[10px] uppercase px-2 py-0.5 rounded ml-1 bg-dark-700/60 text-dark-300">idle</span>
+        </h3>
+        <div class="flex items-center gap-x-4 gap-y-1 text-xs text-dark-300 mono flex-wrap">
+            <span title="Ephemeral (client-side) TCP ports in use across all scans, and what share of the usable range that is — nearing 100% means new connections start failing.">ports <b id="perfPorts" class="text-white">—</b></span>
+            <span title="Scans running right now.">scans <b id="perfActive" class="text-white">—</b></span>
+            <span title="Combined live scan throughput — results/requests processed per second.">tput <b id="perfTput" class="text-white">—</b>/s</span>
+            <span title="System 1-minute load average over the CPU core count — above 1.0 per core means work is queueing.">load <b id="perfLoad" class="text-white">—</b></span>
+        </div>
+    </div>
+    <p class="text-xs text-dark-400 mb-4">Outbound-port &amp; connection pressure vs live scan throughput · <span id="perfMeta" class="text-dark-500">…</span></p>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-4">
+        <div>
+            <div class="flex justify-between text-xs text-dark-400 mb-1"><span title="Percentage of the usable outbound (ephemeral) source-port range currently consumed by scan connections.">Outbound Port Usage (%)</span><span class="text-danger/80" title="Above ~75% the machine is close to running out of source ports and new connections may fail.">exhaustion &gt; 75%</span></div>
+            <div id="perfPortChart" class="w-full h-40 relative"></div>
+        </div>
+        <div>
+            <div class="flex justify-between text-xs text-dark-400 mb-1"><span title="Number of open TCP connections grouped by their state — shows how much connection pressure the scans create.">Connections by State</span><span class="text-dark-500"><span style="color:var(--chart-green)">▬</span><span title="Active, established connections currently carrying traffic (TCP ESTABLISHED).">active</span> <span style="color:var(--chart-purple)">▬</span><span title="Recently-closed connections held briefly by the OS before the source port can be reused (TCP TIME-WAIT).">recently closed</span> <span style="color:var(--chart-orange)">▬</span><span title="Connections we have closed on our side, waiting for the peer's final acknowledgement (TCP FIN-WAIT-2).">closing</span></span></div>
+            <div id="perfSockChart" class="w-full h-40 relative"></div>
+        </div>
+        <div>
+            <div class="flex justify-between text-xs text-dark-400 mb-1"><span title="System run-queue length vs CPU usage — shows whether scans are CPU-bound.">CPU Load</span><span class="text-dark-500"><span style="color:var(--chart-red)">▬</span><span title="1-minute load average: the average number of processes waiting to run (a run-queue length &gt; number of CPU cores means the machine is saturated).">run queue (1m)</span> <span style="color:var(--chart-blue)">▬</span><span title="Percentage of total CPU capacity in use across all cores.">CPU %</span></span></div>
+            <div id="perfLoadChart" class="w-full h-40 relative"></div>
+        </div>
+        <div>
+            <div class="flex justify-between text-xs text-dark-400 mb-1"><span title="Live scan work completed per second, and the rate of errors it produces.">Scan Throughput &amp; Errors (/s)</span><span class="text-dark-500"><span style="color:var(--chart-green)">▬</span><span title="Requests/results successfully processed per second across all running scans.">completed /s</span> <span style="color:var(--chart-red)">▬</span><span title="Errored requests per second (timeouts, refused connections, tool failures).">errors /s</span></span></div>
+            <div id="perfTputChart" class="w-full h-40 relative"></div>
+        </div>
+        <div>
+            <div class="flex justify-between text-xs text-dark-400 mb-1"><span title="How many outbound (ephemeral) ports are held by scaNNer's own processes vs by other applications on this machine — attributes port pressure to its source.">Outbound Ports by Owner</span><span class="text-dark-500"><span style="color:var(--chart-blue)">▬</span><span title="Ephemeral ports held by the scaNNer process tree (scanner + spawned tools: nmap, whatweb, nuclei, …).">scaNNer</span> <span style="color:var(--chart-orange)">▬</span><span title="Ephemeral ports held by every OTHER application on this machine (kernel-held TIME-WAIT sockets are excluded — they belong to no process).">other apps</span></span></div>
+            <div id="perfOwnerChart" class="w-full h-40 relative"></div>
+        </div>
+    </div>
+</div>
+<script>
+(function() {
+    var el0 = document.getElementById('perfPortChart');
+    if (!el0) return;
+    var cs = getComputedStyle(document.documentElement);
+    var T = function(name) { return cs.getPropertyValue(name).trim() || '#888'; };
+    // Compact multi-series line chart: straight polylines + faint gradient fill.
+    // Straight (not smoothed) on purpose — live spikes must read honestly.
+    function lc(el, series, opt) {
+        opt = opt || {};
+        var w = el.clientWidth || 400, h = el.clientHeight || 160;
+        var padL = 34, padR = 8, padT = 8, padB = 6;
+        var n = 0, s, i;
+        for (s = 0; s < series.length; s++) { if (series[s].values.length > n) n = series[s].values.length; }
+        var max = opt.fixedMax || 1;
+        if (!opt.fixedMax) {
+            for (s = 0; s < series.length; s++) { for (i = 0; i < series[s].values.length; i++) { if (series[s].values[i] > max) max = series[s].values[i]; } }
+            max = max * 1.15;
+        }
+        if (max <= 0) max = 1;
+        var xw = w - padL - padR, yh = h - padT - padB;
+        var xf = function(idx) { return padL + (n <= 1 ? xw / 2 : xw * idx / (n - 1)); };
+        var yf = function(v) { return padT + yh * (1 - v / max); };
+        var svg = '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">';
+        var g, yy, lab;
+        for (g = 0; g <= 2; g++) {
+            yy = padT + yh * g / 2;
+            lab = Math.round(max * (1 - g / 2));
+            svg += '<line x1="' + padL + '" y1="' + yy + '" x2="' + (w - padR) + '" y2="' + yy + '" stroke="' + T('--chart-grid') + '" stroke-width="1" stroke-dasharray="2,3"/>';
+            svg += '<text x="2" y="' + (yy + 3) + '" fill="' + T('--chart-axis') + '" font-size="9">' + lab + '</text>';
+        }
+        if (opt.ref) {
+            var ry = yf(opt.ref);
+            svg += '<line x1="' + padL + '" y1="' + ry + '" x2="' + (w - padR) + '" y2="' + ry + '" stroke="' + T('--chart-red') + '" stroke-width="1" stroke-dasharray="4,3" opacity="0.55"/>';
+        }
+        for (s = 0; s < series.length; s++) {
+            var vals = series[s].values;
+            if (!vals.length) continue;
+            var pts = [];
+            for (i = 0; i < vals.length; i++) { pts.push(xf(i) + ',' + yf(vals[i])); }
+            var d = 'M ' + pts.join(' L ');
+            var base = padT + yh;
+            svg += '<path d="' + d + ' L ' + xf(vals.length - 1) + ',' + base + ' L ' + xf(0) + ',' + base + ' Z" fill="' + series[s].color + '" opacity="0.10"/>';
+            svg += '<path d="' + d + '" fill="none" stroke="' + series[s].color + '" stroke-width="1.8" stroke-linejoin="round"/>';
+        }
+        svg += '</svg>';
+        // Hover readout: a crosshair line + a floating tooltip listing each
+        // series' value at the sample under the cursor. Both are recreated on
+        // every 2 s redraw (innerHTML swap), so the mousemove handler re-queries
+        // them each time rather than caching a stale node.
+        el.innerHTML = svg
+            + '<div class="perf-cross" style="position:absolute;top:' + padT + 'px;height:' + yh + 'px;width:1px;background:' + T('--chart-axis') + ';opacity:0;pointer-events:none;"></div>'
+            + '<div class="perf-tip" style="position:absolute;opacity:0;pointer-events:none;background:rgba(15,20,30,0.95);border:1px solid ' + T('--chart-grid') + ';border-radius:6px;padding:5px 7px;font-size:10px;line-height:1.5;min-width:96px;z-index:5;box-shadow:0 4px 12px rgba(0,0,0,0.4);"></div>';
+        el._geo = { padL: padL, xw: xw, n: n, padT: padT, xf: xf, series: series };
+        if (!el._hovBound) {
+            el._hovBound = true;
+            el.addEventListener('mousemove', perfHover);
+            el.addEventListener('mouseleave', perfHoverOut);
+        }
+    }
+    function perfFmt(v) {
+        if (v == null || isNaN(v)) return '—';
+        return Number.isInteger(v) ? String(v) : v.toFixed(1);
+    }
+    function perfHover(e) {
+        var el = e.currentTarget, geo = el._geo;
+        if (!geo || geo.n < 1) return;
+        var rect = el.getBoundingClientRect();
+        var mx = e.clientX - rect.left;
+        var idx = geo.n <= 1 ? 0 : Math.round((mx - geo.padL) / geo.xw * (geo.n - 1));
+        if (idx < 0) idx = 0; else if (idx > geo.n - 1) idx = geo.n - 1;
+        var cx = geo.xf(idx);
+        var cross = el.querySelector('.perf-cross'), tip = el.querySelector('.perf-tip');
+        if (cross) { cross.style.left = cx + 'px'; cross.style.opacity = '0.45'; }
+        var html = '', hasAny = false;
+        for (var s = 0; s < geo.series.length; s++) {
+            var vals = geo.series[s].values || [];
+            if (idx >= vals.length) continue;
+            hasAny = true;
+            var nm = geo.series[s].name || ('s' + (s + 1));
+            html += '<div style="display:flex;gap:6px;align-items:center;white-space:nowrap">'
+                + '<span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:' + geo.series[s].color + '"></span>'
+                + '<span style="color:#9aa4b2">' + nm + '</span>'
+                + '<span style="margin-left:auto;color:#fff;font-weight:600">' + perfFmt(vals[idx]) + '</span></div>';
+        }
+        if (tip && hasAny) {
+            tip.innerHTML = html;
+            tip.style.opacity = '1';
+            var tw = tip.offsetWidth || 100;
+            var left = cx + 10;
+            if (left + tw > rect.width) left = cx - tw - 10;
+            if (left < 0) left = 0;
+            tip.style.left = left + 'px';
+            tip.style.top = geo.padT + 'px';
+        }
+    }
+    function perfHoverOut(e) {
+        var el = e.currentTarget;
+        var cross = el.querySelector('.perf-cross'), tip = el.querySelector('.perf-tip');
+        if (cross) cross.style.opacity = '0';
+        if (tip) tip.style.opacity = '0';
+    }
+    var COL = { blue: T('--chart-blue'), purple: T('--chart-purple'), orange: T('--chart-orange'), green: T('--chart-green'), red: T('--chart-red') };
+    var last = null;
+    function draw() {
+        if (!last || !last.samples || !last.samples.length) return;
+        var s = last.samples, L = last.limits || {};
+        var col = function(k) { return s.map(function(x) { return x[k]; }); };
+        lc(el0, [{ color: COL.blue, values: col('port_pct'), name: 'in use %' }], { fixedMax: 100, ref: 75 });
+        lc(document.getElementById('perfSockChart'), [
+            { color: COL.green, values: col('estab'), name: 'active' },
+            { color: COL.purple, values: col('time_wait'), name: 'recently closed' },
+            { color: COL.orange, values: col('fin_wait2'), name: 'closing' }
+        ], {});
+        lc(document.getElementById('perfLoadChart'), [
+            { color: COL.red, values: col('load1'), name: 'run queue (1m)' },
+            { color: COL.blue, values: col('cpu_busy'), name: 'CPU %' }
+        ], {});
+        lc(document.getElementById('perfTputChart'), [
+            { color: COL.green, values: col('throughput'), name: 'completed /s' },
+            { color: COL.red, values: col('err_rate'), name: 'errors /s' }
+        ], {});
+        lc(document.getElementById('perfOwnerChart'), [
+            { color: COL.blue, values: col('eph_scanner'), name: 'scaNNer' },
+            { color: COL.orange, values: col('eph_other'), name: 'other apps' }
+        ], {});
+        var ls = s[s.length - 1];
+        document.getElementById('perfPorts').textContent = ls.ephemeral + ' (' + ls.port_pct.toFixed(0) + '%)';
+        document.getElementById('perfActive').textContent = ls.active_scans;
+        document.getElementById('perfTput').textContent = ls.throughput.toFixed(1);
+        document.getElementById('perfLoad').textContent = ls.load1.toFixed(1) + '/' + (L.cores || '?');
+        var hb = document.getElementById('perfHealth');
+        hb.textContent = ls.health;
+        var cls = 'text-[10px] uppercase px-2 py-0.5 rounded ml-1 ';
+        hb.className = cls + (ls.health === 'SATURATED' ? 'bg-danger/15 text-danger' : ls.health === 'DEGRADED' ? 'bg-warning/15 text-warning' : 'bg-success/15 text-success');
+        document.getElementById('perfMeta').textContent = 'range ' + (L.port_lo || 0) + '-' + (L.port_hi || 0) + ' (' + (L.usable_ports || 0) + ' ports) · fin_timeout ' + (L.fin_timeout || '?') + 's · tw_reuse ' + (L.tw_reuse) + ' · ' + (L.cores || '?') + ' cores';
+    }
+    function poll() {
+        fetch('/monitor/metrics.json').then(function(r) { return r.json(); }).then(function(d) { last = d; draw(); }).catch(function() {});
+    }
+    poll();
+    setInterval(poll, 2000);
+    var rt;
+    window.addEventListener('resize', function() { clearTimeout(rt); rt = setTimeout(draw, 150); });
+})();
+</script>
+
+<!-- Activity charts: traffic (per-day + cumulative) + scans/vulns/assets + network connections + status donut + module bars -->
+{{if .ChartHasData}}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+    <!-- Traffic Activity (per-day requests + cumulative line on the same chart) -->
+    <div class="lg:col-span-2 bg-dark-900 border border-dark-800 rounded-xl p-5">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h3 class="text-base font-semibold text-white flex items-center gap-2">
+                    <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    Scan Workload
+                </h3>
+                <p class="text-xs text-dark-400 mt-0.5">Probes / items processed across all scans · last 7 days · proxy for tool activity, not literal HTTP requests</p>
+            </div>
+            <div class="flex items-center gap-3 text-xs text-dark-300">
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-accent-400"></span>Per day</span>
+                <span class="flex items-center gap-1.5" title="Running total of progress units across the last 7 days. Each module counts its own work differently — nuclei = URLs probed, httpxfind = (host × port) tasks, dnsenum = domains processed."><span class="w-2.5 h-2.5 rounded-full" style="background:var(--chart-purple)"></span>7-day total</span>
+                <span id="totalRequests" class="ml-2 mono font-bold text-white" title="Sum of all progress units across past scans in the last 7 days">—</span>
+            </div>
+        </div>
+        <div id="trafficChart" class="w-full h-64 relative"></div>
+    </div>
+
+    <!-- Status donut -->
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+        <h3 class="text-base font-semibold text-white mb-1 flex items-center gap-2">
+            <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/>
+            </svg>
+            Status Mix
+        </h3>
+        <p class="text-xs text-dark-400 mb-3">All scans, all-time</p>
+        <div id="statusDonut" class="w-full flex items-center justify-center"></div>
+    </div>
+
+    <!-- Scans + Vulnerabilities + Assets -->
+    <div class="lg:col-span-2 bg-dark-900 border border-dark-800 rounded-xl p-5">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h3 class="text-base font-semibold text-white flex items-center gap-2">
+                    <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                </svg>
+                    Scans · Vulnerabilities · Assets
+                </h3>
+                <p class="text-xs text-dark-400 mt-0.5">Daily scans, severe findings (critical/high/medium), and new assets discovered</p>
+            </div>
+            <div class="flex items-center gap-3 text-xs text-dark-300">
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-accent-400"></span>Scans</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:var(--chart-orange)"></span>Vulns</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-success"></span>Assets</span>
+            </div>
+        </div>
+        <div id="findingsChart" class="w-full h-64 relative"></div>
+    </div>
+
+    <!-- New Vulnerabilities — distinct findings first detected per day, by severity -->
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+        <h3 class="text-base font-semibold text-white mb-1 flex items-center gap-2">
+            <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
+            </svg>
+            New Vulnerabilities
+        </h3>
+        <p class="text-xs text-dark-400 mb-2">Distinct (deduplicated) findings first detected per day · last 7 days</p>
+        <div class="flex items-center gap-3 text-[11px] text-dark-300 mb-2">
+            <span class="flex items-center gap-1" title="Critical severity"><span class="w-2.5 h-2.5 rounded-full" style="background:var(--chart-red)"></span>Critical</span>
+            <span class="flex items-center gap-1" title="High severity"><span class="w-2.5 h-2.5 rounded-full" style="background:var(--chart-orange)"></span>High</span>
+            <span class="flex items-center gap-1" title="Medium severity"><span class="w-2.5 h-2.5 rounded-full" style="background:var(--chart-yellow)"></span>Medium</span>
+            <span class="flex items-center gap-1" title="Low severity"><span class="w-2.5 h-2.5 rounded-full" style="background:var(--chart-blue)"></span>Low</span>
+        </div>
+        <div id="vulnSevChart" class="w-full h-40 relative"></div>
+    </div>
+
+    <div class="lg:col-span-3 bg-dark-900 border border-dark-800 rounded-xl p-5">
+        <h3 class="text-base font-semibold text-white mb-1 flex items-center gap-2">
+            <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+            </svg>
+            Module Usage
+        </h3>
+        <p class="text-xs text-dark-400 mb-4">How scans are distributed across modules</p>
+        <div id="moduleUsage" class="w-full"></div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var data = {{.ChartJSON}};
+    if (!data) return;
+
+    // Chart color tokens — hoisted to IIFE top so renderLineChart can
+    // call T() without forward-reference. cs / T() resolve CSS custom
+    // properties from :root, which the .light theme override remaps.
+    var cs = getComputedStyle(document.documentElement);
+    var T = function(name) { return cs.getPropertyValue(name).trim() || '#888'; };
+
+    // ---- Smooth line chart with gradient fill (SVG) ----
+    function smoothPath(points) {
+        // Catmull-Rom → cubic bezier with monotonic-clamping. Without clamping,
+        // a value sequence like [0,0,0,5,0,0,0] produces control points that
+        // dip below the baseline before rising, which looks like negative
+        // values. We zero the y-tangent whenever the local direction reverses
+        // (or one side is flat) so peaks/valleys land cleanly on their values.
+        if (points.length < 2) return '';
+        var d = 'M ' + points[0].x + ',' + points[0].y;
+        for (var i = 0; i < points.length - 1; i++) {
+            var p0 = points[i - 1] || points[i];
+            var p1 = points[i];
+            var p2 = points[i + 1];
+            var p3 = points[i + 2] || p2;
+            var t1x = (p2.x - p0.x) / 6;
+            var t1y = (p2.y - p0.y) / 6;
+            var t2x = (p3.x - p1.x) / 6;
+            var t2y = (p3.y - p1.y) / 6;
+            // Monotonic clamp on Y: if (p1-p0) and (p2-p1) point in different
+            // vertical directions (or one is flat), the tangent at that point
+            // must be zero so the curve doesn't shoot past the baseline.
+            if ((p2.y - p1.y) * (p1.y - p0.y) <= 0) t1y = 0;
+            if ((p3.y - p2.y) * (p2.y - p1.y) <= 0) t2y = 0;
+            var c1x = p1.x + t1x;
+            var c1y = p1.y + t1y;
+            var c2x = p2.x - t2x;
+            var c2y = p2.y - t2y;
+            // Even with the tangent rule above, a steep adjacent segment (e.g.
+            // 0,0,0,0,8,445) makes the inbound tangent at 8 large enough to
+            // push c2y past p1's y — the curve dips below 0 before rising.
+            // Clamp control y's into the segment's own y-range to keep the
+            // bezier monotonic between p1 and p2.
+            var minY = Math.min(p1.y, p2.y);
+            var maxY = Math.max(p1.y, p2.y);
+            if (c1y < minY) c1y = minY;
+            if (c1y > maxY) c1y = maxY;
+            if (c2y < minY) c2y = minY;
+            if (c2y > maxY) c2y = maxY;
+            d += ' C ' + c1x + ',' + c1y + ' ' + c2x + ',' + c2y + ' ' + p2.x + ',' + p2.y;
+        }
+        return d;
+    }
+    function renderLineChart(target, days, series) {
+        var w = target.clientWidth || 600;
+        var h = 256;
+        var padL = 40, padR = 16, padT = 18, padB = 28;
+        var n = days.length;
+        var max = 1;
+        for (var s = 0; s < series.length; s++) {
+            for (var i = 0; i < series[s].values.length; i++) {
+                if (series[s].values[i] > max) max = series[s].values[i];
+            }
+        }
+        // Round max up to a "nice" number so y-axis ticks are integers.
+        var ticks = 4;
+        var niceMax = Math.max(ticks, Math.ceil(max / ticks) * ticks);
+        var stepX = (w - padL - padR) / Math.max(n - 1, 1);
+        function xy(i, v) {
+            return {
+                x: padL + i * stepX,
+                y: padT + (h - padT - padB) * (1 - v / niceMax)
+            };
+        }
+        var svg = '<svg width="100%" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">';
+        // <defs> with one gradient per series
+        svg += '<defs>';
+        for (var s = 0; s < series.length; s++) {
+            var id = 'lcgrad-' + s;
+            svg += '<linearGradient id="' + id + '" x1="0" y1="0" x2="0" y2="1">'
+                +  '<stop offset="0%" stop-color="' + series[s].color + '" stop-opacity="0.45"/>'
+                +  '<stop offset="100%" stop-color="' + series[s].color + '" stop-opacity="0"/>'
+                +  '</linearGradient>';
+        }
+        svg += '</defs>';
+        // Horizontal grid + Y labels
+        for (var g = 0; g <= ticks; g++) {
+            var y = padT + (h - padT - padB) * g / ticks;
+            var v = Math.round(niceMax * (ticks - g) / ticks);
+            svg += '<line x1="' + padL + '" y1="' + y + '" x2="' + (w - padR) + '" y2="' + y + '" stroke="currentColor" stroke-opacity="0.07" stroke-dasharray="2 4"/>';
+            svg += '<text x="' + (padL - 8) + '" y="' + (y + 3) + '" text-anchor="end" font-size="11" fill="currentColor" opacity="0.45">' + v + '</text>';
+        }
+        // Vertical guide lines + X labels
+        for (var i = 0; i < n; i++) {
+            var x = padL + i * stepX;
+            svg += '<text x="' + x + '" y="' + (h - padB + 16) + '" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.55">' + days[i] + '</text>';
+        }
+        // Each series: gradient area under curve, then line, then dots
+        var baselineY = padT + (h - padT - padB);
+        for (var s = 0; s < series.length; s++) {
+            var pts = [];
+            for (var i = 0; i < n; i++) pts.push(xy(i, series[s].values[i]));
+            var d = smoothPath(pts);
+            // Fill area
+            var fillD = d + ' L ' + pts[pts.length - 1].x + ',' + baselineY + ' L ' + pts[0].x + ',' + baselineY + ' Z';
+            svg += '<path d="' + fillD + '" fill="url(#lcgrad-' + s + ')"/>';
+            // Stroke
+            svg += '<path d="' + d + '" fill="none" stroke="' + series[s].color + '" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/>';
+            // Dots
+            for (var i = 0; i < n; i++) {
+                var p = pts[i];
+                svg += '<circle cx="' + p.x + '" cy="' + p.y + '" r="3.5" fill="' + T('--chart-canvas') + '" stroke="' + series[s].color + '" stroke-width="2"/>';
+            }
+        }
+        // Hover overlay: invisible columns with per-day tooltips. Tooltip lines
+        // mirror the actual series passed into this chart instance. Background
+        // rect is sized to fit the longest line so big numbers can't spill out.
+        svg += '<g class="tooltip-layer">';
+        var tooltipH = 22 + 16 * series.length; // header + one row per series
+        var charWidth = 6.6;                     // approx em for monospace 11px
+        var padX = 10;
+        for (var i = 0; i < n; i++) {
+            var cx = padL + i * stepX;
+            var lineX = cx;
+            // Build the line strings first so we can measure & size the rect.
+            var lines = [days[i]];
+            for (var s = 0; s < series.length; s++) {
+                lines.push('● ' + series[s].name + ' ' + series[s].values[i].toLocaleString());
+            }
+            var maxLen = 0;
+            for (var li = 0; li < lines.length; li++) {
+                if (lines[li].length > maxLen) maxLen = lines[li].length;
+            }
+            var rectW = Math.ceil(maxLen * charWidth) + padX * 2;
+            if (rectW < 110) rectW = 110;
+
+            var anchor = i > n / 2 ? 'end' : 'start';
+            var dx = i > n / 2 ? -8 : 8;
+            // Text-x and rect-x must use the same padding direction so tspans
+            // line up inside the box.
+            var rectX = (anchor === 'end') ? -rectW : 0;
+            var textX = (anchor === 'end') ? -rectW + padX : padX;
+
+            svg += '<g class="hover-col" data-idx="' + i + '" opacity="0">';
+            svg += '<line x1="' + lineX + '" y1="' + padT + '" x2="' + lineX + '" y2="' + (h - padB) + '" stroke="currentColor" stroke-opacity="0.25" stroke-dasharray="3 3"/>';
+            svg += '<g transform="translate(' + (lineX + dx) + ',' + (padT + 6) + ')">';
+            svg += '<rect x="' + rectX + '" y="-4" width="' + rectW + '" height="' + tooltipH + '" rx="6" fill="#0b0b0e" fill-opacity="0.96" stroke="currentColor" stroke-opacity="0.18"/>';
+            // Each tspan re-anchors with x=textX so all lines align to the
+            // rect's interior padding — fixes long numbers spilling past the
+            // background.
+            var spans = '<tspan x="' + textX + '" dy="0" fill="#fff" font-weight="600">' + days[i] + '</tspan>';
+            for (var s2 = 0; s2 < series.length; s2++) {
+                spans += '<tspan x="' + textX + '" dy="14" fill="' + series[s2].color + '">● ' + series[s2].name + ' ' + series[s2].values[i].toLocaleString() + '</tspan>';
+            }
+            svg += '<text y="10" font-size="11" font-family="JetBrains Mono, monospace">' + spans + '</text>';
+            svg += '</g></g>';
+            svg += '<rect x="' + (cx - stepX / 2) + '" y="' + padT + '" width="' + stepX + '" height="' + (h - padT - padB) + '" fill="transparent" data-hover="' + i + '"/>';
+        }
+        svg += '</g>';
+        svg += '</svg>';
+        target.innerHTML = svg;
+
+        // Hover wiring — show only the col matching the cursor's nearest day
+        var hits = target.querySelectorAll('rect[data-hover]');
+        var cols = target.querySelectorAll('.hover-col');
+        function show(i) {
+            for (var k = 0; k < cols.length; k++) cols[k].setAttribute('opacity', k === i ? '1' : '0');
+        }
+        for (var j = 0; j < hits.length; j++) {
+            (function(j) {
+                hits[j].addEventListener('mouseenter', function() { show(j); });
+            })(j);
+        }
+        target.addEventListener('mouseleave', function() { show(-1); });
+    }
+
+    // Series color shortcuts — T() is hoisted at the top of the IIFE.
+    var TBLUE   = T('--chart-blue');
+    var TPURPLE = T('--chart-purple');
+    var TORANGE = T('--chart-orange');
+    var TGREEN  = T('--chart-green');
+
+    // Build per-chart series specs once so resize re-renders use the same shape.
+    // Traffic chart now combines per-day (blue, gradient fill) and cumulative
+    // (purple line) into one panel.
+    var trafficSeries  = [
+        { name: 'Per day',     color: TBLUE,   values: data.daily_requests       },
+        { name: 'Cumulative',  color: TPURPLE, values: data.daily_requests_cumul }
+    ];
+    var findingsSeries = [
+        { name: 'Scans',  color: TBLUE,   values: data.daily_scans  },
+        { name: 'Vulns',  color: TORANGE, values: data.daily_vulns  },
+        { name: 'Assets', color: TGREEN,  values: data.daily_assets }
+    ];
+    var vulnSevSeries = [
+        { name: 'Critical', color: T('--chart-red'),    values: data.daily_crit || [] },
+        { name: 'High',     color: T('--chart-orange'), values: data.daily_high || [] },
+        { name: 'Medium',   color: T('--chart-yellow'), values: data.daily_med  || [] },
+        { name: 'Low',      color: T('--chart-blue'),   values: data.daily_low  || [] }
+    ];
+
+    var traffic     = document.getElementById('trafficChart');
+    var findings    = document.getElementById('findingsChart');
+    var vulnSev     = document.getElementById('vulnSevChart');
+    var totalReq    = document.getElementById('totalRequests');
+
+    function rerenderAll() {
+        if (traffic)  renderLineChart(traffic,  data.days, trafficSeries);
+        if (findings) renderLineChart(findings, data.days, findingsSeries);
+        if (vulnSev)  renderLineChart(vulnSev,  data.days, vulnSevSeries);
+    }
+    rerenderAll();
+
+    if (totalReq && data.daily_requests_cumul && data.daily_requests_cumul.length) {
+        var grand = data.daily_requests_cumul[data.daily_requests_cumul.length - 1];
+        totalReq.textContent = grand.toLocaleString() + ' total';
+    }
+
+    var resizeTimer;
+    window.addEventListener('resize', function() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(rerenderAll, 150);
+    });
+
+    // Auto-refresh the chart data every 30 s. Without this the Traffic
+    // Activity "cumulative" line appears stuck — the page only computes the
+    // total at initial render, so newly-finished scans don't bump the
+    // headline number until you manually reload. We re-fetch the same
+    // payload via /dashboard/charts.json, swap it into `data`, and trigger
+    // a full re-render of every chart + the headline labels.
+    function refreshCharts() {
+        fetch('/dashboard/charts.json', { cache: 'no-store' })
+            .then(function(r) { if (!r.ok) throw 0; return r.json(); })
+            .then(function(fresh) {
+                if (!fresh) return;
+                data = fresh;
+                trafficSeries[0].values    = data.daily_requests       || [];
+                trafficSeries[1].values    = data.daily_requests_cumul || [];
+                findingsSeries[0].values   = data.daily_scans          || [];
+                findingsSeries[1].values   = data.daily_vulns          || [];
+                findingsSeries[2].values   = data.daily_assets         || [];
+                vulnSevSeries[0].values    = data.daily_crit          || [];
+                vulnSevSeries[1].values    = data.daily_high          || [];
+                vulnSevSeries[2].values    = data.daily_med           || [];
+                vulnSevSeries[3].values    = data.daily_low           || [];
+                rerenderAll();
+                if (totalReq && data.daily_requests_cumul && data.daily_requests_cumul.length) {
+                    var g = data.daily_requests_cumul[data.daily_requests_cumul.length - 1];
+                    totalReq.textContent = g.toLocaleString() + ' total';
+                }
+            }).catch(function() { /* silent — keep last known values */ });
+    }
+    setInterval(refreshCharts, 30000);
+
+    // ---- Status donut ----
+    var donut = document.getElementById('statusDonut');
+    if (donut) {
+        var total = 0, slices = [];
+        var colors = { done: TGREEN, running: TBLUE, pending: T('--chart-gray'), error: T('--chart-red'), cancelled: T('--chart-yellow') };
+        for (var k in data.status_total) { total += data.status_total[k]; }
+        var keys = Object.keys(data.status_total).sort();
+        var size = 160, cx = size / 2, cy = size / 2, r = 60, sw = 22;
+        var html = '<div class="flex items-center gap-4">';
+        html += '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" xmlns="http://www.w3.org/2000/svg">';
+        var startAngle = -Math.PI / 2;
+        for (var i = 0; i < keys.length; i++) {
+            var k = keys[i], v = data.status_total[k], frac = v / Math.max(total, 1);
+            var endAngle = startAngle + frac * Math.PI * 2;
+            var x1 = cx + r * Math.cos(startAngle), y1 = cy + r * Math.sin(startAngle);
+            var x2 = cx + r * Math.cos(endAngle),   y2 = cy + r * Math.sin(endAngle);
+            var largeArc = (endAngle - startAngle) > Math.PI ? 1 : 0;
+            html += '<path d="M ' + x1 + ' ' + y1 + ' A ' + r + ' ' + r + ' 0 ' + largeArc + ' 1 ' + x2 + ' ' + y2 + '" fill="none" stroke="' + (colors[k] || '#6b7280') + '" stroke-width="' + sw + '"/>';
+            startAngle = endAngle;
+        }
+        html += '<text x="' + cx + '" y="' + (cy - 2) + '" text-anchor="middle" font-size="22" font-weight="700" fill="currentColor">' + total + '</text>';
+        html += '<text x="' + cx + '" y="' + (cy + 14) + '" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.5">scans</text>';
+        html += '</svg>';
+        html += '<div class="flex-1 space-y-1">';
+        var labels = { done: 'Done', running: 'Running', pending: 'Pending', error: 'Error', cancelled: 'Cancelled' };
+        for (var i = 0; i < keys.length; i++) {
+            var k = keys[i];
+            var label = labels[k] || (k.charAt(0).toUpperCase() + k.slice(1));
+            html += '<div class="flex items-center justify-between gap-3"><span class="flex items-center gap-1.5 text-xs"><span class="w-2 h-2 rounded-full" style="background:' + (colors[k] || '#6b7280') + '"></span>' + label + '</span><span class="mono text-xs">' + data.status_total[k] + '</span></div>';
+        }
+        html += '</div></div>';
+        donut.innerHTML = html;
+    }
+
+    // ---- Module Usage donut + legend ----
+    var modUsage = document.getElementById('moduleUsage');
+    if (modUsage && data.module_mix && data.module_mix.length) {
+        // Distinct color palette for module slices (cycles if more modules
+        // than colors). Picked to read well against both light and dark themes.
+        var modPalette = [
+            TBLUE, TGREEN, TORANGE, TPURPLE, T('--chart-pink'),
+            T('--chart-yellow'), '#06b6d4', T('--chart-red'), '#84cc16', '#14b8a6',
+            '#f59e0b', '#8b5cf6'
+        ];
+        var total = 0;
+        for (var i = 0; i < data.module_mix.length; i++) total += data.module_mix[i].count;
+
+        var size = 220, cx = size / 2, cy = size / 2, r = 90, sw = 26;
+        var html = '<div class="flex flex-col md:flex-row items-center gap-6">';
+
+        // Donut SVG
+        html += '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">';
+        // Background ring (subtle, so 0% modules are still visible visually)
+        html += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="currentColor" stroke-opacity="0.08" stroke-width="' + sw + '"/>';
+
+        var startAngle = -Math.PI / 2; // 12 o'clock
+        for (var i = 0; i < data.module_mix.length; i++) {
+            var m = data.module_mix[i];
+            var frac = m.count / Math.max(total, 1);
+            // Tiny separator gap between slices for readability
+            var gap = 0.012;
+            var endAngle = startAngle + Math.max(frac * Math.PI * 2 - gap, 0.001);
+            var x1 = cx + r * Math.cos(startAngle), y1 = cy + r * Math.sin(startAngle);
+            var x2 = cx + r * Math.cos(endAngle),   y2 = cy + r * Math.sin(endAngle);
+            var largeArc = (endAngle - startAngle) > Math.PI ? 1 : 0;
+            var color = modPalette[i % modPalette.length];
+            html += '<path d="M ' + x1 + ' ' + y1 + ' A ' + r + ' ' + r + ' 0 ' + largeArc + ' 1 ' + x2 + ' ' + y2
+                +   '" fill="none" stroke="' + color + '" stroke-width="' + sw + '" stroke-linecap="butt"/>';
+            startAngle = endAngle + gap;
+        }
+        // Center label
+        html += '<text x="' + cx + '" y="' + (cy - 4) + '" text-anchor="middle" font-size="28" font-weight="700" fill="currentColor">' + total + '</text>';
+        html += '<text x="' + cx + '" y="' + (cy + 16) + '" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.55">total scans</text>';
+        html += '</svg>';
+
+        // Legend
+        html += '<div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 w-full">';
+        for (var i = 0; i < data.module_mix.length; i++) {
+            var m = data.module_mix[i];
+            var pct = total > 0 ? (m.count / total * 100) : 0;
+            var color = modPalette[i % modPalette.length];
+            html += '<div class="flex items-center gap-3">';
+            html += '<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:' + color + '"></span>';
+            html += '<span class="text-sm text-dark-200 flex-1 truncate">' + (m.display_name || m.module) + '</span>';
+            html += '<div class="flex items-center gap-2 shrink-0">';
+            html += '<span class="mono text-xs text-dark-400">' + m.count + '</span>';
+            html += '<span class="mono text-[11px] text-dark-500">(' + pct.toFixed(1) + '%)</span>';
+            html += '</div></div>';
+        }
+        html += '</div>';
+        html += '</div>';
+        modUsage.innerHTML = html;
+    } else if (modUsage) {
+        modUsage.innerHTML = '<p class="text-sm text-dark-500 text-center py-8">No scans yet</p>';
+    }
+})();
+</script>
+{{end}}
+
+<!-- Quick Actions + Recent Assets (left) | Recent Activity (right) -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+    <!-- Left column: Quick Actions on top, Recent Assets below -->
+    <div class="lg:col-span-1 space-y-6">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+                Quick Actions
+            </h3>
+            <div class="space-y-2">
+                <a href="/modules" class="w-full flex items-center gap-3 px-4 py-3 bg-dark-850 hover:bg-dark-800 border border-dark-700 hover:border-accent-500/50 rounded-lg text-sm text-dark-300 hover:text-white transition-all duration-200 group">
+                    <span class="w-8 h-8 rounded-md bg-accent-600/20 text-accent-400 flex items-center justify-center group-hover:bg-accent-600/30 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    </span>
+                    New Scan
+                </a>
+                <a href="/scans" class="w-full flex items-center gap-3 px-4 py-3 bg-dark-850 hover:bg-dark-800 border border-dark-700 hover:border-accent-500/50 rounded-lg text-sm text-dark-300 hover:text-white transition-all duration-200 group">
+                    <span class="w-8 h-8 rounded-md bg-success/20 text-success flex items-center justify-center group-hover:bg-success/30 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    </span>
+                    View Scans
+                </a>
+                <a href="/targets" class="w-full flex items-center gap-3 px-4 py-3 bg-dark-850 hover:bg-dark-800 border border-dark-700 hover:border-accent-500/50 rounded-lg text-sm text-dark-300 hover:text-white transition-all duration-200 group">
+                    <span class="w-8 h-8 rounded-md bg-warning/20 text-warning flex items-center justify-center group-hover:bg-warning/30 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                    </span>
+                    Add Target
+                </a>
+            </div>
+        </div>
+
+        <!-- Recent Assets -->
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                    <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    Recent Assets
+                </h3>
+                {{if .RecentAssets}}
+                <a href="/assets" class="text-[11px] text-accent-400 hover:text-accent-300 transition-colors">View all →</a>
+                {{end}}
+            </div>
+            {{if .RecentAssets}}
+            <div class="space-y-1.5">
+                {{range .RecentAssets}}
+                <a href="/assets/{{.Value}}" class="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-dark-850/60 transition-colors group">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="w-1.5 h-1.5 rounded-full shrink-0
+                            {{if eq .Type "ipv4"}}bg-success
+                            {{else if eq .Type "domain"}}bg-warning
+                            {{else if eq .Type "fqdn"}}bg-danger
+                            {{else}}bg-dark-500{{end}}"></span>
+                        <span class="mono text-xs text-dark-200 group-hover:text-white truncate">{{.Value}}</span>
+                        {{if gt .RunningJobs 0}}
+                        <span class="w-1.5 h-1.5 rounded-full bg-accent-400 scan-pulse shrink-0" title="{{.RunningJobs}} running"></span>
+                        {{end}}
+                    </div>
+                    <span class="text-[10px] text-dark-500 mono shrink-0 ml-2">{{.ScanCount}} scan{{if ne .ScanCount 1}}s{{end}}</span>
+                </a>
+                {{end}}
+            </div>
+            {{else}}
+            <div class="flex flex-col items-center justify-center py-6 text-dark-500 gap-2">
+                <p class="text-xs">No assets scanned yet</p>
+                <a href="/modules" class="text-[11px] text-accent-400 hover:text-accent-300 underline">Pick a module to start →</a>
+            </div>
+            {{end}}
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="lg:col-span-2 flex flex-col">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5 h-full flex flex-col">
+            <h3 class="text-sm font-semibold text-white mb-4 flex items-center gap-2 shrink-0">
+                <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                Recent Activity
+            </h3>
+            {{if .RecentScans}}
+            <div class="space-y-1.5 overflow-y-auto flex-1">
+                {{range .RecentScans}}
+                {{$tgts := index $.ScanTargets .ID}}
+                {{$extra := index $.ScanExtra .ID}}
+                <a href="{{scanResultsURL .}}" class="flex items-start gap-3 px-3 py-2.5 rounded-lg hover:bg-dark-850/50 transition-colors group">
+                    <div class="mt-1 shrink-0">
+                        {{if eq (print .Status) "done"}}<span class="block w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="block w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else if eq (print .Status) "error"}}<span class="block w-2 h-2 rounded-full bg-danger"></span>
+                        {{else}}<span class="block w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="text-sm text-dark-200 group-hover:text-white transition-colors">{{moduleDisplayName .Module}}</span>
+                            {{if eq (print .Status) "running"}}
+                            <span class="text-[10px] text-accent-400 mono">{{if gt .ProgressTotal 0}}{{printf "%.0f" (divf (mulf (intf .ProgressDone) 100.0) (intf .ProgressTotal))}}%{{end}}</span>
+                            {{end}}
+                            <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                        </div>
+                        {{if $tgts}}
+                        <div class="flex items-center flex-wrap gap-1 mt-1">
+                            {{range $tgts}}
+                            <span class="mono text-[10px] text-dark-300 bg-dark-850 border border-dark-700 px-1.5 py-0.5 rounded truncate max-w-[200px]" title="{{.}}">{{.}}</span>
+                            {{end}}
+                            {{if $extra}}
+                            <span class="text-[10px] text-dark-500">+{{$extra}} more</span>
+                            {{end}}
+                        </div>
+                        {{end}}
+                    </div>
+                    <span class="text-[10px] tracking-wider px-1.5 py-0.5 rounded shrink-0 mt-1
+                        {{if eq (print .Status) "done"}}text-success bg-success/10
+                        {{else if eq (print .Status) "running"}}text-accent-400 bg-accent-600/10
+                        {{else if eq (print .Status) "error"}}text-danger bg-danger/10
+                        {{else}}text-dark-500 bg-dark-700{{end}}">{{if eq (print .Status) "done"}}Done{{else if eq (print .Status) "running"}}Running{{else if eq (print .Status) "pending"}}Pending{{else if eq (print .Status) "error"}}Error{{else if eq (print .Status) "cancelled"}}Cancelled{{else}}{{.Status}}{{end}}</span>
+                </a>
+                {{end}}
+            </div>
+            {{else}}
+            <div class="flex flex-1 flex-col items-center justify-center text-dark-500">
+                <svg class="w-12 h-12 mb-3 text-dark-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                </svg>
+                <p class="text-sm">No recent activity</p>
+                <p class="text-xs text-dark-600 mt-1">Start a scan to see results here</p>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</div>
+
+{{end}}

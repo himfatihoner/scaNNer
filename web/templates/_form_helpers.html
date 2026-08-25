@@ -1,0 +1,56 @@
+{{/*
+    Form-helper macros shared by every module form. Two things they
+    standardize:
+
+    1. Required-field indicator: a single red asterisk after the label
+       text. Before this, only nuclei.html had it; the other ~15 module
+       forms relied on the browser's native validation popup to tell
+       the user a field was empty — too late for forms with 11 controls
+       (portservice, dnsenum) where the user had to scroll back up to
+       find the missing field.
+
+    2. Optional tooltip slot: composes with the existing info_icon
+       partial (88 sites use it) so callers don't have to remember
+       both helpers.
+
+    Usage:
+      {{template "field_label" (dict
+          "Text"     "Targets"
+          "Required" true
+          "Tooltip"  "One per line or comma-separated.")}}
+*/}}
+
+{{define "field_label"}}
+{{$tip := .Tooltip}}
+<label class="block text-sm text-dark-300 mb-1.5">
+    {{.Text}}{{if .Required}} <span class="text-danger" title="Required" aria-label="Required">*</span>{{end}}{{if $tip}}{{template "info_icon" $tip}}{{end}}
+</label>
+{{end}}
+
+{{/*
+    form_error renders a friendly banner when the page was reached via a
+    ?error=<code> redirect. 33/34 module run-handlers redirect with codes
+    like ?error=no_urls / no_targets / db_error / no_token, but none of
+    the form templates ever read the query param — the user just saw the
+    blank form again, no idea why submit failed. Audit ER fix.
+
+    The handler stores the raw code in baseData["FormError"] (see
+    handlers.baseData in handlers.go). Codes get mapped to messages via
+    the friendlyFormError FuncMap helper. Unknown codes pass through.
+
+    Usage in a module form template:
+        {{template "form_error" .}}
+*/}}
+{{define "form_error"}}
+{{if .FormError}}
+<div class="mb-4 px-4 py-3 bg-danger/10 border border-danger/40 rounded-lg flex items-start gap-3">
+    <svg class="w-5 h-5 text-danger flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.732-3L13.732 4a2 2 0 00-3.464 0L3.268 16A2 2 0 005 19z"/>
+    </svg>
+    <div>
+        <p class="text-sm font-medium text-danger">Submission rejected</p>
+        <p class="text-xs text-dark-300 mt-0.5">{{friendlyFormError .FormError}}</p>
+    </div>
+</div>
+{{end}}
+{{end}}

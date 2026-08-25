@@ -1,0 +1,152 @@
+{{define "page_wpscan"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">WPScan</span>
+</div>
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">🔵</span> WPScan</h2>
+        <p class="text-sm text-dark-400 mt-1">WordPress vulnerability scanner — plugins, themes, core, and misconfigurations</p>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Scan</h3>
+            <form action="/modules/wpscan/run" method="POST">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Target URLs{{template "info_icon" "WordPress site URLs. Each runs wpscan with vulnerable plugins/themes/core enumeration + config backup detection."}} <span class="text-danger">*</span></label>
+                        {{template "workspace_targets" .}}
+                        <textarea name="urls" rows="6" data-line-count placeholder="https://example.com&#10;https://wordpress-site.com"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                        <p class="text-[11px] text-dark-500 mt-1">One WordPress URL per line. Bare hostnames default to <span class="mono">https://</span>.</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-2">Speed Profile <span class="text-danger">*</span></label>
+                        <div class="space-y-2">
+                            <label class="flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-success has-[:checked]:bg-success/5">
+                                <input type="radio" name="speed" value="fast" class="mt-0.5 rounded-full border-dark-600 bg-dark-800 text-success" checked>
+                                <div>
+                                    <p class="text-xs font-medium text-dark-200">Fast — defaults + users</p>
+                                    <p class="text-[11px] text-dark-500 mt-0.5">Sade <span class="mono">wpscan --url X --api-token Y</span> davranışı + user enumeration.</p>
+                                    <p class="text-[10px] text-dark-600 mt-0.5 mono">--enumerate ap,cb,u · --plugins-detection passive · ~15-60s/site</p>
+                                </div>
+                            </label>
+                            <label class="flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-warning has-[:checked]:bg-warning/5">
+                                <input type="radio" name="speed" value="normal" class="mt-0.5 rounded-full border-dark-600 bg-dark-800 text-warning">
+                                <div>
+                                    <p class="text-xs font-medium text-dark-200">More Aggressive — + themes + db exports</p>
+                                    <p class="text-[11px] text-dark-500 mt-0.5">Plugin keşfi mixed mode'a geçer; tema enumeration ve DB export kontrolü eklenir.</p>
+                                    <p class="text-[10px] text-dark-600 mt-0.5 mono">--enumerate ap,at,cb,dbe,u · --plugins-detection mixed · ~5-15min/site</p>
+                                </div>
+                            </label>
+                            <label class="flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-danger has-[:checked]:bg-danger/5">
+                                <input type="radio" name="speed" value="aggressive" class="mt-0.5 rounded-full border-dark-600 bg-dark-800 text-danger">
+                                <div>
+                                    <p class="text-xs font-medium text-dark-200">Most Aggressive — everything</p>
+                                    <p class="text-[11px] text-dark-500 mt-0.5">Plugin / tema / config / DB / user / Timthumb / Media — hepsi, hem plugin keşfi hem version detection aggressive mode'da.</p>
+                                    <p class="text-[10px] text-dark-600 mt-0.5 mono">--enumerate ap,at,cb,dbe,u,tt,m · --plugins-detection aggressive · 30-60min+/site</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <details class="bg-dark-850 border border-dark-700 rounded-lg">
+                        <summary class="px-3 py-2 text-xs font-medium text-dark-200 cursor-pointer hover:text-white">HTTP Options{{template "info_icon" "Authentication / WAF bypass options. wpscan supports --cookie-string for session-authenticated WP enums, --http-auth for basic-auth gated staging sites, and free-form --headers for X-Forwarded-For / Authorization tricks. Proxy / UA come from Settings + the standard HTTP options matrix."}}</summary>
+                        <div class="px-3 pb-3 pt-1 space-y-3">
+                            {{template "http_options" .}}
+                            <div>
+                                <label class="block text-[11px] text-dark-300 mb-1">Cookie String (authenticated WP scan)</label>
+                                <input type="text" name="cookie_string"
+                                       placeholder="wordpress_logged_in_xxx=abc123; wp-settings-1=foo"
+                                       class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                                <p class="text-[10px] text-dark-500 mt-1">Sent as <span class="mono">--cookie-string</span>. Lets wpscan see authenticated-only endpoints (user enum past ID 1, admin-ajax handlers, etc.).</p>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] text-dark-300 mb-1">HTTP Basic Auth (<span class="mono">user:pass</span>)</label>
+                                <input type="text" name="http_auth" autocomplete="off"
+                                       placeholder="admin:s3cret"
+                                       class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                                <p class="text-[10px] text-dark-500 mt-1">Sent as <span class="mono">--http-auth</span> for sites behind a basic-auth wall (staging, htaccess-gated).</p>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] text-dark-300 mb-1">Custom Headers (one per line, <span class="mono">Name: Value</span>)</label>
+                                <textarea name="custom_headers" rows="3"
+                                          placeholder="X-Forwarded-For: 127.0.0.1&#10;Authorization: Bearer eyJhbGc..."
+                                          class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                                <p class="text-[10px] text-dark-500 mt-1">Each line becomes a separate <span class="mono">--headers</span> flag. Free-form alternative to the headers matrix above.</p>
+                            </div>
+                        </div>
+                    </details>
+
+                    <details class="bg-dark-850 border border-dark-700 rounded-lg">
+                        <summary class="px-3 py-2 text-xs font-medium text-dark-200 cursor-pointer hover:text-white">Advanced{{template "info_icon" "Concurrency knobs. Defaults (2 wpscan processes × 30 threads = up to 60 parallel HTTP requests) are tuned for a single small WP host; dial both down for WAF-fronted targets, or up if you have a beefy box and many targets."}}</summary>
+                        <div class="px-3 pb-3 pt-1 grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[11px] text-dark-300 mb-1">Max concurrent processes</label>
+                                <input type="number" name="max_concurrent" min="1" max="16"
+                                       placeholder="2"
+                                       class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                                <p class="text-[10px] text-dark-500 mt-1">Number of wpscan processes in flight at once. Default <span class="mono">2</span>, capped at 16.</p>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] text-dark-300 mb-1">wpscan <span class="mono">--max-threads</span></label>
+                                <input type="number" name="max_threads" min="1" max="100"
+                                       placeholder="30"
+                                       class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                                <p class="text-[10px] text-dark-500 mt-1">Threads per wpscan process. Default <span class="mono">30</span>, capped at 100.</p>
+                            </div>
+                        </div>
+                    </details>
+
+                    {{if .HasAPIKey}}
+                    <div class="flex items-start gap-2 px-3 py-2 bg-success/5 border border-success/20 rounded-lg">
+                        <svg class="w-4 h-4 text-success mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        <p class="text-[11px] text-dark-300">WPScan API token configured — full WPVulnDB vulnerability details will be fetched.</p>
+                    </div>
+                    {{else}}
+                    <div class="flex items-start gap-2 px-3 py-2 bg-warning/5 border border-warning/30 rounded-lg">
+                        <svg class="w-4 h-4 text-warning mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                        <div>
+                            <p class="text-[11px] font-medium text-warning">Running without WPScan API token</p>
+                            <p class="text-[11px] text-dark-400 mt-0.5">WPScan still runs — version detection and plugin/theme enumeration work fine. WPVulnDB CVE enrichment will be skipped. Add a free token in <a href="/settings" class="text-accent-400 hover:underline">Settings → API Keys</a>.</p>
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+                {{template "queue_option" .}}
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Start WPScan
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}
+            <div class="space-y-2">
+                {{range .Scans}}
+                <a href="/modules/wpscan/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all group">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200 group-hover:text-white">Scan #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                    </div>
+                    <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                {{end}}
+            </div>
+            {{else}}
+            <div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No scans yet</p></div>
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}

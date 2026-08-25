@@ -1,0 +1,7 @@
+{{define "queue_option"}}
+<label class="flex items-center gap-2 mt-2 text-xs text-dark-300 cursor-pointer select-none">
+    <input type="checkbox" name="run_sequential" value="1"
+           class="rounded border-dark-600 bg-dark-900 text-accent-500 focus:ring-accent-500 focus:ring-offset-0">
+    <span>Start after the current scan finishes{{template "info_icon" "Sequential scanning: instead of starting now, queue this scan and launch it automatically once this workspace has no other running scan. Tick it on several launches to chain them one after another (FIFO). If nothing is running, it starts immediately."}}</span>
+</label>
+{{end}}

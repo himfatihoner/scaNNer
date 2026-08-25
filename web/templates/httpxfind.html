@@ -1,0 +1,88 @@
+{{define "page_httpxfind"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">HTTPX Finder</span>
+</div>
+
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">🌐</span> HTTPX Finder</h2>
+        <p class="text-sm text-dark-400 mt-1">Discover HTTP/HTTPS services on targets</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Scan</h3>
+            <form action="/modules/httpxfind/run" method="POST">
+                <div class="space-y-4">
+                    <!-- Scan Mode -->
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-2">Scan Mode{{template "info_icon" "Common: just 4 standard HTTP ports (80, 443, 8080, 8443). All Ports: TCP-scan 1-65535 then HTTP-probe open ones (very slow)."}} <span class="text-danger">*</span></label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="mode" value="common" class="peer sr-only" checked>
+                                <div class="p-3 bg-dark-850 border border-dark-700 rounded-lg peer-checked:border-accent-500 peer-checked:bg-accent-600/5 transition-all text-center">
+                                    <p class="text-xs font-medium text-dark-300 peer-checked:text-accent-400">Common Ports</p>
+                                    <p class="text-[10px] text-dark-500 mt-0.5">80, 443, 8080, 8443</p>
+                                </div>
+                            </label>
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="mode" value="full" class="peer sr-only">
+                                <div class="p-3 bg-dark-850 border border-dark-700 rounded-lg peer-checked:border-warning peer-checked:bg-warning/5 transition-all text-center">
+                                    <p class="text-xs font-medium text-dark-300 peer-checked:text-warning">All Ports</p>
+                                    <p class="text-[10px] text-dark-500 mt-0.5">1-65535 (slow)</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Targets -->
+                    {{template "workspace_targets" .}}
+
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Manual Targets{{template "info_icon" "IPs, hostnames, or CIDR blocks. One per line. CIDR expands to individual IPs."}}</label>
+                        <textarea name="manual_targets" rows="3" placeholder="IP or hostname, one per line"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                    </div>
+                </div>
+                {{template "http_options" .}}
+                <div class="mt-4">{{template "http_tuning" (dict "TuneConcHint" $.TuneConcHint "TuneConcMax" "1000" "TuneShowRate" true "TuneRateHint" "500" "TuneTimeoutHint" "8")}}</div>
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Start HTTPX Discovery
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}
+            <div class="space-y-2">
+                {{range .Scans}}
+                <a href="/modules/httpxfind/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all group">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200 group-hover:text-white">Scan #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                    </div>
+                    <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                {{end}}
+            </div>
+            {{else}}
+            <div class="flex flex-col items-center py-8 text-dark-500">
+                <p class="text-sm">No scans yet</p>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}

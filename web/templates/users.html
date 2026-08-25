@@ -1,0 +1,94 @@
+{{define "page_users"}}
+<div class="p-6 max-w-5xl mx-auto">
+    <div class="mb-6">
+        <h1 class="text-xl font-bold">Users</h1>
+        <p class="text-sm text-dark-400">Manage operator accounts, roles, credentials, and per-workspace module permissions.</p>
+    </div>
+
+    {{if .TempPassword}}
+    <div class="mb-6 rounded-xl border border-warning/40 bg-warning/10 px-5 py-4">
+        <div class="text-sm font-semibold text-warning mb-1">One-time password for {{.TempUser}}</div>
+        <div class="text-xs text-dark-300 mb-2">Copy it now — it is shown only once. The user must change it at first sign-in.</div>
+        <div class="font-mono text-lg text-white select-all bg-dark-950 border border-dark-700 rounded-lg px-4 py-2 inline-block">{{.TempPassword}}</div>
+    </div>
+    {{end}}
+    {{if .Notice}}<div class="mb-4 rounded-lg border border-success/40 bg-success/10 px-4 py-3 text-sm text-success">{{.Notice}}</div>{{end}}
+    {{if .FormError}}<div class="mb-4 rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">{{.FormError}}</div>{{end}}
+
+    <!-- Create user -->
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-5 mb-6">
+        <h2 class="text-sm font-semibold mb-4">Create user</h2>
+        <form method="POST" action="/users/create" class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+            <div>
+                <label class="block text-xs text-dark-300 mb-1.5">Username</label>
+                <input name="username" required class="w-full rounded-lg bg-dark-950 border border-dark-700 px-3 py-2 text-sm focus:border-accent-500 focus:outline-none">
+            </div>
+            <div>
+                <label class="block text-xs text-dark-300 mb-1.5">E-mail <span class="text-dark-500">(for e-mail 2FA)</span></label>
+                <input name="email" type="email" class="w-full rounded-lg bg-dark-950 border border-dark-700 px-3 py-2 text-sm focus:border-accent-500 focus:outline-none">
+            </div>
+            <div>
+                <label class="block text-xs text-dark-300 mb-1.5">Role</label>
+                <select name="role" class="w-full rounded-lg bg-dark-950 border border-dark-700 px-3 py-2 text-sm focus:border-accent-500 focus:outline-none">
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <button type="submit" class="rounded-lg bg-accent-600 hover:bg-accent-500 text-white text-sm font-medium px-4 py-2">Create</button>
+        </form>
+        <p class="text-xs text-dark-500 mt-3">A random one-time password is generated. New users start with no module permissions — grant them per workspace afterward.</p>
+    </div>
+
+    <!-- User list -->
+    <div class="space-y-3">
+        {{range .Users}}
+        <div class="bg-dark-900 border border-dark-800 rounded-xl">
+            <div class="flex items-center justify-between px-5 py-3">
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                        <span class="font-medium">{{.Username}}</span>
+                        {{if .IsAdmin}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-accent-600/20 text-accent-400 uppercase tracking-wide">admin</span>{{end}}
+                        {{if not .IsActive}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-danger/20 text-danger uppercase tracking-wide">disabled</span>{{end}}
+                    </div>
+                    <div class="text-xs text-dark-400 truncate">
+                        {{if .Email}}{{.Email}} · {{end}}
+                        2FA: {{if .TwoFactorEnrolled}}<span class="text-success">{{.TwoFactorMethod}}</span>{{else if .TwoFactorRequired}}<span class="text-warning">required, not set</span>{{else}}off{{end}}
+                        · last login: {{if .LastLoginAt}}{{.LastLoginAt.Format "2006-01-02 15:04"}}{{else}}never{{end}}
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <a href="/users/permissions?id={{.ID}}" class="text-xs rounded-lg border border-dark-700 hover:border-accent-500 px-3 py-1.5">Permissions</a>
+                    <details class="relative">
+                        <summary class="list-none cursor-pointer text-xs rounded-lg border border-dark-700 hover:border-dark-500 px-3 py-1.5">Manage</summary>
+                        <div class="absolute right-0 mt-2 w-72 bg-dark-925 border border-dark-800 rounded-xl p-4 z-10 shadow-xl">
+                            <form method="POST" action="/users/edit" class="space-y-3">
+                                <input type="hidden" name="id" value="{{.ID}}">
+                                <div>
+                                    <label class="block text-xs text-dark-300 mb-1">E-mail</label>
+                                    <input name="email" type="email" value="{{.Email}}" class="w-full rounded-lg bg-dark-950 border border-dark-700 px-2 py-1.5 text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-dark-300 mb-1">Role</label>
+                                    <select name="role" class="w-full rounded-lg bg-dark-950 border border-dark-700 px-2 py-1.5 text-sm">
+                                        <option value="user" {{if not .IsAdmin}}selected{{end}}>User</option>
+                                        <option value="admin" {{if .IsAdmin}}selected{{end}}>Admin</option>
+                                    </select>
+                                </div>
+                                <label class="flex items-center gap-2 text-xs text-dark-300"><input type="checkbox" name="is_active" {{if .IsActive}}checked{{end}}> Active</label>
+                                <label class="flex items-center gap-2 text-xs text-dark-300"><input type="checkbox" name="twofa_required" {{if .TwoFactorRequired}}checked{{end}}> Require 2FA</label>
+                                <button type="submit" class="w-full rounded-lg bg-accent-600 hover:bg-accent-500 text-white text-xs font-medium py-2">Save changes</button>
+                            </form>
+                            <div class="border-t border-dark-800 mt-3 pt-3 flex flex-wrap gap-2">
+                                <form method="POST" action="/users/reset-password"><input type="hidden" name="id" value="{{.ID}}"><button class="text-xs rounded-lg border border-dark-700 hover:border-warning px-2.5 py-1.5">Reset password</button></form>
+                                <form method="POST" action="/users/reset-2fa"><input type="hidden" name="id" value="{{.ID}}"><button class="text-xs rounded-lg border border-dark-700 hover:border-warning px-2.5 py-1.5">Reset 2FA</button></form>
+                                <form method="POST" action="/users/delete" onsubmit="return confirm('Delete user {{.Username}}? Their scans remain; audit logs are preserved.');"><input type="hidden" name="id" value="{{.ID}}"><button class="text-xs rounded-lg border border-danger/50 text-danger hover:bg-danger/10 px-2.5 py-1.5">Delete</button></form>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            </div>
+        </div>
+        {{end}}
+    </div>
+</div>
+{{end}}

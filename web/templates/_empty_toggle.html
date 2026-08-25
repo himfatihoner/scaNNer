@@ -1,0 +1,131 @@
+{{define "empty_toggle"}}
+{{/* Shared "Hide empty rows" checkbox snippet — wire any results table
+     that may have findings-less rows so the user can suppress noise on
+     wide target lists.
+
+     args (dict):
+       .Scope      string  — unique stable identifier (e.g., module name
+                              + scan ID slice) used as the LocalStorage
+                              key and the DOM scope. REQUIRED.
+       .ContainerSel string — querySelector for the parent element whose
+                              `[data-empty="true"]` descendants get
+                              toggled. REQUIRED.
+       .Label       string  — display text override; defaults to
+                              "Hide empty rows".
+       .Group       string  — optional group key. When set, the master
+                              toggle in advancedweb_results broadcasts
+                              its state to every checkbox sharing this
+                              group via the `aw-empty-broadcast` event.
+
+     Default behavior: CHECKED (rows marked data-empty="true" hidden).
+     The user's pick is persisted to LocalStorage so it survives reload
+     and partial refresh.
+
+     Rendered count "(N hidden)" updates on every toggle. */}}
+{{$scope := .Scope}}{{$label := .Label}}{{if not $label}}{{$label = "Hide empty rows"}}{{end}}
+<div class="aw-empty-toggle flex items-center justify-end gap-2 px-4 py-1.5 text-[11px] text-dark-300 bg-dark-900 border-b border-dark-800"
+     data-empty-scope="{{$scope}}"
+     data-empty-container="{{.ContainerSel}}"
+     {{if .Group}}data-empty-group="{{.Group}}"{{end}}>
+    <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+        <input type="checkbox" class="aw-empty-checkbox accent-accent-500 rounded border-dark-600 bg-dark-800" checked>
+        <span>{{$label}}</span>
+    </label>
+    <span class="aw-empty-count text-dark-500 mono text-[10px]"></span>
+</div>
+{{end}}
+
+{{define "empty_toggle_script"}}
+{{/* Inject ONCE per page (layout-level). Wires every .aw-empty-toggle
+     instance and respects per-scope LocalStorage state. Also listens
+     for the 'aw-empty-broadcast' custom event fired by the suite-level
+     master toggle. */}}
+<script>
+(function() {
+    if (window.__awEmptyToggleWired) return;
+    window.__awEmptyToggleWired = true;
+    var LS_PREFIX = 'aw-empty:';
+
+    function applyToggle(t) {
+        var cb = t.querySelector('.aw-empty-checkbox');
+        var countEl = t.querySelector('.aw-empty-count');
+        var containerSel = t.getAttribute('data-empty-container');
+        if (!cb || !containerSel) return;
+        var container = document.querySelector(containerSel);
+        if (!container) return;
+        var rows = container.querySelectorAll('[data-empty]');
+        var hiddenCount = 0;
+        rows.forEach(function(r) {
+            var empty = r.getAttribute('data-empty') === 'true';
+            if (cb.checked && empty) {
+                r.classList.add('aw-empty-hidden');
+                hiddenCount++;
+            } else {
+                r.classList.remove('aw-empty-hidden');
+            }
+        });
+        if (countEl) {
+            countEl.textContent = hiddenCount > 0 ? '(' + hiddenCount + ' hidden)' : '';
+        }
+    }
+
+    function wire(t) {
+        if (t.__wired) return; t.__wired = true;
+        var cb = t.querySelector('.aw-empty-checkbox');
+        if (!cb) return;
+        var scope = t.getAttribute('data-empty-scope');
+        // Restore persisted preference. Default = checked (hide empty).
+        if (scope) {
+            var stored = localStorage.getItem(LS_PREFIX + scope);
+            if (stored === '0') cb.checked = false;
+            else if (stored === '1') cb.checked = true;
+        }
+        applyToggle(t);
+        cb.addEventListener('change', function() {
+            if (scope) localStorage.setItem(LS_PREFIX + scope, cb.checked ? '1' : '0');
+            applyToggle(t);
+        });
+        // Broadcast listener — master suite toggle pushes to every group member.
+        var group = t.getAttribute('data-empty-group');
+        if (group) {
+            document.addEventListener('aw-empty-broadcast', function(ev) {
+                if (ev.detail && ev.detail.group === group) {
+                    cb.checked = !!ev.detail.checked;
+                    if (scope) localStorage.setItem(LS_PREFIX + scope, cb.checked ? '1' : '0');
+                    applyToggle(t);
+                }
+            });
+        }
+    }
+
+    function wireAll(root) {
+        (root || document).querySelectorAll('.aw-empty-toggle').forEach(wire);
+        // Toggles persist hidden rows after every partial swap. Re-apply
+        // so that newly-rendered rows pick up the user's preference.
+        (root || document).querySelectorAll('.aw-empty-toggle').forEach(applyToggle);
+    }
+    document.addEventListener('DOMContentLoaded', function() { wireAll(document); });
+    // MutationObserver — refreshContent() partial swaps inject new
+    // toggles into #scanContent. Wire them as they appear.
+    if (typeof MutationObserver !== 'undefined') {
+        var obs = new MutationObserver(function(muts) {
+            for (var i = 0; i < muts.length; i++) {
+                for (var j = 0; j < muts[i].addedNodes.length; j++) {
+                    var n = muts[i].addedNodes[j];
+                    if (n.nodeType === 1) wireAll(n);
+                }
+            }
+        });
+        obs.observe(document.body, { childList: true, subtree: true });
+    }
+    // Expose for inline scripts after partial swap.
+    window.__awEmptyToggleWire = wireAll;
+})();
+</script>
+<style>
+/* aw-empty-hidden: applied to rows whose data-empty="true" is being
+   suppressed by the toggle. Using a class instead of `hidden` so it
+   composes with table layout (display:none on a <tr> works). */
+.aw-empty-hidden { display: none !important; }
+</style>
+{{end}}

@@ -1,0 +1,67 @@
+{{define "page_corsscan"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">CORS Misconfig</span>
+</div>
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">🌍</span> CORS Misconfig</h2>
+        <p class="text-sm text-dark-400 mt-1">Probe Origin reflection, null-origin trust, subdomain/regex bypasses, and wildcard-with-credentials.</p>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Scan</h3>
+            <form action="/modules/corsscan/run" method="POST">
+                {{template "workspace_targets" .}}
+                <div>
+                    <label class="block text-sm text-dark-300 mb-1.5">Target URLs <span class="text-danger">*</span>{{template "info_icon" "One full URL per line. https:// prepended if missing."}}</label>
+                    <textarea name="urls" rows="6" data-line-count placeholder="https://api.example.com/v1/me&#10;https://example.com/account"
+                              class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                </div>
+                <div class="bg-dark-850 border border-dark-700 rounded-lg p-3 mt-3">
+                    <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-2">Tests fired per URL</p>
+                    <ul class="text-[11px] text-dark-400 space-y-0.5">
+                        <li>• Arbitrary origin reflection</li>
+                        <li>• evil.&lt;host&gt; subdomain trust</li>
+                        <li>• Suffix/prefix attach (regex bypass)</li>
+                        <li>• null origin</li>
+                        <li>• http vs https swap</li>
+                        <li>• Comma injection in Origin</li>
+                        <li>• Trailing-dot, look-alike chars</li>
+                    </ul>
+                </div>
+                {{template "http_options" .}}
+                {{template "http_tuning" (dict "TuneConcHint" $.TuneConcHint "TuneTimeoutHint" "10")}}
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Start CORS Probe
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}
+            <div class="space-y-2">
+                {{range .Scans}}
+                <a href="/modules/corsscan/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all group">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200">Scan #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                    </div>
+                </a>
+                {{end}}
+            </div>
+            {{else}}<div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No scans yet</p></div>{{end}}
+        </div>
+    </div>
+</div>
+{{end}}

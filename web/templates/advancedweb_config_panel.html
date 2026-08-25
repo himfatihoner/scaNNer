@@ -1,0 +1,195 @@
+{{define "advancedweb_config_panel"}}
+{{/*
+    Collapsible "Scan Config" panel — surfaces the configuration the
+    Advanced Web Suite scan was started with, so a user arriving at
+    a running scan mid-flight can answer "what's this scan doing /
+    why?" without re-opening the form.
+
+    args (dict):
+      .Config  *advancedweb.Config  — decoded original config blob
+      .Result  *advancedweb.ScanResult — the live result (for targets,
+                                          since legacy scans stored
+                                          target on Result not Config)
+
+    Default: closed (<details> without `open`). The user opens it
+    on demand. Lives just below the page-cap warning so it's
+    discoverable but doesn't push the timeline down.
+*/}}
+{{$cfg := .Config}}
+{{$res := .Result}}
+{{if $cfg}}
+{{/* Count enabled stages by walking the flags. We use an integer
+     accumulator instead of building a slice because the funcMap
+     doesn't ship an `append` helper. The chip list below renders
+     by re-checking each flag independently — keeps template scope
+     rules simple. */}}
+{{$enabledCount := 0}}
+{{if $cfg.EnableWhois}}{{$enabledCount = add $enabledCount 1}}{{end}}
+{{if $cfg.EnableDNSEnum}}{{$enabledCount = add $enabledCount 1}}{{end}}
+{{if $cfg.EnableHTTPXFind}}{{$enabledCount = add $enabledCount 1}}{{end}}
+{{if $cfg.EnableSSLScan}}{{$enabledCount = add $enabledCount 1}}{{end}}
+{{if $cfg.EnableWAFDetect}}{{$enabledCount = add $enabledCount 1}}{{end}}
+{{if $cfg.EnableTechDetect}}{{$enabledCount = add $enabledCount 1}}{{end}}
+{{if $cfg.EnableCVEMatch}}{{$enabledCount = add $enabledCount 1}}{{end}}
+{{if $cfg.EnableWPScan}}{{$enabledCount = add $enabledCount 1}}{{end}}
+{{if $cfg.EnableNuclei}}{{$enabledCount = add $enabledCount 1}}{{end}}
+{{if $cfg.EnableDirSpider}}{{$enabledCount = add $enabledCount 1}}{{end}}
+{{if $cfg.EnableHTTPMethods}}{{$enabledCount = add $enabledCount 1}}{{end}}
+{{if $cfg.EnableSecHeaders}}{{$enabledCount = add $enabledCount 1}}{{end}}
+
+{{/* Resolve effective target list. New scans carry it in Config.Targets;
+     legacy single-target scans only have Config.Target. */}}
+{{$targets := $cfg.Targets}}
+{{if and (not $targets) $cfg.Target}}{{$targets = list $cfg.Target}}{{end}}
+{{if and (not $targets) $res}}{{if $res.Target}}{{$targets = list $res.Target}}{{end}}{{end}}
+
+<details class="bg-dark-900 border border-dark-800 rounded-xl mb-5 overflow-hidden group">
+    <summary class="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-dark-850 transition-colors select-none">
+        <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-accent-400 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+            <span class="text-sm font-semibold text-white">Scan Configuration</span>
+            <span class="text-[10px] text-dark-500 mono">·</span>
+            <span class="text-[10px] text-dark-400">{{len $targets}} target{{if ne (len $targets) 1}}s{{end}} · {{$enabledCount}} stage{{if ne $enabledCount 1}}s{{end}}</span>
+        </div>
+        <span class="text-[10px] text-dark-500 group-open:hidden">click to expand</span>
+    </summary>
+    <div class="px-4 pb-4 pt-2 border-t border-dark-800 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-[12px]">
+
+        {{/* TARGETS — first up because it answers the "what is this scan
+             hitting?" question. Long lists are scrollable in-place
+             instead of pushing the panel down. */}}
+        <div class="md:col-span-2">
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1.5">Targets ({{len $targets}})</p>
+            <div class="max-h-32 overflow-y-auto bg-dark-850 rounded p-2 space-y-0.5">
+                {{range $targets}}
+                <p class="mono text-[11px] text-accent-300 break-all">{{.}}</p>
+                {{else}}
+                <p class="text-[11px] text-dark-500 italic">(none recorded)</p>
+                {{end}}
+            </div>
+        </div>
+
+        {{/* ENABLED STAGES — chip list so the user sees the pipeline
+             shape at a glance. Disabled stages are grayed out so they
+             don't disappear (the user knows what wasn't enabled too). */}}
+        <div class="md:col-span-2">
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1.5">Stages</p>
+            <div class="flex flex-wrap gap-1.5">
+                {{/* Enabled stages first — accent-tinted chips. */}}
+                {{if $cfg.EnableWhois}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-accent-600/15 text-accent-300 border border-accent-500/30">WHOIS</span>{{end}}
+                {{if $cfg.EnableDNSEnum}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-accent-600/15 text-accent-300 border border-accent-500/30">DNS</span>{{end}}
+                {{if $cfg.EnableHTTPXFind}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-accent-600/15 text-accent-300 border border-accent-500/30">HTTPX</span>{{end}}
+                {{if $cfg.EnableSSLScan}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-accent-600/15 text-accent-300 border border-accent-500/30">SSL</span>{{end}}
+                {{if $cfg.EnableWAFDetect}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-accent-600/15 text-accent-300 border border-accent-500/30">WAF</span>{{end}}
+                {{if $cfg.EnableTechDetect}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-accent-600/15 text-accent-300 border border-accent-500/30">Tech</span>{{end}}
+                {{if $cfg.EnableCVEMatch}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-accent-600/15 text-accent-300 border border-accent-500/30">CVE</span>{{end}}
+                {{if $cfg.EnableWPScan}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-accent-600/15 text-accent-300 border border-accent-500/30">WPScan</span>{{end}}
+                {{if $cfg.EnableNuclei}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-accent-600/15 text-accent-300 border border-accent-500/30">Nuclei</span>{{end}}
+                {{if $cfg.EnableDirSpider}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-accent-600/15 text-accent-300 border border-accent-500/30">DirSpider</span>{{end}}
+                {{if $cfg.EnableHTTPMethods}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-accent-600/15 text-accent-300 border border-accent-500/30">HTTPMethods</span>{{end}}
+                {{if $cfg.EnableSecHeaders}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-accent-600/15 text-accent-300 border border-accent-500/30">SecHeaders</span>{{end}}
+                {{/* Then disabled stages dimmed — the user sees what was NOT enabled too */}}
+                {{if not $cfg.EnableWhois}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-dark-850 text-dark-600 line-through">WHOIS</span>{{end}}
+                {{if not $cfg.EnableDNSEnum}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-dark-850 text-dark-600 line-through">DNS</span>{{end}}
+                {{if not $cfg.EnableHTTPXFind}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-dark-850 text-dark-600 line-through">HTTPX</span>{{end}}
+                {{if not $cfg.EnableSSLScan}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-dark-850 text-dark-600 line-through">SSL</span>{{end}}
+                {{if not $cfg.EnableWAFDetect}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-dark-850 text-dark-600 line-through">WAF</span>{{end}}
+                {{if not $cfg.EnableTechDetect}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-dark-850 text-dark-600 line-through">Tech</span>{{end}}
+                {{if not $cfg.EnableCVEMatch}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-dark-850 text-dark-600 line-through">CVE</span>{{end}}
+                {{if not $cfg.EnableWPScan}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-dark-850 text-dark-600 line-through">WPScan</span>{{end}}
+                {{if not $cfg.EnableNuclei}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-dark-850 text-dark-600 line-through">Nuclei</span>{{end}}
+                {{if not $cfg.EnableDirSpider}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-dark-850 text-dark-600 line-through">DirSpider</span>{{end}}
+                {{if not $cfg.EnableHTTPMethods}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-dark-850 text-dark-600 line-through">HTTPMethods</span>{{end}}
+                {{if not $cfg.EnableSecHeaders}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-dark-850 text-dark-600 line-through">SecHeaders</span>{{end}}
+            </div>
+        </div>
+
+        {{/* PER-MODULE OVERRIDES — only render rows for non-default
+             values. A module with all defaults gets no row so the
+             panel stays focused on what's deliberately tuned. */}}
+        {{if $cfg.EnableDNSEnum}}
+        <div>
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1.5">DNS Enum</p>
+            <p class="text-[11px] text-dark-200">
+                {{if $cfg.DNSEnumSpeed}}<span class="mono">speed={{$cfg.DNSEnumSpeed}}</span>{{end}}
+                {{if $cfg.DNSEnumMaxDepth}}<span class="mono ml-2">depth={{$cfg.DNSEnumMaxDepth}}</span>{{end}}
+                {{if and (not $cfg.DNSEnumSpeed) (not $cfg.DNSEnumMaxDepth)}}<span class="text-dark-500 italic">defaults</span>{{end}}
+            </p>
+        </div>
+        {{end}}
+
+        {{if $cfg.EnableHTTPXFind}}
+        <div>
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1.5">HTTPX Find</p>
+            <p class="text-[11px] text-dark-200">
+                <span class="mono">mode={{if $cfg.HTTPXMode}}{{$cfg.HTTPXMode}}{{else}}common{{end}}</span>
+                {{if $cfg.HTTPXConcurrency}}<span class="mono ml-2">concurrency={{$cfg.HTTPXConcurrency}}</span>{{end}}
+            </p>
+        </div>
+        {{end}}
+
+        {{if $cfg.EnableDirSpider}}
+        <div>
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1.5">DirEnum</p>
+            <p class="text-[11px] text-dark-200">
+                {{if $cfg.DirEnumLevel}}<span class="mono">level={{$cfg.DirEnumLevel}}</span>{{end}}
+                {{if $cfg.DirEnumSmartScan}}<span class="mono ml-2 text-success">smart</span>{{end}}
+                {{if $cfg.DirEnumRecursive}}<span class="mono ml-2 text-warning">recursive={{$cfg.DirEnumMaxDepth}}</span>{{end}}
+            </p>
+        </div>
+        <div>
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1.5">Spider</p>
+            <p class="text-[11px] text-dark-200">
+                {{if $cfg.SpiderMaxDepth}}<span class="mono">max-depth={{$cfg.SpiderMaxDepth}}</span>{{end}}
+                {{if $cfg.SpiderMaxPages}}<span class="mono ml-2">max-pages={{$cfg.SpiderMaxPages}}</span>{{end}}
+                {{if and (not $cfg.SpiderMaxDepth) (not $cfg.SpiderMaxPages)}}<span class="text-dark-500 italic">defaults</span>{{end}}
+            </p>
+        </div>
+        {{end}}
+
+        {{if $cfg.EnableNuclei}}
+        <div>
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1.5">Nuclei</p>
+            <div class="flex flex-wrap gap-1">
+                {{range $cfg.NucleiSeverities}}<span class="text-[10px] mono px-1.5 py-0.5 rounded
+                    {{if eq . "critical"}}bg-red-500/15 text-red-300
+                    {{else if eq . "high"}}bg-orange-500/15 text-orange-300
+                    {{else if eq . "medium"}}bg-yellow-500/15 text-yellow-300
+                    {{else if eq . "low"}}bg-blue-500/15 text-blue-300
+                    {{else}}bg-dark-700 text-dark-300{{end}}">{{.}}</span>{{else}}<span class="text-[11px] text-dark-500 italic">all severities (default)</span>{{end}}
+            </div>
+            <p class="text-[11px] text-dark-200 mt-1"><span class="mono">level={{if $cfg.NucleiLevel}}{{$cfg.NucleiLevel}}{{else}}normal{{end}}</span></p>
+        </div>
+        {{end}}
+
+        {{if $cfg.EnableTechDetect}}
+        <div>
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1.5">Tech Detection</p>
+            <p class="text-[11px] text-dark-200"><span class="mono">whatweb={{if $cfg.TechDetectAggressive}}aggressive (-a 3){{else}}passive (fast){{end}}</span></p>
+        </div>
+        {{end}}
+
+        {{if $cfg.EnableWPScan}}
+        <div>
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1.5">WPScan</p>
+            <p class="text-[11px] text-dark-200"><span class="mono">speed={{if $cfg.WPScanSpeed}}{{$cfg.WPScanSpeed}}{{else}}fast{{end}}</span></p>
+        </div>
+        {{end}}
+
+        {{if $cfg.EnableSecHeaders}}
+        <div>
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1.5">SecHeaders</p>
+            <p class="text-[11px] text-dark-200">
+                {{if $cfg.SecHeadersMethods}}<span class="mono">methods={{range $i, $m := $cfg.SecHeadersMethods}}{{if $i}},{{end}}{{$m}}{{end}}</span>{{end}}
+                {{if $cfg.SecHeadersOverride}}<span class="mono ml-2 text-warning">override</span>{{end}}
+                {{if and (not $cfg.SecHeadersMethods) (not $cfg.SecHeadersOverride)}}<span class="text-dark-500 italic">auto-derived</span>{{end}}
+            </p>
+        </div>
+        {{end}}
+
+    </div>
+</details>
+{{end}}
+{{end}}

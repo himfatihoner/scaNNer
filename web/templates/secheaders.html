@@ -1,0 +1,105 @@
+{{define "page_secheaders"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Security Headers</span>
+</div>
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">🔐</span> Security Headers</h2>
+        <p class="text-sm text-dark-400 mt-1">Analyze HTTP security headers across all method/content-type combinations returning 200 OK</p>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Scan</h3>
+            <form action="/modules/secheaders/run" method="POST">
+                <div class="space-y-4">
+                    {{template "workspace_targets" .}}
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Target URLs{{template "info_icon" "URLs to probe for HTTP security headers. Only responses returning 200 OK are evaluated."}} <span class="text-danger">*</span></label>
+                        <textarea name="urls" rows="6" data-line-count placeholder="https://example.com&#10;https://api.example.com/v1"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                    </div>
+
+                    <!-- HTTP methods. Headers like CSP, Set-Cookie, CORS,
+                         Cache-Control often differ per method (POST may
+                         add CSRF cookies, PUT may trigger different CORS
+                         preflight responses). Pick the methods you want
+                         analyzed; each is evaluated independently. -->
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                        <p class="text-[11px] text-dark-300 mb-2">HTTP Methods{{template "info_icon" "Headers can vary by method (e.g. POST sets CSRF cookies that GET doesn't, PUT triggers CORS preflight, OPTIONS triggers CORS response headers, HEAD often omits Set-Cookie). Each selected method is analyzed separately and results show per-method differences."}}</p>
+                        <div class="grid grid-cols-4 gap-2">
+                            <label class="flex items-center gap-2 px-2 py-1.5 bg-dark-900 border border-dark-700 rounded cursor-pointer hover:border-accent-500/40 has-[:checked]:border-accent-500 has-[:checked]:bg-accent-600/5 transition-colors">
+                                <input type="checkbox" name="methods" value="GET" checked class="rounded border-dark-600 bg-dark-800 text-accent-500">
+                                <span class="mono text-[11px] text-dark-200">GET</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-2 py-1.5 bg-dark-900 border border-dark-700 rounded cursor-pointer hover:border-accent-500/40 has-[:checked]:border-accent-500 has-[:checked]:bg-accent-600/5 transition-colors">
+                                <input type="checkbox" name="methods" value="HEAD" class="rounded border-dark-600 bg-dark-800 text-accent-500">
+                                <span class="mono text-[11px] text-dark-200">HEAD</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-2 py-1.5 bg-dark-900 border border-dark-700 rounded cursor-pointer hover:border-accent-500/40 has-[:checked]:border-accent-500 has-[:checked]:bg-accent-600/5 transition-colors">
+                                <input type="checkbox" name="methods" value="POST" class="rounded border-dark-600 bg-dark-800 text-accent-500">
+                                <span class="mono text-[11px] text-dark-200">POST</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-2 py-1.5 bg-dark-900 border border-dark-700 rounded cursor-pointer hover:border-accent-500/40 has-[:checked]:border-accent-500 has-[:checked]:bg-accent-600/5 transition-colors">
+                                <input type="checkbox" name="methods" value="PUT" class="rounded border-dark-600 bg-dark-800 text-accent-500">
+                                <span class="mono text-[11px] text-dark-200">PUT</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-2 py-1.5 bg-dark-900 border border-dark-700 rounded cursor-pointer hover:border-accent-500/40 has-[:checked]:border-accent-500 has-[:checked]:bg-accent-600/5 transition-colors">
+                                <input type="checkbox" name="methods" value="PATCH" class="rounded border-dark-600 bg-dark-800 text-accent-500">
+                                <span class="mono text-[11px] text-dark-200">PATCH</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-2 py-1.5 bg-dark-900 border border-dark-700 rounded cursor-pointer hover:border-accent-500/40 has-[:checked]:border-accent-500 has-[:checked]:bg-accent-600/5 transition-colors">
+                                <input type="checkbox" name="methods" value="DELETE" class="rounded border-dark-600 bg-dark-800 text-accent-500">
+                                <span class="mono text-[11px] text-dark-200">DELETE</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-2 py-1.5 bg-dark-900 border border-dark-700 rounded cursor-pointer hover:border-accent-500/40 has-[:checked]:border-accent-500 has-[:checked]:bg-accent-600/5 transition-colors">
+                                <input type="checkbox" name="methods" value="OPTIONS" class="rounded border-dark-600 bg-dark-800 text-accent-500">
+                                <span class="mono text-[11px] text-dark-200">OPTIONS</span>
+                            </label>
+                        </div>
+                        <p class="text-[10px] text-dark-500 mt-2">POST/PUT/PATCH each fan out to multiple Content-Type variants (form, JSON, XML). OPTIONS surfaces CORS preflight headers; HEAD often omits Set-Cookie.</p>
+                    </div>
+
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                        <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-2">How it works</p>
+                        <ul class="text-[11px] text-dark-400 space-y-1">
+                            <li>1. Sends each selected method (POST/PUT/PATCH fan out into JSON/form/XML Content-Type variants)</li>
+                            <li>2. Only evaluates responses with <span class="text-success mono">200 OK</span></li>
+                            <li>3. Checks 12 security headers <span class="text-accent-300">per method</span></li>
+                            <li>4. Reports per-method findings + cross-method inconsistencies + worst-case score</li>
+                        </ul>
+                    </div>
+                </div>
+                {{template "http_options" .}}
+                <div class="mt-4">{{template "http_tuning" (dict "TuneConcHint" $.TuneConcHint "TuneTimeoutHint" "30")}}</div>
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Analyze Headers
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}<div class="space-y-2">{{range .Scans}}
+                <a href="/modules/secheaders/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all group">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200 group-hover:text-white">Scan #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                    </div>
+                    <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+            {{end}}</div>
+            {{else}}<div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No scans yet</p></div>{{end}}
+        </div>
+    </div>
+</div>
+{{end}}

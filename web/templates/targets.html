@@ -1,0 +1,572 @@
+{{define "page_targets"}}
+<!-- Workspace context -->
+<div class="flex items-center gap-2 text-xs text-dark-500 mb-5">
+    <svg class="w-3.5 h-3.5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+    </svg>
+    <span class="text-dark-300">{{.ActiveWorkspace.Name}}</span>
+</div>
+
+<!-- Header -->
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white">Targets</h2>
+        <p class="text-sm text-dark-400 mt-1">Manage scan targets for this workspace</p>
+    </div>
+    <div class="flex items-center gap-2">
+        <button onclick="document.getElementById('bulkImportModal').classList.remove('hidden')"
+                class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+            Add Targets
+        </button>
+    </div>
+</div>
+
+<!-- Result Notifications -->
+<div id="notifications" class="mb-4 space-y-2"></div>
+<script>
+(function() {
+    var params = new URLSearchParams(window.location.search);
+    var container = document.getElementById('notifications');
+    if (params.get('success') === 'bulk_added') {
+        var added = params.get('added') || '0';
+        var skipped = params.get('skipped') || '0';
+        var invalid = params.get('invalid') || '0';
+        var recat = params.get('recat') || '0';
+        var recatMsg = (recat !== '0') ? ', <strong>' + recat + '</strong> already present → added to new categor' + (recat === '1' ? 'y' : 'ies') : '';
+        container.innerHTML = '<div class="flex items-center gap-3 px-4 py-3 bg-success/10 border border-success/20 rounded-lg text-sm">' +
+            '<svg class="w-5 h-5 text-success shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>' +
+            '<span class="text-success">Bulk import complete: <strong>' + added + '</strong> added, <strong>' + skipped + '</strong> skipped (duplicate), <strong>' + invalid + '</strong> invalid' + recatMsg + '</span>' +
+            '<button onclick="this.parentElement.remove()" class="ml-auto text-success/60 hover:text-success"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>' +
+            '</div>';
+    } else if (params.get('success') === 'target_added') {
+        container.innerHTML = '<div class="flex items-center gap-3 px-4 py-3 bg-success/10 border border-success/20 rounded-lg text-sm">' +
+            '<svg class="w-5 h-5 text-success shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>' +
+            '<span class="text-success">Target added successfully</span>' +
+            '<button onclick="this.parentElement.remove()" class="ml-auto text-success/60 hover:text-success"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>' +
+            '</div>';
+    } else if (params.get('error')) {
+        var msg = {'invalid_target':'Invalid target format','duplicate':'Target already exists','value_required':'Target value is required','no_targets':'No targets provided'}[params.get('error')] || 'An error occurred';
+        container.innerHTML = '<div class="flex items-center gap-3 px-4 py-3 bg-danger/10 border border-danger/20 rounded-lg text-sm">' +
+            '<svg class="w-5 h-5 text-danger shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>' +
+            '<span class="text-danger">' + msg + '</span>' +
+            '<button onclick="this.parentElement.remove()" class="ml-auto text-danger/60 hover:text-danger"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>' +
+            '</div>';
+    }
+})();
+</script>
+
+<!-- Target Stats -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4">
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">Total Targets</p>
+        <p class="text-2xl font-bold text-white">{{.TotalCount}}</p>
+    </div>
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4">
+        <div class="flex items-center gap-2 mb-1">
+            <span class="w-2 h-2 rounded-full bg-success"></span>
+            <p class="text-xs text-dark-500 uppercase tracking-wider">IPv4</p>
+        </div>
+        <p class="text-2xl font-bold text-white">{{.IPv4Count}}</p>
+    </div>
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4">
+        <div class="flex items-center gap-2 mb-1">
+            <span class="w-2 h-2 rounded-full bg-warning"></span>
+            <p class="text-xs text-dark-500 uppercase tracking-wider">Domain</p>
+        </div>
+        <p class="text-2xl font-bold text-white">{{.DomainCount}}</p>
+    </div>
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4">
+        <div class="flex items-center gap-2 mb-1">
+            <span class="w-2 h-2 rounded-full bg-danger"></span>
+            <p class="text-xs text-dark-500 uppercase tracking-wider">FQDN</p>
+        </div>
+        <p class="text-2xl font-bold text-white">{{.FQDNCount}}</p>
+    </div>
+</div>
+
+<!-- Filter / Sort bar -->
+<div class="flex flex-wrap items-center gap-2 mb-4">
+    <div class="flex items-center gap-1 bg-dark-900 border border-dark-800 rounded-lg p-1">
+        <button type="button" data-target-tab="" onclick="setTargetTypeTab(this)"
+                class="target-tab px-3 py-1.5 text-xs rounded-md transition-colors {{if or (eq .FilterType "") (eq .FilterType "all")}}text-white bg-accent-600{{else}}text-dark-400 hover:text-white{{end}}">All</button>
+        <button type="button" data-target-tab="ipv4" onclick="setTargetTypeTab(this)"
+                class="target-tab px-3 py-1.5 text-xs rounded-md transition-colors {{if eq .FilterType "ipv4"}}text-white bg-accent-600{{else}}text-dark-400 hover:text-white{{end}}">IPv4</button>
+        <button type="button" data-target-tab="domain" onclick="setTargetTypeTab(this)"
+                class="target-tab px-3 py-1.5 text-xs rounded-md transition-colors {{if eq .FilterType "domain"}}text-white bg-accent-600{{else}}text-dark-400 hover:text-white{{end}}">Domain</button>
+        <button type="button" data-target-tab="fqdn" onclick="setTargetTypeTab(this)"
+                class="target-tab px-3 py-1.5 text-xs rounded-md transition-colors {{if eq .FilterType "fqdn"}}text-white bg-accent-600{{else}}text-dark-400 hover:text-white{{end}}">FQDN</button>
+        <button type="button" data-target-tab="url" onclick="setTargetTypeTab(this)"
+                class="target-tab px-3 py-1.5 text-xs rounded-md transition-colors {{if eq .FilterType "url"}}text-white bg-accent-600{{else}}text-dark-400 hover:text-white{{end}}">URL</button>
+    </div>
+    <div class="relative">
+        <svg class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-dark-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input id="targetSearch" type="search" placeholder="Search value or note..." oninput="applyTargetFilter()"
+               class="bg-dark-850 border border-dark-700 rounded-lg pl-7 pr-3 py-1.5 text-xs text-white placeholder-dark-500 focus:outline-none focus:border-accent-500 w-64">
+    </div>
+    <span id="targetResultCount" class="ml-auto text-[11px] text-dark-500"></span>
+</div>
+
+<!-- Target Lists strip — organize hosts/IPs into named lists ("Company A
+     provided", "Company B provided"). Filtering by a list is client-side
+     (data-list on each row), so toggling chips doesn't reload the page. -->
+<div class="flex flex-wrap items-center gap-2 mb-4">
+    <button type="button" data-target-list-tab="" onclick="setTargetListTab(this)"
+            class="target-list-tab flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-colors {{if not .FilterList}}bg-accent-600 text-white{{else}}bg-dark-850 border border-dark-700 text-dark-300 hover:text-white{{end}}">
+        All
+        <span class="text-[10px] mono opacity-75">{{.TotalCount}}</span>
+    </button>
+    <button type="button" data-target-list-tab="__none__" onclick="setTargetListTab(this)"
+            class="target-list-tab flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-colors {{if eq .FilterList "__none__"}}bg-accent-600 text-white{{else}}bg-dark-850 border border-dark-700 text-dark-300 hover:text-white{{end}}">
+        No list
+        <span class="text-[10px] mono opacity-75">{{.NoListCount}}</span>
+    </button>
+    {{range .TargetLists}}
+    <span class="target-list-chip relative inline-flex items-center">
+        <button type="button" data-target-list-tab="{{.ID}}" onclick="setTargetListTab(this)"
+                class="target-list-tab flex items-center gap-1.5 pl-3 pr-2 py-1.5 text-xs rounded-l-lg transition-colors {{if eq $.FilterList .ID}}bg-accent-600 text-white{{else}}bg-dark-850 border border-dark-700 text-dark-300 hover:text-white{{end}}"
+                title="{{if .Description}}{{.Description}}{{else}}{{.Name}}{{end}}">
+            <svg class="w-3 h-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 7h10M7 12h10M7 17h6"/></svg>
+            {{.Name}}
+            <span class="text-[10px] mono opacity-75">{{index $.TargetListCounts .ID}}</span>
+        </button>
+        <a href="/targets/export?list={{.ID}}" class="px-1.5 py-1.5 text-xs bg-dark-850 border-y border-dark-700 text-dark-500 hover:text-accent-400" title="Bu listeyi .txt olarak dışa aktar (her satırda bir hedef)">⤓</a>
+        <form action="/targets/lists/delete" method="POST" class="inline" onsubmit="return confirm('Delete the list &quot;{{.Name}}&quot;? Its targets stay in the workspace, just unassigned from any list.')">
+            <input type="hidden" name="id" value="{{.ID}}">
+            <button type="submit" class="px-1.5 py-1.5 text-xs rounded-r-lg bg-dark-850 border border-l-0 border-dark-700 text-dark-500 hover:text-danger" title="Delete list (members stay, just unassigned)">×</button>
+        </form>
+    </span>
+    {{end}}
+    <button type="button" onclick="document.getElementById('newListModal').classList.remove('hidden')"
+            class="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-dark-850 border border-dashed border-dark-600 text-dark-300 hover:text-accent-400 hover:border-accent-500/50 transition-colors">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"/></svg>
+        New List
+    </button>
+</div>
+
+<!-- Targets Table -->
+<div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+    <table id="targetsTable" class="w-full">
+        <thead>
+            <tr class="border-b border-dark-800">
+                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="value" data-sort-type="string">Value</th>
+                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="type" data-sort-type="string">Type</th>
+                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="list-name" data-sort-type="string">List</th>
+                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="note" data-sort-type="string">Note</th>
+                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="createdat" data-sort-type="number">Added</th>
+                <th class="text-right px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{if .Targets}}
+            {{range .Targets}}
+            <tr class="target-row border-b border-dark-800/50 hover:bg-dark-850/50 transition-colors cursor-pointer"
+                onclick="if(!event.target.closest('a,button,form,input')){window.location='/assets/{{.Value}}'}"
+                data-tid="{{.ID}}"
+                data-value="{{.Value}}"
+                data-type="{{.Type}}"
+                data-categories="{{range .Categories}}{{.ID}} {{end}}"
+                data-list-name="{{range .Categories}}{{.Name}} {{end}}"
+                data-note="{{.Note}}"
+                data-createdat="{{.CreatedAt.Unix}}">
+                <td class="px-5 py-3">
+                    <span class="mono text-sm text-white">{{.Value}}</span>
+                </td>
+                <td class="px-5 py-3">
+                    {{if eq (print .Type) "ipv4"}}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-success/10 text-success border border-success/20">
+                        <span class="w-1.5 h-1.5 rounded-full bg-success"></span>
+                        IPv4
+                    </span>
+                    {{else if eq (print .Type) "domain"}}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-warning/10 text-warning border border-warning/20">
+                        <span class="w-1.5 h-1.5 rounded-full bg-warning"></span>
+                        Domain
+                    </span>
+                    {{else if eq (print .Type) "fqdn"}}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-danger/10 text-danger border border-danger/20">
+                        <span class="w-1.5 h-1.5 rounded-full bg-danger"></span>
+                        FQDN
+                    </span>
+                    {{else if eq (print .Type) "url"}}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-accent-500/10 text-accent-400 border border-accent-500/30">
+                        <span class="w-1.5 h-1.5 rounded-full bg-accent-400"></span>
+                        URL
+                    </span>
+                    {{else}}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-dark-800 text-dark-300 border border-dark-700">
+                        {{.Type}}
+                    </span>
+                    {{end}}
+                </td>
+                <td class="px-5 py-3 text-xs">
+                    <div class="flex items-center gap-1 flex-wrap">
+                        {{range .Categories}}
+                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] text-accent-300 bg-accent-500/10 border border-accent-500/30">{{.Name}}</span>
+                        {{else}}
+                        <span class="text-dark-600">—</span>
+                        {{end}}
+                        <button type="button" title="Manage categories"
+                                onclick="openCategoryEditor(this)"
+                                class="ml-1 w-5 h-5 inline-flex items-center justify-center rounded text-dark-500 hover:text-accent-400 hover:bg-dark-800 transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                        </button>
+                    </div>
+                </td>
+                <td class="px-5 py-3 text-xs text-dark-400 max-w-xs truncate">
+                    {{if .Note}}{{.Note}}{{else}}<span class="text-dark-600">-</span>{{end}}
+                </td>
+                <td class="px-5 py-3 text-xs text-dark-500">
+                    {{.CreatedAt.Format "2006-01-02 15:04"}}
+                </td>
+                <td class="px-5 py-3 text-right">
+                    <form action="/targets/delete" method="POST" class="inline" onsubmit="return confirm('Delete this target?')">
+                        <input type="hidden" name="id" value="{{.ID}}">
+                        <button type="submit" class="p-1.5 text-dark-500 hover:text-danger hover:bg-danger/10 rounded-md transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {{end}}
+            {{else}}
+            <tr>
+                <td colspan="6" class="px-5 py-16 text-center">
+                    <div class="flex flex-col items-center text-dark-500">
+                        <svg class="w-10 h-10 mb-2 text-dark-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                        <p class="text-sm">No targets added yet</p>
+                        <p class="text-xs text-dark-600 mt-1">Add IPv4 addresses, domains, or FQDNs to this workspace</p>
+                        <p class="text-[11px] text-accent-400 hover:text-accent-300 mt-3">Use the form on the left to add your first target →</p>
+                    </div>
+                </td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function setTargetTypeTab(btn) {
+    document.querySelectorAll('.target-tab').forEach(function(b) {
+        b.classList.remove('text-white', 'bg-accent-600');
+        b.classList.add('text-dark-400', 'hover:text-white');
+    });
+    btn.classList.remove('text-dark-400', 'hover:text-white');
+    btn.classList.add('text-white', 'bg-accent-600');
+    var t = btn.getAttribute('data-target-tab') || '';
+    var url = new URL(window.location);
+    if (t) url.searchParams.set('type', t); else url.searchParams.delete('type');
+    history.replaceState(null, '', url);
+    applyTargetFilter();
+}
+function _activeTargetTab() {
+    var active = document.querySelector('.target-tab.bg-accent-600');
+    return active ? (active.getAttribute('data-target-tab') || '') : '';
+}
+function setTargetListTab(btn) {
+    document.querySelectorAll('.target-list-tab').forEach(function(b) {
+        b.classList.remove('bg-accent-600', 'text-white');
+        b.classList.add('bg-dark-850', 'border', 'border-dark-700', 'text-dark-300', 'hover:text-white');
+    });
+    btn.classList.remove('bg-dark-850', 'border', 'border-dark-700', 'text-dark-300', 'hover:text-white');
+    btn.classList.add('bg-accent-600', 'text-white');
+    var t = btn.getAttribute('data-target-list-tab') || '';
+    var url = new URL(window.location);
+    if (t) url.searchParams.set('list', t); else url.searchParams.delete('list');
+    history.replaceState(null, '', url);
+    applyTargetFilter();
+}
+function _activeTargetListTab() {
+    var active = document.querySelector('.target-list-tab.bg-accent-600');
+    return active ? (active.getAttribute('data-target-list-tab') || '') : '';
+}
+function applyTargetFilter() {
+    var q = (document.getElementById('targetSearch').value || '').trim().toLowerCase();
+    var typeTab = _activeTargetTab();
+    var listTab = _activeTargetListTab();
+    var rows = Array.prototype.slice.call(document.querySelectorAll('tr.target-row'));
+    var visible = 0;
+    rows.forEach(function(r) {
+        var v = (r.dataset.value || '').toLowerCase();
+        var n = (r.dataset.note || '').toLowerCase();
+        var t = (r.dataset.type || '').toLowerCase();
+        // A target may belong to several categories: data-categories is a
+        // space-separated list of list IDs (empty = uncategorized).
+        var cats = (r.dataset.categories || '').trim().toLowerCase();
+        var matchSearch = !q || v.indexOf(q) !== -1 || n.indexOf(q) !== -1;
+        var matchType = !typeTab || t === typeTab;
+        var matchList;
+        if (!listTab) matchList = true;
+        else if (listTab === '__none__') matchList = cats === '';
+        else matchList = (' ' + cats + ' ').indexOf(' ' + listTab.toLowerCase() + ' ') !== -1;
+        var match = matchSearch && matchType && matchList;
+        r.style.display = match ? '' : 'none';
+        if (match) visible++;
+    });
+    var counter = document.getElementById('targetResultCount');
+    if (counter) counter.textContent = visible + ' / ' + rows.length + ' target' + (rows.length === 1 ? '' : 's');
+}
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.bindSortableTable) {
+        bindSortableTable('#targetsTable', { defaultKey: 'createdat', defaultDir: 'desc' });
+    }
+    applyTargetFilter();
+});
+</script>
+
+<!-- Add / Bulk Import Targets Modal — single entry point that handles both
+     a single target and multi-line / file-upload bulk import. -->
+<div id="bulkImportModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="document.getElementById('bulkImportModal').classList.add('hidden')"></div>
+    <div class="relative bg-dark-900 border border-dark-800 rounded-xl w-full max-w-lg mx-4 p-6 shadow-2xl">
+        <div class="flex items-center justify-between mb-5">
+            <h3 class="text-lg font-semibold text-white">Add Targets</h3>
+            <button onclick="document.getElementById('bulkImportModal').classList.add('hidden')" class="text-dark-500 hover:text-white transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <form action="/targets/bulk" method="POST" enctype="multipart/form-data">
+            <div class="space-y-4">
+                {{/* Type radios were removed in favour of auto-classify.
+                     Each non-URL line goes through shared.ClassifyInput
+                     in the handler — ipv4 / domain / fqdn is inferred per
+                     line. URLs live in their own textarea below because
+                     they carry scheme + path and shouldn't be expanded. */}}
+
+                <!-- Input Method Tabs -->
+                <div>
+                    <div class="flex gap-1 mb-3 bg-dark-850 border border-dark-700 rounded-lg p-1 w-fit">
+                        <button type="button" onclick="switchBulkTab('text')" id="tabText"
+                                class="px-3 py-1.5 text-xs rounded-md text-white bg-accent-600 transition-colors">
+                            Paste Text
+                        </button>
+                        <button type="button" onclick="switchBulkTab('file')" id="tabFile"
+                                class="px-3 py-1.5 text-xs rounded-md text-dark-400 hover:text-white transition-colors">
+                            Upload File
+                        </button>
+                    </div>
+
+                    <!-- Text Input — IPs / Domains / FQDNs all mixed in one box -->
+                    <div id="bulkText">
+                        <label class="block text-[11px] uppercase tracking-wider text-dark-500 mb-1.5">IPs / Domains / FQDNs</label>
+                        <textarea name="targets" rows="6" placeholder="192.168.1.1&#10;10.0.0.0/24&#10;192.168.3.10-50&#10;example.com&#10;app.example.com"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-4 py-3 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500/50 resize-none"></textarea>
+                        <p class="text-[11px] text-dark-500 mt-1.5">One per line. Type (IPv4 / Domain / FQDN) is auto-detected. Supports CIDR (<span class="mono text-dark-300">10.0.0.0/24</span>) and hyphen ranges (<span class="mono text-dark-300">192.168.1.10-50</span>, <span class="mono text-dark-300">10.0.0.1-10.0.0.50</span>) — both expand to per-IP rows. Lines starting with <span class="mono">#</span> are ignored.</p>
+
+                        <label class="block text-[11px] uppercase tracking-wider text-dark-500 mt-4 mb-1.5">URLs <span class="text-dark-600 normal-case lowercase">— optional</span></label>
+                        <textarea name="urls" rows="4" placeholder="https://app.example.com/&#10;http://10.0.0.5:8080/admin&#10;https://api.example.com/v1/login"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-4 py-3 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500/50 resize-none"></textarea>
+                        <p class="text-[11px] text-dark-500 mt-1.5">One URL per line. Scheme + path are preserved exactly — URLs are NOT expanded or canonicalised. Bare hosts pasted here get <span class="mono">http://</span> prepended automatically.</p>
+                    </div>
+
+                    <!-- File Input -->
+                    <div id="bulkFile" class="hidden">
+                        <label class="flex flex-col items-center justify-center w-full h-32 bg-dark-850 border-2 border-dashed border-dark-700 rounded-lg cursor-pointer hover:border-accent-500/50 transition-colors">
+                            <div class="flex flex-col items-center text-dark-500">
+                                <svg class="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                                </svg>
+                                <p class="text-xs">Click to upload or drag and drop</p>
+                                <p class="text-[10px] text-dark-600 mt-0.5">.txt, .csv — one target per line (auto-classified)</p>
+                            </div>
+                            <input type="file" name="file" accept=".txt,.csv,.lst" class="hidden" onchange="this.parentElement.querySelector('p').textContent = this.files[0].name">
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Categories — a target may be filed under SEVERAL. Tick
+                     any existing categories and/or create a new one inline.
+                     Leave all unticked for uncategorized. Handler:
+                     resolveListIDs reads list_ids[] + new_list_name. -->
+                <div>
+                    <label class="block text-sm text-dark-300 mb-1.5">Categories <span class="text-dark-500 text-[11px]">(a target can be in several — optional)</span></label>
+                    {{if .TargetLists}}
+                    <div class="flex flex-wrap gap-2 mb-2 max-h-32 overflow-auto">
+                        {{range .TargetLists}}
+                        <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-dark-850 border border-dark-700 text-xs text-dark-200 cursor-pointer hover:border-accent-500/50">
+                            <input type="checkbox" name="list_ids" value="{{.ID}}" {{if eq $.FilterList .ID}}checked{{end}} class="rounded border-dark-600 bg-dark-800 text-accent-500">
+                            {{.Name}}
+                        </label>
+                        {{end}}
+                    </div>
+                    {{end}}
+                    <input type="text" name="new_list_name" placeholder="+ new category (optional)"
+                           class="w-full bg-dark-850 border border-dark-700 rounded-lg px-4 py-2 text-sm text-white placeholder-dark-500 focus:outline-none focus:border-accent-500">
+                </div>
+
+                <!-- Note -->
+                <div>
+                    <label class="block text-sm text-dark-300 mb-1.5">Note</label>
+                    <input type="text" name="note" placeholder="Optional note for all imported targets..."
+                           class="w-full bg-dark-850 border border-dark-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-dark-500 focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500/50">
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-6">
+                <button type="button" onclick="document.getElementById('bulkImportModal').classList.add('hidden')"
+                        class="px-4 py-2.5 text-sm text-dark-400 hover:text-white bg-dark-850 border border-dark-700 rounded-lg transition-colors">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="px-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors">
+                    Import Targets
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Standalone "+ New List" modal — created from the chip strip. -->
+<div id="newListModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="document.getElementById('newListModal').classList.add('hidden')"></div>
+    <div class="relative bg-dark-900 border border-dark-800 rounded-xl w-full max-w-md mx-4 p-6 shadow-2xl">
+        <div class="flex items-center justify-between mb-5">
+            <h3 class="text-lg font-semibold text-white">New Target List</h3>
+            <button onclick="document.getElementById('newListModal').classList.add('hidden')" class="text-dark-500 hover:text-white"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+        </div>
+        <form action="/targets/lists/create" method="POST">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-dark-300 mb-1.5">List Name <span class="text-danger">*</span></label>
+                    <input type="text" name="name" required placeholder="e.g. Company A — provided"
+                           class="w-full bg-dark-850 border border-dark-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-dark-500 focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500/50">
+                </div>
+                <div>
+                    <label class="block text-sm text-dark-300 mb-1.5">Description</label>
+                    <textarea name="description" rows="2" placeholder="Optional description"
+                              class="w-full bg-dark-850 border border-dark-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-dark-500 focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500/50 resize-none"></textarea>
+                </div>
+                <!-- Add EXISTING targets to this new category (the operator's
+                     stated goal: categorize targets already in the system).
+                     Uses the shared grouped picker: existing targets grouped by
+                     their current list + split into https/http, each with a
+                     one-click select-all, so whole categories / all-https /
+                     all-http file in at once. Posts target_ids=<target ID>. -->
+                {{if .WSTargetGroups}}
+                {{template "workspace_targets" (dict "WSTargetGroups" .WSTargetGroups "WSPickerInputName" "target_ids" "WSPickerValueField" "id" "WSPickerLabel" "Add existing targets (optional)")}}
+                {{end}}
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button type="button" onclick="document.getElementById('newListModal').classList.add('hidden')"
+                        class="px-4 py-2.5 text-sm text-dark-400 hover:text-white bg-dark-850 border border-dark-700 rounded-lg">Cancel</button>
+                <button type="submit" class="px-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg">Create List</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Per-target "Manage categories" modal — populated by openCategoryEditor(). -->
+<div id="categoryEditorModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="document.getElementById('categoryEditorModal').classList.add('hidden')"></div>
+    <div class="relative bg-dark-900 border border-dark-800 rounded-xl w-full max-w-md mx-4 p-6 shadow-2xl">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-white">Categories — <span id="catEditorTarget" class="mono text-sm text-accent-400"></span></h3>
+            <button onclick="document.getElementById('categoryEditorModal').classList.add('hidden')" class="text-dark-500 hover:text-white"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+        </div>
+        <form action="/targets/categories" method="POST">
+            <input type="hidden" name="target_id" id="catEditorTargetId">
+            <p class="text-[11px] text-dark-500 mb-2">Tick every category this target belongs to. Unticking removes it from that category (the target itself is not deleted).</p>
+            {{if .TargetLists}}
+            <div class="flex flex-wrap gap-2 mb-3 max-h-40 overflow-auto">
+                {{range .TargetLists}}
+                <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-dark-850 border border-dark-700 text-xs text-dark-200 cursor-pointer hover:border-accent-500/50">
+                    <input type="checkbox" name="list_ids" value="{{.ID}}" data-cat-id="{{.ID}}" class="cat-editor-box rounded border-dark-600 bg-dark-800 text-accent-500">
+                    {{.Name}}
+                </label>
+                {{end}}
+            </div>
+            {{else}}
+            <p class="text-xs text-dark-500 mb-3">No categories yet — create one below.</p>
+            {{end}}
+            <input type="text" name="new_list_name" placeholder="+ new category (optional)"
+                   class="w-full bg-dark-850 border border-dark-700 rounded-lg px-4 py-2 text-sm text-white placeholder-dark-500 focus:outline-none focus:border-accent-500 mb-4">
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('categoryEditorModal').classList.add('hidden')"
+                        class="px-4 py-2 text-sm text-dark-400 hover:text-white bg-dark-850 border border-dark-700 rounded-lg">Cancel</button>
+                <button type="submit" class="px-5 py-2 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Open the per-target category editor, pre-ticking the target's current
+// categories (read from the row's data attributes — no inline escaping).
+function openCategoryEditor(btn) {
+    var row = btn.closest('tr');
+    if (!row) return;
+    document.getElementById('catEditorTargetId').value = row.dataset.tid || '';
+    document.getElementById('catEditorTarget').textContent = row.dataset.value || '';
+    var set = {};
+    (row.dataset.categories || '').trim().split(/\s+/).forEach(function(id) { if (id) set[id] = true; });
+    document.querySelectorAll('#categoryEditorModal .cat-editor-box').forEach(function(cb) {
+        cb.checked = !!set[cb.getAttribute('data-cat-id')];
+    });
+    var nn = document.querySelector('#categoryEditorModal input[name=new_list_name]');
+    if (nn) nn.value = '';
+    document.getElementById('categoryEditorModal').classList.remove('hidden');
+}
+// Filter the "add existing targets" picker inside the New List modal.
+function filterNewListTargets(q) {
+    q = (q || '').toLowerCase();
+    document.querySelectorAll('#newListTargetPicker [data-tval]').forEach(function(el) {
+        var v = (el.getAttribute('data-tval') || '').toLowerCase();
+        el.style.display = (!q || v.indexOf(q) !== -1) ? '' : 'none';
+    });
+}
+</script>
+
+<script>
+function switchBulkTab(tab) {
+    var textDiv = document.getElementById('bulkText');
+    var fileDiv = document.getElementById('bulkFile');
+    var tabTextBtn = document.getElementById('tabText');
+    var tabFileBtn = document.getElementById('tabFile');
+    if (tab === 'text') {
+        textDiv.classList.remove('hidden');
+        fileDiv.classList.add('hidden');
+        tabTextBtn.className = 'px-3 py-1.5 text-xs rounded-md text-white bg-accent-600 transition-colors';
+        tabFileBtn.className = 'px-3 py-1.5 text-xs rounded-md text-dark-400 hover:text-white transition-colors';
+    } else {
+        textDiv.classList.add('hidden');
+        fileDiv.classList.remove('hidden');
+        tabFileBtn.className = 'px-3 py-1.5 text-xs rounded-md text-white bg-accent-600 transition-colors';
+        tabTextBtn.className = 'px-3 py-1.5 text-xs rounded-md text-dark-400 hover:text-white transition-colors';
+    }
+}
+
+// updateBulkHint was removed when the type radio buttons were replaced
+// by auto-classification. The hint text under the textarea is now
+// static (covers IPv4 + Domain + FQDN at once).
+
+function updatePlaceholder(radio) {
+    var input = document.getElementById('targetInput');
+    var hint = document.getElementById('targetHint');
+    switch(radio.value) {
+        case 'ipv4':
+            input.placeholder = '192.168.1.1 or 192.168.1.0/24';
+            hint.textContent = 'Enter an IPv4 address or CIDR block (e.g. 10.0.0.0/24). CIDR blocks are expanded to individual IPs.';
+            break;
+        case 'domain':
+            input.placeholder = 'example.com';
+            hint.textContent = 'Enter a domain name (e.g. example.com)';
+            break;
+        case 'fqdn':
+            input.placeholder = 'www.example.com';
+            hint.textContent = 'Enter a fully qualified domain name (e.g. mail.example.com)';
+            break;
+    }
+}
+</script>
+{{end}}

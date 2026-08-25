@@ -1,0 +1,316 @@
+{{define "page_portservice_host"}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="/modules/portservice" class="hover:text-accent-400 transition-colors">Advanced Host Scanner</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="/modules/portservice/results/{{.Scan.ID}}" class="hover:text-accent-400 transition-colors mono text-xs">Scan #{{.Scan.ID | printf "%.8s"}}</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200 mono">{{if .Host.IP}}{{.Host.IP}}{{else}}{{.Host.Target}}{{end}}</span>
+</div>
+
+<!-- Hero card: IP / hostname / state / quick stats -->
+<div class="bg-gradient-to-br from-accent-600/10 via-dark-900 to-dark-900 border border-accent-500/30 rounded-xl p-6 mb-6">
+    <div class="flex items-start justify-between mb-4 gap-4 flex-wrap">
+        <div class="flex items-start gap-4">
+            <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-accent-500/30 to-accent-700/20 border border-accent-500/30 flex items-center justify-center shrink-0">
+                <svg class="w-7 h-7 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 12V7a2 2 0 012-2h10a2 2 0 012 2v5M5 12v5a2 2 0 002 2h10a2 2 0 002-2v-5M5 12h14M9 17h6"/></svg>
+            </div>
+            <div class="min-w-0">
+                <h2 class="text-2xl font-bold text-white mono break-all">{{if .Host.IP}}{{.Host.IP}}{{else}}{{.Host.Target}}{{end}}</h2>
+                <div class="flex flex-wrap items-center gap-2 mt-1.5">
+                    {{if .Host.Host}}<span class="mono text-sm text-dark-300">{{.Host.Host}}</span>{{end}}
+                    {{if .Host.SuspectedFirewall}}
+                    <span class="text-[10px] uppercase tracking-wider text-warning bg-warning/10 border border-warning/30 px-2 py-0.5 rounded">Potential Firewall</span>
+                    {{else if not .Host.HostUp}}
+                    <span class="text-[10px] uppercase tracking-wider text-danger bg-danger/10 border border-danger/30 px-2 py-0.5 rounded">Down</span>
+                    {{else if .Host.IcmpFiltered}}
+                    <span class="text-[10px] uppercase tracking-wider text-warning bg-warning/10 border border-warning/30 px-2 py-0.5 rounded">ICMP Filtered</span>
+                    {{else}}
+                    <span class="text-[10px] uppercase tracking-wider text-success bg-success/10 border border-success/30 px-2 py-0.5 rounded">Up</span>
+                    {{end}}
+                    {{if .Host.PingReachable}}<span class="text-[10px] text-dark-500">ping ✓</span>{{end}}
+                </div>
+                {{if .Host.SuspectedFirewall}}
+                <p class="text-xs text-warning mt-2">⚠ {{.Host.FirewalledCount}}+ ports reflected as open by phase-1 — only common ports were deep-scanned.</p>
+                {{end}}
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <a href="/modules/portservice/results/{{.Scan.ID}}" class="flex items-center gap-1.5 px-3 py-2 text-xs text-dark-300 hover:text-white bg-dark-850 border border-dark-700 hover:border-accent-500/50 rounded-lg transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                Back to scan
+            </a>
+        </div>
+    </div>
+
+    <!-- Quick stats -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div class="bg-dark-900/60 border border-dark-800 rounded-lg p-3">
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1">Open Ports</p>
+            <p class="text-2xl font-bold {{if .Host.OpenCount}}text-accent-400{{else}}text-dark-600{{end}}">{{.Host.OpenCount}}</p>
+        </div>
+        <div class="bg-dark-900/60 border border-dark-800 rounded-lg p-3">
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1">Critical</p>
+            <p class="text-2xl font-bold {{if index .SevCount "critical"}}text-red-400{{else}}text-dark-600{{end}}">{{if index .SevCount "critical"}}{{index .SevCount "critical"}}{{else}}0{{end}}</p>
+        </div>
+        <div class="bg-dark-900/60 border border-dark-800 rounded-lg p-3">
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1">High</p>
+            <p class="text-2xl font-bold {{if index .SevCount "high"}}text-orange-400{{else}}text-dark-600{{end}}">{{if index .SevCount "high"}}{{index .SevCount "high"}}{{else}}0{{end}}</p>
+        </div>
+        <div class="bg-dark-900/60 border border-dark-800 rounded-lg p-3">
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1">Medium</p>
+            <p class="text-2xl font-bold {{if index .SevCount "medium"}}text-warning{{else}}text-dark-600{{end}}">{{if index .SevCount "medium"}}{{index .SevCount "medium"}}{{else}}0{{end}}</p>
+        </div>
+        <div class="bg-dark-900/60 border border-dark-800 rounded-lg p-3">
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1">Low / Info</p>
+            <p class="text-2xl font-bold text-dark-200">{{if index .SevCount "low"}}{{index .SevCount "low"}}{{else}}0{{end}} / {{if index .SevCount "info"}}{{index .SevCount "info"}}{{else}}0{{end}}</p>
+        </div>
+    </div>
+</div>
+
+<!-- Tab strip — Services / Vulnerabilities -->
+<div class="flex items-center gap-1 mb-4 border-b border-dark-800">
+    <button type="button" id="tabSvcsBtn" onclick="showHostTab('svcs')" class="ph-tab px-4 py-2.5 text-sm font-medium text-accent-400 border-b-2 border-accent-500 transition-colors">
+        Services <span class="text-[10px] mono text-dark-500">{{.Host.OpenCount}}</span>
+    </button>
+    <button type="button" id="tabVulnsBtn" onclick="showHostTab('vulns')" class="ph-tab px-4 py-2.5 text-sm font-medium text-dark-400 hover:text-white border-b-2 border-transparent transition-colors">
+        Vulnerabilities <span class="text-[10px] mono text-dark-500">{{len .Host.NucleiFindings}}</span>
+    </button>
+</div>
+
+<!-- Services tab — Shodan-style banner cards, one per open port. -->
+<div id="tabSvcs">
+    {{if .Host.Ports}}
+    <div class="space-y-4">
+        {{range .Host.Ports}}{{if eq .State "open"}}
+        <div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+            <!-- Service header -->
+            <div class="px-5 py-4 bg-dark-850 border-b border-dark-800 flex flex-wrap items-center gap-3">
+                <span class="mono text-base font-bold text-success bg-success/10 border border-success/30 px-3 py-1 rounded">{{.Port}}/{{.Protocol}}</span>
+                {{if .Service}}<span class="text-base font-semibold text-white">{{.Service}}</span>{{end}}
+                {{if .Tunnel}}<span class="text-[10px] uppercase tracking-wider text-accent-300 bg-accent-600/15 border border-accent-500/30 px-2 py-0.5 rounded">{{.Tunnel}}</span>{{end}}
+                <span class="ml-auto text-[11px] text-dark-500">
+                    {{if .Scripts}}{{len .Scripts}} script{{if ne (len .Scripts) 1}}s{{end}}{{end}}
+                </span>
+            </div>
+
+            <!-- Banner — full version detection output, displayed as a key/value grid. -->
+            {{if or .Product .Version .ExtraInfo}}
+            <div class="px-5 py-3 grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-2 border-b border-dark-800 bg-dark-900">
+                {{if .Product}}
+                <div>
+                    <p class="text-[10px] uppercase tracking-wider text-dark-500">Product</p>
+                    <p class="mono text-xs text-dark-100">{{.Product}}</p>
+                </div>
+                {{end}}
+                {{if .Version}}
+                <div>
+                    <p class="text-[10px] uppercase tracking-wider text-dark-500">Version</p>
+                    <p class="mono text-xs text-dark-100">{{.Version}}</p>
+                </div>
+                {{end}}
+                {{if .ExtraInfo}}
+                <div class="md:col-span-3">
+                    <p class="text-[10px] uppercase tracking-wider text-dark-500">Extra Info</p>
+                    <p class="mono text-xs text-dark-200">{{.ExtraInfo}}</p>
+                </div>
+                {{end}}
+            </div>
+            {{end}}
+
+            <!-- HTTP Response — captured by direct GET / probe. Shodan-style. -->
+            {{if .HTTPResp}}
+            <div class="px-5 py-4 border-b border-dark-800 bg-dark-900 space-y-3">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="text-[10px] uppercase tracking-wider text-accent-400 font-bold">HTTP Response</span>
+                    <code class="mono text-[11px] text-dark-300">{{.HTTPResp.URL}}</code>
+                </div>
+                {{if .HTTPResp.Error}}
+                <p class="text-[11px] text-danger">⚠ {{.HTTPResp.Error}}</p>
+                {{else}}
+                <div class="flex flex-wrap items-center gap-3">
+                    <span class="mono text-xs px-2 py-1 rounded border
+                        {{if and (ge .HTTPResp.Status 200) (lt .HTTPResp.Status 300)}}text-success bg-success/10 border-success/30
+                        {{else if and (ge .HTTPResp.Status 300) (lt .HTTPResp.Status 400)}}text-accent-400 bg-accent-600/10 border-accent-500/30
+                        {{else if and (ge .HTTPResp.Status 400) (lt .HTTPResp.Status 500)}}text-warning bg-warning/10 border-warning/30
+                        {{else}}text-danger bg-danger/10 border-danger/30{{end}}">{{.HTTPResp.Status}} {{.HTTPResp.StatusText}}</span>
+                    {{if .HTTPResp.Server}}<span class="text-[11px] text-dark-300">Server: <span class="mono text-dark-100">{{.HTTPResp.Server}}</span></span>{{end}}
+                    {{if .HTTPResp.ContentType}}<span class="text-[11px] text-dark-300">Content-Type: <span class="mono text-dark-100">{{.HTTPResp.ContentType}}</span></span>{{end}}
+                    {{if .HTTPResp.BodyLength}}<span class="text-[11px] text-dark-500">{{.HTTPResp.BodyLength}} bytes</span>{{end}}
+                </div>
+                {{if .HTTPResp.Title}}
+                <p class="text-sm text-dark-100"><span class="text-[10px] text-dark-500 uppercase mr-2">Title</span>{{.HTTPResp.Title}}</p>
+                {{end}}
+                {{if .HTTPResp.RedirectedTo}}
+                <p class="text-[11px] text-dark-300"><span class="text-dark-500 uppercase mr-1">Redirects →</span><a href="{{.HTTPResp.RedirectedTo}}" target="_blank" rel="noopener" class="mono text-accent-400 hover:text-accent-300 break-all">{{.HTTPResp.RedirectedTo}}</a></p>
+                {{end}}
+                {{if .HTTPResp.Headers}}
+                <details>
+                    <summary class="cursor-pointer text-[10px] uppercase tracking-wider text-dark-400 hover:text-white">Response headers <span class="text-dark-500">({{len .HTTPResp.Headers}})</span></summary>
+                    <pre class="mt-2 mono text-[11px] text-dark-200 bg-dark-950 border border-dark-800 px-3 py-2 rounded-lg whitespace-pre-wrap max-h-72 overflow-auto" style="overflow-wrap:anywhere">HTTP/1.1 {{.HTTPResp.Status}} {{.HTTPResp.StatusText}}
+{{range .HTTPResp.Headers}}{{.Name}}: {{.Value}}
+{{end}}</pre>
+                </details>
+                {{end}}
+                {{if .HTTPResp.BodyPreview}}
+                <details>
+                    <summary class="cursor-pointer text-[10px] uppercase tracking-wider text-dark-400 hover:text-white">Body preview <span class="text-dark-500">(first {{len .HTTPResp.BodyPreview}} bytes)</span></summary>
+                    <pre class="mt-2 mono text-[11px] text-dark-200 bg-dark-950 border border-dark-800 px-3 py-2 rounded-lg whitespace-pre-wrap max-h-72 overflow-auto" style="overflow-wrap:anywhere">{{.HTTPResp.BodyPreview}}</pre>
+                </details>
+                {{end}}
+                {{end}}
+            </div>
+            {{end}}
+
+            <!-- Raw TCP banner (non-HTTP services) -->
+            {{if .Banner}}
+            <div class="px-5 py-3 border-b border-dark-800 bg-dark-900">
+                <p class="text-[10px] uppercase tracking-wider text-accent-400 font-bold mb-1">Banner</p>
+                <pre class="mono text-[11px] text-dark-100 bg-dark-950 border border-dark-800 px-3 py-2 rounded-lg whitespace-pre-wrap max-h-48 overflow-auto" style="overflow-wrap:anywhere">{{.Banner}}</pre>
+            </div>
+            {{end}}
+
+            <!-- All NSE script outputs for this port. Each script is an
+                 expandable details block showing the raw nmap output. -->
+            {{if .Scripts}}
+            <div class="divide-y divide-dark-800">
+                {{range .Scripts}}
+                <details {{if hasVulnHint .Output}}open{{end}}>
+                    <summary class="px-5 py-2.5 cursor-pointer hover:bg-dark-850/40 flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5 text-dark-500 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        <span class="mono text-xs text-accent-400 font-medium">{{.ID}}</span>
+                        {{if hasVulnHint .Output}}<span class="text-[10px] uppercase text-danger bg-danger/15 border border-danger/30 px-1.5 py-0.5 rounded ml-auto">vuln</span>{{end}}
+                    </summary>
+                    <pre class="mono text-[11px] text-dark-200 bg-dark-950 px-5 py-3 whitespace-pre-wrap border-t border-dark-800 max-h-[28rem] overflow-auto" style="overflow-wrap:anywhere">{{.Output}}</pre>
+                </details>
+                {{end}}
+            </div>
+            {{else if not (or .HTTPResp .Banner)}}
+            <div class="px-5 py-3 text-[11px] text-dark-500 italic">No NSE script output, banner, or HTTP response captured for this port.</div>
+            {{end}}
+        </div>
+        {{end}}{{end}}
+    </div>
+    {{else}}
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
+        <p class="text-sm">No open ports captured for this host.</p>
+    </div>
+    {{end}}
+</div>
+
+<!-- Vulnerabilities tab — full nuclei findings with curl, references, etc. -->
+<div id="tabVulns" class="hidden">
+    {{if .Host.NucleiFindings}}
+    <div class="space-y-4">
+        {{range .Host.NucleiFindings}}
+        <div class="bg-dark-900 border {{if eq .Severity "critical"}}border-red-500/40{{else if eq .Severity "high"}}border-orange-500/40{{else if eq .Severity "medium"}}border-warning/40{{else if eq .Severity "low"}}border-accent-500/30{{else}}border-dark-700{{end}} rounded-xl overflow-hidden">
+            <div class="px-5 py-4 flex flex-wrap items-start gap-3 border-b border-dark-800
+                {{if eq .Severity "critical"}}bg-red-500/5
+                {{else if eq .Severity "high"}}bg-orange-500/5
+                {{else if eq .Severity "medium"}}bg-warning/5
+                {{else}}bg-dark-850{{end}}">
+                <span class="mono text-[10px] uppercase font-bold px-2 py-0.5 rounded
+                    {{if eq .Severity "critical"}}text-red-400 bg-red-500/15
+                    {{else if eq .Severity "high"}}text-orange-400 bg-orange-500/15
+                    {{else if eq .Severity "medium"}}text-warning bg-warning/15
+                    {{else if eq .Severity "low"}}text-accent-400 bg-accent-600/15
+                    {{else}}text-dark-400 bg-dark-800{{end}}">{{.Severity}}</span>
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-sm font-semibold text-white">{{.Name}}</h3>
+                    <p class="mono text-[10px] text-dark-500 mt-0.5">{{.TemplateID}}{{if .Type}} · {{.Type}}{{end}}</p>
+                </div>
+            </div>
+            <div class="px-5 py-3 space-y-3">
+                <div>
+                    <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-0.5">Matched at</p>
+                    <a href="{{.MatchedAt}}" target="_blank" rel="noopener" class="mono text-[11px] text-accent-400 hover:text-accent-300 break-all">{{.MatchedAt}}</a>
+                </div>
+                {{if .Description}}
+                <div>
+                    <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-0.5">Description</p>
+                    <p class="text-xs text-dark-200">{{.Description}}</p>
+                </div>
+                {{end}}
+                {{if .CVEs}}
+                <div>
+                    <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-1">CVEs</p>
+                    <div class="flex flex-wrap gap-1">
+                        {{range .CVEs}}
+                        <a href="https://nvd.nist.gov/vuln/detail/{{.}}" target="_blank" rel="noopener" class="mono text-[11px] text-danger bg-danger/10 border border-danger/20 hover:border-danger px-2 py-0.5 rounded">{{.}}</a>
+                        {{end}}
+                    </div>
+                </div>
+                {{end}}
+                {{if .CWEs}}
+                <div>
+                    <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-1">CWEs</p>
+                    <div class="flex flex-wrap gap-1">{{range .CWEs}}<span class="mono text-[11px] text-warning bg-warning/10 border border-warning/20 px-2 py-0.5 rounded">{{.}}</span>{{end}}</div>
+                </div>
+                {{end}}
+                {{if .Tags}}
+                <div>
+                    <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-1">Tags</p>
+                    <div class="flex flex-wrap gap-1">{{range .Tags}}<span class="text-[11px] text-dark-300 bg-dark-800 border border-dark-700 px-2 py-0.5 rounded">{{.}}</span>{{end}}</div>
+                </div>
+                {{end}}
+                {{if .Extracted}}
+                <div>
+                    <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-1">Extracted</p>
+                    <div class="bg-dark-950 border border-dark-800 rounded-lg p-3 space-y-1">
+                        {{range .Extracted}}<p class="mono text-[11px] text-dark-200 break-all">{{.}}</p>{{end}}
+                    </div>
+                </div>
+                {{end}}
+                {{if .References}}
+                <div>
+                    <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-1">References</p>
+                    <ul class="space-y-1">
+                        {{range .References}}<li><a href="{{.}}" target="_blank" rel="noopener" class="mono text-[11px] text-accent-400 hover:text-accent-300 break-all">{{.}}</a></li>{{end}}
+                    </ul>
+                </div>
+                {{end}}
+                {{if .CurlCommand}}
+                <details>
+                    <summary class="cursor-pointer text-[10px] uppercase tracking-wider text-dark-500 hover:text-white">Reproduce — curl command</summary>
+                    <pre class="mono text-[11px] text-dark-200 bg-dark-950 border border-dark-800 rounded-lg p-3 mt-2 whitespace-pre-wrap" style="overflow-wrap:anywhere">{{.CurlCommand}}</pre>
+                </details>
+                {{end}}
+            </div>
+        </div>
+        {{end}}
+    </div>
+    {{else}}
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
+        <p class="text-sm">No vulnerabilities reported by Nuclei.</p>
+        <p class="text-[11px] text-dark-600 mt-1">Nuclei only runs against open HTTP/HTTPS services. Non-web ports show only nmap script output.</p>
+    </div>
+    {{end}}
+</div>
+
+<script>
+function showHostTab(name) {
+    var svcs = document.getElementById('tabSvcs');
+    var vulns = document.getElementById('tabVulns');
+    var btnS = document.getElementById('tabSvcsBtn');
+    var btnV = document.getElementById('tabVulnsBtn');
+    if (name === 'vulns') {
+        svcs.classList.add('hidden'); vulns.classList.remove('hidden');
+        btnV.classList.remove('text-dark-400','border-transparent'); btnV.classList.add('text-accent-400','border-accent-500');
+        btnS.classList.remove('text-accent-400','border-accent-500'); btnS.classList.add('text-dark-400','border-transparent');
+    } else {
+        vulns.classList.add('hidden'); svcs.classList.remove('hidden');
+        btnS.classList.remove('text-dark-400','border-transparent'); btnS.classList.add('text-accent-400','border-accent-500');
+        btnV.classList.remove('text-accent-400','border-accent-500'); btnV.classList.add('text-dark-400','border-transparent');
+    }
+}
+// Read ?tab=vulns from the URL on first load — used by the "Full Details"
+// button on the results page so users land directly on the vuln tab.
+(function() {
+    try {
+        var p = new URLSearchParams(window.location.search);
+        if (p.get('tab') === 'vulns') showHostTab('vulns');
+    } catch (e) {}
+})();
+</script>
+{{end}}

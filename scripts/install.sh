@@ -885,13 +885,15 @@ else
     warn "Stop it first, or the new service will crash-loop failing to bind the port."
   fi
 
-  DO_ENABLE=0
+  DO_ENABLE=1
   if [ "$ASSUME_YES" -eq 1 ]; then
     DO_ENABLE=1
   else
-    printf 'Enable and start scanner.service now? [y/N] '
-    read -r ans </dev/tty || ans="n"
-    case "${ans:-n}" in [Yy]*) DO_ENABLE=1 ;; esac
+    # Default YES — anyone running the installer almost certainly wants the
+    # service up; Enter enables it, only an explicit 'n' skips.
+    printf 'Enable and start scanner.service now? [Y/n] '
+    read -r ans </dev/tty || ans="y"
+    case "${ans:-y}" in [Nn]*) DO_ENABLE=0 ;; esac
   fi
 
   if [ "$DO_ENABLE" -eq 1 ]; then

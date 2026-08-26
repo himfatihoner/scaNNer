@@ -1,24 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#3b82f6"/>
-      <stop offset="1" stop-color="#1e40af"/>
-    </linearGradient>
-    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/>
-      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
-    </linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.85" y2="1"><stop offset="0" stop-color="#1d4ed8"/><stop offset="1" stop-color="#0a1e4e"/></linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/><stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+    <linearGradient id="apL" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a8d6ff"/><stop offset="1" stop-color="#3f8fe8"/></linearGradient>
+    <linearGradient id="apD" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f8ee0"/><stop offset="1" stop-color="#1e4da0"/></linearGradient>
   </defs>
-  <!-- rounded-square badge -->
   <rect x="2" y="2" width="60" height="60" rx="15" fill="url(#bg)"/>
   <rect x="2" y="2" width="60" height="60" rx="15" fill="url(#gloss)"/>
-  <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="14.25" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="1.5"/>
-  <!-- scan beam + blip (the "scan" in scaNNer) -->
-  <line x1="9" y1="40" x2="52" y2="40" stroke="#22d3ee" stroke-width="2.4" stroke-linecap="round"/>
-  <circle cx="52" cy="40" r="2.8" fill="#67e8f9"/>
-  <!-- NN monogram -->
-  <g stroke="#ffffff" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M17 44 V20 L30 44 V20"/>
-    <path d="M34 44 V20 L47 44 V20"/>
-  </g>
+  <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="14.25" fill="none" stroke="#ffffff" stroke-opacity="0.14" stroke-width="1.4"/>
+  <path d="M 32.00 13.50 L 15.98 22.75 L 28.03 25.64 L 35.52 25.38 Z" fill="url(#apD)" stroke="#0a1330" stroke-width="0.9" stroke-linejoin="round"/>
+  <path d="M 15.98 22.75 L 15.98 41.25 L 24.50 32.26 L 28.03 25.64 Z" fill="url(#apL)" stroke="#0a1330" stroke-width="0.9" stroke-linejoin="round"/>
+  <path d="M 15.98 41.25 L 32.00 50.50 L 28.48 38.62 L 24.50 32.26 Z" fill="url(#apD)" stroke="#0a1330" stroke-width="0.9" stroke-linejoin="round"/>
+  <path d="M 32.00 50.50 L 48.02 41.25 L 35.97 38.36 L 28.48 38.62 Z" fill="url(#apL)" stroke="#0a1330" stroke-width="0.9" stroke-linejoin="round"/>
+  <path d="M 48.02 41.25 L 48.02 22.75 L 39.50 31.74 L 35.97 38.36 Z" fill="url(#apD)" stroke="#0a1330" stroke-width="0.9" stroke-linejoin="round"/>
+  <path d="M 48.02 22.75 L 32.00 13.50 L 35.52 25.38 L 39.50 31.74 Z" fill="url(#apL)" stroke="#0a1330" stroke-width="0.9" stroke-linejoin="round"/>
+  <polygon points="35.38 25.64 28.18 25.89 24.80 32.25 28.62 38.36 35.82 38.11 39.20 31.75" fill="#0a1330"/>
+  <circle cx="35.03" cy="24.49" r="1.5" fill="#8ff0ff"/>
 </svg>

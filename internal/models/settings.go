@@ -95,6 +95,12 @@ type AppSettings struct {
 	// TwoFactorAvailable exposes the "e-mail code" 2FA option to users. It is
 	// only meaningful once SMTP is configured; TOTP is always available.
 	TwoFactorAvailable bool `db:"two_factor_available" json:"two_factor_available"`
+
+	// NTPServer, when set, is queried periodically to correct TOTP verification
+	// time against host-clock drift (the system clock is never modified). Empty
+	// = trust the local clock. TOTP only tolerates ~90s of skew, so a drifting
+	// server clock silently breaks authenticator logins without this.
+	NTPServer string `db:"ntp_server" json:"ntp_server,omitempty"`
 }
 
 // EffectiveSMTPPort returns the SMTP port, defaulting by TLS mode when unset.

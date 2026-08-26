@@ -1084,6 +1084,8 @@ func (h *Handler) Settings(w http.ResponseWriter, r *http.Request) {
 	data["VacuumResult"] = r.URL.Query().Get("vacuum")
 	// Network Tuning panel: current sysctls vs recommended + helper availability.
 	data["NetTune"] = netTuneData(r)
+	// Server Clock panel (TOTP time / NTP offset).
+	data["NTP"] = ntpData()
 	h.render(w, "layout", data)
 }
 
@@ -1253,8 +1255,12 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 		SMTPTLSMode:          smtpTLSMode(r.FormValue("smtp_tls_mode")),
 		SMTPPassword:         smtpPass,
 		TwoFactorAvailable:   r.FormValue("two_factor_available") == "on",
+		NTPServer:            strings.TrimSpace(r.FormValue("ntp_server")),
 	}
 	h.db.SaveSettings(s)
+	// Re-measure the TOTP clock offset against the (possibly new) NTP server.
+	// Async — an unreachable server must not block saving the rest of settings.
+	go h.refreshNTP()
 	// Apply the CPU budget to the capacity governor immediately (no restart).
 	capacity.SetCPUBudget(float64(s.EffectiveMaxCPUPercent()) / 100)
 

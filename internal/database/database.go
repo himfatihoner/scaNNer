@@ -2397,6 +2397,7 @@ func (d *DB) GetSettings() models.AppSettings {
 		s.SMTPTLSMode = v
 	}
 	s.TwoFactorAvailable = d.GetSetting("two_factor_available") == "1"
+	s.NTPServer = d.GetSetting("ntp_server")
 	return s
 }
 
@@ -2459,6 +2460,7 @@ func (d *DB) SaveSettings(s models.AppSettings) {
 		twoFactorAvail = "1"
 	}
 	d.SetSetting("two_factor_available", twoFactorAvail)
+	d.SetSetting("ntp_server", s.NTPServer)
 }
 
 // HasRunningScans checks if any scan is currently running (for settings lock)

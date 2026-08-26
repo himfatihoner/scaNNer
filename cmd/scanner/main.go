@@ -245,6 +245,7 @@ func main() {
 	// the manual refresh button so it never preempts an operator-
 	// triggered sync.
 	h.StartCVEAutoRefresh()
+	h.StartNTPRefresh() // measure the TOTP clock offset against the configured NTP server
 
 	// Connectivity monitor (Task 0b/0c): pauses running scans on internet loss
 	// (preserving partial results) and auto-resumes them when it's back. Also
@@ -388,6 +389,7 @@ func main() {
 	http.HandleFunc("/settings/vacuum", h.SettingsVacuum)
 	http.HandleFunc("/settings/api", h.SettingsAPI)
 	http.HandleFunc("/settings/smtp-test", h.SMTPTest)
+	http.HandleFunc("/settings/ntp-check", h.SettingsNTPCheck)
 
 	// Authentication / account (login, 2FA, logout, self-service account).
 	http.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {

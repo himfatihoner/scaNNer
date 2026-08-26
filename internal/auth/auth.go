@@ -27,6 +27,7 @@ import (
 	"math/big"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -176,9 +177,22 @@ func totpAt(secretB32 string, counter uint64) (string, error) {
 	return fmt.Sprintf("%0*d", totpDigits, code), nil
 }
 
-// currentCounter is the TOTP step counter for the current wall-clock time.
+// clockOffsetNS is an optional correction (nanoseconds) added to the local
+// clock when computing TOTP steps. It is set from an NTP check so 2FA keeps
+// working even if the HOST clock drifts — the system clock itself is never
+// touched (that needs root and would fight the OS time daemon). 0 = local time.
+var clockOffsetNS atomic.Int64
+
+// SetClockOffset records the measured (ntp - local) offset used for TOTP.
+func SetClockOffset(d time.Duration) { clockOffsetNS.Store(int64(d)) }
+
+// ClockOffset returns the current TOTP time correction (0 when unset).
+func ClockOffset() time.Duration { return time.Duration(clockOffsetNS.Load()) }
+
+// currentCounter is the TOTP step counter for the current (offset-corrected)
+// wall-clock time.
 func currentCounter() uint64 {
-	return uint64(time.Now().Unix() / totpPeriod)
+	return uint64(time.Now().Add(ClockOffset()).Unix() / totpPeriod)
 }
 
 // VerifyTOTPStep checks a code against the secret (allowing ±1 step of skew) and

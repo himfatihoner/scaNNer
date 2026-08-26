@@ -93,70 +93,75 @@
            across the board, with a subtle yellow-cast off-white for cards
            to reduce blue-light glare. Easier on the eye for hours-long
            pentest sessions while still clearly readable. */
-        html.light body { background-color: #c8cfd8 !important; color: #0f172a !important; }
-        html.light .bg-dark-950 { background-color: #c8cfd8 !important; }    /* page canvas (was #dde3eb) */
-        html.light .bg-dark-925 { background-color: #bdc4ce !important; }    /* sub-canvas */
-        html.light .bg-dark-900 { background-color: #d4dae3 !important; }    /* primary cards (was #e8edf3) */
-        html.light .bg-dark-850 { background-color: #c2c9d3 !important; }    /* card alt rows */
-        html.light .bg-dark-800 { background-color: #b0b7c2 !important; }    /* hover / chips */
-        html.light .bg-dark-700 { background-color: #969ea9 !important; }
-        html.light .bg-dark-700\/50 { background-color: rgba(150,158,169,0.5) !important; }
+        /* Light theme — high-contrast: gray canvas, near-white ELEVATED cards,
+           clearly visible borders, and a muted-text scale that stays readable
+           (the old scale faded secondary text into the background). */
+        html.light body { background-color: #e7ebf1 !important; color: #0f172a !important; }
+        html.light .bg-dark-950 { background-color: #e7ebf1 !important; }    /* page canvas */
+        html.light .bg-dark-925 { background-color: #dfe4ec !important; }    /* sub-canvas */
+        html.light .bg-dark-900 { background-color: #fdfeff !important; }    /* primary cards — near-white, elevated */
+        html.light .bg-dark-850 { background-color: #eef1f6 !important; }    /* card alt rows */
+        html.light .bg-dark-800 { background-color: #e2e7ef !important; }    /* hover / chips */
+        html.light .bg-dark-700 { background-color: #cfd6e1 !important; }
+        html.light .bg-dark-700\/50 { background-color: rgba(207,214,225,0.6) !important; }
         html.light .bg-dark-850\/50,
-        html.light .bg-dark-850\/60 { background-color: rgba(194,201,211,0.6) !important; }
-        html.light .bg-dark-800\/50 { background-color: rgba(176,183,194,0.5) !important; }
-        /* Borders — darker slate so cards are clearly bordered against the
-           dimmer surfaces. */
-        html.light .border-dark-950 { border-color: #9ca5b1 !important; }
-        html.light .border-dark-900 { border-color: #aab2bd !important; }
-        html.light .border-dark-850 { border-color: #aab2bd !important; }
-        html.light .border-dark-800 { border-color: #aab2bd !important; }
-        html.light .border-dark-800\/50 { border-color: rgba(170,178,189,0.6) !important; }
-        html.light .border-dark-700 { border-color: #969ea9 !important; }
-        html.light .border-dark-700\/50 { border-color: rgba(150,158,169,0.6) !important; }
-        html.light .border-dark-600 { border-color: #6e7682 !important; }
-        /* Text — slate scale, descending contrast. */
+        html.light .bg-dark-850\/60 { background-color: rgba(238,241,246,0.7) !important; }
+        html.light .bg-dark-800\/50 { background-color: rgba(226,231,239,0.6) !important; }
+        /* Borders — visible slate so every card/field is clearly outlined. */
+        html.light .border-dark-950 { border-color: #cbd3df !important; }
+        html.light .border-dark-900 { border-color: #d5dce6 !important; }
+        html.light .border-dark-850 { border-color: #d5dce6 !important; }
+        html.light .border-dark-800 { border-color: #d5dce6 !important; }
+        html.light .border-dark-800\/50 { border-color: rgba(213,220,230,0.7) !important; }
+        html.light .border-dark-700 { border-color: #c2cbd8 !important; }
+        html.light .border-dark-700\/50 { border-color: rgba(194,203,216,0.7) !important; }
+        html.light .border-dark-600 { border-color: #94a0b2 !important; }
+        /* Text — every step stays legible on the light surfaces (WCAG AA). */
         html.light .text-white   { color: #0f172a !important; }
-        html.light .text-dark-100 { color: #1e293b !important; }
-        html.light .text-dark-200 { color: #334155 !important; }
-        html.light .text-dark-300 { color: #475569 !important; }
-        html.light .text-dark-400 { color: #64748b !important; }
-        html.light .text-dark-500 { color: #94a3b8 !important; }
-        html.light .text-dark-600 { color: #cbd5e1 !important; }
-        html.light .text-dark-700 { color: #e2e8f0 !important; }
-        html.light .placeholder-dark-600::placeholder { color: #94a3b8 !important; }
-        html.light .placeholder-dark-500::placeholder { color: #94a3b8 !important; }
+        html.light .text-dark-100 { color: #17233b !important; }
+        html.light .text-dark-200 { color: #253248 !important; }
+        html.light .text-dark-300 { color: #3b475d !important; }
+        html.light .text-dark-400 { color: #4d5a6e !important; }   /* secondary — readable */
+        html.light .text-dark-500 { color: #616e82 !important; }   /* muted */
+        html.light .text-dark-600 { color: #6f7c90 !important; }   /* subtle (was #cbd5e1 — invisible) */
+        html.light .text-dark-700 { color: #7e8b9e !important; }   /* most subtle (was #e2e8f0 — invisible) */
+        html.light .placeholder-dark-600::placeholder,
+        html.light .placeholder-dark-500::placeholder { color: #8b96a6 !important; }
 
-        /* Sidebar — slightly darker than the canvas so it reads as a rail. */
-        html.light aside.bg-dark-900 { background-color: #b9c1cc !important; border-right-color: #969ea9 !important; box-shadow: none; }
+        /* Cards get a soft shadow for real elevation above the gray canvas. */
+        html.light .bg-dark-900:not(aside):not(header) { box-shadow: 0 1px 2px rgba(15,23,42,.05), 0 2px 6px rgba(15,23,42,.04); }
+        /* Sidebar — light rail, clearly separated from the canvas by its border. */
+        html.light aside.bg-dark-900 { background-color: #eef1f6 !important; border-right-color: #d5dce6 !important; box-shadow: none; }
         html.light .sidebar-link.active {
             background: rgba(37, 99, 235, 0.12) !important;
             color: #1d4ed8 !important;
             border-left-color: #1d4ed8 !important;
         }
-        html.light .sidebar-link:hover:not(.active) {
-            background: rgba(15, 23, 42, 0.06) !important;
+        html.light .sidebar-link:hover:not(.active) { background: rgba(15, 23, 42, 0.05) !important; }
+        html.light .module-card:hover { border-color: #2563eb !important; }
+        /* Header — near-white like the cards. */
+        html.light header { background-color: #fdfeff !important; border-bottom-color: #d5dce6 !important; }
+        html.light header.bg-dark-900\/80 { background-color: rgba(253,254,255,0.92) !important; }
+        /* Form controls — white fields with dark text + a clear border. */
+        html.light input, html.light textarea, html.light select {
+            background-color: #ffffff !important; color: #0f172a !important; border-color: #c2cbd8 !important;
         }
-        html.light .module-card:hover { border-color: #1d4ed8 !important; }
-        /* Header — matches the card tone instead of being pure white. */
-        html.light header { background-color: #d4dae3 !important; border-bottom-color: #aab2bd !important; }
-        html.light header.bg-dark-900\/80 { background-color: rgba(212,218,227,0.92) !important; }
-        /* Form controls keep dark text on the new light surfaces. */
-        html.light input, html.light textarea, html.light select { color: #0f172a; }
+        html.light input::placeholder, html.light textarea::placeholder { color: #8b96a6 !important; }
         html.light input:focus, html.light textarea:focus, html.light select:focus { border-color: #2563eb !important; }
-        /* Accent — bump to a deeper blue so it pops against white. */
+        /* Accent — deeper blue so it pops against the light surfaces. */
         html.light .text-accent-400 { color: #2563eb !important; }
         html.light .text-accent-300 { color: #1d4ed8 !important; }
         html.light .text-accent-500 { color: #1d4ed8 !important; }
         html.light .border-accent-500\/30 { border-color: rgba(37,99,235,0.35) !important; }
         html.light .bg-accent-600\/10 { background-color: rgba(37,99,235,0.10) !important; }
-        /* Pre/code blocks — soft slate background, readable inline code. */
+        /* Pre/code blocks — keep a dark surface so code stays high-contrast. */
         html.light pre.bg-dark-950 { background-color: #0f172a !important; color: #e2e8f0 !important; }
         html.light pre.bg-dark-925 { background-color: #0f172a !important; color: #e2e8f0 !important; }
         html.light .mono { color: inherit; }
-        /* Subtle slate scrollbars instead of cool gray. */
-        html.light ::-webkit-scrollbar-track { background: #c2c9d3 !important; }
-        html.light ::-webkit-scrollbar-thumb { background: #969ea9 !important; }
-        html.light ::-webkit-scrollbar-thumb:hover { background: #6e7682 !important; }
+        /* Scrollbars. */
+        html.light ::-webkit-scrollbar-track { background: #dfe4ec !important; }
+        html.light ::-webkit-scrollbar-thumb { background: #b6bfcd !important; }
+        html.light ::-webkit-scrollbar-thumb:hover { background: #94a0b2 !important; }
 
         /* Responsive UI scaling. Base rem grows with viewport for rem-based
            Tailwind utilities; the early-apply script in <head> sets --ui-scale

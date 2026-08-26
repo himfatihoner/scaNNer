@@ -39,18 +39,28 @@ func sendMail(s models.AppSettings, to, subject, body string) error {
 	dialer := &net.Dialer{Timeout: 15 * time.Second}
 	tlsCfg := &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}
 
+	// Bound the WHOLE SMTP exchange (greeting, STARTTLS, AUTH, DATA, QUIT), not
+	// just the TCP connect. net/smtp sets no I/O deadline of its own, so without
+	// this a server that accepts the connection then stalls — a port/TLS-mode
+	// mismatch (e.g. STARTTLS against an implicit-TLS :465, or plain against a
+	// TLS-only port), greylisting, or a hung relay — blocks until the OS TCP
+	// timeout, minutes later. One absolute deadline on the conn caps it.
+	deadline := time.Now().Add(35 * time.Second)
+
 	switch strings.ToLower(s.SMTPTLSMode) {
 	case "ssl": // implicit TLS (usually :465)
 		conn, err := tls.DialWithDialer(dialer, "tcp", addr, tlsCfg)
 		if err != nil {
 			return fmt.Errorf("smtp tls dial: %w", err)
 		}
+		_ = conn.SetDeadline(deadline)
 		return sendOverClient(conn, host, auth, from, to, msg)
 	default: // "starttls" (default) or "none"
 		conn, err := dialer.Dial("tcp", addr)
 		if err != nil {
 			return fmt.Errorf("smtp dial: %w", err)
 		}
+		_ = conn.SetDeadline(deadline)
 		c, err := smtp.NewClient(conn, host)
 		if err != nil {
 			conn.Close()

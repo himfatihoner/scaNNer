@@ -62,11 +62,10 @@
                         <p class="text-sm text-dark-300">Scan this QR code with your authenticator app, then enter a code to confirm.</p>
                         <div class="flex justify-center"><img src="/account/2fa/qr.png" alt="TOTP QR" class="bg-white p-3 rounded-lg" width="208" height="208"></div>
                         <p class="text-center text-xs text-dark-400">Or enter this secret manually:<br><span class="font-mono text-dark-200 break-all">{{.TOTPSecret}}</span></p>
-                        <form method="POST" action="/account/2fa" class="flex items-center gap-2">
+                        <form method="POST" action="/account/2fa" class="space-y-4">
                             <input type="hidden" name="action" value="totp_confirm">
-                            <input name="code" type="text" inputmode="numeric" maxlength="6" placeholder="123456" required
-                                class="flex-1 rounded-lg bg-dark-950 border border-dark-700 px-3 py-2.5 text-center tracking-widest text-sm focus:border-accent-500 focus:outline-none">
-                            <button type="submit" class="rounded-lg bg-accent-600 hover:bg-accent-500 text-white text-sm font-medium px-4 py-2.5">Confirm</button>
+                            {{template "otp_input" .}}
+                            <button type="submit" class="w-full rounded-lg bg-accent-600 hover:bg-accent-500 text-white text-sm font-medium py-2.5 transition-colors">Confirm &amp; enable</button>
                         </form>
                     </div>
                 {{else}}

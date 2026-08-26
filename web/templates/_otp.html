@@ -1,0 +1,61 @@
+{{define "otp_input"}}
+<div class="flex items-center justify-center gap-2 sm:gap-2.5" data-otp>
+    <input type="hidden" name="code" class="otp-value">
+    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="Digit 1" autofocus
+        class="otp-box w-11 h-14 sm:w-12 sm:h-14 rounded-lg bg-dark-950 border border-dark-700 text-center text-2xl font-semibold text-white caret-accent-500 focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30 focus:outline-none transition">
+    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 2"
+        class="otp-box w-11 h-14 sm:w-12 sm:h-14 rounded-lg bg-dark-950 border border-dark-700 text-center text-2xl font-semibold text-white caret-accent-500 focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30 focus:outline-none transition">
+    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 3"
+        class="otp-box w-11 h-14 sm:w-12 sm:h-14 rounded-lg bg-dark-950 border border-dark-700 text-center text-2xl font-semibold text-white caret-accent-500 focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30 focus:outline-none transition">
+    <span class="w-2 text-center text-dark-600 select-none">–</span>
+    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 4"
+        class="otp-box w-11 h-14 sm:w-12 sm:h-14 rounded-lg bg-dark-950 border border-dark-700 text-center text-2xl font-semibold text-white caret-accent-500 focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30 focus:outline-none transition">
+    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 5"
+        class="otp-box w-11 h-14 sm:w-12 sm:h-14 rounded-lg bg-dark-950 border border-dark-700 text-center text-2xl font-semibold text-white caret-accent-500 focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30 focus:outline-none transition">
+    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 6"
+        class="otp-box w-11 h-14 sm:w-12 sm:h-14 rounded-lg bg-dark-950 border border-dark-700 text-center text-2xl font-semibold text-white caret-accent-500 focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30 focus:outline-none transition">
+</div>
+<script>
+(function () {
+    document.querySelectorAll('[data-otp]').forEach(function (group) {
+        if (group.dataset.otpReady) return;
+        group.dataset.otpReady = '1';
+        var boxes = Array.prototype.slice.call(group.querySelectorAll('.otp-box'));
+        var hidden = group.querySelector('.otp-value');
+        var form = group.closest('form');
+        var submitted = false;
+        function sync() { hidden.value = boxes.map(function (b) { return b.value; }).join(''); }
+        function maybeSubmit() {
+            if (!submitted && form && hidden.value.length === boxes.length) {
+                submitted = true;
+                if (form.requestSubmit) form.requestSubmit(); else form.submit();
+            }
+        }
+        boxes.forEach(function (box, i) {
+            box.addEventListener('input', function () {
+                box.value = box.value.replace(/\D/g, '').slice(0, 1);
+                sync();
+                if (box.value && i < boxes.length - 1) boxes[i + 1].focus();
+                maybeSubmit();
+            });
+            box.addEventListener('keydown', function (e) {
+                if (e.key === 'Backspace') {
+                    if (box.value) { box.value = ''; sync(); }
+                    else if (i > 0) { boxes[i - 1].focus(); boxes[i - 1].value = ''; sync(); e.preventDefault(); }
+                } else if (e.key === 'ArrowLeft' && i > 0) { boxes[i - 1].focus(); e.preventDefault(); }
+                else if (e.key === 'ArrowRight' && i < boxes.length - 1) { boxes[i + 1].focus(); e.preventDefault(); }
+            });
+            box.addEventListener('focus', function () { box.select(); });
+            box.addEventListener('paste', function (e) {
+                e.preventDefault();
+                var digits = ((e.clipboardData || window.clipboardData).getData('text') || '').replace(/\D/g, '').slice(0, boxes.length);
+                for (var j = 0; j < digits.length; j++) boxes[j].value = digits[j];
+                sync();
+                (boxes[Math.min(digits.length, boxes.length - 1)] || box).focus();
+                maybeSubmit();
+            });
+        });
+    });
+})();
+</script>
+{{end}}

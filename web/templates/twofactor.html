@@ -17,9 +17,8 @@
                     {{if eq .Method "email"}}Enter the 6-digit code we e-mailed you.{{else}}Enter the 6-digit code from your authenticator app.{{end}}
                 </p>
                 <div>
-                    <label class="block text-xs font-medium text-dark-300 mb-1.5" for="code">Verification code</label>
-                    <input id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autofocus required
-                        class="w-full rounded-lg bg-dark-950 border border-dark-700 px-3 py-2.5 text-center text-lg tracking-[0.4em] focus:border-accent-500 focus:outline-none">
+                    <label class="block text-xs font-medium text-dark-300 mb-2 text-center">Verification code</label>
+                    {{template "otp_input" .}}
                 </div>
                 <button type="submit"
                     class="w-full rounded-lg bg-accent-600 hover:bg-accent-500 text-white text-sm font-medium py-2.5 transition-colors">Verify</button>

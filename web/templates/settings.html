@@ -845,11 +845,12 @@ sudo modprobe nf_tables nft_nat  # load modules first (still won't fix the lock 
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                     </div>
                     <div>
-                        <label class="block text-xs text-dark-400 mb-1.5">Password</label>
-                        <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="smtp_password" value="" placeholder="{{if .Settings.SMTPPassword}}•••••• (unchanged){{else}}app password{{end}}"
+                        <label class="block text-xs text-dark-400 mb-1.5">Password <span class="text-[10px] text-dark-500 normal-case">— optional</span></label>
+                        <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="smtp_password" value="" placeholder="{{if .Settings.SMTPPassword}}•••••• (unchanged){{else}}leave blank if none{{end}}"
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                     </div>
                 </div>
+                <p class="text-[11px] text-dark-500 mt-2">Leave <b>Username</b> and <b>Password</b> empty for a relay that doesn't require authentication (internal / localhost / open relay). Authentication is only attempted when a username is set.</p>
                 <div class="mt-3">
                     <label class="block text-xs text-dark-400 mb-1.5">From Address</label>
                     <input type="text" name="smtp_from" value="{{.Settings.SMTPFrom}}" placeholder="scaNNer &lt;noreply@example.com&gt;" autocomplete="off" spellcheck="false"

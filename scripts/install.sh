@@ -742,7 +742,11 @@ ExecStart=$REPO_DIR/scanner
 # and they even survive the in-app self-update's re-exec — while the process
 # still runs as $TARGET_USER so scanner.db / loot stay user-owned.
 AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
-CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW
+# NOTE: do NOT add 'CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW'. It bounds
+# every child too, so 'sudo' (needs CAP_SETUID/SETGID/AUDIT_WRITE to become root)
+# fails with "unable to change to root gid" — silently breaking Network Tuning
+# (scanner-tune), VPN control (nmcli) and modprobe, which the app runs via
+# 'sudo -n'. The ambient grant above already limits what the app itself holds.
 Restart=on-failure
 RestartSec=2
 LimitNOFILE=$NOFILE_LIMIT

@@ -35,3 +35,7 @@
 # Internal/working docs — not for the public repo
 AUDIT_REPORT*.md
 PENTEST_PLAN.txt
+
+# Stray test artifacts (cookie/session values accidentally used as filenames)
+scanner_session*
+*.cookie

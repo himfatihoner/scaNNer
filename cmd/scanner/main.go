@@ -349,6 +349,11 @@ func main() {
 	// Static files
 	fs := http.FileServer(http.Dir("web/static"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
+	// Serve the browser's automatic /favicon.ico probe (the templates also link
+	// the SVG/PNG icons explicitly; this covers the bare request + old tabs).
+	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "web/static/favicon.ico")
+	})
 
 	// Gated pprof exposure. The `net/http/pprof` blank import's init()
 	// auto-registers /debug/pprof/{,heap,profile,...} on DefaultServeMux,

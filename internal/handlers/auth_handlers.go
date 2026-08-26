@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/base64"
 	"net/http"
 	"net/url"
 	"strings"
@@ -306,13 +305,13 @@ func (h *Handler) AccountPage(w http.ResponseWriter, r *http.Request) {
 		"Error":              r.URL.Query().Get("error"),
 	}
 	// When TOTP setup is mid-flight (secret set, not yet confirmed), show the QR.
+	// The QR is streamed from its own URL (/account/2fa/qr.png) rather than an
+	// inlined data: URI — html/template mangles data URIs in a src attribute
+	// (blanks them to "#ZgotmplZ", or HTML-escapes the base64 '+' to '&#43;'),
+	// which left the authenticator with an unscannable image.
 	if user.TwoFactorMethod == models.TwoFactorTOTP && !user.TwoFactorEnrolled && user.TwoFactorSecret != "" {
-		otpURL := auth.OTPAuthURL(totpIssuer, user.Username, user.TwoFactorSecret)
-		if png, err := qrcode.Encode(otpURL, qrcode.Medium, 256); err == nil {
-			data["TOTPQR"] = "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
-			data["TOTPSecret"] = user.TwoFactorSecret
-			data["TOTPSetup"] = true
-		}
+		data["TOTPSecret"] = user.TwoFactorSecret
+		data["TOTPSetup"] = true
 	}
 	h.render(w, "account_page", data)
 }
@@ -348,6 +347,25 @@ func (h *Handler) AccountPassword(w http.ResponseWriter, r *http.Request) {
 	h.db.SetUserPassword(user.ID, hash, false)
 	h.audit(r, user, models.AuditAccess, "password.change", "self-service")
 	http.Redirect(w, r, "/account?success="+"Password updated.", http.StatusSeeOther)
+}
+
+// AccountTOTPQR streams the enrollment QR for the current user's in-progress
+// TOTP secret as a real PNG. Served from its own URL (not an inlined data: URI)
+// so html/template never touches — and mangles — the image bytes.
+func (h *Handler) AccountTOTPQR(w http.ResponseWriter, r *http.Request) {
+	user := h.currentUser(r)
+	if user == nil || user.TwoFactorEnrolled || user.TwoFactorMethod != models.TwoFactorTOTP || user.TwoFactorSecret == "" {
+		http.NotFound(w, r)
+		return
+	}
+	png, err := qrcode.Encode(auth.OTPAuthURL(totpIssuer, user.Username, user.TwoFactorSecret), qrcode.Medium, 320)
+	if err != nil {
+		http.Error(w, "could not generate QR", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Write(png)
 }
 
 // AccountEnroll2FA drives the user's own 2FA setup/teardown.

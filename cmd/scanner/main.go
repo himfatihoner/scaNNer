@@ -410,6 +410,7 @@ func main() {
 	http.HandleFunc("/account", h.AccountPage)
 	http.HandleFunc("/account/password", h.AccountPassword)
 	http.HandleFunc("/account/2fa", h.AccountEnroll2FA)
+	http.HandleFunc("/account/2fa/qr.png", h.AccountTOTPQR)
 
 	// Admin: user management + permissions + audit logs (admin-gated by the
 	// auth middleware).

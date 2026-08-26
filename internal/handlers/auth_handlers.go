@@ -297,6 +297,11 @@ func (h *Handler) AccountPage(w http.ResponseWriter, r *http.Request) {
 		"MustChangePassword": user.MustChangePassword,
 		"MustEnroll2FA":      user.TwoFactorRequired && !user.TwoFactorEnrolled,
 		"SMTPConfigured":     settings.SMTPConfigured(),
+		// E-mail 2FA is only offered when the account has an admin-set e-mail
+		// (users can't set their own), SMTP works, AND the admin enabled the
+		// e-mail option. With no e-mail the user simply enrolls via authenticator.
+		"HasEmail":           strings.TrimSpace(user.Email) != "",
+		"EmailEligible":      strings.TrimSpace(user.Email) != "" && settings.SMTPConfigured() && settings.TwoFactorAvailable,
 		"Success":            r.URL.Query().Get("success"),
 		"Error":              r.URL.Query().Get("error"),
 	}
@@ -379,6 +384,10 @@ func (h *Handler) AccountEnroll2FA(w http.ResponseWriter, r *http.Request) {
 		}
 		if !settings.SMTPConfigured() {
 			http.Redirect(w, r, "/account?error="+"E-mail 2FA needs SMTP configured by an admin.", http.StatusSeeOther)
+			return
+		}
+		if !settings.TwoFactorAvailable {
+			http.Redirect(w, r, "/account?error="+"E-mail 2FA is disabled by an admin — use an authenticator app.", http.StatusSeeOther)
 			return
 		}
 		h.db.SetUserTwoFactor(user.ID, models.TwoFactorEmail, "", true)

@@ -17,7 +17,7 @@
             {{if .Success}}<div class="mb-4 rounded-lg border border-success/40 bg-success/10 px-4 py-3 text-sm text-success">{{.Success}}</div>{{end}}
             {{if .Error}}<div class="mb-4 rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">{{.Error}}</div>{{end}}
             {{if .MustChangePassword}}<div class="mb-4 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">You must set a new password before continuing.</div>{{end}}
-            {{if and .MustEnroll2FA (not .MustChangePassword)}}<div class="mb-4 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">An administrator requires two-factor authentication on your account. Set it up below to continue.</div>{{end}}
+            {{if and .MustEnroll2FA (not .MustChangePassword)}}<div class="mb-4 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">An administrator requires two-factor authentication on your account. Choose a method below to continue — you can't reach the app until 2FA is set up.</div>{{end}}
 
             <!-- Change password -->
             <div class="bg-dark-900 border border-dark-800 rounded-xl p-6 mb-6">
@@ -71,25 +71,32 @@
                     </div>
                 {{else}}
                     <div class="space-y-3">
+                        <p class="text-xs text-dark-400">Choose how you'll receive your second factor:</p>
+                        <!-- Authenticator: always available, needs no e-mail -->
                         <form method="POST" action="/account/2fa">
                             <input type="hidden" name="action" value="totp_init">
                             <button type="submit" class="w-full text-left rounded-lg border border-dark-700 hover:border-accent-500 px-4 py-3 text-sm transition-colors">
                                 <div class="font-medium">Authenticator app (TOTP)</div>
-                                <div class="text-xs text-dark-400">Google Authenticator, Authy, 1Password, etc. Works offline.</div>
+                                <div class="text-xs text-dark-400">Google Authenticator, Aegis, Authy, 1Password, etc. Works offline — no e-mail needed.</div>
                             </button>
                         </form>
+                        {{if .HasEmail}}
+                        <!-- E-mail: only when the account has an admin-set e-mail -->
                         <form method="POST" action="/account/2fa">
                             <input type="hidden" name="action" value="email">
-                            <button type="submit" {{if or (not .SMTPConfigured) (eq .User.Email "")}}disabled{{end}}
+                            <button type="submit" {{if not .EmailEligible}}disabled{{end}}
                                 class="w-full text-left rounded-lg border border-dark-700 hover:border-accent-500 px-4 py-3 text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                                 <div class="font-medium">E-mail codes</div>
                                 <div class="text-xs text-dark-400">
-                                    {{if eq .User.Email ""}}Needs an e-mail address on your account (ask an admin).
-                                    {{else if not .SMTPConfigured}}Needs SMTP configured by an admin.
-                                    {{else}}A code is sent to {{.User.Email}} at each sign-in.{{end}}
+                                    {{if .EmailEligible}}A code is sent to {{.User.Email}} at each sign-in.
+                                    {{else if not .SMTPConfigured}}Unavailable — SMTP isn't configured yet (ask an admin).
+                                    {{else}}Unavailable — an admin hasn't enabled e-mail 2FA.{{end}}
                                 </div>
                             </button>
                         </form>
+                        {{else}}
+                        <p class="text-xs text-dark-500 border border-dark-800 rounded-lg px-4 py-3">E-mail codes aren't available for your account — there's no e-mail address on file, and only an administrator can add one. Continue with the authenticator app above.</p>
+                        {{end}}
                     </div>
                 {{end}}
             </div>

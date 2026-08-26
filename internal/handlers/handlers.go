@@ -1203,9 +1203,14 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 	webPreflightTimeout := pi("web_preflight_timeout", 1, 60)
 
 	// Keep the stored SMTP password when the field is submitted blank (the form
-	// never renders the saved secret, so blank means "unchanged").
+	// never renders the saved secret, so blank means "unchanged") — but ONLY
+	// while a username is present. With no username there is no authentication,
+	// so a blank password means "clear it". That's how you convert a previously
+	// authenticated config to a no-auth relay: empty the Username field and the
+	// stored password is dropped too (rather than lingering, unused).
+	smtpUser := strings.TrimSpace(r.FormValue("smtp_user"))
 	smtpPass := r.FormValue("smtp_password")
-	if smtpPass == "" {
+	if smtpPass == "" && smtpUser != "" {
 		smtpPass = h.db.GetSettings().SMTPPassword
 	}
 
@@ -1243,7 +1248,7 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 		VPNReconnectAfterSec: vpnReconnectAfter,
 		SMTPHost:             strings.TrimSpace(r.FormValue("smtp_host")),
 		SMTPPort:             pi("smtp_port", 0, 65535),
-		SMTPUser:             strings.TrimSpace(r.FormValue("smtp_user")),
+		SMTPUser:             smtpUser,
 		SMTPFrom:             strings.TrimSpace(r.FormValue("smtp_from")),
 		SMTPTLSMode:          smtpTLSMode(r.FormValue("smtp_tls_mode")),
 		SMTPPassword:         smtpPass,

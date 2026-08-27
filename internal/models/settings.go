@@ -108,10 +108,13 @@ func (s AppSettings) EffectiveSMTPPort() int {
 	if s.SMTPPort > 0 {
 		return s.SMTPPort
 	}
+	// Blank port → the standard port for the chosen encryption.
 	switch s.SMTPTLSMode {
-	case "ssl":
+	case "ssl": // implicit TLS
 		return 465
-	default:
+	case "none": // plaintext SMTP
+		return 25
+	default: // "starttls" (submission)
 		return 587
 	}
 }

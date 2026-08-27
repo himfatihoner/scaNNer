@@ -1211,8 +1211,12 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 	// authenticated config to a no-auth relay: empty the Username field and the
 	// stored password is dropped too (rather than lingering, unused).
 	smtpUser := strings.TrimSpace(r.FormValue("smtp_user"))
+	// The form never renders the saved password (secrecy), so a blank field
+	// ALWAYS means "unchanged" — keep the stored one. This is unconditional so
+	// saving any other setting can never wipe the password. To actually remove
+	// it, the operator ticks the explicit "clear saved password" box.
 	smtpPass := r.FormValue("smtp_password")
-	if smtpPass == "" && smtpUser != "" {
+	if smtpPass == "" && r.FormValue("smtp_password_clear") != "on" {
 		smtpPass = h.db.GetSettings().SMTPPassword
 	}
 

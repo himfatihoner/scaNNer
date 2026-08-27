@@ -826,14 +826,14 @@ sudo modprobe nf_tables nft_nat  # load modules first (still won't fix the lock 
                     </div>
                     <div>
                         <label class="block text-xs text-dark-400 mb-1.5">Port <span class="text-[10px] text-dark-500 normal-case">— blank = auto</span></label>
-                        <input type="number" name="smtp_port" value="{{if .Settings.SMTPPort}}{{.Settings.SMTPPort}}{{end}}" placeholder="587" min="0" max="65535"
+                        <input type="number" id="smtpPort" name="smtp_port" value="{{if .Settings.SMTPPort}}{{.Settings.SMTPPort}}{{end}}" placeholder="{{if eq .Settings.SMTPTLSMode "ssl"}}465{{else if eq .Settings.SMTPTLSMode "none"}}25{{else}}587{{end}}" min="0" max="65535"
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                     </div>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
                     <div>
                         <label class="block text-xs text-dark-400 mb-1.5">Encryption</label>
-                        <select name="smtp_tls_mode" class="w-full bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-accent-500">
+                        <select id="smtpTls" name="smtp_tls_mode" onchange="(function(s){var p=document.getElementById('smtpPort');if(p)p.placeholder=({starttls:'587',ssl:'465',none:'25'})[s.value]||'587';})(this)" class="w-full bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-accent-500">
                             <option value="starttls" {{if eq .Settings.SMTPTLSMode "starttls"}}selected{{end}}>STARTTLS (587)</option>
                             <option value="ssl" {{if eq .Settings.SMTPTLSMode "ssl"}}selected{{end}}>SSL / TLS (465)</option>
                             <option value="none" {{if eq .Settings.SMTPTLSMode "none"}}selected{{end}}>None (25 — insecure)</option>
@@ -846,8 +846,14 @@ sudo modprobe nf_tables nft_nat  # load modules first (still won't fix the lock 
                     </div>
                     <div>
                         <label class="block text-xs text-dark-400 mb-1.5">Password <span class="text-[10px] text-dark-500 normal-case">— optional</span></label>
-                        <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="smtp_password" value="" placeholder="{{if .Settings.SMTPPassword}}•••••• (unchanged){{else}}leave blank if none{{end}}"
+                        <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="smtp_password" value="" placeholder="{{if .Settings.SMTPPassword}}•••••• saved — blank keeps it{{else}}leave blank if none{{end}}"
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                        {{if .Settings.SMTPPassword}}
+                        <label class="flex items-center gap-1.5 mt-1.5 text-[11px] text-dark-500 cursor-pointer">
+                            <input type="checkbox" name="smtp_password_clear" class="w-3.5 h-3.5 rounded border-dark-600 bg-dark-850 text-accent-600 focus:ring-accent-500/40">
+                            Clear saved password
+                        </label>
+                        {{end}}
                     </div>
                 </div>
                 <p class="text-[11px] text-dark-500 mt-2">Leave <b>Username</b> and <b>Password</b> empty for a relay that doesn't require authentication (internal / localhost / open relay). Authentication is only attempted when a username is set.</p>

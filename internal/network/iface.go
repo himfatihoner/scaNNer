@@ -52,6 +52,12 @@ func ListInterfaces() ([]InterfaceInfo, error) {
 	}
 	out := make([]InterfaceInfo, 0, len(ifaces))
 	for _, iface := range ifaces {
+		// Hide scaNNer's own killswitch veth (scanner0 host side / scanner1 ns
+		// side) — it's internal plumbing, never a valid outbound interface to
+		// pin traffic to. It only appears once the killswitch has been armed.
+		if iface.Name == HostVethName || iface.Name == NsVethName {
+			continue
+		}
 		info := InterfaceInfo{
 			Name:     iface.Name,
 			Up:       iface.Flags&net.FlagUp != 0,

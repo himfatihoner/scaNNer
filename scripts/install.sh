@@ -753,7 +753,7 @@ ExecStart=$REPO_DIR/scanner
 # still runs as $TARGET_USER so scanner.db / loot stay user-owned.
 AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_SYS_ADMIN
 # CAP_SYS_ADMIN is required for the killswitch: creating a network namespace
-# (unshare CLONE_NEWNET) and entering it (setns, on every `ip netns exec`) both
+# (unshare CLONE_NEWNET) and entering it (setns, on every "ip netns exec") both
 # need it — CAP_NET_ADMIN alone is not enough. It IS inherited by the scan tools
 # the service spawns (a deliberate trade-off; the alternative — sudo per exec —
 # would run them as full root, which is worse). No CAP_DAC_OVERRIDE is granted;

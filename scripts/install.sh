@@ -149,6 +149,10 @@ tx_rollback() {
       netdev_added)
         gpasswd -d "$TARGET_USER" netdev >/dev/null 2>&1 || true
         printf '  %s−%s removed %s from the netdev group\n' "$c_ylw" "$c_reset" "$TARGET_USER" >&2 ;;
+      netns_etc_created)
+        rm -rf /etc/netns/scanner-ns 2>/dev/null || true
+        rmdir /etc/netns 2>/dev/null || true
+        printf '  %s−%s removed /etc/netns/scanner-ns\n' "$c_ylw" "$c_reset" >&2 ;;
     esac
   done
   # Restore (if it existed) or remove (if we created it) each touched file.
@@ -287,6 +291,10 @@ net.ipv4.ip_local_port_range = ${PORT_LO} ${PORT_HI}
 net.ipv4.tcp_fin_timeout = ${FIN_TIMEOUT}
 net.ipv4.tcp_tw_reuse = ${TW_REUSE}
 net.ipv4.tcp_max_tw_buckets = ${TW_BUCKETS}
+# Host IPv4 forwarding — the killswitch namespace routes its egress through the
+# host, so forwarding must be on. Set here (persisted) because the service runs
+# as a non-root user and cannot write /proc/sys/net/ipv4/ip_forward itself.
+net.ipv4.ip_forward = 1
 EOF
   if [ "$CONNTRACK_OK" -eq 1 ]; then
     printf 'net.netfilter.nf_conntrack_max = %s\n' "$CONNTRACK_MAX"
@@ -639,7 +647,9 @@ build_binary
 step "What this installer will change (root, one-time)"
 log "  • network-stack sysctl tuning + an open-file-limit drop-in"
 log "  • a systemd service 'scanner' running as '$TARGET_USER' with the killswitch"
-log "    caps CAP_NET_ADMIN + CAP_NET_RAW (ambient — survive rebuilds; data stays user-owned)"
+log "    caps CAP_NET_ADMIN + CAP_NET_RAW + CAP_SYS_ADMIN (ambient — survive rebuilds;"
+log "    CAP_SYS_ADMIN is needed to build/enter the killswitch netns and is inherited"
+log "    by scan tools; data stays user-owned)"
 log "  • PASSWORDLESS sudo, tightly scoped: systemctl start/stop/restart/status scanner,"
 log "    the Settings -> Network Tuning helper, and VPN-watchdog nmcli up/down"
 if [ "$IS_KALI" -eq 1 ]; then
@@ -741,7 +751,13 @@ ExecStart=$REPO_DIR/scanner
 # a plain 'go build' overwriting the binary does NOT drop them (unlike setcap),
 # and they even survive the in-app self-update's re-exec — while the process
 # still runs as $TARGET_USER so scanner.db / loot stay user-owned.
-AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_SYS_ADMIN
+# CAP_SYS_ADMIN is required for the killswitch: creating a network namespace
+# (unshare CLONE_NEWNET) and entering it (setns, on every `ip netns exec`) both
+# need it — CAP_NET_ADMIN alone is not enough. It IS inherited by the scan tools
+# the service spawns (a deliberate trade-off; the alternative — sudo per exec —
+# would run them as full root, which is worse). No CAP_DAC_OVERRIDE is granted;
+# the filesystem paths the killswitch writes are pre-created for the user below.
 # NOTE: do NOT add 'CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW'. It bounds
 # every child too, so 'sudo' (needs CAP_SETUID/SETGID/AUDIT_WRITE to become root)
 # fails with "unable to change to root gid" — silently breaking Network Tuning
@@ -801,7 +817,41 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 7. Kali-only killswitch prerequisites (harmless / skipped elsewhere).
+# 7. Killswitch namespace prerequisites (all Linux). The service creates a
+#    persistent netns as a NON-root user; CAP_SYS_ADMIN (from the unit) covers
+#    the kernel/mount side, and these two pre-created paths cover the filesystem
+#    side — so no CAP_DAC_OVERRIDE is needed.
+# ---------------------------------------------------------------------------
+step "Killswitch namespace prerequisites"
+
+# /run is a root-owned tmpfs, so `ip netns add` can't create /run/netns there
+# (this is the "mkdir /run/netns: Permission denied" error). A tmpfiles.d rule
+# recreates it (user-owned) on every boot so the non-root service can write the
+# namespace handle.
+atomic_write /etc/tmpfiles.d/scanner-netns.conf 0644 <<EOF
+# Managed by scaNNer — /run/netns owned by the scanner user so the non-root
+# service can create the killswitch network namespace there.
+d /run/netns 0755 $TARGET_USER $TARGET_GROUP -
+EOF
+if command -v systemd-tmpfiles >/dev/null 2>&1; then
+  systemd-tmpfiles --create /etc/tmpfiles.d/scanner-netns.conf >/dev/null 2>&1 || true
+fi
+ok "netns runtime-dir drop-in written  ${c_dim}(/run/netns → $TARGET_USER)${c_reset}"
+
+# Per-netns DNS override dir. `ip netns exec` bind-mounts
+# /etc/netns/scanner-ns/resolv.conf over /etc/resolv.conf inside the namespace;
+# the service copies the host resolv.conf here when it arms, so it must own it.
+install -d -m 0755 /etc/netns
+if [ -d /etc/netns/scanner-ns ]; then
+  chown "$TARGET_USER":"$TARGET_GROUP" /etc/netns/scanner-ns 2>/dev/null || true
+else
+  install -d -m 0755 -o "$TARGET_USER" -g "$TARGET_GROUP" /etc/netns/scanner-ns
+  tx_note netns_etc_created
+fi
+ok "netns DNS-override dir ready  ${c_dim}(/etc/netns/scanner-ns → $TARGET_USER)${c_reset}"
+
+# ---------------------------------------------------------------------------
+# 8. Kali-only killswitch prerequisites (harmless / skipped elsewhere).
 # ---------------------------------------------------------------------------
 if [ "$IS_KALI" -eq 1 ]; then
   step "Kali killswitch prerequisites"
@@ -968,9 +1018,11 @@ EOF
 
 hdr $'\n KILLSWITCH'
 cat <<EOF
-   The SERVICE runs with CAP_NET_ADMIN + CAP_NET_RAW, so the killswitch works
-   without root — arm it in Settings -> Outbound Network Interface. A hand-run
-   './scanner' has NO capabilities (no killswitch); always use the service.
+   The SERVICE runs with CAP_NET_ADMIN + CAP_NET_RAW + CAP_SYS_ADMIN, so the
+   killswitch (a network namespace) works without root — arm it in Settings ->
+   Outbound Network Interface. CAP_SYS_ADMIN is required to create/enter the
+   namespace; note it is inherited by the scan tools the service spawns. A
+   hand-run './scanner' has NO capabilities (no killswitch); use the service.
 EOF
 
 hdr $'\n IN-APP UPDATES'

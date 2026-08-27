@@ -97,6 +97,7 @@ MANAGED_FILES=(
   /etc/sudoers.d/scanner-modprobe
   /etc/modules-load.d/scanner.conf
   /etc/tmpfiles.d/scanner-xtables.conf
+  /etc/tmpfiles.d/scanner-netns.conf
 )
 
 # ---------------------------------------------------------------------------
@@ -165,6 +166,16 @@ for f in "${MANAGED_FILES[@]}"; do
   fi
 done
 [ "$REMOVED" -eq 0 ] && info "(no further managed files present)"
+
+# The killswitch's per-netns DNS dir (holds only our resolv.conf copy).
+if [ -d /etc/netns/scanner-ns ]; then
+  rm -rf /etc/netns/scanner-ns
+  rmdir /etc/netns 2>/dev/null || true   # only if now empty
+  rm_ok "/etc/netns/scanner-ns"
+fi
+# /run/netns is tmpfs — cleared on the next reboot; the removed tmpfiles drop-in
+# stops it being recreated. Any live scanner-ns namespace is torn down when the
+# service stops (SIGTERM) above.
 
 # ---------------------------------------------------------------------------
 # 3. Remove the built binary (the install.sh artifact). Source + data stay.

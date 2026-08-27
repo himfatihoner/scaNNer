@@ -125,13 +125,17 @@ func Setup(targetIface string) error {
 		}
 	}
 
-	// Host-wide IP forwarding. sysctl is idempotent (writing 1 when
-	// it's already 1 is fine). We DON'T flip this back in Teardown —
-	// other applications might depend on it.
-	if err := os.WriteFile("/proc/sys/net/ipv4/ip_forward", []byte("1\n"), 0644); err != nil {
-		_ = teardownLocked()
-		setupErr = fmt.Errorf("enable ip_forward: %w", err)
-		return setupErr
+	// Host-wide IP forwarding. The installer sets net.ipv4.ip_forward=1 in a
+	// sysctl drop-in, so normally it is already on and we don't need to write
+	// /proc/sys (which a non-root service can't do anyway — it's 0644 root). Only
+	// attempt the write if it isn't already 1; a failure then is a real problem.
+	// We DON'T flip this back in Teardown — other apps might depend on it.
+	if cur, _ := os.ReadFile("/proc/sys/net/ipv4/ip_forward"); strings.TrimSpace(string(cur)) != "1" {
+		if err := os.WriteFile("/proc/sys/net/ipv4/ip_forward", []byte("1\n"), 0644); err != nil {
+			_ = teardownLocked()
+			setupErr = fmt.Errorf("enable ip_forward (run installer, or set net.ipv4.ip_forward=1): %w", err)
+			return setupErr
+		}
 	}
 
 	// iptables rules. Order matters: ACCEPT for the allowed path first,
@@ -253,12 +257,21 @@ func HealthCheck(targetIface, expectedIP string) error {
 // RequiresPrivilege returns nil if scaNNer can manipulate the namespace
 // + iptables, or a descriptive error otherwise. setcap or root is fine.
 func RequiresPrivilege() error {
-	// Cheap probe: try `ip netns list` — succeeds for unprivileged users
-	// but `ip netns add` would fail. So we instead try a no-op rule
-	// list against the nat table; this requires CAP_NET_ADMIN at minimum.
+	// Probe 1 — iptables: listing the nat table needs CAP_NET_ADMIN and, on
+	// Kali, access to /run/xtables.lock (the installer grants both).
 	if err := exec.Command("iptables", "-t", "nat", "-S", "POSTROUTING").Run(); err != nil {
-		return errors.New("requires CAP_NET_ADMIN — run: sudo setcap cap_net_admin,cap_net_raw+ep ./scanner")
+		return errors.New("cannot use iptables (needs CAP_NET_ADMIN + /run/xtables.lock access — run: sudo scripts/install.sh)")
 	}
+	// Probe 2 — namespace: actually create + delete a throwaway netns. This is
+	// the operation that most often fails as a non-root service, because it
+	// needs CAP_SYS_ADMIN (unshare/mount) AND a writable /run/netns — both set
+	// up by the installer. Doing the real op is the only reliable check.
+	const probe = "scanner-privprobe"
+	_ = exec.Command("ip", "netns", "del", probe).Run() // clear any leftover
+	if out, err := exec.Command("ip", "netns", "add", probe).CombinedOutput(); err != nil {
+		return fmt.Errorf("cannot create a network namespace (needs CAP_SYS_ADMIN + a writable /run/netns — run: sudo scripts/install.sh): %s", strings.TrimSpace(string(out)))
+	}
+	_ = exec.Command("ip", "netns", "del", probe).Run()
 	return nil
 }
 

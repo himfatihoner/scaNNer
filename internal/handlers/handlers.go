@@ -1295,9 +1295,22 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 				h.db.MarkScanError,
 			)
 		}
+		// Bind every Go-side dialer — including the always-on connectivity
+		// probe — to the freshly resolved interface IP so the change takes
+		// effect immediately, whether or not the namespace armed.
+		// s.NetworkInterfaceIP was just re-resolved above, so it's current.
+		if ip := net.ParseIP(s.NetworkInterfaceIP); ip != nil {
+			shared.SetGlobalLocalAddr(&net.TCPAddr{IP: ip})
+		}
 	} else {
-		// Switching back to default mode — stop the runtime monitor too.
+		// Switching back to default mode — stop the runtime monitor AND clear
+		// the process-wide Go-side binding. Without the clear, the connectivity
+		// probe (and every inline dialer) keeps sourcing from the now-unpinned
+		// interface's possibly-stale IP: every dial fails and the header shows a
+		// false "Offline" until the next restart, even though Settings reads
+		// "Default". This was the actual cause of a "Default but Offline" report.
 		scannet.StartMonitor("", "", h.scanMgr.CancelAll, h.db.MarkScanError)
+		shared.SetGlobalLocalAddr(nil)
 	}
 
 	http.Redirect(w, r, "/settings?success=saved", http.StatusSeeOther)

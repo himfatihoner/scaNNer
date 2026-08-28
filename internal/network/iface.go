@@ -169,3 +169,20 @@ var (
 	ErrInterfaceNoIPv4    = errors.New("interface has no IPv4 address")
 	ErrInterfaceIPChanged = errors.New("interface IP changed since settings were saved")
 )
+
+// IsInterfaceStateError reports whether a killswitch setup-failure message
+// stems from the pinned interface itself being unusable (down / no IPv4 /
+// renamed / gone) rather than a privilege or namespace-wiring failure. The
+// Settings UI branches on this: an interface-state failure is fixed by
+// bringing the interface up (e.g. reconnecting the VPN), NOT by sudo or
+// capabilities — showing the privilege/installer guidance there would only
+// mislead. LastSetupError() returns a flattened string, so we match on the
+// sentinel messages that got wrapped into it.
+func IsInterfaceStateError(msg string) bool {
+	for _, e := range []error{ErrInterfaceDown, ErrInterfaceNoIPv4, ErrInterfaceIPChanged, ErrInterfaceNotFound} {
+		if strings.Contains(msg, e.Error()) {
+			return true
+		}
+	}
+	return false
+}

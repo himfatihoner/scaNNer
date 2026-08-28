@@ -1073,6 +1073,11 @@ func (h *Handler) Settings(w http.ResponseWriter, r *http.Request) {
 	}
 	if msg := scannet.LastSetupError(); msg != "" {
 		data["KillswitchSetupError"] = msg
+		// An interface-state failure (down / no IPv4 / renamed / gone) is a
+		// host-state problem the operator fixes by bringing the interface up
+		// (e.g. reconnecting the VPN) — not a privilege problem. Flag it so the
+		// UI shows that instead of the sudo/installer capability guidance.
+		data["KillswitchSetupErrorIface"] = scannet.IsInterfaceStateError(msg)
 	}
 	data["KillswitchActive"] = scannet.IsActive()
 	// Housekeeping panel — top-10 largest scan rows so the operator

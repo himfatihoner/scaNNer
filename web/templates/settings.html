@@ -365,38 +365,36 @@
                     {{end}}
                 </div>
 
-                {{/* IMPORTANT note on Kali / modern Linux: the "setcap"
-                     instructions below WORK on traditional iptables-legacy +
-                     loaded kernel modules, but FAIL on Kali rolling because:
-                       • iptables 1.8+ uses the nf_tables backend; nft's
-                         netlink subsystem still root-checks (CAP_NET_ADMIN
-                         is not enough on its own under the current kernel).
-                       • /run/xtables.lock is root:root 0600 → a non-root
-                         process can't even acquire the iptables mutex.
-                       • The nf_tables / nft_nat kernel modules are not
-                         autoloaded on most Kali installs, and on-demand
-                         module load wants CAP_SYS_MODULE (different cap).
-                     Until the systemd install script is wired up, the
-                     reliable workaround on Kali is to start the binary
-                     under sudo. */}}
+                {{if and .KillswitchSetupErrorIface (not .KillswitchPrivilegeError)}}
+                {{/* Interface-state failure (down / no IPv4 / renamed / gone).
+                     NOT a privilege problem — sudo or capabilities cannot bring
+                     a down interface up, so the installer/setcap guidance must
+                     not show here. */}}
                 <div class="bg-warning/5 border border-warning/30 rounded p-3">
-                    <p class="text-[11px] text-warning font-semibold mb-1.5">⚠ Recommended on Kali rolling: start the scanner with <span class="mono">sudo</span></p>
-                    <code class="block bg-dark-950 border border-dark-800 rounded px-2 py-1.5 text-[11px] text-accent-300 mono select-all">sudo ./scanner</code>
-                    <p class="text-[10px] text-dark-400 mt-1.5">Why: Kali ships <span class="mono">iptables-nft</span>, and the nf_tables netlink path + the <span class="mono">/run/xtables.lock</span> file still require real root on the current kernel. Capabilities granted via <span class="mono">setcap</span> are detected on the process (<span class="mono">CapEff: 0x3000</span>) but the kernel refuses the iptables operations anyway.</p>
-                    <p class="text-[10px] text-dark-500 mt-1">Trade-off: <span class="mono">data/scanner.db</span> and any loot files will be owned by <span class="mono">root</span>. You'll need <span class="mono">sudo</span> to delete or move them later. The systemd install script (planned — see <span class="mono">~/.claude/projects/-home-user-my-tools-scaNNer/memory/project_install_systemd.md</span>) will fix this for good by spawning the process with <span class="mono">AmbientCapabilities</span> while keeping <span class="mono">User=user</span>.</p>
+                    <p class="text-[11px] text-warning font-semibold mb-1.5">⚠ The pinned interface is down or unavailable</p>
+                    <p class="text-[10px] text-dark-400">Nothing is wrong with the killswitch itself — the interface it's bound to just isn't up right now, so it refuses to route scans anywhere. That's exactly the leak it exists to prevent.</p>
+                    <p class="text-[10px] text-dark-300 mt-1.5">Fix: bring the interface up — <span class="mono">reconnect your VPN</span> so <span class="mono">tun0</span> comes back up — or pick an interface that's up in the dropdown below, then click <span class="text-white font-semibold">Save</span>. The killswitch arms automatically once the interface is up. No restart, no sudo.</p>
                 </div>
-
-                <details>
-                    <summary class="text-[11px] text-dark-300 cursor-pointer hover:text-white">Alternative — setcap (works on iptables-legacy systems only)</summary>
-                    <div class="mt-2 pl-2 border-l-2 border-dark-700 space-y-1.5">
-                        <p class="text-[10px] text-dark-400">Grants <span class="mono">CAP_NET_ADMIN</span> + <span class="mono">CAP_NET_RAW</span> to the binary. On non-Kali distros where iptables uses the legacy backend AND the netfilter/nat kernel modules are pre-loaded, this is enough — and scanner runs as your normal user instead of root.</p>
-                        <code class="block bg-dark-950 border border-dark-800 rounded px-2 py-1.5 text-[11px] text-accent-300 mono select-all">sudo setcap cap_net_admin,cap_net_raw+ep ./scanner</code>
-                        <p class="text-[10px] text-dark-500">Then <span class="text-warning">RESTART</span> scanner — setcap is applied to the binary inode, the already-running process does NOT inherit it. Every <span class="mono">go build</span> rewrites the binary and clears the capability, so you'd have to re-run setcap after each rebuild.</p>
-                        <p class="text-[10px] text-dark-500">Pre-flight check before retrying setcap on Kali:</p>
-                        <code class="block bg-dark-950 border border-dark-800 rounded px-2 py-1.5 text-[10px] text-accent-300 mono select-all">iptables --version            # if it says "nf_tables" → setcap won't work, use sudo
-sudo modprobe nf_tables nft_nat  # load modules first (still won't fix the lock file)</code>
-                    </div>
-                </details>
+                {{else}}
+                {{/* Privilege / namespace-wiring failure. The systemd installer
+                     grants the caps via AmbientCapabilities so scanner never
+                     runs as root — that is the supported fix now (the old
+                     "sudo ./scanner" workaround is retired). */}}
+                <div class="bg-warning/5 border border-warning/30 rounded p-3">
+                    <p class="text-[11px] text-warning font-semibold mb-1.5">⚠ The service can't build the killswitch namespace — run the installer</p>
+                    <p class="text-[10px] text-dark-400">Building the network namespace needs <span class="mono">CAP_NET_ADMIN</span>, <span class="mono">CAP_NET_RAW</span> and <span class="mono">CAP_SYS_ADMIN</span>. The installer wires these onto the systemd service via <span class="mono">AmbientCapabilities</span> (plus the <span class="mono">/run/netns</span> tmpfiles rule and the <span class="mono">ip_forward</span> sysctl), so scanner keeps running as your normal user — never root:</p>
+                    <code class="block bg-dark-950 border border-dark-800 rounded px-2 py-1.5 text-[11px] text-accent-300 mono select-all mt-1.5">sudo scripts/install.sh</code>
+                    <p class="text-[10px] text-dark-500 mt-1.5">Then reload this page. Already installed? Re-run it — it rewrites the unit, reloads systemd and restarts the service. Verify with <span class="mono">systemctl show scanner -p AmbientCapabilities</span> (expect all three caps).</p>
+                    <details class="mt-2">
+                        <summary class="text-[11px] text-dark-300 cursor-pointer hover:text-white">Legacy alternative — setcap (iptables-legacy, non-Kali only)</summary>
+                        <div class="mt-2 pl-2 border-l-2 border-dark-700 space-y-1.5">
+                            <p class="text-[10px] text-dark-400">Grants <span class="mono">CAP_NET_ADMIN</span> + <span class="mono">CAP_NET_RAW</span> directly on the binary. Works only where iptables uses the legacy backend AND the netfilter/nat modules are pre-loaded — and it does NOT cover the namespace-creation cap (<span class="mono">CAP_SYS_ADMIN</span>), so prefer the installer above.</p>
+                            <code class="block bg-dark-950 border border-dark-800 rounded px-2 py-1.5 text-[11px] text-accent-300 mono select-all">sudo setcap cap_net_admin,cap_net_raw+ep ./scanner</code>
+                            <p class="text-[10px] text-dark-500">setcap lives on the binary inode — every <span class="mono">go build</span> clears it, so you'd re-run it after each rebuild. The installer avoids this entirely.</p>
+                        </div>
+                    </details>
+                </div>
+                {{end}}
             </div>
             {{end}}
 

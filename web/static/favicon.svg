@@ -1,19 +1,42 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0.85" y2="1"><stop offset="0" stop-color="#1d4ed8"/><stop offset="1" stop-color="#0a1e4e"/></linearGradient>
-    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/><stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
-    <linearGradient id="apL" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a8d6ff"/><stop offset="1" stop-color="#3f8fe8"/></linearGradient>
-    <linearGradient id="apD" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f8ee0"/><stop offset="1" stop-color="#1e4da0"/></linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#173463"/><stop offset="1" stop-color="#081226"/>
+    </linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/><stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="sweep" gradientUnits="userSpaceOnUse" x1="26.31" y1="10.75" x2="47.56" y2="16.44">
+      <stop offset="0" stop-color="#39e1ff" stop-opacity="0"/><stop offset="1" stop-color="#39e1ff" stop-opacity="0.6"/>
+    </linearGradient>
+    <radialGradient id="blip" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#a6f4ff" stop-opacity="0.9"/><stop offset="1" stop-color="#39e1ff" stop-opacity="0"/>
+    </radialGradient>
   </defs>
+
+  <!-- tile -->
   <rect x="2" y="2" width="60" height="60" rx="15" fill="url(#bg)"/>
   <rect x="2" y="2" width="60" height="60" rx="15" fill="url(#gloss)"/>
-  <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="14.25" fill="none" stroke="#ffffff" stroke-opacity="0.14" stroke-width="1.4"/>
-  <path d="M 32.00 13.50 L 15.98 22.75 L 28.03 25.64 L 35.52 25.38 Z" fill="url(#apD)" stroke="#0a1330" stroke-width="0.9" stroke-linejoin="round"/>
-  <path d="M 15.98 22.75 L 15.98 41.25 L 24.50 32.26 L 28.03 25.64 Z" fill="url(#apL)" stroke="#0a1330" stroke-width="0.9" stroke-linejoin="round"/>
-  <path d="M 15.98 41.25 L 32.00 50.50 L 28.48 38.62 L 24.50 32.26 Z" fill="url(#apD)" stroke="#0a1330" stroke-width="0.9" stroke-linejoin="round"/>
-  <path d="M 32.00 50.50 L 48.02 41.25 L 35.97 38.36 L 28.48 38.62 Z" fill="url(#apL)" stroke="#0a1330" stroke-width="0.9" stroke-linejoin="round"/>
-  <path d="M 48.02 41.25 L 48.02 22.75 L 39.50 31.74 L 35.97 38.36 Z" fill="url(#apD)" stroke="#0a1330" stroke-width="0.9" stroke-linejoin="round"/>
-  <path d="M 48.02 22.75 L 32.00 13.50 L 35.52 25.38 L 39.50 31.74 Z" fill="url(#apL)" stroke="#0a1330" stroke-width="0.9" stroke-linejoin="round"/>
-  <polygon points="35.38 25.64 28.18 25.89 24.80 32.25 28.62 38.36 35.82 38.11 39.20 31.75" fill="#0a1330"/>
-  <circle cx="35.03" cy="24.49" r="1.5" fill="#8ff0ff"/>
+  <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="14.25" fill="none" stroke="#ffffff" stroke-opacity="0.13" stroke-width="1.3"/>
+
+  <!-- faint crosshair -->
+  <g stroke="#8fd8ff" stroke-opacity="0.12" stroke-width="1">
+    <line x1="10.5" y1="32" x2="53.5" y2="32"/><line x1="32" y1="10.5" x2="32" y2="53.5"/>
+  </g>
+
+  <!-- radar rings -->
+  <circle cx="32" cy="32" r="22" fill="none" stroke="#3f8fd6" stroke-opacity="0.42" stroke-width="1.6"/>
+  <circle cx="32" cy="32" r="15" fill="none" stroke="#3f8fd6" stroke-opacity="0.58" stroke-width="1.6"/>
+  <circle cx="32" cy="32" r="8"  fill="none" stroke="#3f8fd6" stroke-opacity="0.70" stroke-width="1.6"/>
+
+  <!-- sweep wedge + bright leading edge -->
+  <path d="M32 32 L26.31 10.75 A22 22 0 0 1 47.56 16.44 Z" fill="url(#sweep)"/>
+  <line x1="32" y1="32" x2="47.56" y2="16.44" stroke="#7fe9ff" stroke-opacity="0.85" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- blip -->
+  <circle cx="41.64" cy="20.51" r="5" fill="url(#blip)"/>
+  <circle cx="41.64" cy="20.51" r="2.3" fill="#a6f4ff"/>
+
+  <!-- center -->
+  <circle cx="32" cy="32" r="1.9" fill="#a6f4ff"/>
 </svg>

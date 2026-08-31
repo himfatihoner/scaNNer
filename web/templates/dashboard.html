@@ -707,7 +707,7 @@ html.light {
             var color = modPalette[i % modPalette.length];
             html += '<div class="flex items-center gap-3">';
             html += '<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:' + color + '"></span>';
-            html += '<span class="text-sm text-dark-200 flex-1 truncate">' + (m.display_name || m.module) + '</span>';
+            html += '<span class="text-sm text-dark-200 truncate min-w-0">' + (m.display_name || m.module) + '</span>';
             html += '<div class="flex items-center gap-2 shrink-0">';
             html += '<span class="mono text-xs text-dark-400">' + m.count + '</span>';
             html += '<span class="mono text-[11px] text-dark-500">(' + pct.toFixed(1) + '%)</span>';

@@ -1293,6 +1293,11 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 				s.NetworkInterfaceIP,
 				h.scanMgr.CancelAll,
 				h.db.MarkScanError,
+				func(ipv4 string) { // auto-re-arm rebind: point Go-side dialers at the new lease
+					if ip := net.ParseIP(ipv4); ip != nil {
+						shared.SetGlobalLocalAddr(&net.TCPAddr{IP: ip})
+					}
+				},
 			)
 		}
 		// Bind every Go-side dialer — including the always-on connectivity
@@ -1309,7 +1314,7 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 		// interface's possibly-stale IP: every dial fails and the header shows a
 		// false "Offline" until the next restart, even though Settings reads
 		// "Default". This was the actual cause of a "Default but Offline" report.
-		scannet.StartMonitor("", "", h.scanMgr.CancelAll, h.db.MarkScanError)
+		scannet.StartMonitor("", "", h.scanMgr.CancelAll, h.db.MarkScanError, nil)
 		shared.SetGlobalLocalAddr(nil)
 	}
 

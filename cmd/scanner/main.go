@@ -309,6 +309,11 @@ func main() {
 				s.NetworkInterfaceIP,
 				h.ScanMgr().CancelAll,
 				db.MarkScanError,
+				func(ipv4 string) { // auto-re-arm rebind: point Go-side dialers at the new lease
+					if ip := net.ParseIP(ipv4); ip != nil {
+						shared.SetGlobalLocalAddr(&net.TCPAddr{IP: ip})
+					}
+				},
 			)
 			log.Printf("Killswitch armed: scanner-ns ↔ %s (%s)", s.NetworkInterface, s.NetworkInterfaceIP)
 		}

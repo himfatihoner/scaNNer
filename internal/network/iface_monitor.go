@@ -19,6 +19,13 @@ type CancelAllFn func(reason string) []string
 // trail on every scan it kills.
 type MarkScanErrorFn func(scanID, message string)
 
+// RebindFn updates the process-wide Go-side outbound source binding to a new
+// IPv4 after an auto-re-arm (the pinned interface came back with a fresh
+// lease). Injected as a callback because the network package must not import
+// modules/shared — shared imports network, which would be an import cycle.
+// Passing "" clears the binding.
+type RebindFn func(ipv4 string)
+
 // Monitor watches the pinned outbound interface and triggers scaNNer's
 // app-layer killswitch when it drops:
 //
@@ -45,6 +52,7 @@ type Monitor struct {
 	expectIPv4 string
 	cancelAll  CancelAllFn
 	markErr    MarkScanErrorFn
+	rebind     RebindFn
 }
 
 // monitor is the process-singleton instance.
@@ -55,7 +63,7 @@ var monitorRunning atomic.Bool
 // cmd/scanner/main.go at startup AND from handlers.SettingsSave so a
 // settings change picks up the new iface. Passing iface="" stops any
 // running monitor — that's the default mode.
-func StartMonitor(iface, expectIPv4 string, cancelAll CancelAllFn, markErr MarkScanErrorFn) {
+func StartMonitor(iface, expectIPv4 string, cancelAll CancelAllFn, markErr MarkScanErrorFn, rebind RebindFn) {
 	monitor.mu.Lock()
 	defer monitor.mu.Unlock()
 	// Stop the previous loop, if any.
@@ -73,6 +81,7 @@ func StartMonitor(iface, expectIPv4 string, cancelAll CancelAllFn, markErr MarkS
 	monitor.expectIPv4 = expectIPv4
 	monitor.cancelAll = cancelAll
 	monitor.markErr = markErr
+	monitor.rebind = rebind
 	monitorRunning.Store(true)
 	go monitor.loop(ctx)
 }
@@ -89,6 +98,11 @@ func IsMonitoring() bool { return monitorRunning.Load() }
 func (m *Monitor) loop(ctx context.Context) {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
+	// recovering: the pinned interface dropped and we aborted its scans; we're
+	// now polling quietly for it to come back so we can auto-re-arm. The
+	// namespace's DROP-all-but-<iface> rules stay in force the whole time, so
+	// nothing leaks during the wait.
+	recovering := false
 	for {
 		select {
 		case <-ctx.Done():
@@ -98,9 +112,36 @@ func (m *Monitor) loop(ctx context.Context) {
 			iface, ip := m.iface, m.expectIPv4
 			cancelAll := m.cancelAll
 			markErr := m.markErr
+			rebind := m.rebind
 			m.mu.Unlock()
 
-			// Two checks per tick:
+			if recovering {
+				// Wait for the interface to return with a usable primary IPv4.
+				// A VPN reconnect usually hands out a NEW lease, so we can't
+				// match the old expected IP — resolve the current one. Then
+				// rebuild the namespace + refresh its resolv.conf (Setup does
+				// both), point the Go-side source binding at the new IP, and
+				// resume normal monitoring. This self-heals a flaky VPN with no
+				// manual Settings re-save.
+				newIP, err := ResolvePrimaryIPv4(iface)
+				if err != nil {
+					continue // still down / no IPv4 — keep waiting quietly
+				}
+				if err := Setup(iface); err != nil {
+					continue // caps missing or transient wiring error — retry next tick
+				}
+				m.mu.Lock()
+				m.expectIPv4 = newIP
+				m.mu.Unlock()
+				if rebind != nil {
+					rebind(newIP) // refresh Go-side binding, else dials keep using the old IP
+				}
+				recovering = false
+				log.Printf("killswitch: interface %s recovered (%s) — auto-re-armed", iface, newIP)
+				continue
+			}
+
+			// Normal monitoring — two checks per tick:
 			//   1. Target interface is still UP + still has expectedIP.
 			//   2. Namespace state (veth, iptables rules, ns exists) is
 			//      intact. The namespace HealthCheck only runs if the
@@ -114,7 +155,7 @@ func (m *Monitor) loop(ctx context.Context) {
 				}
 			}
 			if trigger != "" {
-				log.Printf("killswitch: %s — aborting all running scans", trigger)
+				log.Printf("killswitch: %s — aborting all running scans, waiting to auto-re-arm", trigger)
 				if cancelAll != nil {
 					reason := "Interface " + iface + " went down — scan aborted by killswitch"
 					killed := cancelAll(reason)
@@ -124,11 +165,10 @@ func (m *Monitor) loop(ctx context.Context) {
 						}
 					}
 				}
-				// Stop polling — operator must restore the interface and
-				// re-save Settings (which triggers a fresh StartMonitor).
-				// Continuing the tick loop would spam logs.
-				monitorRunning.Store(false)
-				return
+				// Enter recovery mode instead of stopping. monitorRunning stays
+				// true — the killswitch is still engaged (its DROP rules keep
+				// working while <iface> is down); we're only waiting to re-arm.
+				recovering = true
 			}
 		}
 	}

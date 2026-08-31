@@ -1904,6 +1904,18 @@ func (d *DB) UpdateScanProgress(id string, done int, msg string) {
 	d.appendConsoleLog(id, []string{msg})
 }
 
+// UpdateScanProgressLive sets the live progress bar (done + current message)
+// WITHOUT appending to the console_log. Use it for high-frequency status ticks
+// (e.g. a hashcat crack emits a "% · rate · ETA" line every couple of seconds
+// for hours) — those overwrite the single progress_msg field instead of piling
+// up tens of thousands of near-identical console lines. Log-worthy events
+// (command crumbs, phase transitions) still go through UpdateScanProgress.
+func (d *DB) UpdateScanProgressLive(id string, done int, msg string) {
+	if _, err := d.Exec(`UPDATE scans SET progress_done = ?, progress_msg = ? WHERE id = ?`, done, msg, id); err != nil {
+		log.Printf("UpdateScanProgressLive(%s) failed: %v", id, err)
+	}
+}
+
 // consoleLogCap bounds the durable console_log tail so a chatty multi-hour
 // scan can't bloat the row (the commands column has the same unbounded-growth
 // caveat; this one is capped). ~200 KB ≈ a few thousand lines.

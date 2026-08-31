@@ -363,7 +363,7 @@ func buildArgs(cfg Config, modeID int, rule, hashFile, outFile string) []string 
 	}
 	args = append(args,
 		"-o", outFile, "--outfile-format", "1,2", // 1=hash[:salt] + 2=plain → "hash:plain"
-		"--potfile-disable", "--status", "--status-json", "--status-timer", "1", "--force")
+		"--potfile-disable", "--status", "--status-json", "--status-timer", "2", "--force")
 	return args
 }
 

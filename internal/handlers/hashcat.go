@@ -281,14 +281,16 @@ func (h *Handler) runHashcat(scanID string, cfg hashcatConfig) {
 
 	result := hashcat.Scan(ctx, scanCfg,
 		func(done int, msg string) {
-			// "$ " crumbs → commands column (non-batched); everything else the
-			// coalesced path. hashcat emits few progress events so batching is
-			// optional, but this matches the house style.
-			if strings.HasPrefix(msg, "$ ") {
+			// Log-worthy lines (the "$ hashcat …" command per pass + "Pass: …"
+			// transitions) append to the console. The high-frequency
+			// "% · rate · ETA" status ticks only overwrite the live progress
+			// line — otherwise a multi-hour crack piles up tens of thousands of
+			// near-identical console lines.
+			if strings.HasPrefix(msg, "$ ") || strings.HasPrefix(msg, "Pass:") {
 				h.db.UpdateScanProgress(scanID, done, msg)
 				return
 			}
-			h.db.UpdateScanProgress(scanID, done, msg)
+			h.db.UpdateScanProgressLive(scanID, done, msg)
 		},
 		func(p *hashcat.ScanResult) {
 			b, err := json.Marshal(p)

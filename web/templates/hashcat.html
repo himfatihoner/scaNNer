@@ -204,19 +204,36 @@
 const HC_MODES = {{.ModesJSON}};
 const HC_CORES = {{.Cores}};
 
+function hcWordStart(name, q) {
+    let i = name.indexOf(q);
+    while (i !== -1) {
+        if (i === 0 || /[^a-z0-9]/.test(name[i - 1])) return true;
+        i = name.indexOf(q, i + 1);
+    }
+    return false;
+}
 function hcFilterModes() {
     const q = document.getElementById('modeSearch').value.trim().toLowerCase();
     const box = document.getElementById('modeResults');
     if (!q) { box.classList.add('hidden'); box.innerHTML = ''; return; }
-    const hits = [];
+    // Rank by NAME relevance so "NT" surfaces NTLM first, not every mode whose
+    // CATEGORY happens to contain "nt" (Document, Instant Messaging, …). Category
+    // is only matched for longer queries (≥4 chars) and always ranks lowest.
+    const allowCat = q.length >= 4;
+    const scored = [];
     for (const m of HC_MODES) {
-        if (m.name.toLowerCase().indexOf(q) !== -1 ||
-            m.category.toLowerCase().indexOf(q) !== -1 ||
-            String(m.id) === q) {
-            hits.push(m);
-            if (hits.length >= 40) break;
-        }
+        const name = m.name.toLowerCase();
+        let score = -1;
+        if (String(m.id) === q) score = 100;
+        else if (name === q) score = 95;
+        else if (name.startsWith(q)) score = 90;
+        else if (hcWordStart(name, q)) score = 70; // query starts a word inside the name
+        else if (name.indexOf(q) !== -1) score = 45;
+        else if (allowCat && m.category.toLowerCase().indexOf(q) !== -1) score = 15;
+        if (score >= 0) scored.push([score, m]);
     }
+    scored.sort(function(a, b){ return b[0] - a[0] || a[1].id - b[1].id; });
+    const hits = scored.slice(0, 50).map(function(s){ return s[1]; });
     if (!hits.length) { box.innerHTML = '<div class="px-3 py-2 text-xs text-dark-500">No match</div>'; box.classList.remove('hidden'); return; }
     box.innerHTML = hits.map(m =>
         '<button type="button" class="w-full text-left px-3 py-2 hover:bg-dark-800 flex items-center gap-2" onclick="hcPickMode(' + m.id + ',\'' + m.name.replace(/'/g, "\\'") + '\')">' +

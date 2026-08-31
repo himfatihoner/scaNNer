@@ -97,7 +97,7 @@ func main() {
 		"subfinder", "amass", "puredns", "masscan",
 		"enum4linux", "onesixtyone", "whois",
 		"sslscan", "openssl", // SSL/TLS Scanner's tool-driven engine
-		"hashcat",            // Hashcat cracking module (also used by adpentest auto-crack)
+		"hashcat", "hashid",  // Hashcat cracking module (+ hashid for hash-type auto-detect)
 	}
 	missing := []string{}
 	for _, t := range tools {

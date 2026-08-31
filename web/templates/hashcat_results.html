@@ -24,7 +24,7 @@
             {{else if eq $s.Status "error"}}text-danger
             {{else if eq $s.Status "exhausted"}}text-warning
             {{else}}text-dark-300{{end}}">{{if $s.Status}}{{$s.Status}}{{else}}—{{end}}</p>
-        {{if $s.ModeName}}<p class="text-[10px] text-dark-500 mono truncate">-m {{$s.ModeID}} {{$s.ModeName}} · {{$s.Attack}}</p>{{end}}
+        {{if $s.ModeName}}<p class="text-[10px] text-dark-500 mono truncate" title="{{if $s.DetectedModes}}Auto-detect candidates: {{$s.DetectedModes}}{{end}}">-m {{$s.ModeID}} {{$s.ModeName}}{{if $s.DetectedModes}} (auto){{end}} · {{$s.Attack}}</p>{{end}}
     </div>
     <div class="bg-dark-900 border border-dark-800 rounded-xl p-4">
         <p class="text-[11px] uppercase tracking-wide text-dark-500">Speed</p>

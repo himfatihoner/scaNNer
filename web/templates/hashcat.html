@@ -23,14 +23,19 @@
                         <label class="block text-sm text-dark-300 mb-1.5">Hashes <span class="text-danger">*</span>{{template "info_icon" "One hash per line. All hashes must be the SAME type (matching the selected mode). Or upload a file below."}}</label>
                         <textarea name="hashes" rows="5" placeholder="5f4dcc3b5aa765d61d8327deb882cf99&#10;e10adc3949ba59abbe56e057f20f883e"
                                   class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
-                        <label class="block text-[11px] text-dark-500 mt-1.5">…or upload a hash file
-                            <input type="file" name="hashfile" class="block mt-1 text-[11px] text-dark-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-dark-700 file:text-dark-200 file:text-[11px] hover:file:bg-dark-600 cursor-pointer"/>
-                        </label>
+                        <div class="mt-1.5 flex items-center gap-2">
+                            <label class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-dark-700 hover:bg-dark-600 rounded text-[11px] text-dark-200 cursor-pointer">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                Upload hash file
+                                <input type="file" name="hashfile" class="hidden" onchange="hcFileName(this,'hashfileName')"/>
+                            </label>
+                            <span id="hashfileName" class="text-[11px] text-dark-500 truncate"></span>
+                        </div>
                     </div>
 
-                    <!-- Hash mode — searchable picker -->
+                    <!-- Hash mode — searchable picker (optional → auto-detect) -->
                     <div>
-                        <label class="block text-sm text-dark-300 mb-1.5">Hash type <span class="text-danger">*</span>{{template "info_icon" "Search by name — e.g. type 'NTLM', 'bcrypt', 'Kerberoast'. No need to know the -m number; we resolve it for you."}}</label>
+                        <label class="block text-sm text-dark-300 mb-1.5">Hash type{{template "info_icon" "Search by name — e.g. type 'NTLM', 'bcrypt', 'Kerberoast'. No need to know the -m number. Leave blank to auto-detect the type and try the most likely algorithms."}}</label>
                         <input id="modeSearch" type="search" autocomplete="off" placeholder="Search {{.ModeCount}} algorithms — NTLM, MD5, bcrypt, WPA…"
                                oninput="hcFilterModes()" onfocus="hcFilterModes()"
                                class="w-full bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"/>
@@ -41,6 +46,7 @@
                         </div>
                         <input type="hidden" name="mode_id" id="modeId" value=""/>
                         <input type="hidden" name="mode_name" id="modeName" value=""/>
+                        <p class="text-[10px] text-dark-500 mt-1">Leave blank to <span class="text-accent-400">auto-detect</span> (via hashid) and try the top candidate algorithms.</p>
                     </div>
 
                     <!-- Attack mode -->
@@ -62,18 +68,25 @@
                     <div id="dictOpts" class="space-y-4 border-l-2 border-dark-800 pl-3">
                         <div>
                             <label class="block text-sm text-dark-300 mb-1.5">Wordlist{{template "info_icon" "Pick a list found on this host, type a custom path, or upload one. .gz lists work as-is."}}</label>
-                            {{if .Wordlists}}
+                            {{if .WordlistGroups}}
                             <select name="wordlist_select" class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent-500">
-                                {{range .Wordlists}}<option value="{{.Path}}">{{.Label}}{{if .Gz}} (gz){{end}}</option>{{end}}
+                                {{range .WordlistGroups}}<optgroup label="{{.Group}}">
+                                    {{range .Items}}<option value="{{.Path}}">{{.Label}} — {{.WordsH}} words{{if .Gz}} · gz{{end}}</option>{{end}}
+                                </optgroup>{{end}}
                             </select>
                             {{else}}
                             <p class="text-[11px] text-warning">No wordlists found in /usr/share/wordlists — type a path or upload one.</p>
                             {{end}}
                             <input type="text" name="wordlist_custom" placeholder="…or custom path: /usr/share/wordlists/rockyou.txt"
                                    class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 mt-2"/>
-                            <label class="block text-[11px] text-dark-500 mt-1.5">…or upload a wordlist
-                                <input type="file" name="wordlistfile" class="block mt-1 text-[11px] text-dark-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-dark-700 file:text-dark-200 file:text-[11px] hover:file:bg-dark-600 cursor-pointer"/>
-                            </label>
+                            <div class="mt-1.5 flex items-center gap-2">
+                                <label class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-dark-700 hover:bg-dark-600 rounded text-[11px] text-dark-200 cursor-pointer">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                    Upload wordlist
+                                    <input type="file" name="wordlistfile" class="hidden" onchange="hcFileName(this,'wordlistfileName')"/>
+                                </label>
+                                <span id="wordlistfileName" class="text-[11px] text-dark-500 truncate"></span>
+                            </div>
                         </div>
                         <div>
                             <label class="block text-sm text-dark-300 mb-1.5">Rules{{template "info_icon" "Rules mutate each wordlist word (append digits, leetspeak, case toggles…) — massively expands coverage. Stack several. Bigger rules = slower."}}</label>
@@ -215,6 +228,9 @@ function hcClearMode() {
     document.getElementById('modeId').value = '';
     document.getElementById('modeName').value = '';
     document.getElementById('modeChosen').classList.add('hidden');
+}
+function hcFileName(input, spanId) {
+    document.getElementById(spanId).textContent = input.files && input.files[0] ? input.files[0].name : '';
 }
 function hcToggleAttack() {
     const mask = document.querySelector('input[name=attack]:checked').value === '3';

@@ -23,7 +23,8 @@ type hashcatConfig struct {
 	Hashes        []string `json:"hashes"`
 	ModeID        int      `json:"mode_id"`
 	ModeName      string   `json:"mode_name,omitempty"`
-	Attack        int      `json:"attack"` // 0 = dictionary+rules, 3 = mask
+	DetectMode    bool     `json:"detect_mode"` // no mode chosen → auto-detect via hashid
+	Attack        int      `json:"attack"`      // 0 = dictionary+rules, 3 = mask
 	Wordlist      string   `json:"wordlist,omitempty"`
 	Rules         []string `json:"rules,omitempty"`
 	Mask          string   `json:"mask,omitempty"`
@@ -48,11 +49,32 @@ func (h *Handler) HashcatPage(w http.ResponseWriter, r *http.Request) {
 		data["ModesJSON"] = template.JS("[]")
 	}
 	data["ModeCount"] = len(modes)
-	data["Wordlists"] = hashcat.Wordlists()
+	data["WordlistGroups"] = groupWordlists(hashcat.Wordlists())
 	data["Rules"] = hashcat.Rules()
 	data["Cores"] = sysmon.ReadLimits().Cores
 	data["DefaultCPUPct"] = h.db.GetSettings().EffectiveMaxCPUPercent()
 	h.render(w, "layout", data)
+}
+
+// wlGroup buckets wordlists by their display group for <optgroup> rendering.
+type wlGroup struct {
+	Group string
+	Items []hashcat.WordlistOption
+}
+
+func groupWordlists(wls []hashcat.WordlistOption) []wlGroup {
+	var groups []wlGroup
+	idx := map[string]int{}
+	for _, w := range wls {
+		i, ok := idx[w.Group]
+		if !ok {
+			i = len(groups)
+			idx[w.Group] = i
+			groups = append(groups, wlGroup{Group: w.Group})
+		}
+		groups[i].Items = append(groups[i].Items, w)
+	}
+	return groups
 }
 
 func (h *Handler) parseHashcatForm(r *http.Request) hashcatConfig {
@@ -71,10 +93,15 @@ func (h *Handler) parseHashcatForm(r *http.Request) hashcatConfig {
 		}
 	}
 
-	cfg.ModeID, _ = strconv.Atoi(strings.TrimSpace(r.FormValue("mode_id")))
-	cfg.ModeName = strings.TrimSpace(r.FormValue("mode_name"))
-	if cfg.ModeName == "" {
-		cfg.ModeName = hashcat.ModeName(cfg.ModeID)
+	rawMode := strings.TrimSpace(r.FormValue("mode_id"))
+	if rawMode == "" {
+		cfg.DetectMode = true // no algorithm chosen → auto-detect + try candidates
+	} else {
+		cfg.ModeID, _ = strconv.Atoi(rawMode)
+		cfg.ModeName = strings.TrimSpace(r.FormValue("mode_name"))
+		if cfg.ModeName == "" {
+			cfg.ModeName = hashcat.ModeName(cfg.ModeID)
+		}
 	}
 
 	if r.FormValue("attack") == "3" {
@@ -219,6 +246,7 @@ func (h *Handler) runHashcat(scanID string, cfg hashcatConfig) {
 		Hashes:        cfg.Hashes,
 		ModeID:        cfg.ModeID,
 		ModeName:      cfg.ModeName,
+		DetectMode:    cfg.DetectMode,
 		Attack:        cfg.Attack,
 		Wordlist:      cfg.Wordlist,
 		Rules:         cfg.Rules,

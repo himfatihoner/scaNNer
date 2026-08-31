@@ -135,6 +135,22 @@ tools are shown as copy-paste steps). It then **builds the binary** for you (as
 your user, so it stays user-owned). If any step fails it rolls back every change
 and explains why. See [scripts/README.md](scripts/README.md).
 
+### Updating — one button, no terminal
+
+After the one-time install, update from **Software Update** in the UI: it pulls
+the latest code, rebuilds, and restarts into the new version in place — no
+`git`/`go`/`sudo` and no terminal. The re-exec inherits the service's
+capabilities, so the killswitch keeps working across updates.
+
+If an update also changes **system integration** (the systemd unit,
+capabilities, sudoers, tmpfiles, sysctl, or new tools — i.e. `scripts/install.sh`
+changed), the page detects it and asks for your **sudo password once** to re-run
+the installer. That password is used for that single action and is **never
+stored, logged, or written anywhere** — it is piped straight to `sudo` over the
+HTTPS connection (the prompt is refused over plain HTTP) and wiped from memory
+immediately. The installer runs in its own transient systemd unit so it survives
+the restart it performs.
+
 To remove the service and every system change it made (your repo, binary, and
 data are left untouched):
 

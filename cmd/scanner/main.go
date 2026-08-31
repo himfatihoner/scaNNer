@@ -435,6 +435,7 @@ func main() {
 	http.HandleFunc("/update", h.UpdatePage)
 	http.HandleFunc("/update/check", h.UpdateCheck)
 	http.HandleFunc("/update/apply", h.UpdateApply)
+	http.HandleFunc("/update/apply-privileged", h.UpdateApplyPrivileged)
 
 	// Workspace actions
 	http.HandleFunc("/workspace/switch", h.SwitchWorkspace)

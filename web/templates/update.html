@@ -31,7 +31,18 @@
 
     <div id="applyWrap" class="hidden">
         {{if $u.ScansRunning}}<div class="mb-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-2.5 text-xs text-warning">⚠ Scans are running. Applying an update stops them and restarts the app.</div>{{end}}
-        <button id="applyBtn" onclick="applyUpdate()" class="rounded-lg bg-accent-600 hover:bg-accent-500 text-white text-sm font-medium px-5 py-2.5">Update &amp; restart</button>
+
+        <div id="sudoWrap" class="hidden mb-3 rounded-lg border border-accent-500/40 bg-accent-600/5 px-4 py-3">
+            <p class="text-xs text-dark-200 font-medium mb-1">This update changes system integration (service · capabilities · installer).</p>
+            <p class="text-[11px] text-dark-400 mb-2">Enter your <span class="font-mono">sudo</span> password to apply it — it is used <span class="text-dark-200">once</span> to re-run the installer and is <span class="text-dark-200">never stored</span>, logged, or written anywhere.</p>
+            <input id="sudoPw" type="password" autocomplete="off" spellcheck="false" placeholder="sudo password"
+                   class="w-full bg-dark-950 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"/>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <button id="applyBtn" onclick="applyUpdate()" class="rounded-lg bg-accent-600 hover:bg-accent-500 text-white text-sm font-medium px-5 py-2.5">Update &amp; restart</button>
+            <button type="button" id="advBtn" onclick="revealSudo()" class="text-[11px] text-dark-500 hover:text-dark-300 underline">needs system changes?</button>
+        </div>
     </div>
 
     <div id="applying" class="hidden fixed inset-0 z-50 bg-dark-950/90 backdrop-blur flex items-center justify-center">
@@ -46,6 +57,13 @@
 
 <script>
 function esc(s){ var d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
+var NEEDS_INSTALLER=false;
+
+function revealSudo(){
+    document.getElementById('sudoWrap').classList.remove('hidden');
+    document.getElementById('advBtn').classList.add('hidden');
+    document.getElementById('sudoPw').focus();
+}
 
 function checkUpdate(){
     var btn=document.getElementById('checkBtn'); btn.disabled=true; btn.textContent='Checking…';
@@ -67,6 +85,10 @@ function checkUpdate(){
         if(!u.clean){ html+='<div class="mt-3 text-xs text-warning">Local changes block the update — commit, stash, or reset them first.</div>'; }
         res.innerHTML=html;
         if(u.clean){ apply.classList.remove('hidden'); } else { apply.classList.add('hidden'); }
+        NEEDS_INSTALLER = !!u.needs_installer;
+        document.getElementById('sudoWrap').classList.toggle('hidden', !NEEDS_INSTALLER);
+        document.getElementById('applyBtn').textContent = NEEDS_INSTALLER ? 'Update, run installer & restart' : 'Update & restart';
+        document.getElementById('advBtn').classList.toggle('hidden', NEEDS_INSTALLER);
     }).catch(function(){
         btn.disabled=false; btn.textContent='Check for updates';
         var res=document.getElementById('result'); res.classList.remove('hidden');
@@ -75,10 +97,31 @@ function checkUpdate(){
 }
 
 function applyUpdate(){
+    var privileged = !document.getElementById('sudoWrap').classList.contains('hidden');
+    if(privileged){
+        var pwEl=document.getElementById('sudoPw');
+        var pw=pwEl.value;
+        if(!pw){ alert('Enter your sudo password to apply this system update.'); pwEl.focus(); return; }
+        if(!confirm('This applies a SYSTEM update — it re-runs the installer as root and restarts the app. Running scans will be stopped. Continue?')) return;
+        pwEl.value=''; // wipe the field the instant we read it
+        var fd=new FormData(); fd.append('sudo_password', pw); pw=null;
+        showApplying('Applying system update…');
+        sendApply('/update/apply-privileged', fd);
+        return;
+    }
     if(!confirm('This pulls the latest code, rebuilds, and RESTARTS the app. Running scans will be stopped. Continue?')) return;
+    showApplying('Pulling and rebuilding…');
+    sendApply('/update/apply', null);
+}
+
+function showApplying(msg){
     document.getElementById('applying').classList.remove('hidden');
-    document.getElementById('applyMsg').textContent='Pulling and rebuilding…';
-    fetch('/update/apply',{method:'POST'}).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j}})}).then(function(x){
+    document.getElementById('applyMsg').textContent=msg;
+}
+
+function sendApply(url, body){
+    var opt={method:'POST'}; if(body){ opt.body=body; }
+    fetch(url,opt).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j}})}).then(function(x){
         if(!x.ok || x.j.error){
             document.getElementById('applying').classList.add('hidden');
             alert('Update failed:\n\n'+(x.j.error||'unknown error'));

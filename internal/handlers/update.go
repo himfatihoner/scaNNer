@@ -15,6 +15,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"scanner/internal/models"
 )
 
 // Software self-update. An admin can pull the latest code from the app's git
@@ -49,6 +51,11 @@ type updateInfo struct {
 	Clean        bool     `json:"clean"`
 	Changelog    []string `json:"changelog,omitempty"`
 	ScansRunning bool     `json:"scans_running"`
+	// NeedsInstaller is true when the pending update changes scripts/install.sh
+	// (systemd unit / capabilities / sudoers / tmpfiles / sysctl / apt deps) — an
+	// in-place re-exec can't apply those, so applying needs a one-time sudo
+	// password to re-run the installer. See UpdateApplyPrivileged.
+	NeedsInstaller bool `json:"needs_installer"`
 }
 
 func runCmd(dir string, timeout time.Duration, name string, args ...string) (string, error) {
@@ -120,6 +127,9 @@ func (h *Handler) gatherUpdateInfo(fetch bool) updateInfo {
 				ui.Changelog = append(ui.Changelog, l)
 			}
 		}
+		// Does the pending update touch the installer? If so it changes system
+		// integration a re-exec can't apply, so applying needs the privileged path.
+		ui.NeedsInstaller = strings.TrimSpace(gitOut(root, "diff", "--name-only", "HEAD", upstream, "--", "scripts/install.sh")) != ""
 	}
 	return ui
 }
@@ -206,53 +216,9 @@ func (h *Handler) UpdateApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Remember the pre-update commit so any post-pull failure can restore the
-	// checkout to exactly its last-good state (source AND running binary).
-	oldCommit := firstLine(gitOut(root, "rev-parse", "HEAD"))
-	rollback := func() {
-		if oldCommit != "" {
-			runGit(root, 30*time.Second, "reset", "--hard", oldCommit)
-		}
-	}
-
-	// 1. Sync the checkout to exactly origin's tip. A plain `pull --ff-only`
-	//    ABORTS the moment local history has diverged from the remote — which
-	//    happens whenever the upstream is force-pushed or rebased (a curated
-	//    public mirror commonly rewrites its release history). Since a deployed
-	//    checkout only ever TRACKS the remote (any local edit was already
-	//    refused above via the clean-tree guard), fetch then hard-reset to the
-	//    upstream tip: a normal update is a fast-forward, and a diverged one is
-	//    realigned instead of dead-ending the whole update feature.
-	if out, err := runGit(root, 120*time.Second, "fetch", "origin", ui.Branch); err != nil {
-		fail("git fetch failed:\n" + lastLines(out))
-		return
-	}
-	upstream := "origin/" + ui.Branch
-	if out, err := runGit(root, 60*time.Second, "reset", "--hard", upstream); err != nil {
-		rollback()
-		fail("git update failed (could not sync to " + upstream + "):\n" + lastLines(out))
-		return
-	}
-	// 2. Build to a temp binary so a broken build never replaces the running one.
-	if out, err := runCmd(root, 5*time.Minute, "go", "build", "-o", "./scanner.new", "./cmd/scanner"); err != nil {
-		rollback()
-		fail("Build failed — rolled back, keeping the current version running:\n" + lastLines(out))
-		return
-	}
-	newBin := filepath.Join(root, "scanner.new")
-	// 3. Smoke-test: the new binary must at least execute (catches link/init panics).
-	if out, err := runCmd(root, 20*time.Second, newBin, "-version"); err != nil {
-		os.Remove(newBin)
-		rollback()
-		fail("The rebuilt binary failed its smoke test — rolled back, keeping the current version:\n" + lastLines(out))
-		return
-	}
-	// 4. Atomically swap it in.
-	finalBin := filepath.Join(root, "scanner")
-	if err := os.Rename(newBin, finalBin); err != nil {
-		os.Remove(newBin)
-		rollback()
-		fail("Could not install the new binary (rolled back): " + err.Error())
+	finalBin, errMsg := h.pullBuildSwap(root, ui)
+	if errMsg != "" {
+		fail(errMsg)
 		return
 	}
 
@@ -284,4 +250,185 @@ func (h *Handler) reexecAfterUpdate(binPath string) {
 		log.Printf("update: re-exec failed: %v (the new binary is installed; a manual restart will pick it up)", err)
 		updateMu.Unlock()
 	}
+}
+
+// pullBuildSwap syncs the checkout to origin's tip, builds + smoke-tests the new
+// binary, and atomically swaps it in. On any failure it rolls the checkout back
+// to the pre-update commit and returns a non-empty error message; on success it
+// returns the installed binary path and "".
+func (h *Handler) pullBuildSwap(root string, ui updateInfo) (string, string) {
+	oldCommit := firstLine(gitOut(root, "rev-parse", "HEAD"))
+	rollback := func() {
+		if oldCommit != "" {
+			runGit(root, 30*time.Second, "reset", "--hard", oldCommit)
+		}
+	}
+	// fetch + hard-reset to the upstream tip (a diverged/force-pushed mirror is
+	// realigned rather than dead-ending; the clean-tree guard already ran).
+	if out, err := runGit(root, 120*time.Second, "fetch", "origin", ui.Branch); err != nil {
+		return "", "git fetch failed:\n" + lastLines(out)
+	}
+	upstream := "origin/" + ui.Branch
+	if out, err := runGit(root, 60*time.Second, "reset", "--hard", upstream); err != nil {
+		rollback()
+		return "", "git update failed (could not sync to " + upstream + "):\n" + lastLines(out)
+	}
+	if out, err := runCmd(root, 5*time.Minute, "go", "build", "-o", "./scanner.new", "./cmd/scanner"); err != nil {
+		rollback()
+		return "", "Build failed — rolled back, keeping the current version running:\n" + lastLines(out)
+	}
+	newBin := filepath.Join(root, "scanner.new")
+	if out, err := runCmd(root, 20*time.Second, newBin, "-version"); err != nil {
+		os.Remove(newBin)
+		rollback()
+		return "", "The rebuilt binary failed its smoke test — rolled back, keeping the current version:\n" + lastLines(out)
+	}
+	finalBin := filepath.Join(root, "scanner")
+	if err := os.Rename(newBin, finalBin); err != nil {
+		os.Remove(newBin)
+		rollback()
+		return "", "Could not install the new binary (rolled back): " + err.Error()
+	}
+	return finalBin, ""
+}
+
+// zeroBytes wipes a byte slice — used to erase the sudo password from memory the
+// instant it has been handed to sudo's stdin.
+func zeroBytes(b []byte) {
+	for i := range b {
+		b[i] = 0
+	}
+}
+
+// UpdateApplyPrivileged applies an update that changes system integration
+// (scripts/install.sh). It does the ordinary git+build+swap as the normal user,
+// then re-runs the installer as root using a sudo password the operator supplies
+// for this one action.
+//
+// SECURITY (the operator's hard requirement): the password is read into a single
+// []byte, fed ONLY to sudo's stdin (never argv/env/logs/DB/audit/commands),
+// zeroed immediately after, and `sudo -k` leaves no cached session. Admin-only,
+// HTTPS-only, POST + SameSite (CSRF-safe). The executed argv is fully fixed
+// (trusted absolute paths) — no shell, no user-controlled command.
+func (h *Handler) UpdateApplyPrivileged(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Redirect(w, r, "/update", http.StatusSeeOther)
+		return
+	}
+	user := h.currentUser(r) // /update* is already admin-gated; re-check defensively
+	if user == nil || !user.IsAdmin() {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Administrator access required."})
+		return
+	}
+	if !h.secureCookies { // never accept a sudo password over cleartext HTTP
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "For safety the sudo password is only accepted over HTTPS. This deployment is on plain HTTP — apply the system update from a terminal instead."})
+		return
+	}
+	if !updateMu.TryLock() {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "An update is already in progress."})
+		return
+	}
+	locked := true
+	unlock := func() {
+		if locked {
+			updateMu.Unlock()
+			locked = false
+		}
+	}
+
+	pw := []byte(r.FormValue("sudo_password"))
+	// Drop the parsed-form references so the password string becomes GC-eligible
+	// (Go strings can't be wiped in place; our []byte copy is zeroed below).
+	if r.PostForm != nil {
+		r.PostForm.Del("sudo_password")
+	}
+	if r.Form != nil {
+		r.Form.Del("sudo_password")
+	}
+	defer zeroBytes(pw) // erased whichever path we leave on
+	if len(pw) == 0 {
+		unlock()
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Your sudo password is required to apply a system update."})
+		return
+	}
+
+	ui := h.gatherUpdateInfo(true)
+	if !ui.Available {
+		unlock()
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": ui.Reason})
+		return
+	}
+	if !ui.Clean {
+		unlock()
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "The working tree has local changes — refusing to update so nothing is lost."})
+		return
+	}
+	root, err := repoRoot()
+	if err != nil {
+		unlock()
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "could not locate the git checkout"})
+		return
+	}
+	if !ui.UpToDate { // pull+build as the normal user; if already current this is a forced installer re-run
+		if _, errMsg := h.pullBuildSwap(root, ui); errMsg != "" {
+			unlock()
+			writeJSON(w, http.StatusBadGateway, map[string]string{"error": errMsg})
+			return
+		}
+	}
+
+	out, err := runInstallerWithSudo(pw, root)
+	zeroBytes(pw)
+	if err != nil {
+		unlock()
+		msg := "Could not apply the system update."
+		lo := strings.ToLower(out)
+		if strings.Contains(lo, "incorrect password") || strings.Contains(lo, "sorry, try again") || strings.Contains(lo, "authentication failure") {
+			msg = "sudo authentication failed — the password was rejected. Nothing was changed."
+		} else if out != "" {
+			msg = "Could not launch the privileged installer:\n" + out
+		}
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": msg})
+		return
+	}
+	h.audit(r, user, models.AuditAdmin, "update.privileged", "re-ran installer for system update ("+ui.Latest+")")
+
+	// Success: the transient unit is now running install.sh, which restarts the
+	// service. Respond, then let the restart replace us (keep the lock — the
+	// process is about to die).
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"ok": true, "restarting": true,
+		"message": "Applying the system update in the background (unit scanner-selfupdate). The service will restart — reconnect in ~30 seconds.",
+	})
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+// runInstallerWithSudo launches scripts/install.sh as root inside a transient
+// systemd unit (its own cgroup, so it survives the `systemctl restart scanner`
+// the installer runs at its end). The password reaches ONLY sudo's stdin; every
+// argv element is a trusted absolute path, so there is no shell/argv injection.
+func runInstallerWithSudo(pw []byte, root string) (string, error) {
+	script := filepath.Join(root, "scripts", "install.sh")
+	// -k: drop any cached sudo timestamp; -S: read the password from stdin;
+	// -p '': no prompt text. systemd-run --collect: GC the unit after it exits.
+	cmd := exec.Command("sudo", "-k", "-S", "-p", "",
+		"systemd-run", "--unit=scanner-selfupdate", "--collect",
+		"--working-directory="+root,
+		"/bin/bash", script, "--yes")
+	var out bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &out
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return "", err
+	}
+	if err := cmd.Start(); err != nil {
+		return "", err
+	}
+	stdin.Write(pw)
+	stdin.Write([]byte("\n"))
+	stdin.Close()
+	err = cmd.Wait()
+	return lastLines(out.String()), err
 }

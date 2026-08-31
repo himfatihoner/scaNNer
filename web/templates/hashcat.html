@@ -91,7 +91,7 @@
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm text-dark-300 mb-1.5">Rules{{template "info_icon" "Rules mutate each wordlist word (append digits, leetspeak, case toggles…) — massively expands coverage. ×N = how many variants each word becomes. Stack several: the multipliers combine. Bigger = slower."}}</label>
+                            <label class="block text-sm text-dark-300 mb-1.5">Rules{{template "info_icon" "Rules mutate each wordlist word (append digits, leetspeak, case toggles…) — massively expands coverage. ×N = how many variants each word becomes. Stack several: each runs as its OWN pass (never chained) and the candidate counts add up. Bigger = slower."}}</label>
                             {{if .Rules}}
                             <input id="ruleSearch" type="search" oninput="hcFilterRules()" placeholder="filter…"
                                    class="w-full bg-dark-900/60 border border-dark-800 rounded px-2 py-1 text-[11px] text-dark-300 placeholder-dark-600 focus:outline-none focus:border-dark-600 mb-1.5"/>
@@ -317,21 +317,24 @@ function hcCalc() {
         out.textContent = m ? ('≈ ' + hcHuman(hcMaskKeyspace(m)) + ' candidates') : '—';
         return;
     }
-    // dictionary
-    let mult = 1;
+    // dictionary — each selected rule runs as a SEPARATE pass, so the candidate
+    // counts ADD UP (rules are not chained/multiplied).
+    var sumMult = 0, nRules = 0;
     document.querySelectorAll('input[name=rules]:checked').forEach(function(r){
-        mult *= (parseInt(r.dataset.mult||'1',10) || 1);
+        sumMult += (parseInt(r.dataset.mult||'1',10) || 1); nRules++;
     });
-    const customRule = document.querySelector('input[name=rule_custom]').value.trim();
-    const ruleNote = (mult > 1 ? (' × ' + hcHuman(mult) + ' rules') : '') + (customRule ? ' × custom rule' : '');
-    const customWL = document.querySelector('input[name=wordlist_custom]').value.trim();
-    if (customWL) { out.textContent = 'your custom list' + ruleNote; return; }
-    const sel = document.getElementById('wlSelect');
-    let words = 0;
+    var customRule = document.querySelector('input[name=rule_custom]').value.trim();
+    if (customRule) nRules++;
+    if (sumMult === 0) sumMult = 1; // no rules → plain wordlist ×1
+    var passNote = nRules > 1 ? (' across ' + nRules + ' passes') : '';
+    var customWL = document.querySelector('input[name=wordlist_custom]').value.trim();
+    if (customWL) { out.textContent = 'your custom list × ' + hcHuman(sumMult) + ' rule variants' + passNote + (customRule ? ' (+ custom rule)' : ''); return; }
+    var sel = document.getElementById('wlSelect');
+    var words = 0;
     if (sel && sel.selectedOptions[0]) words = parseInt(sel.selectedOptions[0].dataset.words||'0',10) || 0;
     if (!words) { out.textContent = '—'; return; }
-    const total = words * mult;
-    out.textContent = '≈ ' + hcHuman(total) + ' candidates' + (customRule ? ' (+ custom rule)' : '');
+    var total = words * sumMult;
+    out.textContent = '≈ ' + hcHuman(total) + ' candidates' + passNote + (customRule ? ' (+ custom rule)' : '');
 }
 function hcUpdateCpu() {
     const pct = parseInt(document.getElementById('cpuPct').value, 10);

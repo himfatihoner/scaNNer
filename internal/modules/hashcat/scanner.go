@@ -177,33 +177,75 @@ func Scan(ctx context.Context, cfg Config, progress ProgressFunc, partial Partia
 		modes = []int{cfg.ModeID}
 	}
 
+	// Precompute the wordlist size once. Each rule runs as its OWN hashcat pass
+	// (never chained: hashcat can't chain many large rule files — it errors
+	// "Unsupported number of rules used in rule chaining" and crashes — and
+	// separate passes are the union the operator actually wants). Knowing the
+	// wordlist size + each rule's rule-count lets us total the keyspace across
+	// ALL passes, so the ETA reflects the whole job, not just the current pass.
+	var words int64 = 1
+	if cfg.Attack != 3 {
+		if n := countLinesExact(cfg.Wordlist); n > 0 {
+			words = int64(n)
+		}
+	}
+
 	start := time.Now()
 	lastExit := 0
 	lastErr := ""
 	anyClean := false // any pass reached a normal exit (0/1) → not a hard error
 
+modeLoop:
 	for i, mid := range modes {
 		if ctx.Err() != nil {
 			break
 		}
-		mu.Lock()
-		out.Summary.ModeID = mid
-		out.Summary.ModeName = ModeName(mid)
-		out.Summary.ProgressPct = 0
-		mu.Unlock()
-		if cfg.DetectMode {
-			prog(0, fmt.Sprintf("Trying mode %d (%s) — candidate %d/%d", mid, ModeName(mid), i+1, len(modes)))
+		passes := buildPasses(cfg)
+		var totalKS int64
+		for _, p := range passes {
+			totalKS += passKeyspace(cfg, p.rule, words)
 		}
-		_ = os.Remove(outFile) // fresh outfile per pass
+		if totalKS < 1 {
+			totalKS = 1
+		}
+		var doneKS int64 // keyspace of the fully-completed passes for this mode
+		for pi, p := range passes {
+			if ctx.Err() != nil {
+				break
+			}
+			mu.Lock()
+			out.Summary.ModeID = mid
+			out.Summary.ModeName = ModeName(mid)
+			mu.Unlock()
+			label := ""
+			if cfg.DetectMode {
+				label = fmt.Sprintf("mode %d (%s) candidate %d/%d", mid, ModeName(mid), i+1, len(modes))
+			}
+			if len(passes) > 1 {
+				rn := "no rule"
+				if p.rule != "" {
+					rn = filepath.Base(p.rule)
+				}
+				if label != "" {
+					label += " · "
+				}
+				label += fmt.Sprintf("rule %d/%d (%s)", pi+1, len(passes), rn)
+			}
+			if label != "" {
+				prog(out.Summary.ProgressPct, "Pass: "+label)
+			}
+			_ = os.Remove(outFile) // fresh outfile per pass
 
-		exit, errTail := crackPass(ctx, cfg, mid, hashFile.Name(), outFile, prog, &out.Summary, &mu, pushPartial)
-		lastExit, lastErr = exit, errTail
-		if exit == 0 || exit == 1 {
-			anyClean = true
-		}
-		applyCracked(out, outFile)
-		if out.Summary.Cracked > 0 {
-			break // solved — stop trying other candidates
+			exit, errTail := crackPassAgg(ctx, cfg, mid, p.rule, hashFile.Name(), outFile, prog, &out.Summary, &mu, pushPartial, doneKS, totalKS)
+			lastExit, lastErr = exit, errTail
+			if exit == 0 || exit == 1 {
+				anyClean = true
+			}
+			doneKS += passKeyspace(cfg, p.rule, words)
+			applyCracked(out, outFile)
+			if out.Summary.Cracked > 0 {
+				break modeLoop // solved — stop all remaining passes/candidates
+			}
 		}
 	}
 	out.Summary.DurationSec = int(time.Since(start).Seconds())
@@ -245,10 +287,10 @@ func Scan(ctx context.Context, cfg Config, progress ProgressFunc, partial Partia
 // crackPass runs ONE hashcat invocation for a single mode, streaming
 // --status-json into the shared summary. Returns the process exit code and a
 // short stderr tail (for error reporting).
-func crackPass(ctx context.Context, cfg Config, modeID int, hashFile, outFile string,
-	prog func(int, string), sum *Summary, mu *sync.Mutex, pushPartial func(bool)) (int, string) {
+func crackPassAgg(ctx context.Context, cfg Config, modeID int, rule, hashFile, outFile string,
+	prog func(int, string), sum *Summary, mu *sync.Mutex, pushPartial func(bool), doneKS, totalKS int64) (int, string) {
 
-	args := buildArgs(cfg, modeID, hashFile, outFile)
+	args := buildArgs(cfg, modeID, rule, hashFile, outFile)
 	prog(0, "$ "+shared.FormatCommand("hashcat", args))
 
 	cmd := shared.Command(ctx, "hashcat", args...)
@@ -274,7 +316,7 @@ func crackPass(ctx context.Context, cfg Config, modeID int, hashFile, outFile st
 			continue
 		}
 		mu.Lock()
-		applyStatus(sum, st)
+		applyStatusAgg(sum, st, doneKS, totalKS)
 		pct, rate, cracked, util, eta, total := sum.ProgressPct, sum.HashrateHuman, sum.Cracked, sum.LiveUtilPct, sum.ETA, sum.Total
 		mu.Unlock()
 		prog(pct, fmt.Sprintf("%d%% · %s · %d/%d cracked · CPU %d%%%s", pct, rate, cracked, total, util, etaSuffix(eta)))
@@ -293,16 +335,16 @@ func exitCode(err error) int {
 	return -1
 }
 
-func buildArgs(cfg Config, modeID int, hashFile, outFile string) []string {
+func buildArgs(cfg Config, modeID int, rule, hashFile, outFile string) []string {
 	args := []string{"-m", strconv.Itoa(modeID), hashFile}
 	if cfg.Attack == 3 {
 		args = append(args, cfg.Mask, "-a", "3")
 	} else {
 		args = append(args, cfg.Wordlist, "-a", "0")
-		for _, r := range cfg.Rules {
-			if strings.TrimSpace(r) != "" {
-				args = append(args, "-r", r)
-			}
+		// One rule per pass — never chain multiple -r (hashcat rejects/crashes on
+		// large chained rule sets); the caller runs a separate pass per rule.
+		if strings.TrimSpace(rule) != "" {
+			args = append(args, "-r", rule)
 		}
 	}
 	w := cfg.Workload
@@ -325,7 +367,11 @@ func buildArgs(cfg Config, modeID int, hashFile, outFile string) []string {
 	return args
 }
 
-func applyStatus(s *Summary, st hcStatus) {
+// applyStatusAgg folds one hashcat --status-json line into the summary, but
+// reports progress + ETA across the WHOLE job (all rule/mode passes), not just
+// the current pass: doneKS is the keyspace of already-finished passes, totalKS
+// the grand total. ETA = remaining keyspace ÷ the current live speed.
+func applyStatusAgg(s *Summary, st hcStatus, doneKS, totalKS int64) {
 	switch st.Status {
 	case 3:
 		s.Status = "running"
@@ -337,13 +383,6 @@ func applyStatus(s *Summary, st hcStatus) {
 		s.Status = "cracked"
 	case 7, 8:
 		s.Status = "aborted"
-	}
-	if len(st.Progress) == 2 && st.Progress[1] > 0 {
-		p := int(st.Progress[0] * 100 / st.Progress[1])
-		if p > 100 {
-			p = 100
-		}
-		s.ProgressPct = p
 	}
 	if len(st.RecoveredHashes) == 2 {
 		s.Cracked = st.RecoveredHashes[0]
@@ -366,12 +405,22 @@ func applyStatus(s *Summary, st hcStatus) {
 	if util > s.PeakUtilPct {
 		s.PeakUtilPct = util
 	}
-	if st.EstimatedStop > 0 {
-		if d := time.Until(time.Unix(st.EstimatedStop, 0)); d > time.Second {
-			s.ETA = d.Round(time.Second).String()
-		} else {
-			s.ETA = ""
-		}
+	// Aggregate progress across all passes.
+	var passDone int64
+	if len(st.Progress) == 2 {
+		passDone = st.Progress[0]
+	}
+	aggDone := doneKS + passDone
+	if aggDone > totalKS {
+		aggDone = totalKS
+	}
+	if totalKS > 0 {
+		s.ProgressPct = int(aggDone * 100 / totalKS)
+	}
+	if remaining := totalKS - aggDone; remaining > 0 && rate > 0 {
+		s.ETA = humanDuration(remaining / rate)
+	} else {
+		s.ETA = ""
 	}
 }
 
@@ -452,6 +501,74 @@ func etaSuffix(eta string) string {
 		return ""
 	}
 	return " · ETA " + eta
+}
+
+func humanDuration(sec int64) string {
+	if sec <= 0 {
+		return ""
+	}
+	d := time.Duration(sec) * time.Second
+	switch {
+	case d >= time.Hour:
+		return fmt.Sprintf("%dh %dm", int(d.Hours()), int(d.Minutes())%60)
+	case d >= time.Minute:
+		return fmt.Sprintf("%dm %ds", int(d.Minutes()), int(d.Seconds())%60)
+	default:
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	}
+}
+
+// pass is one hashcat invocation — a single rule (or none / a mask). Rules are
+// NEVER chained (see buildArgs), so a dictionary attack with N rules runs N
+// passes and the keyspaces add up.
+type pass struct{ rule string }
+
+func buildPasses(cfg Config) []pass {
+	if cfg.Attack == 3 {
+		return []pass{{}} // mask: one pass, no rule
+	}
+	var out []pass
+	for _, r := range cfg.Rules {
+		if strings.TrimSpace(r) != "" {
+			out = append(out, pass{rule: r})
+		}
+	}
+	if len(out) == 0 {
+		return []pass{{}} // plain dictionary, no rules
+	}
+	return out
+}
+
+// passKeyspace estimates the candidate count for one pass: wordlist words ×
+// that rule's rule-count (1 for no rule), or the mask's charset product. Same
+// units as hashcat's status-json progress[] so aggregate ETA stays consistent.
+func passKeyspace(cfg Config, rule string, words int64) int64 {
+	if cfg.Attack == 3 {
+		return maskKeyspaceGo(cfg.Mask)
+	}
+	rc := int64(1)
+	if strings.TrimSpace(rule) != "" {
+		if n := ruleCount(rule); n > 0 {
+			rc = int64(n)
+		}
+	}
+	return words * rc
+}
+
+func maskKeyspaceGo(mask string) int64 {
+	sizes := map[byte]int64{'d': 10, 'l': 26, 'u': 26, 's': 33, 'a': 95, 'b': 256, 'h': 16, 'H': 16}
+	var total int64 = 1
+	for i := 0; i < len(mask); {
+		if mask[i] == '?' && i+1 < len(mask) {
+			if s, ok := sizes[mask[i+1]]; ok {
+				total *= s
+			}
+			i += 2
+		} else {
+			i++
+		}
+	}
+	return total
 }
 
 func lastLines(s string, n int) string {

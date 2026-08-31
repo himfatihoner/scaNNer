@@ -701,7 +701,36 @@ type RuleOption struct {
 	Path   string `json:"path"`
 	Label  string `json:"label"`
 	Size   int64  `json:"size"`
+	Count  int    `json:"count"`   // number of rules (non-comment lines) = keyspace multiplier
+	CountH string `json:"count_h"` // humanized, e.g. "48.4k"
 	Famous bool   `json:"famous"`
+}
+
+var ruleCountCache sync.Map // path -> int
+
+// ruleCount counts the active rules in a .rule file (non-empty, non-comment
+// lines) — that's the factor each candidate word is multiplied by. Cached.
+func ruleCount(path string) int {
+	if v, ok := ruleCountCache.Load(path); ok {
+		return v.(int)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return 0
+	}
+	defer f.Close()
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	n := 0
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		n++
+	}
+	ruleCountCache.Store(path, n)
+	return n
 }
 
 // famousRules are surfaced first in the picker (whichever are present).
@@ -737,10 +766,11 @@ func Rules() []RuleOption {
 				continue
 			}
 			seen[base] = true
+			n := ruleCount(p)
 			if abs, err := filepath.Abs(p); err == nil {
 				p = abs // bundled rules are glob-relative; abs-resolve so -r works from any cwd
 			}
-			out = append(out, RuleOption{Path: p, Label: base, Size: fi.Size(), Famous: famousRules[base]})
+			out = append(out, RuleOption{Path: p, Label: base, Size: fi.Size(), Count: n, CountH: humanCount(n), Famous: famousRules[base]})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool {

@@ -69,15 +69,17 @@
                         <div>
                             <label class="block text-sm text-dark-300 mb-1.5">Wordlist{{template "info_icon" "Pick a list found on this host, type a custom path, or upload one. .gz lists work as-is."}}</label>
                             {{if .WordlistGroups}}
-                            <select name="wordlist_select" class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent-500">
+                            <input id="wlSearch" type="search" oninput="hcFilterWordlists()" placeholder="filter…"
+                                   class="w-full bg-dark-900/60 border border-dark-800 rounded px-2 py-1 text-[11px] text-dark-300 placeholder-dark-600 focus:outline-none focus:border-dark-600 mb-1"/>
+                            <select name="wordlist_select" id="wlSelect" onchange="hcCalc()" class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent-500">
                                 {{range .WordlistGroups}}<optgroup label="{{.Group}}">
-                                    {{range .Items}}<option value="{{.Path}}">{{.Label}} — {{.WordsH}} words{{if .Gz}} · gz{{end}}</option>{{end}}
+                                    {{range .Items}}<option value="{{.Path}}" data-words="{{.Words}}" data-label="{{.Label}}">{{.Label}} — {{.WordsH}} words{{if .Gz}} · gz{{end}}</option>{{end}}
                                 </optgroup>{{end}}
                             </select>
                             {{else}}
                             <p class="text-[11px] text-warning">No wordlists found in /usr/share/wordlists — type a path or upload one.</p>
                             {{end}}
-                            <input type="text" name="wordlist_custom" placeholder="…or custom path: /usr/share/wordlists/rockyou.txt"
+                            <input type="text" name="wordlist_custom" oninput="hcCalc()" placeholder="…or custom path: /usr/share/wordlists/rockyou.txt"
                                    class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 mt-2"/>
                             <div class="mt-1.5 flex items-center gap-2">
                                 <label class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-dark-700 hover:bg-dark-600 rounded text-[11px] text-dark-200 cursor-pointer">
@@ -89,13 +91,17 @@
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm text-dark-300 mb-1.5">Rules{{template "info_icon" "Rules mutate each wordlist word (append digits, leetspeak, case toggles…) — massively expands coverage. Stack several. Bigger rules = slower."}}</label>
+                            <label class="block text-sm text-dark-300 mb-1.5">Rules{{template "info_icon" "Rules mutate each wordlist word (append digits, leetspeak, case toggles…) — massively expands coverage. ×N = how many variants each word becomes. Stack several: the multipliers combine. Bigger = slower."}}</label>
+                            {{if .Rules}}
+                            <input id="ruleSearch" type="search" oninput="hcFilterRules()" placeholder="filter…"
+                                   class="w-full bg-dark-900/60 border border-dark-800 rounded px-2 py-1 text-[11px] text-dark-300 placeholder-dark-600 focus:outline-none focus:border-dark-600 mb-1.5"/>
+                            {{end}}
                             {{$fam := false}}{{range .Rules}}{{if .Famous}}{{$fam = true}}{{end}}{{end}}
                             {{if $fam}}
                             <p class="text-[10px] uppercase tracking-wide text-dark-500 mb-1">Popular</p>
                             <div class="grid grid-cols-2 gap-1.5 mb-2">
                                 {{range .Rules}}{{if .Famous}}
-                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" name="rules" value="{{.Path}}" class="rounded border-dark-600 bg-dark-800 text-accent-500"><span class="text-[11px] text-dark-300 mono truncate" title="{{.Path}}">{{.Label}}</span></label>
+                                <label class="rule-row flex items-center gap-2 cursor-pointer" data-label="{{.Label}}"><input type="checkbox" name="rules" value="{{.Path}}" data-mult="{{.Count}}" onchange="hcCalc()" class="rounded border-dark-600 bg-dark-800 text-accent-500"><span class="text-[11px] text-dark-300 mono truncate" title="{{.Path}}">{{.Label}} <span class="text-dark-500">×{{.CountH}}</span></span></label>
                                 {{end}}{{end}}
                             </div>
                             {{end}}
@@ -104,14 +110,14 @@
                                 <summary class="cursor-pointer px-3 py-2 text-[11px] font-medium text-dark-300 hover:text-white">All rules on host</summary>
                                 <div class="px-3 pb-3 pt-1 grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto">
                                     {{range .Rules}}{{if not .Famous}}
-                                    <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" name="rules" value="{{.Path}}" class="rounded border-dark-600 bg-dark-800 text-accent-500"><span class="text-[11px] text-dark-400 mono truncate" title="{{.Path}}">{{.Label}}</span></label>
+                                    <label class="rule-row flex items-center gap-2 cursor-pointer" data-label="{{.Label}}"><input type="checkbox" name="rules" value="{{.Path}}" data-mult="{{.Count}}" onchange="hcCalc()" class="rounded border-dark-600 bg-dark-800 text-accent-500"><span class="text-[11px] text-dark-400 mono truncate" title="{{.Path}}">{{.Label}} <span class="text-dark-600">×{{.CountH}}</span></span></label>
                                     {{end}}{{end}}
                                 </div>
                             </details>
                             {{else}}
-                            <p class="text-[11px] text-dark-500">No rules found in /usr/share/hashcat/rules.</p>
+                            <p class="text-[11px] text-dark-500">No rules found.</p>
                             {{end}}
-                            <input type="text" name="rule_custom" placeholder="…or custom rule path"
+                            <input type="text" name="rule_custom" oninput="hcCalc()" placeholder="…or custom rule path"
                                    class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 mt-2"/>
                         </div>
                     </div>
@@ -119,7 +125,7 @@
                     <!-- Mask options -->
                     <div id="maskOpts" class="hidden space-y-2 border-l-2 border-dark-800 pl-3">
                         <label class="block text-sm text-dark-300 mb-1.5">Mask{{template "info_icon" "Charset pattern for brute-force. ?d digit ?l lower ?u upper ?s symbol ?a all. Example: ?d?d?d?d?d?d = all 6-digit PINs."}}</label>
-                        <input type="text" name="mask" placeholder="?d?d?d?d?d?d"
+                        <input type="text" name="mask" oninput="hcCalc()" placeholder="?d?d?d?d?d?d"
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"/>
                         <div class="flex flex-wrap gap-1.5">
                             {{range $m := (list "?d?d?d?d" "?d?d?d?d?d?d" "?l?l?l?l?l?l" "?u?l?l?l?l?d?d" "?a?a?a?a?a?a?a?a")}}
@@ -157,6 +163,10 @@
                     </div>
 
                     {{template "queue_option" .}}
+
+                    <div class="bg-dark-850/60 border border-dark-800 rounded-lg px-3 py-2 text-[11px] text-dark-400">
+                        <span class="text-dark-500">Estimated work:</span> <span id="attemptVal" class="text-dark-200 font-medium mono">—</span>
+                    </div>
                 </div>
                 <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
@@ -236,6 +246,75 @@ function hcToggleAttack() {
     const mask = document.querySelector('input[name=attack]:checked').value === '3';
     document.getElementById('dictOpts').classList.toggle('hidden', mask);
     document.getElementById('maskOpts').classList.toggle('hidden', !mask);
+    hcCalc();
+}
+function hcFilterRules() {
+    const q = document.getElementById('ruleSearch').value.trim().toLowerCase();
+    document.querySelectorAll('.rule-row').forEach(function(row){
+        row.classList.toggle('hidden', q && (row.dataset.label||'').toLowerCase().indexOf(q) === -1);
+    });
+}
+function hcFilterWordlists() {
+    const q = document.getElementById('wlSearch').value.trim().toLowerCase();
+    const sel = document.getElementById('wlSelect');
+    if (!sel) return;
+    for (const og of sel.querySelectorAll('optgroup')) {
+        let anyVisible = false;
+        for (const opt of og.querySelectorAll('option')) {
+            const hit = !q || (opt.dataset.label||'').toLowerCase().indexOf(q) !== -1;
+            opt.hidden = !hit;
+            if (hit) anyVisible = true;
+        }
+        og.hidden = !anyVisible;
+    }
+    // if the selected option got hidden, jump to the first visible one
+    if (sel.selectedOptions[0] && sel.selectedOptions[0].hidden) {
+        const first = sel.querySelector('option:not([hidden])');
+        if (first) { first.selected = true; hcCalc(); }
+    }
+}
+function hcHuman(n) {
+    if (!isFinite(n)) return '∞';
+    if (n >= 1e15) return (n/1e15).toFixed(1)+'Q';
+    if (n >= 1e12) return (n/1e12).toFixed(1)+'T';
+    if (n >= 1e9)  return (n/1e9).toFixed(1)+'B';
+    if (n >= 1e6)  return (n/1e6).toFixed(1)+'M';
+    if (n >= 1e3)  return (n/1e3).toFixed(1)+'k';
+    return String(Math.round(n));
+}
+function hcMaskKeyspace(mask) {
+    const S = {d:10,l:26,u:26,s:33,a:95,b:256,h:16,H:16};
+    let total = 1, i = 0;
+    while (i < mask.length) {
+        if (mask[i] === '?' && i+1 < mask.length) { total *= (S[mask[i+1]]||1); i += 2; }
+        else { i += 1; } // literal char = ×1
+    }
+    return total;
+}
+function hcCalc() {
+    const out = document.getElementById('attemptVal');
+    if (!out) return;
+    const isMask = document.querySelector('input[name=attack]:checked').value === '3';
+    if (isMask) {
+        const m = (document.getElementsByName('mask')[0].value||'').trim();
+        out.textContent = m ? ('≈ ' + hcHuman(hcMaskKeyspace(m)) + ' candidates') : '—';
+        return;
+    }
+    // dictionary
+    let mult = 1;
+    document.querySelectorAll('input[name=rules]:checked').forEach(function(r){
+        mult *= (parseInt(r.dataset.mult||'1',10) || 1);
+    });
+    const customRule = document.querySelector('input[name=rule_custom]').value.trim();
+    const ruleNote = (mult > 1 ? (' × ' + hcHuman(mult) + ' rules') : '') + (customRule ? ' × custom rule' : '');
+    const customWL = document.querySelector('input[name=wordlist_custom]').value.trim();
+    if (customWL) { out.textContent = 'your custom list' + ruleNote; return; }
+    const sel = document.getElementById('wlSelect');
+    let words = 0;
+    if (sel && sel.selectedOptions[0]) words = parseInt(sel.selectedOptions[0].dataset.words||'0',10) || 0;
+    if (!words) { out.textContent = '—'; return; }
+    const total = words * mult;
+    out.textContent = '≈ ' + hcHuman(total) + ' candidates' + (customRule ? ' (+ custom rule)' : '');
 }
 function hcUpdateCpu() {
     const pct = parseInt(document.getElementById('cpuPct').value, 10);
@@ -244,7 +323,7 @@ function hcUpdateCpu() {
     const txt = pct >= 100 ? ('all ' + HC_CORES + ' cores') : ('≈' + pct + '% — ' + k + ' of ' + HC_CORES + ' cores');
     document.getElementById('cpuReadout').textContent = txt;
 }
-document.addEventListener('DOMContentLoaded', hcUpdateCpu);
+document.addEventListener('DOMContentLoaded', function(){ hcUpdateCpu(); hcCalc(); });
 hcUpdateCpu();
 </script>
 {{end}}

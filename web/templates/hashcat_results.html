@@ -1,0 +1,95 @@
+{{define "page_hashcat_results"}}
+{{template "scan_actions" .}}
+{{if or (eq (print .Scan.Status) "running") (eq (print .Scan.Status) "pending")}}
+{{template "scan_progress" .}}
+{{end}}
+<div id="scanContent">
+{{template "hashcat_results_inner" .}}
+</div>
+{{end}}
+
+{{define "hashcat_results_inner"}}
+{{$s := .Summary}}
+<!-- Stats strip -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4">
+        <p class="text-[11px] uppercase tracking-wide text-dark-500">Cracked</p>
+        <p class="text-2xl font-bold {{if gt $s.Cracked 0}}text-success{{else}}text-white{{end}}">{{$s.Cracked}}<span class="text-sm text-dark-500 font-normal"> / {{$s.Total}}</span></p>
+    </div>
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4">
+        <p class="text-[11px] uppercase tracking-wide text-dark-500">Status</p>
+        <p class="text-lg font-bold
+            {{if eq $s.Status "cracked"}}text-success
+            {{else if eq $s.Status "running"}}text-accent-400
+            {{else if eq $s.Status "error"}}text-danger
+            {{else if eq $s.Status "exhausted"}}text-warning
+            {{else}}text-dark-300{{end}}">{{if $s.Status}}{{$s.Status}}{{else}}—{{end}}</p>
+        {{if $s.ModeName}}<p class="text-[10px] text-dark-500 mono truncate">-m {{$s.ModeID}} {{$s.ModeName}} · {{$s.Attack}}</p>{{end}}
+    </div>
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4">
+        <p class="text-[11px] uppercase tracking-wide text-dark-500">Speed</p>
+        <p class="text-lg font-bold text-white mono">{{if $s.HashrateHuman}}{{$s.HashrateHuman}}{{else}}—{{end}}</p>
+        {{if $s.ETA}}<p class="text-[10px] text-dark-500">ETA {{$s.ETA}}</p>{{end}}
+    </div>
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4">
+        <p class="text-[11px] uppercase tracking-wide text-dark-500">CPU / device</p>
+        <p class="text-lg font-bold text-white">{{$s.LiveUtilPct}}%<span class="text-[10px] text-dark-500 font-normal"> (peak {{$s.PeakUtilPct}}%)</span></p>
+        {{if $s.DeviceType}}<p class="text-[10px] text-dark-500 truncate" title="{{$s.DeviceName}}">{{$s.DeviceType}} · {{$s.DurationSec}}s</p>{{else}}<p class="text-[10px] text-dark-500">{{$s.DurationSec}}s</p>{{end}}
+    </div>
+</div>
+
+{{if $s.Warning}}
+<div class="bg-danger/10 border border-danger/30 rounded-lg p-3 mb-5">
+    <p class="text-xs text-danger font-medium mb-0.5">hashcat reported a problem</p>
+    <p class="text-[11px] text-dark-300 mono break-all">{{$s.Warning}}</p>
+    <p class="text-[10px] text-dark-500 mt-1">Most often the hash format doesn't match the selected mode. Double-check the algorithm.</p>
+</div>
+{{end}}
+
+<!-- Cracked -->
+{{$cracked := false}}{{range .Hashes}}{{if .Cracked}}{{$cracked = true}}{{end}}{{end}}
+{{if $cracked}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden mb-5">
+    <div class="px-4 py-3 border-b border-dark-800 flex items-center gap-2">
+        <span class="text-lg">🔓</span><h3 class="text-sm font-semibold text-white">Cracked credentials</h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-xs">
+            <thead><tr class="text-dark-500 border-b border-dark-800">
+                <th class="text-left font-medium px-4 py-2">Hash</th>
+                <th class="text-left font-medium px-4 py-2">Plaintext</th>
+            </tr></thead>
+            <tbody>
+                {{range .Hashes}}{{if .Cracked}}
+                <tr class="border-b border-dark-850 hover:bg-dark-850/50">
+                    <td class="px-4 py-2 mono text-dark-400 break-all select-all max-w-md truncate" title="{{.Hash}}">{{.Hash}}</td>
+                    <td class="px-4 py-2 mono text-success font-semibold select-all">{{.Plaintext}}</td>
+                </tr>
+                {{end}}{{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+{{end}}
+
+<!-- Uncracked -->
+{{$uncracked := 0}}{{range .Hashes}}{{if not .Cracked}}{{$uncracked = add $uncracked 1}}{{end}}{{end}}
+{{if gt $uncracked 0}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+    <details {{if not $cracked}}open{{end}}>
+        <summary class="px-4 py-3 cursor-pointer text-sm font-semibold text-dark-300 hover:text-white flex items-center gap-2">
+            <span class="text-dark-500">✗</span> Uncracked <span class="text-dark-500 font-normal">({{$uncracked}})</span>
+        </summary>
+        <div class="px-4 pb-4 max-h-72 overflow-y-auto space-y-1">
+            {{range .Hashes}}{{if not .Cracked}}
+            <p class="mono text-[11px] text-dark-500 break-all select-all">{{.Hash}}</p>
+            {{end}}{{end}}
+        </div>
+    </details>
+</div>
+{{end}}
+
+{{if not .Hashes}}
+<div class="flex flex-col items-center py-10 text-dark-500"><p class="text-sm">No hashes submitted.</p></div>
+{{end}}
+{{end}}

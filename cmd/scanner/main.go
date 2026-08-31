@@ -47,6 +47,7 @@ import (
 	"scanner/internal/modules/paramdisc"
 	"scanner/internal/modules/portservice"
 	"scanner/internal/modules/secheaders"
+	"scanner/internal/modules/hashcat"
 	"scanner/internal/modules/smbenum"
 	"scanner/internal/modules/snmpenum"
 	"scanner/internal/modules/spider"
@@ -96,6 +97,7 @@ func main() {
 		"subfinder", "amass", "puredns", "masscan",
 		"enum4linux", "onesixtyone", "whois",
 		"sslscan", "openssl", // SSL/TLS Scanner's tool-driven engine
+		"hashcat",            // Hashcat cracking module (also used by adpentest auto-crack)
 	}
 	missing := []string{}
 	for _, t := range tools {
@@ -196,6 +198,7 @@ func main() {
 	registry.Register(&hostdiscovery.Module{})
 	registry.Register(&portservice.Module{})
 	registry.Register(&smbenum.Module{})
+	registry.Register(&hashcat.Module{})
 	registry.Register(&adpentest.Module{})
 	registry.Register(&brutef.Module{})
 	registry.Register(&whoisinfo.Module{})
@@ -583,6 +586,10 @@ func main() {
 	http.HandleFunc("/modules/smbenum/run", h.SMBEnumRun)
 	http.HandleFunc("/modules/smbenum/results/", h.SMBEnumResults)
 	http.HandleFunc("/modules/smbenum/status/", h.SMBEnumStatus)
+	http.HandleFunc("/modules/hashcat", h.HashcatPage)
+	http.HandleFunc("/modules/hashcat/run", h.HashcatRun)
+	http.HandleFunc("/modules/hashcat/results/", h.HashcatResults)
+	http.HandleFunc("/modules/hashcat/status/", h.HashcatStatus)
 	http.HandleFunc("/modules/adpentest", h.AdpentestPage)
 	http.HandleFunc("/modules/adpentest/run", h.AdpentestRun)
 	http.HandleFunc("/modules/adpentest/results/", h.AdpentestResults)

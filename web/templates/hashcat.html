@@ -1,0 +1,234 @@
+{{define "page_hashcat"}}
+{{template "form_error" .}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">Hashcat</span>
+</div>
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">🔓</span> Hashcat</h2>
+        <p class="text-sm text-dark-400 mt-1">Crack password hashes locally. Search the algorithm by name, pick famous rule sets and wordlists (or a brute-force mask), and cap how much CPU it uses.</p>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">New Crack</h3>
+            <form action="/modules/hashcat/run" method="POST" enctype="multipart/form-data">
+                <div class="space-y-4">
+
+                    <!-- Hashes -->
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Hashes <span class="text-danger">*</span>{{template "info_icon" "One hash per line. All hashes must be the SAME type (matching the selected mode). Or upload a file below."}}</label>
+                        <textarea name="hashes" rows="5" placeholder="5f4dcc3b5aa765d61d8327deb882cf99&#10;e10adc3949ba59abbe56e057f20f883e"
+                                  class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                        <label class="block text-[11px] text-dark-500 mt-1.5">…or upload a hash file
+                            <input type="file" name="hashfile" class="block mt-1 text-[11px] text-dark-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-dark-700 file:text-dark-200 file:text-[11px] hover:file:bg-dark-600 cursor-pointer"/>
+                        </label>
+                    </div>
+
+                    <!-- Hash mode — searchable picker -->
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Hash type <span class="text-danger">*</span>{{template "info_icon" "Search by name — e.g. type 'NTLM', 'bcrypt', 'Kerberoast'. No need to know the -m number; we resolve it for you."}}</label>
+                        <input id="modeSearch" type="search" autocomplete="off" placeholder="Search {{.ModeCount}} algorithms — NTLM, MD5, bcrypt, WPA…"
+                               oninput="hcFilterModes()" onfocus="hcFilterModes()"
+                               class="w-full bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"/>
+                        <div id="modeResults" class="hidden mt-1 max-h-56 overflow-y-auto bg-dark-950 border border-dark-700 rounded-lg divide-y divide-dark-800"></div>
+                        <div id="modeChosen" class="hidden mt-2 flex items-center justify-between gap-2 px-3 py-2 bg-accent-600/10 border border-accent-500/40 rounded-lg">
+                            <span class="text-xs text-accent-200 mono" id="modeChosenLabel"></span>
+                            <button type="button" onclick="hcClearMode()" class="text-dark-400 hover:text-white text-xs">✕</button>
+                        </div>
+                        <input type="hidden" name="mode_id" id="modeId" value=""/>
+                        <input type="hidden" name="mode_name" id="modeName" value=""/>
+                    </div>
+
+                    <!-- Attack mode -->
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">Attack</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <label class="flex items-center gap-2 px-3 py-2 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer hover:border-accent-500/40">
+                                <input type="radio" name="attack" value="0" checked onchange="hcToggleAttack()" class="text-accent-500"/>
+                                <span class="text-xs text-dark-200">Dictionary + rules</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-3 py-2 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer hover:border-accent-500/40">
+                                <input type="radio" name="attack" value="3" onchange="hcToggleAttack()" class="text-accent-500"/>
+                                <span class="text-xs text-dark-200">Mask / brute-force</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Dictionary options -->
+                    <div id="dictOpts" class="space-y-4 border-l-2 border-dark-800 pl-3">
+                        <div>
+                            <label class="block text-sm text-dark-300 mb-1.5">Wordlist{{template "info_icon" "Pick a list found on this host, type a custom path, or upload one. .gz lists work as-is."}}</label>
+                            {{if .Wordlists}}
+                            <select name="wordlist_select" class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent-500">
+                                {{range .Wordlists}}<option value="{{.Path}}">{{.Label}}{{if .Gz}} (gz){{end}}</option>{{end}}
+                            </select>
+                            {{else}}
+                            <p class="text-[11px] text-warning">No wordlists found in /usr/share/wordlists — type a path or upload one.</p>
+                            {{end}}
+                            <input type="text" name="wordlist_custom" placeholder="…or custom path: /usr/share/wordlists/rockyou.txt"
+                                   class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 mt-2"/>
+                            <label class="block text-[11px] text-dark-500 mt-1.5">…or upload a wordlist
+                                <input type="file" name="wordlistfile" class="block mt-1 text-[11px] text-dark-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-dark-700 file:text-dark-200 file:text-[11px] hover:file:bg-dark-600 cursor-pointer"/>
+                            </label>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-dark-300 mb-1.5">Rules{{template "info_icon" "Rules mutate each wordlist word (append digits, leetspeak, case toggles…) — massively expands coverage. Stack several. Bigger rules = slower."}}</label>
+                            {{$fam := false}}{{range .Rules}}{{if .Famous}}{{$fam = true}}{{end}}{{end}}
+                            {{if $fam}}
+                            <p class="text-[10px] uppercase tracking-wide text-dark-500 mb-1">Popular</p>
+                            <div class="grid grid-cols-2 gap-1.5 mb-2">
+                                {{range .Rules}}{{if .Famous}}
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" name="rules" value="{{.Path}}" class="rounded border-dark-600 bg-dark-800 text-accent-500"><span class="text-[11px] text-dark-300 mono truncate" title="{{.Path}}">{{.Label}}</span></label>
+                                {{end}}{{end}}
+                            </div>
+                            {{end}}
+                            {{if .Rules}}
+                            <details class="bg-dark-850 border border-dark-700 rounded-lg">
+                                <summary class="cursor-pointer px-3 py-2 text-[11px] font-medium text-dark-300 hover:text-white">All rules on host</summary>
+                                <div class="px-3 pb-3 pt-1 grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto">
+                                    {{range .Rules}}{{if not .Famous}}
+                                    <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" name="rules" value="{{.Path}}" class="rounded border-dark-600 bg-dark-800 text-accent-500"><span class="text-[11px] text-dark-400 mono truncate" title="{{.Path}}">{{.Label}}</span></label>
+                                    {{end}}{{end}}
+                                </div>
+                            </details>
+                            {{else}}
+                            <p class="text-[11px] text-dark-500">No rules found in /usr/share/hashcat/rules.</p>
+                            {{end}}
+                            <input type="text" name="rule_custom" placeholder="…or custom rule path"
+                                   class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 mt-2"/>
+                        </div>
+                    </div>
+
+                    <!-- Mask options -->
+                    <div id="maskOpts" class="hidden space-y-2 border-l-2 border-dark-800 pl-3">
+                        <label class="block text-sm text-dark-300 mb-1.5">Mask{{template "info_icon" "Charset pattern for brute-force. ?d digit ?l lower ?u upper ?s symbol ?a all. Example: ?d?d?d?d?d?d = all 6-digit PINs."}}</label>
+                        <input type="text" name="mask" placeholder="?d?d?d?d?d?d"
+                               class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"/>
+                        <div class="flex flex-wrap gap-1.5">
+                            {{range $m := (list "?d?d?d?d" "?d?d?d?d?d?d" "?l?l?l?l?l?l" "?u?l?l?l?l?d?d" "?a?a?a?a?a?a?a?a")}}
+                            <button type="button" onclick="document.getElementsByName('mask')[0].value='{{$m}}'" class="px-2 py-0.5 text-[10px] mono bg-dark-800 border border-dark-700 rounded text-dark-300 hover:text-white hover:border-accent-500/40">{{$m}}</button>
+                            {{end}}
+                        </div>
+                        <p class="text-[10px] text-dark-500 mono">?l lower · ?u upper · ?d digit · ?s symbol · ?a all · ?b 0x00-0xff</p>
+                    </div>
+
+                    <!-- CPU controls -->
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3 space-y-3">
+                        <div>
+                            <label class="block text-sm text-dark-300 mb-1.5">Max CPU usage{{template "info_icon" "Caps how many of your cores hashcat may use (via --cpu-affinity), so the machine stays usable. 100% = all cores."}}</label>
+                            <input type="range" name="max_cpu_pct" id="cpuPct" min="10" max="100" step="5" value="{{.DefaultCPUPct}}" oninput="hcUpdateCpu()" class="w-full accent-accent-500"/>
+                            <p class="text-[11px] text-dark-400 mt-1" id="cpuReadout"></p>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-dark-300 mb-1.5">Intensity (workload)</label>
+                            <select name="workload" class="w-full bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent-500">
+                                <option value="1">1 — Low (machine stays responsive)</option>
+                                <option value="2" selected>2 — Default (noticeable)</option>
+                                <option value="3">3 — High (machine gets sluggish)</option>
+                                <option value="4">4 — Nightmare (headless only)</option>
+                            </select>
+                        </div>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" name="cpu_only" checked class="rounded border-dark-600 bg-dark-800 text-accent-500"/>
+                            <span class="text-[11px] text-dark-300">CPU only (no GPU) — uncheck to also use the GPU if present</span>
+                        </label>
+                        <div>
+                            <label class="block text-[11px] text-dark-400 mb-1">Time limit (seconds, optional){{template "info_icon" "Stop after this many seconds even if not finished — useful to bound an open-ended mask attack. Blank = run to exhaustion."}}</label>
+                            <input type="number" name="runtime_sec" min="0" placeholder="0 = unlimited"
+                                   class="w-full bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"/>
+                        </div>
+                    </div>
+
+                    {{template "queue_option" .}}
+                </div>
+                <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Start Cracking
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="lg:col-span-2">
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            {{if .Scans}}
+            <div class="space-y-2">
+                {{range .Scans}}
+                <a href="/modules/hashcat/results/{{.ID}}" class="flex items-center justify-between px-4 py-3 bg-dark-850 border border-dark-700 rounded-lg hover:border-accent-500/50 transition-all group">
+                    <div class="flex items-center gap-3">
+                        {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
+                        {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
+                        {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
+                        <span class="text-sm text-dark-200 group-hover:text-white">Scan #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                    </div>
+                    <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                {{end}}
+            </div>
+            {{else}}
+            <div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No scans yet</p></div>
+            {{end}}
+        </div>
+    </div>
+</div>
+
+<script>
+const HC_MODES = {{.ModesJSON}};
+const HC_CORES = {{.Cores}};
+
+function hcFilterModes() {
+    const q = document.getElementById('modeSearch').value.trim().toLowerCase();
+    const box = document.getElementById('modeResults');
+    if (!q) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+    const hits = [];
+    for (const m of HC_MODES) {
+        if (m.name.toLowerCase().indexOf(q) !== -1 ||
+            m.category.toLowerCase().indexOf(q) !== -1 ||
+            String(m.id) === q) {
+            hits.push(m);
+            if (hits.length >= 40) break;
+        }
+    }
+    if (!hits.length) { box.innerHTML = '<div class="px-3 py-2 text-xs text-dark-500">No match</div>'; box.classList.remove('hidden'); return; }
+    box.innerHTML = hits.map(m =>
+        '<button type="button" class="w-full text-left px-3 py-2 hover:bg-dark-800 flex items-center gap-2" onclick="hcPickMode(' + m.id + ',\'' + m.name.replace(/'/g, "\\'") + '\')">' +
+        '<span class="text-[10px] mono text-dark-500 w-12 shrink-0">' + m.id + '</span>' +
+        '<span class="text-xs text-white truncate">' + m.name + '</span>' +
+        '<span class="text-[10px] text-dark-500 ml-auto shrink-0">' + m.category + '</span></button>'
+    ).join('');
+    box.classList.remove('hidden');
+}
+function hcPickMode(id, name) {
+    document.getElementById('modeId').value = id;
+    document.getElementById('modeName').value = name;
+    document.getElementById('modeChosenLabel').textContent = id + ' — ' + name;
+    document.getElementById('modeChosen').classList.remove('hidden');
+    document.getElementById('modeResults').classList.add('hidden');
+    document.getElementById('modeSearch').value = '';
+}
+function hcClearMode() {
+    document.getElementById('modeId').value = '';
+    document.getElementById('modeName').value = '';
+    document.getElementById('modeChosen').classList.add('hidden');
+}
+function hcToggleAttack() {
+    const mask = document.querySelector('input[name=attack]:checked').value === '3';
+    document.getElementById('dictOpts').classList.toggle('hidden', mask);
+    document.getElementById('maskOpts').classList.toggle('hidden', !mask);
+}
+function hcUpdateCpu() {
+    const pct = parseInt(document.getElementById('cpuPct').value, 10);
+    let k = Math.round(HC_CORES * pct / 100);
+    if (k < 1) k = 1; if (k > HC_CORES) k = HC_CORES;
+    const txt = pct >= 100 ? ('all ' + HC_CORES + ' cores') : ('≈' + pct + '% — ' + k + ' of ' + HC_CORES + ' cores');
+    document.getElementById('cpuReadout').textContent = txt;
+}
+document.addEventListener('DOMContentLoaded', hcUpdateCpu);
+hcUpdateCpu();
+</script>
+{{end}}

@@ -45,6 +45,7 @@ var VulnEmitters = map[string]bool{
 	// every positive result IS a finding worth reporting).
 	"leakscan":    true,
 	"brutef":      true,
+	"hashcat":     true,
 	"smbenum":     true,
 	"httpmethods": true,
 }

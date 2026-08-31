@@ -276,6 +276,8 @@ func New(registry *modules.Registry, db *database.DB, templateDir string) (*Hand
 				return "/modules/smbenum/results/" + scan.ID
 			case "brutef":
 				return "/modules/brutef/results/" + scan.ID
+			case "hashcat":
+				return "/modules/hashcat/results/" + scan.ID
 			case "whoisinfo":
 				return "/modules/whoisinfo/results/" + scan.ID
 			case "emailharvest":

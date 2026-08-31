@@ -404,6 +404,10 @@
                     {{template "page_smbenum" .}}
                 {{else if eq .Page "smbenum_results"}}
                     {{template "page_smbenum_results" .}}
+                {{else if eq .Page "hashcat"}}
+                    {{template "page_hashcat" .}}
+                {{else if eq .Page "hashcat_results"}}
+                    {{template "page_hashcat_results" .}}
                 {{else if eq .Page "adpentest"}}
                     {{template "page_adpentest" .}}
                 {{else if eq .Page "adpentest_results"}}

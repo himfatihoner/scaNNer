@@ -110,7 +110,7 @@ var moduleClass = map[string]ExecClass{
 	// single-shot / API / CPU-internal — concurrency knob is irrelevant
 	"cvematch": ClassSingle, "jwt": ClassSingle, "oob": ClassSingle, "leakscan": ClassSingle,
 	"assetdisc": ClassSingle, "concurtest": ClassSingle, "emailharvest": ClassSingle,
-	"adpentest": ClassSingle,
+	"adpentest": ClassSingle, "hashcat": ClassSingle,
 }
 
 // classDefault returns the conservative default Profile for a class. These are

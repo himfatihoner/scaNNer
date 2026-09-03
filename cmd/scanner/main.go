@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -60,6 +61,36 @@ import (
 	"scanner/internal/modules/wpscan"
 )
 
+// augmentToolPath appends the user's go-bin, local-bin and the repo-local
+// tools/ dir to $PATH (deduped, appended so system copies keep precedence) so
+// exec.LookPath — and therefore shared.Command + every module's tool
+// resolution — finds tools installed by `go install` / pipx / source even when
+// the process was started by systemd (whose default PATH omits those dirs).
+func augmentToolPath() {
+	var extra []string
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		extra = append(extra, filepath.Join(home, "go", "bin"), filepath.Join(home, ".local", "bin"))
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		extra = append(extra, filepath.Join(cwd, "tools"))
+	}
+	cur := os.Getenv("PATH")
+	seen := map[string]bool{}
+	for _, p := range filepath.SplitList(cur) {
+		seen[p] = true
+	}
+	var add []string
+	for _, p := range extra {
+		if p != "" && !seen[p] {
+			add = append(add, p)
+			seen[p] = true
+		}
+	}
+	if len(add) > 0 {
+		os.Setenv("PATH", cur+string(os.PathListSeparator)+strings.Join(add, string(os.PathListSeparator)))
+	}
+}
+
 func main() {
 	// Lightweight smoke-test hook used by the self-update flow: a freshly-built
 	// binary is run as `scanner -version` to confirm it executes (package inits
@@ -72,6 +103,16 @@ func main() {
 			return
 		}
 	}
+
+	// Make go-install (~/go/bin), pipx (~/.local/bin) and repo-local (./tools)
+	// tools discoverable regardless of how we're launched. A systemd service
+	// starts with a minimal PATH that OMITS ~/go/bin and ~/.local/bin, so tools
+	// installed there (subfinder, puredns, massdns, kerbrute, mitm6, …) vanish
+	// from exec.LookPath — modules then silently skip those phases. This is what
+	// dropped dnsenum from ~1800 subdomains (subfinder+amass+crt.sh+brute) to
+	// ~10 (crt.sh only) after the switch to a systemd unit. Runs before the tool
+	// preflight below so the banner reflects the augmented PATH.
+	augmentToolPath()
 
 	port := os.Getenv("PORT")
 	if port == "" {

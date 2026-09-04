@@ -175,6 +175,14 @@
                                                class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                                         <p class="text-[10px] text-dark-500 mt-1">Comma-separated single ports and/or ranges (each 1–65535). Probes EXACTLY this list per host — no pre-discovery, no TCP scan. <span class="text-warning">Wide ranges multiply probe count by host count</span> — keep an eye on Probe concurrency below.</p>
                                     </div>
+                                    <div id="httpxDirectBox" class="col-span-2 hidden">
+                                        <label class="flex items-start gap-2 cursor-pointer">
+                                            <input type="checkbox" name="httpx_direct_http" class="mt-0.5 rounded border-dark-600 bg-dark-900 text-accent-500 focus:ring-0 focus:ring-offset-0">
+                                            <span class="text-[10px] text-dark-400 leading-snug">
+                                                <span class="text-dark-200">Doğrudan HTTP/HTTPS (port ön-taramasını atla)</span> — TCP connect taraması yapılmaz, her porta doğrudan HTTP/HTTPS denenir. Sadece gerçekten HTTP yanıtı veren portlar raporlanır; connect'i kabul eden/tarpit yapan firewall sonucu şişiremez. <span class="text-warning">Çok yavaş</span> (host başına ~65K istek) — Probe concurrency ve rate ayarını buna göre kullan.
+                                            </span>
+                                        </label>
+                                    </div>
                                     <div class="col-span-2">
                                         <label class="block text-[10px] uppercase text-dark-500 mb-1">Probe concurrency</label>
                                         <input type="number" name="httpx_concurrency" value="20" min="1" max="1000"
@@ -190,9 +198,16 @@
                             // common cases and signals required-ness.
                             function awHttpxModeChange(v) {
                                 var box = document.getElementById('httpxCustomPortsBox');
-                                if (!box) return;
-                                if (v === 'custom') box.classList.remove('hidden');
-                                else box.classList.add('hidden');
+                                if (box) {
+                                    if (v === 'custom') box.classList.remove('hidden');
+                                    else box.classList.add('hidden');
+                                }
+                                // Direct-HTTP toggle is meaningful only in Full mode.
+                                var dbox = document.getElementById('httpxDirectBox');
+                                if (dbox) {
+                                    if (v === 'full') dbox.classList.remove('hidden');
+                                    else dbox.classList.add('hidden');
+                                }
                             }
                             // Re-apply on load in case the preset script picks "custom".
                             (function(){

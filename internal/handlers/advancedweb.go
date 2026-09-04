@@ -196,6 +196,7 @@ func (h *Handler) AdvancedWebRun(w http.ResponseWriter, r *http.Request) {
 		DNSEnumSpeed:       r.FormValue("dnsenum_speed"),
 		HTTPXMode:          r.FormValue("httpx_mode"),
 		HTTPXCustomPorts:   strings.TrimSpace(r.FormValue("httpx_custom_ports")),
+		HTTPXDirectHTTP:    r.FormValue("httpx_direct_http") == "on",
 		SSLScanPorts:       strings.TrimSpace(r.FormValue("sslscan_ports")),
 		DirEnumLevel:       r.FormValue("direnum_level"),
 		DirEnumSmartScan:   r.FormValue("direnum_smart_scan") == "on",

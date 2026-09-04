@@ -487,15 +487,32 @@ func Scan(cfg Config, opts *shared.HTTPOptions, concurrency int, cveLookup CVELo
 		case len(customPorts) > 0:
 			httpxTotal = len(hosts) * len(customPorts)
 		case httpxMode == httpxfind.ModeFull:
-			httpxTotal = len(hosts) * 100 // heuristic — real total emerges after TCP scan
+			// Full mode probes every port and reports `done` in port units
+			// (up to hosts×65535), so that's the honest denominator.
+			httpxTotal = len(hosts) * 65535
 		}
 		// Reset the shared error counters so the post-probe ErrorSummary
 		// isolates THIS stage's reachability failures (refused/timeout/DNS).
 		opts.ResetErrors()
-		if len(customPorts) > 0 {
-			httpxResult = httpxfind.ScanWithPorts(hosts, customPorts, cfg.HTTPXConcurrency, opts, nil, stageProgress(sr, httpxTotal))
-		} else {
-			httpxResult = httpxfind.ScanWithConcurrency(hosts, httpxMode, cfg.HTTPXConcurrency, opts, nil, stageProgress(sr, httpxTotal))
+		// The suite tracks httpx as one fixed-budget stage, so swallow the
+		// module's post-discovery __TOTAL__ total-bump sentinel — otherwise it
+		// leaks into the stage's progress text.
+		rawProg := stageProgress(sr, httpxTotal)
+		httpxProg := func(done int, msg string) {
+			if strings.HasPrefix(msg, httpxfind.TotalUpdatePrefix) {
+				return
+			}
+			rawProg(done, msg)
+		}
+		switch {
+		case len(customPorts) > 0:
+			httpxResult = httpxfind.ScanWithPorts(hosts, customPorts, cfg.HTTPXConcurrency, opts, nil, httpxProg)
+		case httpxMode == httpxfind.ModeFull:
+			// Full mode: honour the direct-HTTP toggle (skip the connect
+			// port-scan, HTTP-probe every port directly) via ScanFull.
+			httpxResult = httpxfind.ScanFull(hosts, cfg.HTTPXConcurrency, 0, 0, cfg.HTTPXDirectHTTP, opts, nil, httpxProg)
+		default:
+			httpxResult = httpxfind.ScanWithConcurrency(hosts, httpxMode, cfg.HTTPXConcurrency, opts, nil, httpxProg)
 		}
 		if len(httpxResult.Services) == 0 {
 			// 0 live is ambiguous: no HTTP anywhere, OR every target was

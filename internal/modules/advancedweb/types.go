@@ -138,6 +138,11 @@ type Config struct {
 	HTTPXMode          string   `json:"httpx_mode"`         // common | full | custom
 	HTTPXConcurrency   int      `json:"httpx_concurrency"`  // HTTP probe concurrency override; 0 → module default (20)
 	HTTPXCustomPorts   string   `json:"httpx_custom_ports"` // CSV+range port spec ("80,443,8000-8100"); only honoured when HTTPXMode == "custom"
+	// HTTPXDirectHTTP (Full mode only): skip the TCP connect port-scan and fire
+	// HTTP/HTTPS straight at every port — only ports that actually answer HTTP
+	// are recorded, so a firewall accepting/tarpitting every connect can't
+	// inflate the port set. Mirrors the standalone httpxfind checkbox.
+	HTTPXDirectHTTP bool `json:"httpx_direct_http,omitempty"`
 	// SSLScanPorts is the port set the SSL/TLS stage probes on each discovered
 	// host. The stage is INDEPENDENT of HTTPX (it no longer consumes HTTPX's
 	// live-service list, so TLS on ports HTTPX didn't surface isn't skipped);

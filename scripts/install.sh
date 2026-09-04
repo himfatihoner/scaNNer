@@ -496,6 +496,55 @@ APT_MISSING=()          # deduped apt packages to (optionally) auto-install
 GO_STEPS=(); PIPX_STEPS=(); SOURCE_STEPS=()
 CORE_MISSING=()
 
+# install_repo_tools builds/installs the go + source tools the app resolves from
+# its tools/ dir — dnsenum's subfinder/puredns/massdns and adpentest's kerbrute.
+# Mirrors the Dockerfile (GOBIN=<repo>/tools go install …). Runs as the target
+# user so the binaries + go cache stay user-owned; network-dependent, so it
+# lives outside the transaction and only warns on failure. Without these,
+# dnsenum runs passive-only (~10 subdomains instead of ~1800).
+install_repo_tools() {
+  local tools_dir="$REPO_DIR/tools"
+  mkdir -p "$tools_dir"
+  if have go; then
+    local go_bin entry name pkg
+    go_bin="$(command -v go)"
+    for entry in \
+      "subfinder|github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest" \
+      "puredns|github.com/d3mondev/puredns/v2@latest" \
+      "kerbrute|github.com/ropnop/kerbrute@latest"; do
+      name="${entry%%|*}"; pkg="${entry#*|}"
+      have "$name" && continue
+      step "Installing $name (go install → tools/)"
+      if sudo -u "$TARGET_USER" env HOME="$TU_HOME" GOBIN="$tools_dir" \
+           PATH="/usr/local/go/bin:/usr/bin:/bin:$TU_HOME/go/bin" "$go_bin" install "$pkg"; then
+        ok "installed $name → tools/"
+      else
+        warn "$name install failed (network/go proxy?) — retry: GOBIN='$tools_dir' go install $pkg"
+      fi
+    done
+  else
+    warn "Go missing — cannot build subfinder/puredns/kerbrute (dnsenum brute + AD user-enum degrade)."
+  fi
+  # massdns: puredns' backend, built from source → tools/
+  if ! have massdns && [ ! -x "$tools_dir/massdns" ]; then
+    if have git && have make && have cc; then
+      step "Building massdns from source → tools/"
+      local mtmp; mtmp="$(mktemp -d)"
+      if sudo -u "$TARGET_USER" sh -c "git clone --depth 1 https://github.com/blechschmidt/massdns '$mtmp' >/dev/null 2>&1 && make -C '$mtmp' >/dev/null 2>&1" \
+           && cp "$mtmp/bin/massdns" "$tools_dir/massdns" 2>/dev/null; then
+        chown "$TARGET_USER:$TARGET_GROUP" "$tools_dir/massdns"; chmod +x "$tools_dir/massdns"
+        ok "built massdns → tools/"
+      else
+        warn "massdns build failed — puredns brute needs it. Manual: git clone https://github.com/blechschmidt/massdns && make -C massdns && cp massdns/bin/massdns '$tools_dir/'"
+      fi
+      rm -rf "$mtmp"
+    else
+      warn "massdns needs git + build tools: apt install -y git build-essential, then re-run."
+    fi
+  fi
+  chown "$TARGET_USER:$TARGET_GROUP" "$tools_dir"/subfinder "$tools_dir"/puredns "$tools_dir"/kerbrute 2>/dev/null || true
+}
+
 check_prerequisites() {
   step "Checking prerequisites (tools the scanner runs + build/update toolchain)"
   local seen_pkg=" "     # dedup guard for apt packages
@@ -604,6 +653,23 @@ check_prerequisites() {
     else
       info "skipped — install them later with the command above."
     fi
+  fi
+
+  # Auto-install the go/source tools the app bundles in tools/ (subfinder,
+  # puredns, massdns → dnsenum; kerbrute → AD). Previously only PRINTED as
+  # copy-paste steps, which is why a fresh install ran dnsenum passive-only.
+  local need_repo_tools=0 rt
+  for rt in subfinder puredns massdns kerbrute; do have "$rt" || { need_repo_tools=1; break; }; done
+  if [ "$need_repo_tools" -eq 1 ]; then
+    local do_repo=0
+    if [ "$ASSUME_YES" -eq 1 ]; then
+      do_repo=1
+    else
+      printf '\n  Build + install the missing DNS/AD tools (subfinder, puredns, massdns, kerbrute) into tools/ now? [Y/n] '
+      read -r rtans </dev/tty || rtans="y"
+      case "${rtans:-y}" in [Nn]*) do_repo=0 ;; *) do_repo=1 ;; esac
+    fi
+    [ "$do_repo" -eq 1 ] && install_repo_tools
   fi
 
   # Core misses (go/git/nmap) get a prominent note but never block the install.

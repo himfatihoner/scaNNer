@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"scanner/internal/modules/shared"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -744,31 +745,103 @@ func amassBinary() string {
 	return toolPath("amass")
 }
 
+var (
+	amassMajorOnce sync.Once
+	amassMajorVal  int // 0 = undetermined → treat as modern (v4+)
+)
+
+// amassMajor returns amass's major version (5 for v5.1.1), cached for the
+// process. 0 means it couldn't be parsed — callers treat that as "modern"
+// (v4+ CLI) since v3 is effectively extinct. Probed via `amass -version`,
+// which prints e.g. "v5.1.1" and makes no network calls.
+func amassMajor(parent context.Context) int {
+	amassMajorOnce.Do(func() {
+		ctx, cancel := context.WithTimeout(parent, 5*time.Second)
+		defer cancel()
+		out, _ := shared.Command(ctx, amassBinary(), "-version").CombinedOutput()
+		if m := regexp.MustCompile(`v(\d+)\.`).FindSubmatch(out); m != nil {
+			amassMajorVal, _ = strconv.Atoi(string(m[1]))
+		}
+	})
+	return amassMajorVal
+}
+
+// harvestAmass scoops every hostname under the target domain out of whatever
+// amass produced — each file in its output dir (v4+ -oA writes .txt and .json;
+// the exact suffix has drifted across versions) plus its stdout. Regex + dedup
+// makes it robust to format and to which channel the names actually land in.
+func harvestAmass(dir string, stdout []byte, domain string) []string {
+	re := regexp.MustCompile(`(?i)(?:[a-z0-9_*-]+\.)+` + regexp.QuoteMeta(domain))
+	seen := map[string]bool{}
+	var subs []string
+	scan := func(b []byte) {
+		for _, m := range re.FindAll(b, -1) {
+			s := strings.ToLower(strings.Trim(string(m), ". "))
+			if s == "" || seen[s] {
+				continue
+			}
+			seen[s] = true
+			subs = append(subs, s)
+		}
+	}
+	scan(stdout)
+	if entries, err := os.ReadDir(dir); err == nil {
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			if b, err := os.ReadFile(filepath.Join(dir, e.Name())); err == nil {
+				scan(b)
+			}
+		}
+	}
+	return subs
+}
+
 func runAmass(parent context.Context, domain, tmpDir string, speed Speed, log func(string)) ([]string, error) {
 	if parent.Err() != nil {
 		return nil, parent.Err()
 	}
-	out := filepath.Join(tmpDir, "amass.txt")
 	timeout := "3"
-	hardCap := 4 * time.Minute
+	hardCap := 6 * time.Minute
 	if speed == SpeedDeep {
 		timeout = "10"
-		hardCap = 12 * time.Minute
+		hardCap = 14 * time.Minute
 	}
-	// Backstop just above amass's own -timeout (minutes) — the old flat
-	// 10-minute cap let a stuck amass run for 10 min even on a 3-min budget.
+	// amass v4+ dropped -o in favour of -oA <prefix> and — unlike v3 — flushes
+	// its output files only on a clean exit (its own -timeout firing, not our
+	// SIGKILL). So: give it its own dir, budget enough headroom above -timeout
+	// for the graceful exit to land, and harvest whatever it wrote. -passive is
+	// the default in v5 (still accepted, a no-op) and required by v3, so keep
+	// it. The hardCap is a touch higher than v3's since v5 also DNS-resolves
+	// the names it discovers, which takes longer.
 	ctx, cancel := context.WithTimeout(parent, hardCap)
 	defer cancel()
-	args := []string{"enum", "-passive", "-d", domain, "-o", out, "-timeout", timeout}
+
+	outDir := filepath.Join(tmpDir, "amassout")
+	_ = os.MkdirAll(outDir, 0o755)
+	outFlag, outVal := "-oA", filepath.Join(outDir, "amass")
+	if v := amassMajor(parent); v >= 1 && v < 4 {
+		outFlag, outVal = "-o", filepath.Join(outDir, "amass.txt")
+	}
+	args := []string{"enum", "-passive", "-d", domain, outFlag, outVal, "-timeout", timeout, "-nocolor"}
 	if log != nil {
 		log("$ " + shared.FormatCommand("amass", args))
 	}
 	cmd := shared.Command(ctx, amassBinary(), args...)
-	var stderr bytes.Buffer
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err := cmd.Run()
-	subs := readLines(out)
-	return subs, toolErr(err, stderr.String())
+
+	subs := harvestAmass(outDir, stdout.Bytes(), domain)
+	// Only surface an error when amass gave us nothing — a non-zero exit with
+	// results (e.g. it hit our hardCap after already writing files) is still a
+	// win, and the status board should show ok, not failed.
+	if len(subs) == 0 && err != nil {
+		return nil, toolErr(err, stderr.String())
+	}
+	return subs, nil
 }
 
 // validDomainLabel returns true only for strings that look like a DNS

@@ -722,6 +722,28 @@ func runSubfinder(parent context.Context, domain, tmpDir string, log func(string
 	return subs, toolErr(err, stderr.String())
 }
 
+// amassBinary resolves the amass executable, preferring the real Go binary
+// over Kali/Debian's /usr/bin/amass wrapper script. That wrapper front-runs
+// amass with:
+//
+//	if [ ! -e /usr/share/libpostal/transliteration ]; then
+//	    sudo libpostal_data download all /var/lib/libpostal
+//	fi
+//
+// Under a non-interactive service (systemd, no tty, no NOPASSWD) that sudo
+// can't be answered, so `set -e` aborts the wrapper with "sudo: a password is
+// required" BEFORE the real amass ever runs — silently zeroing amass's
+// contribution to the enum (the ~350-subdomain regression this fixes). The
+// libpostal model data is only used for name-alteration, which passive enum
+// doesn't touch, so calling the binary directly is safe. Non-Debian hosts
+// where amass is a plain binary fall through to the PATH lookup unchanged.
+func amassBinary() string {
+	if _, err := os.Stat("/usr/lib/amass/amass"); err == nil {
+		return "/usr/lib/amass/amass"
+	}
+	return toolPath("amass")
+}
+
 func runAmass(parent context.Context, domain, tmpDir string, speed Speed, log func(string)) ([]string, error) {
 	if parent.Err() != nil {
 		return nil, parent.Err()
@@ -741,7 +763,7 @@ func runAmass(parent context.Context, domain, tmpDir string, speed Speed, log fu
 	if log != nil {
 		log("$ " + shared.FormatCommand("amass", args))
 	}
-	cmd := shared.Command(ctx, "amass", args...)
+	cmd := shared.Command(ctx, amassBinary(), args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	err := cmd.Run()

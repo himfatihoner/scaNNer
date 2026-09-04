@@ -147,6 +147,47 @@
         {{end}}
     </div>
 
+    {{/* Per-source status board — which discovery tools ran, are still
+         running, found how many, or failed/were skipped (and why).
+         Updates live via the same htmx partial poll as the rest. */}}
+    {{if .SourceStates}}
+    <div class="px-5 py-3 border-b border-dark-800 bg-dark-850/30">
+        <div class="flex items-center gap-2 mb-2">
+            <span class="text-[10px] text-dark-500 uppercase tracking-wider">Kaynak Durumu</span>
+            <span class="text-[10px] text-dark-600">(tool status)</span>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            {{range .SourceStates}}
+            {{if eq .State "running"}}
+            <span class="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-300">
+                <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                <span class="mono font-medium">{{.Name}}</span>
+                <span class="text-amber-400/70">çalışıyor…</span>
+            </span>
+            {{else if eq .State "ok"}}
+            <span class="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-300" title="{{.Count}} sonuç">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                <span class="mono font-medium">{{.Name}}</span>
+                <span class="text-emerald-400/70">{{.Count}}</span>
+            </span>
+            {{else if eq .State "failed"}}
+            <span class="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-md bg-red-500/10 border border-red-500/30 text-red-300" title="{{.Message}}">
+                <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+                <span class="mono font-medium">{{.Name}}</span>
+                {{if .Message}}<span class="text-red-400/80 truncate max-w-[240px]">{{.Message}}</span>{{end}}
+            </span>
+            {{else}}
+            <span class="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-md bg-dark-800 border border-dark-700 text-dark-400" title="{{.Message}}">
+                <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636L5.636 18.364M12 3a9 9 0 100 18 9 9 0 000-18z"></path></svg>
+                <span class="mono font-medium">{{.Name}}</span>
+                {{if .Message}}<span class="text-dark-500 truncate max-w-[240px]">{{.Message}}</span>{{end}}
+            </span>
+            {{end}}
+            {{end}}
+        </div>
+    </div>
+    {{end}}
+
     {{if .Subdomains}}
     {{/* Bulk-copy button: writes every Subdomain (one per line) to the
          clipboard. Includes wildcard rows since the user may still want

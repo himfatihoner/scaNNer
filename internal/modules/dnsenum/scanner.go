@@ -2,6 +2,7 @@ package dnsenum
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -118,13 +119,29 @@ type DomainResult struct {
 	Subdomains  []SubdomainRecord `json:"subdomains"`
 	TotalFound  int               `json:"total_found"`
 	Sources     map[string]int    `json:"sources"` // source -> count
-	Error       string            `json:"error,omitempty"`
+	// SourceStates is the per-tool status board the UI renders: which
+	// discovery sources ran, which are still running, which found how
+	// many, and which failed/were skipped (and why). Kept in launch
+	// order so the panel is stable across partial re-renders.
+	SourceStates []SourceStatus `json:"source_states,omitempty"`
+	Error        string         `json:"error,omitempty"`
 
 	// Optional add-ons (populated only when the user enables the matching
 	// checkbox in the form).
 	AXFRRecords []AXFRRecord  `json:"axfr_records,omitempty"`
 	ReverseDNS  []PTRRecord   `json:"reverse_dns,omitempty"`
 	CrtShCerts  []CrtShRecord `json:"crtsh_certs,omitempty"`
+}
+
+// SourceStatus is one row in the per-tool status board. State is one of
+// "running", "ok", "failed", or "skipped". Count is how many raw hits the
+// source returned (before cross-source dedup); Message carries the failure
+// reason or skip reason ("not installed", "no API key", "wordlist missing").
+type SourceStatus struct {
+	Name    string `json:"name"`
+	State   string `json:"state"`
+	Count   int    `json:"count"`
+	Message string `json:"message,omitempty"`
 }
 
 // AXFRRecord captures a single record returned by a successful zone transfer.
@@ -330,6 +347,7 @@ func enumerateDomain(ctx context.Context, domain string, speed Speed, scanOpts O
 		for k, v := range dr.Sources {
 			snap.Sources[k] = v
 		}
+		snap.SourceStates = append([]SourceStatus(nil), dr.SourceStates...)
 		// Flatten all discovered subs so the UI can show progress during the passive phase
 		for s, source := range allSubs {
 			snap.Subdomains = append(snap.Subdomains, SubdomainRecord{Subdomain: s, Source: source})
@@ -340,6 +358,54 @@ func enumerateDomain(ctx context.Context, domain string, speed Speed, scanOpts O
 		partialFn(snap)
 	}
 
+	// setSrc records/updates the status of one discovery source on dr in
+	// launch order, then pushes a partial so the UI's status board updates
+	// live. count < 0 leaves the previous count untouched (used for the
+	// initial "running" mark before the tally is known). It fires a partial
+	// itself, so callers don't need a separate firePhase() afterwards.
+	srcIdx := map[string]int{}
+	setSrc := func(name, state string, count int, msg string) {
+		mu.Lock()
+		i, ok := srcIdx[name]
+		if !ok {
+			i = len(dr.SourceStates)
+			srcIdx[name] = i
+			dr.SourceStates = append(dr.SourceStates, SourceStatus{Name: name})
+		}
+		dr.SourceStates[i].State = state
+		if count >= 0 {
+			dr.SourceStates[i].Count = count
+		}
+		dr.SourceStates[i].Message = msg
+		mu.Unlock()
+		firePhase()
+	}
+	// runSource is the standard wrapper for a discovery source: mark it
+	// running, run fn, collect its hits, then mark ok/failed. When
+	// subprocess is true and the tool binary is absent it short-circuits to
+	// "skipped: not installed" without spawning anything. A tool that
+	// errored but still returned some hits is treated as ok (partial).
+	runSource := func(name string, subprocess bool, fn func() ([]string, error)) {
+		if subprocess && !toolInstalled(name) {
+			setSrc(name, "skipped", 0, "kurulu değil (not installed)")
+			collect(nil, name)
+			logFn(fmt.Sprintf("[%s] %s: skipped (kurulu değil)", domain, name))
+			return
+		}
+		setSrc(name, "running", -1, "")
+		subs, err := fn()
+		collect(subs, name)
+		n := len(subs)
+		if err != nil && n == 0 {
+			reason := err.Error()
+			setSrc(name, "failed", 0, reason)
+			logFn(fmt.Sprintf("[%s] %s: FAILED — %s", domain, name, reason))
+		} else {
+			setSrc(name, "ok", n, "")
+			logFn(fmt.Sprintf("[%s] %s: %d results", domain, name, n))
+		}
+	}
+
 	// ---- Phase 2: Passive sources (concurrent) ----
 	var wg sync.WaitGroup
 
@@ -348,10 +414,9 @@ func enumerateDomain(ctx context.Context, domain string, speed Speed, scanOpts O
 	go func() {
 		defer wg.Done()
 		logFn(fmt.Sprintf("[%s] Running subfinder...", domain))
-		subs := runSubfinder(ctx, domain, tmpDir, logFn)
-		collect(subs, "subfinder")
-		logFn(fmt.Sprintf("[%s] subfinder: %d results", domain, len(subs)))
-		firePhase()
+		runSource("subfinder", true, func() ([]string, error) {
+			return runSubfinder(ctx, domain, tmpDir, logFn)
+		})
 	}()
 
 	// Amass passive — runs in ALL modes. On large targets (e.g. example.com)
@@ -363,10 +428,9 @@ func enumerateDomain(ctx context.Context, domain string, speed Speed, scanOpts O
 	go func() {
 		defer wg.Done()
 		logFn(fmt.Sprintf("[%s] Running amass (passive)...", domain))
-		subs := runAmass(ctx, domain, tmpDir, speed, logFn)
-		collect(subs, "amass")
-		logFn(fmt.Sprintf("[%s] amass: %d results", domain, len(subs)))
-		firePhase()
+		runSource("amass", true, func() ([]string, error) {
+			return runAmass(ctx, domain, tmpDir, speed, logFn)
+		})
 	}()
 
 	// Certificate Transparency (via crt.sh).
@@ -382,6 +446,7 @@ func enumerateDomain(ctx context.Context, domain string, speed Speed, scanOpts O
 	go func() {
 		defer wg.Done()
 		logFn(fmt.Sprintf("[%s] Querying certificate transparency...", domain))
+		setSrc("crt.sh", "running", -1, "")
 		certs := scrapeCrtSh(ctx, domain)
 		// Extract unique hostnames from the cert records.
 		seen := map[string]bool{}
@@ -400,8 +465,15 @@ func enumerateDomain(ctx context.Context, domain string, speed Speed, scanOpts O
 		mu.Lock()
 		dr.CrtShCerts = certs
 		mu.Unlock()
+		// crt.sh is HTTP, not a subprocess: no "not installed" case. A zero
+		// return usually means the API rate-limited or timed out rather than
+		// a genuine empty set, so flag that instead of a bare "0".
+		if len(subs) == 0 && ctx.Err() == nil {
+			setSrc("crt.sh", "failed", 0, "yanıt yok / rate-limit (crt.sh)")
+		} else {
+			setSrc("crt.sh", "ok", len(subs), "")
+		}
 		logFn(fmt.Sprintf("[%s] crt.sh: %d results", domain, len(subs)))
-		firePhase()
 	}()
 
 	// Recon-ng
@@ -410,10 +482,9 @@ func enumerateDomain(ctx context.Context, domain string, speed Speed, scanOpts O
 		go func() {
 			defer wg.Done()
 			logFn(fmt.Sprintf("[%s] Running recon-ng...", domain))
-			subs := runReconNG(ctx, domain, tmpDir, logFn)
-			collect(subs, "recon-ng")
-			logFn(fmt.Sprintf("[%s] recon-ng: %d results", domain, len(subs)))
-			firePhase()
+			runSource("recon-ng", true, func() ([]string, error) {
+				return runReconNG(ctx, domain, tmpDir, logFn)
+			})
 		}()
 	}
 
@@ -425,10 +496,9 @@ func enumerateDomain(ctx context.Context, domain string, speed Speed, scanOpts O
 		go func() {
 			defer wg.Done()
 			logFn(fmt.Sprintf("[%s] Querying VirusTotal...", domain))
-			subs := queryVirusTotal(ctx, domain, scanOpts.VirusTotalKey)
-			collect(subs, "virustotal")
-			logFn(fmt.Sprintf("[%s] virustotal: %d results", domain, len(subs)))
-			firePhase()
+			runSource("virustotal", false, func() ([]string, error) {
+				return queryVirusTotal(ctx, domain, scanOpts.VirusTotalKey), nil
+			})
 		}()
 	}
 	if scanOpts.ShodanKey != "" {
@@ -436,10 +506,9 @@ func enumerateDomain(ctx context.Context, domain string, speed Speed, scanOpts O
 		go func() {
 			defer wg.Done()
 			logFn(fmt.Sprintf("[%s] Querying Shodan...", domain))
-			subs := queryShodan(ctx, domain, scanOpts.ShodanKey)
-			collect(subs, "shodan")
-			logFn(fmt.Sprintf("[%s] shodan: %d results", domain, len(subs)))
-			firePhase()
+			runSource("shodan", false, func() ([]string, error) {
+				return queryShodan(ctx, domain, scanOpts.ShodanKey), nil
+			})
 		}()
 	}
 	if scanOpts.CensysID != "" && scanOpts.CensysSecret != "" {
@@ -447,10 +516,9 @@ func enumerateDomain(ctx context.Context, domain string, speed Speed, scanOpts O
 		go func() {
 			defer wg.Done()
 			logFn(fmt.Sprintf("[%s] Querying Censys...", domain))
-			subs := queryCensys(ctx, domain, scanOpts.CensysID, scanOpts.CensysSecret)
-			collect(subs, "censys")
-			logFn(fmt.Sprintf("[%s] censys: %d results", domain, len(subs)))
-			firePhase()
+			runSource("censys", false, func() ([]string, error) {
+				return queryCensys(ctx, domain, scanOpts.CensysID, scanOpts.CensysSecret), nil
+			})
 		}()
 	}
 
@@ -486,9 +554,21 @@ func enumerateDomain(ctx context.Context, domain string, speed Speed, scanOpts O
 	var bruteSubs []string
 	if _, err := os.Stat(wordlist); err != nil {
 		logFn(fmt.Sprintf("[%s] $ # wordlist missing: %s — skipping brute-force phase (install seclists to enable)", domain, wordlist))
+		setSrc("puredns", "skipped", 0, "wordlist yok: "+wordlist)
+	} else if !toolInstalled("puredns") {
+		setSrc("puredns", "skipped", 0, "kurulu değil (not installed)")
+	} else if !toolInstalled("massdns") {
+		setSrc("puredns", "skipped", 0, "massdns kurulu değil (puredns onu çağırır)")
 	} else {
 		logFn(fmt.Sprintf("[%s] Brute-forcing with global resolvers...", domain))
-		bruteSubs = runPureDNS(ctx, domain, wordlist, ResolverFile, tmpDir, speed, scanOpts.BruteRateLimit, logFn)
+		setSrc("puredns", "running", -1, "")
+		var bErr error
+		bruteSubs, bErr = runPureDNS(ctx, domain, wordlist, ResolverFile, tmpDir, speed, scanOpts.BruteRateLimit, logFn)
+		if bErr != nil && len(bruteSubs) == 0 && ctx.Err() == nil {
+			setSrc("puredns", "failed", 0, bErr.Error())
+		} else {
+			setSrc("puredns", "ok", len(bruteSubs), "")
+		}
 	}
 	collect(bruteSubs, "puredns")
 	logFn(fmt.Sprintf("[%s] puredns brute: %d results", domain, len(bruteSubs)))
@@ -545,8 +625,14 @@ func enumerateDomain(ctx context.Context, domain string, speed Speed, scanOpts O
 		if len(permList) > 0 {
 			permFile := filepath.Join(tmpDir, "permutations.txt")
 			_ = os.WriteFile(permFile, []byte(strings.Join(permList, "\n")), 0644)
-			permSubs := runPureDNS(ctx, domain, permFile, ResolverFile, tmpDir, speed, scanOpts.BruteRateLimit, logFn)
+			setSrc("permutation", "running", -1, "")
+			permSubs, permErr := runPureDNS(ctx, domain, permFile, ResolverFile, tmpDir, speed, scanOpts.BruteRateLimit, logFn)
 			collect(permSubs, "permutation")
+			if permErr != nil && len(permSubs) == 0 && ctx.Err() == nil {
+				setSrc("permutation", "failed", 0, permErr.Error())
+			} else {
+				setSrc("permutation", "ok", len(permSubs), "")
+			}
 			logFn(fmt.Sprintf("[%s] permutations: %d new live subdomains", domain, len(permSubs)))
 			firePhase()
 		}
@@ -616,10 +702,10 @@ func enumerateDomain(ctx context.Context, domain string, speed Speed, scanOpts O
 
 // --- Tool runners ---
 
-func runSubfinder(parent context.Context, domain, tmpDir string, log func(string)) []string {
+func runSubfinder(parent context.Context, domain, tmpDir string, log func(string)) ([]string, error) {
 	// Bail before spawning if parent already cancelled (audit B59).
 	if parent.Err() != nil {
-		return nil
+		return nil, parent.Err()
 	}
 	out := filepath.Join(tmpDir, "subfinder.txt")
 	ctx, cancel := context.WithTimeout(parent, 3*time.Minute)
@@ -629,13 +715,16 @@ func runSubfinder(parent context.Context, domain, tmpDir string, log func(string
 		log("$ " + shared.FormatCommand("subfinder", args))
 	}
 	cmd := shared.Command(ctx, toolPath("subfinder"), args...)
-	cmd.Run()
-	return readLines(out)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	subs := readLines(out)
+	return subs, toolErr(err, stderr.String())
 }
 
-func runAmass(parent context.Context, domain, tmpDir string, speed Speed, log func(string)) []string {
+func runAmass(parent context.Context, domain, tmpDir string, speed Speed, log func(string)) ([]string, error) {
 	if parent.Err() != nil {
-		return nil
+		return nil, parent.Err()
 	}
 	out := filepath.Join(tmpDir, "amass.txt")
 	timeout := "3"
@@ -653,8 +742,11 @@ func runAmass(parent context.Context, domain, tmpDir string, speed Speed, log fu
 		log("$ " + shared.FormatCommand("amass", args))
 	}
 	cmd := shared.Command(ctx, "amass", args...)
-	cmd.Run()
-	return readLines(out)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	subs := readLines(out)
+	return subs, toolErr(err, stderr.String())
 }
 
 // validDomainLabel returns true only for strings that look like a DNS
@@ -689,7 +781,7 @@ func validDomainLabel(s string) bool {
 // runs once per process; subsequent scans skip straight to the query.
 var reconNGBootstrapOnce sync.Once
 
-func runReconNG(parent context.Context, domain, tmpDir string, log func(string)) []string {
+func runReconNG(parent context.Context, domain, tmpDir string, log func(string)) ([]string, error) {
 	out := filepath.Join(tmpDir, "reconng.txt")
 
 	// Audit fix: domain flowed straight into the recon-ng resource-file
@@ -697,7 +789,7 @@ func runReconNG(parent context.Context, domain, tmpDir string, log func(string))
 	// inject extra recon-ng commands (e.g. `\nexec sh -c '...' \n`).
 	// Reject anything that isn't a plain DNS-safe label sequence.
 	if !validDomainLabel(domain) {
-		return nil
+		return nil, fmt.Errorf("geçersiz alan adı: %q", domain)
 	}
 
 	// One-time marketplace bootstrap. Best-effort; if it fails (offline,
@@ -745,7 +837,7 @@ exit
 		log("$ " + shared.FormatCommand("recon-ng", []string{"-r", cmdFile}))
 	}
 	cmd := shared.Command(ctx, "recon-ng", "-r", cmdFile)
-	output, _ := cmd.CombinedOutput()
+	output, runErr := cmd.CombinedOutput()
 
 	// Parse "show hosts" output for hostnames
 	var subs []string
@@ -763,19 +855,28 @@ exit
 	}
 
 	os.WriteFile(out, []byte(strings.Join(subs, "\n")), 0644)
-	return subs
+	if len(subs) == 0 && runErr != nil {
+		return subs, toolErr(runErr, string(output))
+	}
+	return subs, nil
 }
 
-func runPureDNS(parent context.Context, domain, wordlist, resolverFile, tmpDir string, speed Speed, rateOverride int, log func(string)) []string {
+func runPureDNS(parent context.Context, domain, wordlist, resolverFile, tmpDir string, speed Speed, rateOverride int, log func(string)) ([]string, error) {
 	// Audit B59: skip the (very slow) puredns brute if cancel already
 	// fired. Without the guard a cancelled scan was forced to wait up
 	// to 20 minutes for the puredns subprocess timeout to elapse.
 	if parent.Err() != nil {
-		return nil
+		return nil, parent.Err()
 	}
 	out := filepath.Join(tmpDir, "puredns.txt")
 	massdnsPath := toolPath("massdns")
 	purednsBin := toolPath("puredns")
+	// puredns delegates the actual resolution to massdns; if massdns is
+	// absent the brute silently yields nothing. Surface that as a clear
+	// failure instead of a mysterious "0 results".
+	if !toolInstalled("massdns") {
+		return nil, fmt.Errorf("massdns kurulu değil (puredns onu çağırır)")
+	}
 
 	// Audit fix: caller can override the per-speed default via Options
 	// (rateOverride > 0). Honors the operator's "go gentle on this
@@ -805,8 +906,11 @@ func runPureDNS(parent context.Context, domain, wordlist, resolverFile, tmpDir s
 		log("$ " + shared.FormatCommand("puredns", args))
 	}
 	cmd := shared.Command(ctx, purednsBin, args...)
-	cmd.Run()
-	return readLines(out)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	subs := readLines(out)
+	return subs, toolErr(err, stderr.String())
 }
 
 // bruteWithNS brute-forces subdomains using a specific nameserver
@@ -1010,6 +1114,41 @@ func CachedToolPath(name string) string {
 	p := toolPath(name)
 	toolPathCache[name] = p
 	return p
+}
+
+// toolInstalled reports whether `name` resolves to a real binary — either in
+// the repo-local tools/ dir or somewhere on $PATH. toolPath returns the bare
+// name (unchanged) only when neither lookup succeeded, so a resolved path that
+// differs from the input means the tool is present. This is what lets the
+// status board distinguish "skipped: not installed" from "ran, found 0".
+func toolInstalled(name string) bool {
+	return CachedToolPath(name) != name
+}
+
+// toolErr condenses a subprocess failure into a short, user-facing reason for
+// the status board. Returns "" when err is nil (success). Prefers the last
+// non-empty line of stderr (where CLIs put the actual message) over the
+// generic "exit status N", and normalises the common "not found" case.
+func toolErr(err error, stderr string) error {
+	if err == nil {
+		return nil
+	}
+	if strings.Contains(err.Error(), "executable file not found") {
+		return fmt.Errorf("kurulu değil (not installed)")
+	}
+	msg := ""
+	for _, ln := range strings.Split(stderr, "\n") {
+		if ln = strings.TrimSpace(ln); ln != "" {
+			msg = ln
+		}
+	}
+	if msg == "" {
+		msg = err.Error()
+	}
+	if len(msg) > 180 {
+		msg = msg[:180] + "…"
+	}
+	return fmt.Errorf("%s", msg)
 }
 
 func readLines(path string) []string {

@@ -5,10 +5,12 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"os/exec"
 	"regexp"
 	"runtime"
 	"scanner/internal/modules/shared"
@@ -59,6 +61,14 @@ type TargetResult struct {
 
 type ScanResult struct {
 	Results []TargetResult `json:"results"`
+	// Warnings carries NON-FATAL tool-degradation notes surfaced to the user
+	// as an amber banner on the results page. It exists so a missing / broken
+	// whatweb (this module's only subprocess engine) is never silently swallowed:
+	// the Go-side fingerprints may still have found techs — so this must NOT be
+	// a fatal Error — but the user still needs to see that whatweb didn't run.
+	// Deduped; only populated on a missing binary or a non-zero exit that
+	// produced no output (never on a clean "whatweb ran, found nothing").
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 type ProgressFunc func(done int, msg string)
@@ -111,6 +121,9 @@ func ScanWithConfig(cfg Config, opts *shared.HTTPOptions, progress ProgressFunc,
 	sem := make(chan struct{}, conc)
 	var wg sync.WaitGroup
 	done := 0
+	// Dedup set for non-fatal whatweb warnings (guarded by mu) — a missing
+	// binary otherwise repeats identically for every target.
+	warnSeen := map[string]bool{}
 
 	// Audit fix: per-target snapshot was missing entirely; long scans
 	// blanked the UI mid-run. Throttle to 2s; final force-flush below
@@ -124,7 +137,7 @@ func ScanWithConfig(cfg Config, opts *shared.HTTPOptions, progress ProgressFunc,
 			return
 		}
 		mu.Lock()
-		snap := &ScanResult{Results: append([]TargetResult(nil), result.Results...)}
+		snap := &ScanResult{Results: append([]TargetResult(nil), result.Results...), Warnings: append([]string(nil), result.Warnings...)}
 		mu.Unlock()
 		partial(snap)
 	}
@@ -180,7 +193,14 @@ func ScanWithConfig(cfg Config, opts *shared.HTTPOptions, progress ProgressFunc,
 			if progress != nil {
 				logf = func(msg string) { progress(curDone, msg) }
 			}
-			tr := detectTech(target, opts, cfg.Aggressive, cfg.LightCapture, logf)
+			tr, whatwebErr := detectTech(target, opts, cfg.Aggressive, cfg.LightCapture, logf)
+
+			// Silent-tool-degradation fix: whatweb (this module's only
+			// subprocess engine) is missing or exited non-zero with no output.
+			// Surface it ONCE as a non-fatal warning — deduped by friendly
+			// message, capped — so a broken/absent whatweb is visible even when
+			// the Go-side fingerprints still found techs for this or other hosts.
+			warn := whatwebWarning(whatwebErr)
 
 			// Same fix at the completion path — snapshot the counters
 			// under mu, unlock, then call progress(). progress() is a
@@ -189,6 +209,10 @@ func ScanWithConfig(cfg Config, opts *shared.HTTPOptions, progress ProgressFunc,
 			mu.Lock()
 			done++
 			result.Results = append(result.Results, *tr)
+			if warn != "" && !warnSeen[warn] && len(result.Warnings) < maxTechWarnings {
+				warnSeen[warn] = true
+				result.Warnings = append(result.Warnings, warn)
+			}
 			d, total, techCount := done, len(urls), len(tr.Technologies)
 			mu.Unlock()
 			if progress != nil {
@@ -201,7 +225,7 @@ func ScanWithConfig(cfg Config, opts *shared.HTTPOptions, progress ProgressFunc,
 	if partial != nil {
 		throttle.Force()
 		mu.Lock()
-		snap := &ScanResult{Results: append([]TargetResult(nil), result.Results...)}
+		snap := &ScanResult{Results: append([]TargetResult(nil), result.Results...), Warnings: append([]string(nil), result.Warnings...)}
 		mu.Unlock()
 		partial(snap)
 	}
@@ -256,7 +280,13 @@ func synthPrefetchedResponse(p PrefetchedResponse) string {
 	return b.String()
 }
 
-func detectTech(target string, opts *shared.HTTPOptions, aggressive, lightCapture bool, logf func(string)) *TargetResult {
+// detectTech returns the per-target result plus a NON-NIL whatweb error when
+// whatweb failed to run and produced nothing (missing binary / broken exit).
+// That error is aggregated by the caller into ScanResult.Warnings — it is
+// deliberately NOT written into tr.Error, because the Go-side fingerprints may
+// still have found techs for this target and a missing whatweb must not be
+// rendered as a fatal per-target failure.
+func detectTech(target string, opts *shared.HTTPOptions, aggressive, lightCapture bool, logf func(string)) (*TargetResult, error) {
 	tr := &TargetResult{URL: target}
 
 	autoPrefixed := false
@@ -388,7 +418,7 @@ func detectTech(target string, opts *shared.HTTPOptions, aggressive, lightCaptur
 	}
 
 	// Phase 2: WhatWeb — runs even when the Go GET failed (E2).
-	whatwebTechs := runWhatWeb(target, opts, aggressive, logf)
+	whatwebTechs, whatwebErr := runWhatWeb(target, opts, aggressive, logf)
 	for _, wt := range whatwebTechs {
 		if !seen[wt.Name] {
 			seen[wt.Name] = true
@@ -428,7 +458,7 @@ func detectTech(target string, opts *shared.HTTPOptions, aggressive, lightCaptur
 		tr.Error = ""
 	}
 
-	return tr
+	return tr, whatwebErr
 }
 
 // scanJSBundles fetches up to 2 first-party <script src> bundles referenced in
@@ -912,6 +942,63 @@ func dedupeTechnologies(techs []Technology) []Technology {
 	return out
 }
 
+// whatwebExecError turns a failed whatweb spawn into a compact error string,
+// preferring the process's stderr (which carries the real reason — an unknown
+// flag, a Ruby stack trace, "command not found" inside the killswitch netns)
+// over the bare "exit status N". A missing binary in the non-killswitch path
+// surfaces as Go's `exec: "whatweb": executable file not found` here, which
+// shared.TranslateToolError recognises downstream. Length-capped; stderr rarely
+// carries credentials but is bounded regardless.
+func whatwebExecError(err error) error {
+	if err == nil {
+		return nil
+	}
+	msg := strings.TrimSpace(err.Error())
+	var ee *exec.ExitError
+	if errors.As(err, &ee) {
+		if s := strings.TrimSpace(string(ee.Stderr)); s != "" {
+			// Keep the exit-status text too so nothing is lost.
+			msg = s + " (" + msg + ")"
+		}
+	}
+	if len(msg) > 300 {
+		msg = msg[:300]
+	}
+	return errors.New(msg)
+}
+
+// whatwebWarning converts a whatweb run failure into a single user-facing
+// warning line. It prefers shared.TranslateToolError's plain-language
+// explanation ("The required tool whatweb is not installed…", "flag provided
+// but not defined", etc.); when no rule matches it falls back to the first
+// non-empty line of the raw error, trimmed to ~180 chars and prefixed so the
+// UI shows which tool degraded. Returns "" for a nil error (no warning).
+func whatwebWarning(err error) string {
+	if err == nil {
+		return ""
+	}
+	raw := err.Error()
+	if friendly, ok := shared.TranslateToolError(raw); ok {
+		return friendly
+	}
+	for _, line := range strings.Split(raw, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if len(line) > 180 {
+			line = line[:180] + "…"
+		}
+		return "whatweb did not run: " + line
+	}
+	return ""
+}
+
+// maxTechWarnings caps how many distinct whatweb warnings a single scan
+// accumulates — a missing binary dedups to one line, but a per-host non-zero
+// exit whose stderr differs could otherwise flood the banner.
+const maxTechWarnings = 12
+
 // runWhatWeb executes whatweb and parses JSON output.
 //
 // Settings (Burp proxy, custom UA, custom Headers / Cookies) are propagated
@@ -926,7 +1013,13 @@ func dedupeTechnologies(techs []Technology) []Technology {
 // running for the full 30 s budget each, still writing to disk and
 // still able to leak past the killswitch after the scan was cancelled.
 // When opts / opts.Ctx are nil (e.g. tests) we fall back to Background.
-func runWhatWeb(target string, opts *shared.HTTPOptions, aggressive bool, logf func(string)) []Technology {
+// The error return is NON-NIL only when whatweb genuinely failed to run and
+// produced nothing to parse — a missing binary or a non-zero exit with no
+// output — so the caller can surface a "whatweb didn't run" warning. A genuine
+// Stop / killswitch / per-target-deadline cancellation returns (nil, nil): that
+// is not a broken tool. A clean run that simply found no techs also returns a
+// nil error (STAY QUIET on success-with-zero-results).
+func runWhatWeb(target string, opts *shared.HTTPOptions, aggressive bool, logf func(string)) ([]Technology, error) {
 	parent := context.Background()
 	if opts != nil && opts.Ctx != nil {
 		parent = opts.Ctx
@@ -1026,16 +1119,24 @@ func runWhatWeb(target string, opts *shared.HTTPOptions, aggressive bool, logf f
 	out, err := cmd.Output()
 	if err != nil {
 		// whatweb exits non-zero on 4xx/5xx targets, plugin hiccups, and when
-		// our 30s deadline kills it — but it usually already wrote valid JSON
-		// to stdout first. The old code threw ALL of that away. Only discard on
-		// a genuine Stop / killswitch (parent ctx cancelled); otherwise parse
-		// whatever bytes we have (the {-prefix + json.Unmarshal guards below
-		// make a truncated tail line safe).
-		if opts != nil && opts.Ctx != nil && opts.Ctx.Err() == context.Canceled {
-			return nil
+		// our deadline kills it — but it usually already wrote valid JSON to
+		// stdout first. The old code threw ALL of that away, AND swallowed a
+		// missing-binary error so a broken whatweb looked identical to a clean
+		// "no techs found" (silent tool degradation).
+		//
+		// A genuine Stop / killswitch (parent ctx cancelled) OR our own
+		// per-target deadline (derived ctx expired) is not a broken tool —
+		// discard silently.
+		if ctx.Err() != nil || (opts != nil && opts.Ctx != nil && opts.Ctx.Err() == context.Canceled) {
+			return nil, nil
 		}
+		// Something ELSE went wrong. If whatweb still wrote JSON, parse it (the
+		// {-prefix + json.Unmarshal guards below make a truncated tail safe).
+		// If it produced NOTHING, this is a real failure — a missing binary or
+		// a non-zero exit with no output — so return the error for the caller
+		// to surface as a warning.
 		if len(out) == 0 {
-			return nil
+			return nil, whatwebExecError(err)
 		}
 	}
 
@@ -1082,7 +1183,7 @@ func runWhatWeb(target string, opts *shared.HTTPOptions, aggressive bool, logf f
 			techs = append(techs, t)
 		}
 	}
-	return techs
+	return techs, nil
 }
 
 // whatwebNoise lists whatweb "plugins" that are page metadata or raw headers,

@@ -346,6 +346,15 @@ func scanHost(ctx context.Context, host string, port int, timeout time.Duration,
 	}
 	if !result.HasTLS {
 		result.Error = "No TLS/SSL service detected on this port"
+	} else {
+		// The findings above look thorough — but if an external tool was
+		// MISSING or FAILED for THIS host, a whole detection layer was silently
+		// skipped and the result would otherwise read as a clean bill of health.
+		// Surface that as a per-host limitation (sslscan → SSLv2/SSLv3 +
+		// Heartbleed/CRIME/insecure-reneg; nmap → the POODLE/DROWN/Logjam
+		// vuln-NSE + A–F cipher grades). A tool that ran fine and simply found
+		// nothing stays quiet — only a missing binary or a non-zero/empty run warns.
+		result.Limitations = append(result.Limitations, toolLimitations(ss, nm, ssErr, nmErr)...)
 	}
 	return result
 }

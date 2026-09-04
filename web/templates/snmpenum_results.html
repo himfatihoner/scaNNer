@@ -29,6 +29,15 @@
     </div>
 </div>
 
+{{if .Warnings}}
+<div class="mb-6 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3">
+    <p class="text-[10px] uppercase tracking-wider text-warning mb-1.5">⚠ Uyarılar / Warnings</p>
+    <ul class="list-disc list-inside text-[11px] text-warning space-y-0.5">
+        {{range .Warnings}}<li>{{.}}</li>{{end}}
+    </ul>
+</div>
+{{end}}
+
 {{range .Results}}
 <div class="bg-dark-900 border {{if .ValidCommunities}}border-warning/30{{else}}border-dark-800{{end}} rounded-xl mb-4 overflow-hidden">
     <div class="px-5 py-4 border-b border-dark-800 flex items-center justify-between">

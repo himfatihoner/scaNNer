@@ -115,6 +115,10 @@ func (h *Handler) TechDetectResults(w http.ResponseWriter, r *http.Request) {
 
 	data["Scan"] = scan
 	data["Results"] = result.Results
+	// Non-fatal whatweb tool-degradation notes (missing binary / broken exit),
+	// rendered as an amber banner so a silently-absent whatweb is visible even
+	// when the Go-side fingerprints still produced results.
+	data["Warnings"] = result.Warnings
 	data["TotalTech"] = totalTech
 	data["AutoCVEMatch"] = cfg.AutoCVEMatch
 	data["CVEMatches"] = result.CVEMatches

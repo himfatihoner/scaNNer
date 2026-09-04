@@ -43,6 +43,14 @@ type TargetResult struct {
 
 type ScanResult struct {
 	Results []TargetResult `json:"results"`
+	// Warnings holds non-fatal, module-wide notices — chiefly a missing
+	// external tool (snmpget/snmpwalk/snmpset not on PATH) or an OID
+	// branch walk that failed with a real error (timeout/auth) rather
+	// than legitimately returning no data. Surfaced as an amber note on
+	// the results page so a scan that produced empty/partial data shows
+	// the true cause instead of looking like a clean "nothing found".
+	// Audit fix: eliminate silent tool degradation (mirrors dnsenum).
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 type Config struct {
@@ -145,6 +153,50 @@ func Scan(ctx context.Context, cfg Config, progress ProgressFunc, partial Partia
 	var wg sync.WaitGroup
 	done := 0
 
+	// addWarn records a de-duplicated, module-wide non-fatal notice.
+	// Safe to call from the per-target goroutines (guards out.Warnings
+	// with mu). Warnings never clobber results — a scan that found data
+	// on some targets still shows it alongside the amber note.
+	addWarn := func(msg string) {
+		if msg == "" {
+			return
+		}
+		mu.Lock()
+		for _, existing := range out.Warnings {
+			if existing == msg {
+				mu.Unlock()
+				return
+			}
+		}
+		out.Warnings = append(out.Warnings, msg)
+		mu.Unlock()
+	}
+
+	// Audit fix (silent tool degradation): preflight the net-snmp
+	// binaries and surface any that are missing as module-wide,
+	// non-fatal warnings. Without this a host with SNMP open but the
+	// scanner missing snmpget looks identical to a hardened host — the
+	// brute pass just returns no communities and every target reports
+	// "no valid community found", which reads as "box is locked down"
+	// rather than "the tool isn't installed". snmpget is the sole
+	// enumeration engine; snmpwalk backs the OID-branch walks; snmpset
+	// backs the RW-community probe. We only warn on an outright missing
+	// binary here — a tool that is present but times out is handled
+	// per-call, and legitimate zero-result scans stay quiet.
+	if _, err := exec.LookPath("snmpget"); err != nil {
+		addWarn("snmpget not installed — SNMP enumeration cannot run (apt install snmp / net-snmp).")
+	}
+	if len(cfg.Walks) > 0 {
+		if _, err := exec.LookPath("snmpwalk"); err != nil {
+			addWarn("snmpwalk not installed — OID branch walks return no data (apt install snmp / net-snmp).")
+		}
+	}
+	if cfg.V3User == "" {
+		if _, err := exec.LookPath("snmpset"); err != nil {
+			addWarn("snmpset not installed — read/write (RW) community detection skipped (apt install snmp / net-snmp).")
+		}
+	}
+
 	// Audit S2: throttle per-target snapshot+marshal to 2s.
 	throttle := shared.NewPartialThrottler(2 * time.Second)
 	pushPartial := func() {
@@ -155,7 +207,10 @@ func Scan(ctx context.Context, cfg Config, progress ProgressFunc, partial Partia
 			return
 		}
 		mu.Lock()
-		snap := &ScanResult{Results: append([]TargetResult(nil), out.Results...)}
+		snap := &ScanResult{
+			Results:  append([]TargetResult(nil), out.Results...),
+			Warnings: append([]string(nil), out.Warnings...),
+		}
 		mu.Unlock()
 		partial(snap)
 	}
@@ -173,11 +228,12 @@ func Scan(ctx context.Context, cfg Config, progress ProgressFunc, partial Partia
 		}
 		mu.Lock()
 		snapRes := append([]TargetResult(nil), out.Results...)
+		snapWarn := append([]string(nil), out.Warnings...)
 		mu.Unlock()
 		if cur != nil {
 			snapRes = append(snapRes, *cur)
 		}
-		partial(&ScanResult{Results: snapRes})
+		partial(&ScanResult{Results: snapRes, Warnings: snapWarn})
 	}
 
 	for _, t := range cfg.Targets {
@@ -226,7 +282,7 @@ func Scan(ctx context.Context, cfg Config, progress ProgressFunc, partial Partia
 				} else {
 					progress(cur, fmt.Sprintf("%s · %s", target, msg))
 				}
-			}, pushPartialMid)
+			}, addWarn, pushPartialMid)
 			mu.Lock()
 			done++
 			out.Results = append(out.Results, *tr)
@@ -248,7 +304,7 @@ func Scan(ctx context.Context, cfg Config, progress ProgressFunc, partial Partia
 	return out
 }
 
-func enumerate(ctx context.Context, target string, cfg Config, log func(string), pushMid func(*TargetResult)) *TargetResult {
+func enumerate(ctx context.Context, target string, cfg Config, log func(string), warn func(string), pushMid func(*TargetResult)) *TargetResult {
 	tr := &TargetResult{Target: target}
 	// midFlush is a nil-safe convenience for pushing a mid-flight
 	// snapshot of the in-progress TargetResult back to the caller so
@@ -369,8 +425,23 @@ func enumerate(ctx context.Context, target string, cfg Config, log func(string),
 			args = append(args, "-Oqs", "-t", "2", "-r", "1", "--", target, oid)
 			log("$ " + shared.FormatCommand("snmpwalk", args))
 		}
-		out := snmpwalkCfg(ctx, cfg, target, community, oid)
+		out, walkErr := snmpwalkCfg(ctx, cfg, target, community, oid)
 		if out == "" {
+			// Audit fix (silent tool degradation): a walk that exits
+			// with a real error (timeout, auth failure) and no output
+			// is NOT the same as a branch the device legitimately
+			// doesn't implement. Surface the former as a non-fatal
+			// note so the operator can tell "branch empty" from "walk
+			// failed"; stay quiet on a clean empty branch (walkErr == "").
+			if walkErr != "" && warn != nil {
+				reason, ok := shared.TranslateToolError(walkErr)
+				if !ok {
+					reason = firstNonEmptyLine(walkErr, 180)
+				}
+				if reason != "" {
+					warn(fmt.Sprintf("%s: %s branch walk failed — %s", target, w, reason))
+				}
+			}
 			continue
 		}
 		tr.Walks = append(tr.Walks, Walk{
@@ -415,8 +486,28 @@ func bruteCommunities(ctx context.Context, target string, candidates []string, l
 				log("$ " + shared.FormatCommand("onesixtyone", []string{"-c", f.Name(), target}))
 			}
 			cmd := shared.Command(ctx, "onesixtyone", "-c", f.Name(), target)
-			out, _ := cmd.CombinedOutput()
-			if log != nil {
+			out, err := cmd.CombinedOutput()
+			// Audit fix (silent tool degradation): don't log an
+			// unconditional success line. onesixtyone was found on PATH
+			// above, so a non-zero exit here is a real failure (bad
+			// args, killed) — note it and fall through to the per-
+			// community snmpget probe below instead of implying the
+			// burst completed. Stay quiet on cancellation.
+			if err != nil && ctx.Err() == nil {
+				if log != nil {
+					reason, ok := shared.TranslateToolError(err.Error())
+					if !ok {
+						reason, ok = shared.TranslateToolError(string(out))
+					}
+					if !ok {
+						reason = firstNonEmptyLine(string(out), 180)
+						if reason == "" {
+							reason = err.Error()
+						}
+					}
+					log("$ onesixtyone failed (" + reason + ") — falling back to snmpget probes")
+				}
+			} else if err == nil && log != nil {
 				log(fmt.Sprintf("onesixtyone tried %d communities", len(candidates)))
 			}
 			var found []string
@@ -633,7 +724,8 @@ func snmpgetMulti(ctx context.Context, cfg Config, target, community string, oid
 }
 
 func snmpwalk(ctx context.Context, target, community, oid string) string {
-	return snmpwalkCfg(ctx, Config{}, target, community, oid)
+	out, _ := snmpwalkCfg(ctx, Config{}, target, community, oid)
+	return out
 }
 
 // snmpwalkMaxBytes caps the amount of stdout we read from a single
@@ -645,7 +737,13 @@ func snmpwalk(ctx context.Context, target, community, oid string) string {
 // instead of buffering the full output with CombinedOutput.
 const snmpwalkMaxBytes = 32 * 1024
 
-func snmpwalkCfg(ctx context.Context, cfg Config, target, community, oid string) string {
+// snmpwalkCfg returns (output, failReason). failReason is set ONLY when
+// the walk produced no stdout AND exited with a real error (a timeout,
+// an auth failure) — never on a clean empty branch and never on the
+// deliberate byte-cap kill below (which always leaves stdout non-empty).
+// Callers use failReason to distinguish "branch empty" from "walk failed"
+// (audit fix: silent tool degradation).
+func snmpwalkCfg(ctx context.Context, cfg Config, target, community, oid string) (string, string) {
 	auth, _ := snmpAuthArgs(cfg, community)
 	args := append([]string{}, auth...)
 	// See snmpgetCfg — "--" defense-in-depth against argv injection.
@@ -653,15 +751,17 @@ func snmpwalkCfg(ctx context.Context, cfg Config, target, community, oid string)
 	cmd := snmpCmd(ctx, cfg, "snmpwalk", args...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return ""
+		return "", ""
 	}
-	// Discard stderr so a chatty agent (e.g. timeout warnings) doesn't
-	// block snmpwalk on a full pipe buffer. We don't surface stderr
-	// from the walk anyway — the row just shows whatever values came
-	// through stdout.
-	cmd.Stderr = io.Discard
+	// Capture stderr into a small bounded, memory-backed sink instead of
+	// discarding it, so a walk that exits non-zero with no stdout can
+	// report the real reason. capWriter is not the child's pipe, so a
+	// chatty agent still can't block the child on a full pipe buffer
+	// (net-snmp stderr is a line or two in practice anyway).
+	errBuf := &capWriter{max: 4 * 1024}
+	cmd.Stderr = errBuf
 	if err := cmd.Start(); err != nil {
-		return ""
+		return "", ""
 	}
 	// Read at most snmpwalkMaxBytes; if the walk exceeds that, kill
 	// the child so it doesn't keep emitting on a pipe nobody reads.
@@ -672,23 +772,41 @@ func snmpwalkCfg(ctx context.Context, cfg Config, target, community, oid string)
 		// usefulness ends with the data we've already captured.
 		_ = cmd.Process.Kill()
 	}
-	_ = cmd.Wait()
-	return string(buf)
+	werr := cmd.Wait()
+	res := string(buf)
+	// Only report a failure when the walk yielded NOTHING and actually
+	// errored. When we hit the byte cap the process is killed on purpose
+	// (werr == "signal: killed") but res != "" so this is skipped — a
+	// deliberate kill is never mistaken for a failure. Cancellation stays
+	// quiet too.
+	failReason := ""
+	if res == "" && werr != nil && ctx.Err() == nil {
+		failReason = strings.TrimSpace(errBuf.String())
+	}
+	return res, failReason
 }
 
 // snmpsetCfg sets a single OID via snmpset using whichever auth mode
-// the cfg implies (v2c community or v3 USM). Returns true on a clean
-// exit. Used by checkRWCommunity; we don't need the command's output.
-func snmpsetCfg(ctx context.Context, cfg Config, target, community, oid, valueType, value string) bool {
+// the cfg implies (v2c community or v3 USM). Returns (ok, reason): ok is
+// true on a clean exit; on failure reason carries the tool's output/error
+// (bounded) so the caller can tell an agent that actively refused the
+// write (notWritable/noAccess → a *confirmed* read-only) from one that
+// never answered (timeout/missing binary → an inconclusive RW probe).
+func snmpsetCfg(ctx context.Context, cfg Config, target, community, oid, valueType, value string) (bool, string) {
 	auth, _ := snmpAuthArgs(cfg, community)
 	args := append([]string{}, auth...)
 	// See snmpgetCfg — "--" defense-in-depth against argv injection.
 	args = append(args, "-t", "2", "-r", "1", "--", target, oid, valueType, value)
 	cmd := snmpCmd(ctx, cfg, "snmpset", args...)
-	if err := cmd.Run(); err != nil {
-		return false
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		reason := strings.TrimSpace(string(out))
+		if reason == "" {
+			reason = err.Error()
+		}
+		return false, reason
 	}
-	return true
+	return true, ""
 }
 
 // checkRWCommunity probes a community for write access by writing a
@@ -714,7 +832,16 @@ func checkRWCommunity(ctx context.Context, cfg Config, target, community, origCo
 	marker := "scanner-rw-" + hex.EncodeToString(rb[:])
 
 	const sysContactOID = "1.3.6.1.2.1.1.4.0"
-	if !snmpsetCfg(ctx, cfg, target, community, sysContactOID, "s", marker) {
+	if ok, reason := snmpsetCfg(ctx, cfg, target, community, sysContactOID, "s", marker); !ok {
+		// Audit fix (silent tool degradation): a write that fails
+		// because the agent answered notWritable/noAccess is a
+		// *confirmed* read-only — expected, stay quiet. A write that
+		// fails because the agent never responded (timeout) or snmpset
+		// isn't installed leaves the RW verdict UNKNOWN, so log a crumb
+		// telling the operator the RO classification is inconclusive.
+		if log != nil && ctx.Err() == nil && setProbeInconclusive(reason) {
+			log("$ snmpset RW probe inconclusive for community " + community + " (" + firstNonEmptyLine(reason, 180) + ") — RW status unknown, not a confirmed read-only")
+		}
 		return false
 	}
 	// Many devices accept the SET PDU silently without applying it
@@ -727,7 +854,7 @@ func checkRWCommunity(ctx context.Context, cfg Config, target, community, origCo
 	// of whether the round-trip confirmed — if the write took effect
 	// we don't want to leave our marker on the device.
 	if origContact != "" {
-		_ = snmpsetCfg(ctx, cfg, target, community, sysContactOID, "s", origContact)
+		_, _ = snmpsetCfg(ctx, cfg, target, community, sysContactOID, "s", origContact)
 	}
 	if rw && log != nil {
 		log("RW access confirmed for community: " + community)
@@ -750,3 +877,60 @@ func truncate(s string, max int) string {
 	}
 	return s[:max] + "\n... [truncated]"
 }
+
+// firstNonEmptyLine returns the first non-blank line of s, trimmed to max
+// characters, for use as a fallback failure reason when TranslateToolError
+// doesn't recognize the raw tool output. Credential-safe: caps length and
+// takes only the first line (tool stderr rarely carries secrets).
+func firstNonEmptyLine(s string, max int) string {
+	for _, ln := range strings.Split(s, "\n") {
+		ln = strings.TrimSpace(ln)
+		if ln == "" {
+			continue
+		}
+		if max > 0 && len(ln) > max {
+			ln = ln[:max] + "…"
+		}
+		return ln
+	}
+	return ""
+}
+
+// setProbeInconclusive reports whether an snmpset failure reason means the
+// agent never rendered a read/write policy decision (a timeout, an
+// unreachable host, or a missing snmpset binary) as opposed to actively
+// refusing the write (notWritable / noAccess), which is a *confirmed*
+// read-only and needs no warning.
+func setProbeInconclusive(reason string) bool {
+	low := strings.ToLower(reason)
+	for _, s := range []string{
+		"timeout", "no response", "executable file not found",
+		"no such file", "unknown host", "cannot resolve", "not found in",
+	} {
+		if strings.Contains(low, s) {
+			return true
+		}
+	}
+	return false
+}
+
+// capWriter is a bounded, memory-backed sink for child stderr: it keeps at
+// most max bytes and silently drops the rest, and always reports the full
+// write as consumed so the exec copy goroutine never errors or blocks.
+type capWriter struct {
+	buf []byte
+	max int
+}
+
+func (c *capWriter) Write(p []byte) (int, error) {
+	if c.max > 0 && len(c.buf) < c.max {
+		room := c.max - len(c.buf)
+		if room > len(p) {
+			room = len(p)
+		}
+		c.buf = append(c.buf, p[:room]...)
+	}
+	return len(p), nil
+}
+
+func (c *capWriter) String() string { return string(c.buf) }

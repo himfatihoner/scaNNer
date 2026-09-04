@@ -416,9 +416,14 @@ func scanChunk(ctx context.Context, urls []string, cfg ScanConfig, progress Prog
 	tmp, err := os.CreateTemp("", "nuclei-urls-*.txt")
 	if err != nil {
 		// Fallback: still produce empty rows, surface error on first.
+		// Flag INCOMPLETE (mirrors the write-error path just below) so a
+		// disk failure that stops nuclei ever running isn't reported as
+		// a clean "done · 0 findings".
 		if len(result.Results) > 0 {
 			result.Results[0].Error = "nuclei tempfile: " + err.Error()
 		}
+		result.Truncated = true
+		result.TruncateReason = "could not create the target-list temp file (" + err.Error() + ") — nuclei was not run."
 		return result
 	}
 	defer os.Remove(tmp.Name())
@@ -596,6 +601,12 @@ func scanChunk(ctx context.Context, urls []string, cfg ScanConfig, progress Prog
 	cmd := shared.Command(runCtx, "nuclei", args...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		// Silent-degradation fix: a failed launch produced NO results.
+		// Flag the run INCOMPLETE so the handler fires MarkScanError and
+		// the red INCOMPLETE banner shows, instead of a silent
+		// "done · 0 findings".
+		result.Truncated = true
+		result.TruncateReason = "nuclei could not be launched (stdout pipe: " + err.Error() + ") — no targets were scanned."
 		if len(result.Results) > 0 {
 			result.Results[0].Error = "stdout pipe: " + err.Error()
 		}
@@ -611,6 +622,21 @@ func scanChunk(ctx context.Context, urls []string, cfg ScanConfig, progress Prog
 		stdout.Close()
 		if stderr != nil {
 			stderr.Close()
+		}
+		// Silent-degradation fix: a failed Start (most often a missing
+		// nuclei binary) produced NO results. Flag the run INCOMPLETE +
+		// give the operator a real reason so the handler fires
+		// MarkScanError and the red INCOMPLETE banner shows — instead of
+		// a silent "done · 0 findings". errors.Is(exec.ErrNotFound)
+		// names the missing-tool case explicitly; otherwise fall back to
+		// the shared translator, then the raw error.
+		result.Truncated = true
+		if errors.Is(err, exec.ErrNotFound) {
+			result.TruncateReason = "nuclei is not installed or not on the scanner's PATH — install ProjectDiscovery nuclei and re-run."
+		} else if friendly, ok := shared.TranslateToolError(err.Error()); ok {
+			result.TruncateReason = "nuclei could not start: " + friendly
+		} else {
+			result.TruncateReason = "nuclei could not start: " + err.Error()
 		}
 		if len(result.Results) > 0 {
 			result.Results[0].Error = "nuclei start: " + err.Error()

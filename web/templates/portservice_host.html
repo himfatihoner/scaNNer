@@ -9,6 +9,19 @@
     <span class="text-dark-200 mono">{{if .Host.IP}}{{.Host.IP}}{{else}}{{.Host.Target}}{{end}}</span>
 </div>
 
+{{/* Non-fatal warnings: scan-wide (e.g. Nuclei phase incomplete) and
+     per-host (e.g. a phase-2/3 deep scan that failed). Amber, never fatal —
+     the ports below still stand. */}}
+{{if or .Warnings .Host.Warnings}}
+<div class="mb-5 rounded-xl border border-warning/30 bg-warning/5 px-4 py-3">
+    <div class="text-[10px] uppercase tracking-wider text-warning mb-1">Uyarılar / Warnings</div>
+    <ul class="list-disc list-inside text-xs text-warning space-y-0.5">
+        {{range .Host.Warnings}}<li>{{.}}</li>{{end}}
+        {{range .Warnings}}<li>{{.}}</li>{{end}}
+    </ul>
+</div>
+{{end}}
+
 <!-- Hero card: IP / hostname / state / quick stats -->
 <div class="bg-gradient-to-br from-accent-600/10 via-dark-900 to-dark-900 border border-accent-500/30 rounded-xl p-6 mb-6">
     <div class="flex items-start justify-between mb-4 gap-4 flex-wrap">

@@ -20,6 +20,18 @@
 
 {{define "techdetect_results_inner"}}
 <p class="text-sm text-dark-400 mb-4">{{.TotalTech}} technologies detected across {{len .Results}} target(s)</p>
+{{/* Non-fatal tool degradation (e.g. whatweb missing or exited non-zero with no
+     output). Amber, not red: the Go-side fingerprints may still have produced
+     results — this just tells the operator the whatweb pass didn't contribute so
+     the tech list isn't mistaken for complete. */}}
+{{if .Warnings}}
+<div class="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+  <div class="text-[11px] uppercase tracking-wider text-amber-300 mb-1">Uyarılar / Warnings</div>
+  <ul class="list-disc list-inside text-xs text-amber-200 space-y-0.5">
+    {{range .Warnings}}<li>{{.}}</li>{{end}}
+  </ul>
+</div>
+{{end}}
 {{/* Suite view caps how many host rows render (heavy page). When the scan
      produced more rows than are shown, say so and offer to load more — the
      rows are ordered version-bearing (CVE-relevant) first, so nothing that

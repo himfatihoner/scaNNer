@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"scanner/internal/modules/shared"
 	"strconv"
@@ -425,6 +426,21 @@ func runHydra(ctx context.Context, target string, cfg Config, userListPath, pass
 	if log != nil {
 		log("$ " + shared.FormatCommand("hydra", args))
 	}
+	// Preflight: name a missing hydra binary consistently. With the killswitch
+	// armed the spawn is wrapped in `ip netns exec scanner-ns hydra …`, so a
+	// missing hydra would otherwise surface as an opaque `ip` failure at Wait()
+	// instead of a clean "hydra not installed". LookPath is a host-PATH stat
+	// (no process spawned), so it never bypasses the killswitch; its error
+	// routes through TranslateToolError, which names the tool (audit
+	// silent-missing-tool fix).
+	if _, lpErr := exec.LookPath("hydra"); lpErr != nil {
+		if friendly, ok := shared.TranslateToolError(lpErr.Error()); ok {
+			tr.Error = friendly
+		} else {
+			tr.Error = "hydra not found: " + lpErr.Error()
+		}
+		return tr
+	}
 	cmd := shared.Command(ctx, "hydra", args...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -541,10 +557,31 @@ func runHydra(ctx context.Context, target string, cfg Config, userListPath, pass
 	}
 	<-stderrDone
 	if err := cmd.Wait(); err != nil {
-		// hydra exits 0 on success, non-zero in many edge cases — only surface
-		// the error if we got nothing useful.
-		if len(tr.Found) == 0 && tr.Attempts == 0 {
-			tr.Error = "hydra exited: " + err.Error()
+		// hydra exits 0 on success and non-zero on real problems: fail2ban /
+		// account-lockout ("all children were disabled"), rate-limiting, a
+		// build without libssh, flag/protocol drift, or the binary vanishing
+		// mid-run. Surface the reason ONLY when this target yielded no
+		// credentials — a non-zero exit AFTER real hits is hydra noise and must
+		// never clobber found creds. The previous guard also required
+		// Attempts==0, which silently swallowed the most important case: a run
+		// that made attempts and was THEN locked out exits non-zero with
+		// Attempts>0 and Found==0, and was being reported as a clean "done"
+		// with zero results (audit silent-tool-error fix). Route the raw tail
+		// through TranslateToolError so lockout / missing-libssh / flag-drift
+		// runs get a plain-language reason instead of a bare exit code.
+		if len(tr.Found) == 0 {
+			raw := strings.TrimSpace(rawBuf.String())
+			combined := err.Error()
+			if raw != "" {
+				combined += "\n" + raw
+			}
+			if friendly, ok := shared.TranslateToolError(combined); ok {
+				tr.Error = friendly
+			} else if snippet := hydraErrorLine(raw); snippet != "" {
+				tr.Error = "hydra exited non-zero: " + snippet
+			} else {
+				tr.Error = "hydra exited non-zero: " + err.Error()
+			}
 		}
 	}
 	tr.HydraRaw = truncateRaw(rawBuf.String(), 32*1024)
@@ -584,6 +621,39 @@ func truncateRaw(s string, max int) string {
 		return s
 	}
 	return s[:max] + "\n\n... [truncated " + strconv.Itoa(len(s)-max) + " bytes]"
+}
+
+// hydraErrorLine returns a credential-safe one-line summary of a failed hydra
+// run, used only as a fallback when TranslateToolError has no specific rule for
+// the output. It prefers the first "[ERROR]" line hydra emitted, else the last
+// non-empty line (usually hydra's completion summary). "[ATTEMPT]" lines are
+// skipped on purpose — they echo candidate passwords from the wordlist, and
+// those must never be surfaced in an error banner. The result is trimmed to
+// ~180 chars.
+func hydraErrorLine(raw string) string {
+	const max = 180
+	lines := strings.Split(raw, "\n")
+	for _, ln := range lines {
+		ln = strings.TrimSpace(ln)
+		if strings.Contains(ln, "[ERROR]") {
+			return clip(ln, max)
+		}
+	}
+	for i := len(lines) - 1; i >= 0; i-- {
+		ln := strings.TrimSpace(lines[i])
+		if ln == "" || strings.Contains(ln, "[ATTEMPT]") {
+			continue
+		}
+		return clip(ln, max)
+	}
+	return ""
+}
+
+func clip(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "…"
 }
 
 // LoadList reads a wordlist file and returns its lines.

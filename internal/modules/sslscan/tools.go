@@ -44,6 +44,67 @@ func detectTools() ToolAvailability {
 	}
 }
 
+// toolLimitations reports which external-tool layers were SKIPPED for a host
+// that does serve TLS — i.e. a tool that is missing or that exited non-zero /
+// produced no usable output, so its detection layer never ran even though the
+// merged result otherwise looks complete. This is the anti-silent-degradation
+// surface for the SSL/TLS module: without it, a missing sslscan/nmap yields a
+// thorough-looking "no vulnerabilities" panel that quietly omits Heartbleed,
+// CRIME, weak-cipher grading and the POODLE/DROWN/Logjam vuln-NSE checks.
+//
+// A tool that ran fine (ss/nm non-nil) stays quiet — legitimate zero-results
+// must never warn. Only ss==nil / nm==nil (missing binary or an empty/failed
+// run) produces a note.
+func toolLimitations(ss *sslscanTest, nm *nmapSSL, ssErr, nmErr error) []string {
+	tools := detectTools()
+	var lims []string
+	if ss == nil {
+		switch {
+		case !tools.Sslscan:
+			lims = append(lims, "sslscan did not run — SSLv2/SSLv3, Heartbleed, CRIME (TLS compression) and insecure-renegotiation checks were SKIPPED (sslscan is not installed).")
+		default:
+			if reason := toolFailReason(ssErr); reason != "" {
+				lims = append(lims, "sslscan did not complete — SSLv2/SSLv3, Heartbleed, CRIME and insecure-renegotiation checks were SKIPPED ("+reason+").")
+			}
+		}
+	}
+	if nm == nil {
+		switch {
+		case !tools.Nmap:
+			lims = append(lims, "nmap did not run — the POODLE/DROWN/Logjam vuln-NSE and A–F cipher-grade layer was SKIPPED (nmap is not installed).")
+		default:
+			if reason := toolFailReason(nmErr); reason != "" {
+				lims = append(lims, "nmap did not complete — the POODLE/DROWN/Logjam vuln-NSE and A–F cipher-grade layer was SKIPPED ("+reason+").")
+			}
+		}
+	}
+	return lims
+}
+
+// toolFailReason turns a tool's exec/parse error into a short, credential-safe
+// reason string for the limitations note. It prefers shared.TranslateToolError
+// (recognises "executable file not found", timeouts, resets, …); otherwise it
+// falls back to the first non-empty line of the error, capped at ~180 chars.
+// Returns "" for a nil error so a tool that merely found nothing never warns.
+func toolFailReason(err error) string {
+	if err == nil {
+		return ""
+	}
+	msg := err.Error()
+	if friendly, ok := shared.TranslateToolError(msg); ok {
+		return friendly
+	}
+	for _, ln := range strings.Split(msg, "\n") {
+		if s := strings.TrimSpace(ln); s != "" {
+			if len(s) > 180 {
+				s = s[:180] + "…"
+			}
+			return s
+		}
+	}
+	return ""
+}
+
 // ---- sslscan --xml ----
 
 type sslscanDoc struct {

@@ -41,6 +41,18 @@
     </div>
 </div>
 
+{{/* Non-fatal scan-wide warnings (e.g. the Nuclei vuln phase could not
+     run or was truncated). nmap port results still stand, so this is an
+     amber note, not a failure state. */}}
+{{if .Warnings}}
+<div class="mb-5 rounded-xl border border-warning/30 bg-warning/5 px-4 py-3">
+    <div class="text-[10px] uppercase tracking-wider text-warning mb-1">Uyarılar / Warnings</div>
+    <ul class="list-disc list-inside text-xs text-warning space-y-0.5">
+        {{range .Warnings}}<li>{{.}}</li>{{end}}
+    </ul>
+</div>
+{{end}}
+
 {{/* Timeout-pattern detector — when many hosts are "up" but report
      zero open ports, the most common cause is per-host timeout firing
      before the port scan finished (especially with Full scope + a
@@ -249,6 +261,16 @@
                         {{end}}{{end}}
                         {{if gt (len .NucleiFindings) 3}}
                         <p class="text-[10px] text-dark-500 italic">+{{subInt (len .NucleiFindings) 3}} more · open Full detail</p>
+                        {{end}}
+                    </div>
+                    {{end}}
+
+                    {{/* Per-host NON-FATAL deep-scan warnings — e.g. a phase-2/3
+                         nmap pass failed while phase-1 ports survived. */}}
+                    {{if .Warnings}}
+                    <div class="mt-2 space-y-0.5">
+                        {{range .Warnings}}
+                        <p class="text-[11px] text-warning">⚠ {{.}}</p>
                         {{end}}
                     </div>
                     {{end}}

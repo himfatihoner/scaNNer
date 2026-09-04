@@ -175,6 +175,7 @@ func (h *Handler) SNMPEnumResults(w http.ResponseWriter, r *http.Request) {
 	}
 	data["Scan"] = scan
 	data["Results"] = result.Results
+	data["Warnings"] = result.Warnings
 	data["OpenHosts"] = openHosts
 	data["TotalCommunities"] = totalCommunities
 	h.renderResults(w, r, "snmpenum_results_inner", data)

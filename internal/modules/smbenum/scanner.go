@@ -256,6 +256,16 @@ func runNmapSMB(ctx context.Context, target string, tr *TargetResult, log func(s
 			log(fmt.Sprintf("→ %s SMB script scan: about %.0f%% done", target, pct))
 		}
 	})
+	// Surface a non-cancel nmap failure (missing binary, a renamed/removed
+	// NSE script name, a raw-socket permission error) via tr.Error, exactly
+	// as runSmbClient/runEnum4Linux already do — otherwise a failed script
+	// pass masquerades as "host has nothing" (audit B60: silent tool
+	// degradation). A zero-host result with err==nil is a legitimately empty
+	// finding and must stay quiet. RunNmapProgress only returns a non-nil err
+	// when there is no usable XML, so this never fires on a partial success.
+	if err != nil && ctx.Err() == nil {
+		tr.Error = appendError(tr.Error, "nmap: "+briefToolError(err))
+	}
 	if err != nil || len(res.Hosts) == 0 {
 		return
 	}
@@ -411,7 +421,59 @@ func runEnum4Linux(ctx context.Context, target string, cfg Config, tr *TargetRes
 	}
 	raw := string(out)
 	tr.Enum4LinuxRaw = truncateRaw(raw, maxRawStdoutBytes)
+	usersBefore, groupsBefore := len(tr.Users), len(tr.Groups)
 	parseEnum4Linux(raw, tr)
+	// Kali-wrapper trap: enum4linux is a Perl wrapper around smbclient/
+	// rpcclient/nmblookup and exits 0 even when every sub-query was denied,
+	// so the err!=nil check above never fires on a blocked null session. If
+	// it parsed no new users/groups AND its output carries error markers,
+	// that is silent degradation (anonymous enumeration refused, or the tool
+	// is broken) — not a genuinely empty host. Surface it so the operator can
+	// tell the two apart (audit: silent tool degradation). A clean empty
+	// result (no markers) stays quiet.
+	if ctx.Err() == nil && len(tr.Users) == usersBefore && len(tr.Groups) == groupsBefore {
+		if marker := enum4linuxErrorMarker(raw); marker != "" {
+			tr.Error = appendError(tr.Error, "enum4linux: "+marker)
+		}
+	}
+}
+
+// enum4linuxErrorMarker returns a concise reason when enum4linux's output
+// shows it was blocked rather than simply finding nothing, else "". Because
+// enum4linux exits 0 regardless, the raw text is the only failure signal. It
+// finds the first error-bearing line ("[E] ...", STATUS_ACCESS_DENIED, "Can't
+// get", a logon failure), then prefers a catalog translation of that line
+// (shared.TranslateToolError recognises NT_STATUS_ACCESS_DENIED /
+// NT_STATUS_LOGON_FAILURE and friends); failing that it returns the line
+// itself, trimmed. Translating only the matched line (not the whole 64 KB
+// blob) avoids a stray generic-network phrase deep in the output producing a
+// misleading reason.
+func enum4linuxErrorMarker(raw string) string {
+	var firstErr string
+	for _, line := range strings.Split(raw, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		low := strings.ToLower(line)
+		if strings.Contains(line, "[E]") ||
+			strings.Contains(low, "status_access_denied") ||
+			strings.Contains(low, "can't get") ||
+			strings.Contains(low, "logon_failure") {
+			firstErr = line
+			break
+		}
+	}
+	if firstErr == "" {
+		return ""
+	}
+	if friendly, ok := shared.TranslateToolError(firstErr); ok {
+		return friendly
+	}
+	if len(firstErr) > 180 {
+		firstErr = firstErr[:180] + "…"
+	}
+	return firstErr
 }
 
 // appendError accumulates messages on tr.Error so multiple subprocesses
@@ -422,6 +484,29 @@ func appendError(existing, msg string) string {
 		return msg
 	}
 	return existing + " | " + msg
+}
+
+// briefToolError condenses a subprocess error for the per-target Error note:
+// the first non-empty line, capped, so a multi-KB nmap stderr dump can't bloat
+// the result JSON or the danger banner. The exec "executable file not found"
+// token stays intact on that first line, so markHardFailure can still
+// translate a whole-scan failure into the friendly "tool not installed" reason.
+func briefToolError(err error) string {
+	if err == nil {
+		return ""
+	}
+	msg := err.Error()
+	for _, line := range strings.Split(msg, "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			msg = line
+			break
+		}
+	}
+	if len(msg) > 180 {
+		msg = msg[:180] + "…"
+	}
+	return msg
 }
 
 func parseEnum4Linux(text string, tr *TargetResult) {

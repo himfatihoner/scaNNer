@@ -111,6 +111,16 @@
 
     {{if .Reachable}}
     <div class="p-5 space-y-5">
+        {{/* Reachable host with a non-empty Error: the port answered but the
+             TLS analysis could not complete (no TLS on this port, tools failed,
+             or the scan was cancelled). Show it so a reachable-but-untested host
+             isn't rendered as a silent clean result. */}}
+        {{if .Error}}
+        <div class="flex items-start gap-3 px-4 py-3 bg-warning/5 border border-warning/30 rounded-lg">
+            <svg class="w-4 h-4 text-warning shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.732-3L13.732 4a2 2 0 00-3.464 0L3.268 16A2 2 0 005 19z"/></svg>
+            <p class="text-xs text-warning">{{.Error}}</p>
+        </div>
+        {{end}}
         <!-- Protocols -->
         <div>
             <h4 class="text-xs font-semibold text-dark-400 uppercase tracking-wider mb-2">Protocol Support</h4>
@@ -259,7 +269,10 @@
         </div>
         {{end}}
 
-        {{if not .Findings}}
+        {{/* "Looks secure" only when the analysis actually ran: no findings AND
+             no error. A reachable-but-errored host shows the amber strip above
+             instead, never a green all-clear. */}}
+        {{if and (not .Findings) (not .Error)}}
         <div class="flex items-center gap-3 px-4 py-3 bg-success/5 border border-success/20 rounded-lg">
             <svg class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>

@@ -144,6 +144,13 @@ type TargetResult struct {
 	// this host.
 	NucleiFindings []NucleiFinding `json:"nuclei_findings,omitempty"`
 	Error          string          `json:"error,omitempty"`
+	// Warnings holds NON-FATAL per-host notes — e.g. a phase-2/3 deep
+	// scan (nmap) that failed while the phase-1 ports survived. Surfaced
+	// as an amber note on the host row + host detail page so a partial
+	// deep scan isn't silently presented as a clean full result. Unlike
+	// Error, this does NOT feed the "every host errored" hard-failure
+	// check, so phase-1 results are always kept. (silent-tool-degradation)
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 // NucleiFinding mirrors nuclei.Finding but kept local so this package doesn't
@@ -166,6 +173,14 @@ type NucleiFinding struct {
 
 type ScanResult struct {
 	Results []TargetResult `json:"results"`
+	// Warnings holds NON-FATAL scan-wide notes — e.g. the Nuclei phase
+	// could not run (missing binary / start failure) or was truncated by
+	// its wall-clock cap. nmap port results still stand, so this is a
+	// non-fatal amber note rather than a fatal Error, and it's persisted
+	// into the result JSON so the banner survives a reload of a finished
+	// scan (a progress line alone vanishes once polling stops). Rendered
+	// on the results + host-detail pages. (silent-tool-degradation)
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 type Config struct {
@@ -552,6 +567,34 @@ func scanOne(ctx context.Context, target string, cfg Config, log func(string)) [
 	return results
 }
 
+// warnReason turns a raw tool error (nmap stderr / exec error) into a
+// concise operator-facing reason string. Mirrors the dnsenum silent-tool-
+// degradation fix: prefer shared.TranslateToolError's friendly catalog
+// explanation (recognises "executable file not found", timeouts, etc.),
+// else fall back to the first non-empty line of the raw text, capped at
+// 180 chars so a runaway stderr blob can't bloat the result JSON.
+func warnReason(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "unknown error"
+	}
+	if friendly, ok := shared.TranslateToolError(raw); ok {
+		return friendly
+	}
+	for _, ln := range strings.Split(raw, "\n") {
+		if ln = strings.TrimSpace(ln); ln != "" {
+			if len(ln) > 180 {
+				ln = ln[:180] + "…"
+			}
+			return ln
+		}
+	}
+	if len(raw) > 180 {
+		raw = raw[:180] + "…"
+	}
+	return raw
+}
+
 // runDeepScan implements phases 2 and 3 for a single host. Phase 2 picks one
 // of two branches based on the firewall flag; phase 3 only runs for normal
 // (non-firewalled) hosts when phase 2 surfaces unexpected services. The
@@ -604,6 +647,14 @@ func runDeepScan(ctx context.Context, tr *TargetResult, cfg Config, timing []str
 		}
 		res, _, err := shared.RunNmap(ctx, args)
 		if err != nil || res == nil {
+			// Surface a genuine tool failure as a NON-FATAL per-host
+			// warning (phase-1 counts are kept) instead of returning
+			// silently — a missing/crashing nmap on the deep pass would
+			// otherwise leave a clean-looking "done" host. Stay quiet on
+			// whole-scan cancel/timeout (ctx.Err() set) to avoid spam.
+			if err != nil && ctx.Err() == nil {
+				tr.Warnings = append(tr.Warnings, "Firewall-path deep scan (nmap -sV) failed — phase-1 ports kept: "+warnReason(err.Error()))
+			}
 			return
 		}
 		newPorts := portsForIP(res, target)
@@ -696,6 +747,13 @@ func runDeepScan(ctx context.Context, tr *TargetResult, cfg Config, timing []str
 	}
 	res, _, err := shared.RunNmap(ctx, args)
 	if err != nil || res == nil {
+		// A phase-2 deep-scan failure must not silently masquerade as a
+		// clean result: the phase-1 ports on tr survive (they haven't been
+		// overwritten yet), so record a NON-FATAL per-host warning and keep
+		// them. ctx.Err() guard keeps whole-scan cancel/timeout quiet.
+		if err != nil && ctx.Err() == nil {
+			tr.Warnings = append(tr.Warnings, "Deep scan (nmap phase 2 -sV) failed — phase-1 ports kept: "+warnReason(err.Error()))
+		}
 		return
 	}
 	phase2Ports := portsForIP(res, target)
@@ -780,6 +838,12 @@ func runDeepScan(ctx context.Context, tr *TargetResult, cfg Config, timing []str
 	}
 	res3, _, err := shared.RunNmap(ctx, args3)
 	if err != nil || res3 == nil {
+		// Phase-3 follow-up failure — the phase-2 ports/scripts already on
+		// tr are authoritative and kept; note the follow-up gap non-fatally
+		// so the newly-detected-service scripts aren't silently missing.
+		if err != nil && ctx.Err() == nil {
+			tr.Warnings = append(tr.Warnings, "Phase-3 follow-up scan (nmap) failed — earlier results kept: "+warnReason(err.Error()))
+		}
 		return
 	}
 	mergeScripts(tr, portsForIP(res3, target))

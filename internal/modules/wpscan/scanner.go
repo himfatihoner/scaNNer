@@ -158,6 +158,50 @@ func detectAbortHint(raw string) string {
 	return ""
 }
 
+// setWPScanParseError populates tr.Error + tr.Status when wpscan produced
+// output we couldn't parse as JSON (non-zero exit with a raw message, an
+// unsupported flag, a missing binary that still wrote to stderr, etc.). It
+// checks, in order: an unreachable/not-WordPress abort hint; the shared
+// tool-error catalog (which recognises missing binaries, API rate-limits and
+// "flag provided but not defined"); and finally the first non-empty line of
+// wpscan's own output — so a version/flag drift ("invalid option: --foo")
+// stays visible instead of being flattened to a generic "Failed to parse"
+// message. Always sets a non-empty Status so the results card renders the
+// "Scan failed" branch (an Error with no Status renders an empty card body).
+func setWPScanParseError(tr *TargetResult, output string) {
+	if hint := detectAbortHint(output); hint != "" {
+		tr.Error = hint
+		tr.Status = abortStatus(hint)
+		return
+	}
+	if friendly, ok := shared.TranslateToolError(output); ok {
+		tr.Error = friendly
+		tr.Status = "error"
+		return
+	}
+	if line := firstNonEmptyLine(output); line != "" {
+		tr.Error = "Failed to parse WPScan output: " + line
+	} else {
+		tr.Error = "Failed to parse WPScan output"
+	}
+	tr.Status = "error"
+}
+
+// firstNonEmptyLine returns the first non-blank line of s, trimmed and capped
+// to ~180 chars so a noisy wpscan dump can't bloat the result blob. wpscan
+// stderr rarely carries credentials, but the length cap bounds it regardless.
+func firstNonEmptyLine(s string) string {
+	for _, line := range strings.Split(s, "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			if len(line) > 180 {
+				line = line[:180] + "…"
+			}
+			return line
+		}
+	}
+	return ""
+}
+
 // --- WPScan JSON output structs ---
 
 type RawOutput struct {
@@ -547,6 +591,10 @@ func runWPScan(ctx context.Context, target string, speed Speed, apiToken string,
 		}
 		if upErr := ensureDBUpdated(ctx, log); upErr != nil {
 			tr.Error = upErr.Error()
+			// Any non-empty Error must carry a Status or the results card
+			// renders an empty body (no "Scan failed" branch fires) and the
+			// reason is silently swallowed — the bug we're eliminating.
+			tr.Status = "error"
 			return tr
 		}
 		output, err = runOnce()
@@ -564,6 +612,7 @@ func runWPScan(ctx context.Context, target string, speed Speed, apiToken string,
 		case <-time.After(60 * time.Second):
 		case <-ctx.Done():
 			tr.Error = "cancelled while backing off WPScan API"
+			tr.Status = "error"
 			return tr
 		}
 		output, err = runOnce()
@@ -575,6 +624,13 @@ func runWPScan(ctx context.Context, target string, speed Speed, apiToken string,
 		if hint := detectAbortHint(err.Error()); hint != "" {
 			tr.Error = hint
 			tr.Status = abortStatus(hint)
+		} else if friendly, ok := shared.TranslateToolError(err.Error()); ok {
+			// Missing wpscan binary ("executable file not found"), an
+			// unsupported flag ("flag provided but not defined"), or a TLS /
+			// network failure — surface the catalog's actionable reason
+			// instead of a bare "WPScan execution failed: exec: …".
+			tr.Error = friendly
+			tr.Status = "error"
 		} else {
 			tr.Error = fmt.Sprintf("WPScan execution failed: %v", err)
 			tr.Status = "error"
@@ -595,23 +651,11 @@ func runWPScan(ctx context.Context, target string, speed Speed, apiToken string,
 		jsonStart := strings.Index(string(output), "{")
 		if jsonStart > 0 {
 			if err2 := json.Unmarshal(output[jsonStart:], &raw); err2 != nil {
-				if hint := detectAbortHint(string(output)); hint != "" {
-					tr.Error = hint
-					tr.Status = abortStatus(hint)
-				} else {
-					tr.Error = "Failed to parse WPScan output"
-					tr.Status = "error"
-				}
+				setWPScanParseError(tr, string(output))
 				return tr
 			}
 		} else {
-			if hint := detectAbortHint(string(output)); hint != "" {
-				tr.Error = hint
-				tr.Status = abortStatus(hint)
-			} else {
-				tr.Error = "Failed to parse WPScan output"
-				tr.Status = "error"
-			}
+			setWPScanParseError(tr, string(output))
 			return tr
 		}
 	}

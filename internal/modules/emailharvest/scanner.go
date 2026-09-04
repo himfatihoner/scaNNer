@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"scanner/internal/modules/shared"
@@ -20,12 +21,16 @@ import (
 )
 
 type DomainResult struct {
-	Domain    string   `json:"domain"`
-	Sources   []string `json:"sources"`
-	Emails    []string `json:"emails"`
-	Hosts     []string `json:"hosts"`
-	IPs       []string `json:"ips"`
-	Error     string   `json:"error,omitempty"`
+	Domain  string   `json:"domain"`
+	Sources []string `json:"sources"`
+	Emails  []string `json:"emails"`
+	Hosts   []string `json:"hosts"`
+	IPs     []string `json:"ips"`
+	Error   string   `json:"error,omitempty"`
+	// Warnings are NON-FATAL notes surfaced amber on the results page — e.g.
+	// theHarvester exited non-zero but partial results were still parsed. Unlike
+	// Error they do NOT feed markHardFailure, so the scan stays "done".
+	Warnings  []string `json:"warnings,omitempty"`
 	RawOutput string   `json:"raw_output,omitempty"`
 
 	// Optional enrichment populated when the matching toggle is on.
@@ -230,44 +235,45 @@ func harvest(ctx context.Context, domain string, cfg Config, progress ProgressFu
 	// caller's ctx so an outer cancel still wins immediately.
 	harvCtx, harvCancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer harvCancel()
-	if progress != nil {
-		progress(done, "$ "+shared.FormatCommand("theHarvester", args))
-	}
-	cmd := shared.Command(harvCtx, "theHarvester", args...)
-	out, err := cmd.CombinedOutput()
-	dr.RawOutput = truncate(string(out), 32*1024)
-	if err != nil && len(out) == 0 {
-		dr.Error = "theHarvester failed: " + err.Error()
-		return dr
-	}
-	if strings.Contains(string(out), "Invalid source.") {
-		// Extract the offending source set from "The following engines are not supported: {...}"
-		bad := ""
-		if i := strings.Index(string(out), "not supported:"); i >= 0 {
-			line := string(out)[i:]
-			if nl := strings.Index(line, "\n"); nl > 0 {
-				line = line[:nl]
-			}
-			bad = strings.TrimSpace(strings.TrimPrefix(line, "not supported:"))
+	// Preflight the binary so a missing tool becomes a NAMED hard error instead
+	// of a silent empty "done" (audit: kali-wrapper-trap / silent-missing-tool).
+	// Kali ships the CLI as "theHarvester"; some installs only expose the
+	// lowercase "theharvester" alias — probe both and spawn whichever resolves.
+	// LookPath resolves against the host filesystem, which is exactly what
+	// `ip netns exec` re-executes, so this holds whether or not the killswitch is
+	// armed.
+	bin := "theHarvester"
+	if _, lpErr := exec.LookPath(bin); lpErr != nil {
+		if _, lpErr2 := exec.LookPath("theharvester"); lpErr2 == nil {
+			bin = "theharvester"
+		} else {
+			dr.Error = "theHarvester is not installed or not on the scanner's PATH — install it (Kali: apt install theharvester) so email/host harvesting can run."
+			return dr
 		}
-		dr.Error = "theHarvester rejected one or more sources" + func() string {
-			if bad != "" {
-				return " (" + bad + ")"
-			}
-			return ""
-		}() + " — try unticking the unsupported source"
-		return dr
 	}
 
-	// Try to parse the JSON file (newer theHarvester versions). Fall back to
-	// regex-extracting from stdout if the file isn't there.
-	if data, err := os.ReadFile(tmp.Name()); err == nil && len(data) > 0 {
+	if progress != nil {
+		progress(done, "$ "+shared.FormatCommand(bin, args))
+	}
+	cmd := shared.Command(harvCtx, bin, args...)
+	out, err := cmd.CombinedOutput()
+	dr.RawOutput = truncate(string(out), 32*1024)
+
+	// Parse results FIRST so the error/warning decision below can key off whether
+	// the run actually produced anything. We deliberately do NOT use len(out)==0
+	// to detect a spawn failure: CombinedOutput folds the netns killswitch
+	// wrapper's stderr into `out`, so a missing/crashed tool can still yield
+	// non-empty output (that was the original silent-degradation bug).
+	//
+	// Note: the inner lookups shadow with rdErr/jErr, NOT err — the outer `err`
+	// from CombinedOutput is consulted after parsing and must not be clobbered.
+	if data, rdErr := os.ReadFile(tmp.Name()); rdErr == nil && len(data) > 0 {
 		var parsed struct {
 			Emails []string `json:"emails"`
 			Hosts  []string `json:"hosts"`
 			IPs    []string `json:"ips"`
 		}
-		if err := json.Unmarshal(data, &parsed); err == nil {
+		if jErr := json.Unmarshal(data, &parsed); jErr == nil {
 			dr.Emails = dedupe(parsed.Emails)
 			dr.Hosts = dedupe(parsed.Hosts)
 			dr.IPs = dedupe(parsed.IPs)
@@ -288,6 +294,50 @@ func harvest(ctx context.Context, domain string, cfg Config, progress ProgressFu
 	if len(dr.IPs) == 0 {
 		dr.IPs = extractIPs(rawOut)
 	}
+
+	parsedNothing := len(dr.Emails) == 0 && len(dr.Hosts) == 0 && len(dr.IPs) == 0
+	low := strings.ToLower(rawOut)
+
+	// Source-rejection (audit: cli-flag-drift). Match a case-insensitive short
+	// stem rather than the exact "Invalid source." banner (upstream rewords it
+	// between versions), and only treat it as fatal when the run also produced
+	// zero results — a rejected source that still yielded data isn't worth
+	// failing on.
+	sourceRejected := strings.Contains(low, "invalid source") ||
+		strings.Contains(low, "not supported")
+	if sourceRejected && parsedNothing {
+		// Extract the offending set from "...engines are not supported: {...}".
+		bad := ""
+		if i := strings.Index(low, "not supported"); i >= 0 {
+			line := rawOut[i:]
+			if nl := strings.IndexByte(line, '\n'); nl > 0 {
+				line = line[:nl]
+			}
+			bad = strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(line, "not supported"), ":"))
+		}
+		dr.Error = "theHarvester rejected one or more sources" + func() string {
+			if bad != "" {
+				return " (" + bad + ")"
+			}
+			return ""
+		}() + " — try unticking the unsupported source"
+		return dr
+	}
+
+	// Surface a non-zero exit / spawn failure instead of returning a clean
+	// "done". A user-cancelled scan (parent ctx done) is NOT a tool failure, so
+	// leave it undecorated. Otherwise: zero results parsed → fatal per-domain
+	// Error (red); partial results still parsed → non-fatal Warning (amber, scan
+	// stays "done").
+	if err != nil && ctx.Err() == nil {
+		reason := explainToolFailure(rawOut, err)
+		if parsedNothing {
+			dr.Error = "theHarvester failed: " + reason
+			return dr
+		}
+		dr.warn("theHarvester exited with an error but partial results were kept: " + reason)
+	}
+
 	if filepath.IsAbs(tmp.Name()) {
 		// nothing — handled by defer
 	}
@@ -359,6 +409,41 @@ func truncate(s string, max int) string {
 		return s
 	}
 	return s[:max] + "\n... [truncated]"
+}
+
+// warn appends a non-fatal note to the domain result. Warnings render amber on
+// the results page and, unlike Error, never feed markHardFailure — so the scan
+// stays "done" while still telling the operator the tool misbehaved.
+func (dr *DomainResult) warn(msg string) {
+	dr.Warnings = append(dr.Warnings, msg)
+}
+
+// explainToolFailure turns a theHarvester failure into a short, user-facing
+// reason. It prefers the shared catalog (which recognises "executable file not
+// found", timeouts, "invalid source", etc.), trying the combined output first
+// then the exec error; failing that it falls back to the first non-empty output
+// line (capped at ~180 chars) and finally the raw exec error.
+func explainToolFailure(out string, err error) string {
+	if reason, ok := shared.TranslateToolError(out); ok {
+		return reason
+	}
+	if err != nil {
+		if reason, ok := shared.TranslateToolError(err.Error()); ok {
+			return reason
+		}
+	}
+	for _, line := range strings.Split(out, "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			if len(line) > 180 {
+				line = line[:180] + "…"
+			}
+			return line
+		}
+	}
+	if err != nil {
+		return err.Error()
+	}
+	return "unknown error"
 }
 
 // --- DNS authentication enrichment ---

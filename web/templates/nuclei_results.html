@@ -23,7 +23,7 @@
 <div class="mb-4 px-4 py-3 bg-danger/10 border border-danger/40 rounded-lg flex items-start gap-3">
     <svg class="w-5 h-5 text-danger flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.732-3L13.732 4a2 2 0 00-3.464 0L3.268 16A2 2 0 005 19z"/></svg>
     <div>
-        <p class="text-sm font-semibold text-danger">Scan INCOMPLETE — nuclei hit its time cap</p>
+        <p class="text-sm font-semibold text-danger">Scan INCOMPLETE — results may be partial</p>
         <p class="text-xs text-dark-300 mt-0.5">{{.TruncateReason}}</p>
     </div>
 </div>
@@ -48,7 +48,12 @@
 {{end}}
 
 {{range .Results}}
-{{$emptyTarget := eq (len .Findings) 0}}
+{{/* A row counts as "empty" (hideable by the default toggle) only when it
+     has NO findings AND carries no error/exit diagnostic. Rows bearing an
+     Error or ExitInfo (e.g. unreachable target, nuclei start failure) must
+     stay visible so the default "hide URLs with no findings" toggle can't
+     silently swallow the reason the scan produced nothing. */}}
+{{$emptyTarget := and (eq (len .Findings) 0) (not .Error) (not .ExitInfo)}}
 <div class="bg-dark-900 border-b border-dark-800 last:border-0 overflow-hidden" data-empty="{{if $emptyTarget}}true{{else}}false{{end}}">
     <div class="px-5 py-4 border-b border-dark-800">
         <div class="flex items-center justify-between">

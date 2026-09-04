@@ -155,6 +155,7 @@ type portServiceCachedResult struct {
 	resultLen     int
 	updatedAtNano int64
 	results       []portservice.TargetResult
+	warnings      []string
 	upHosts       int
 	downHosts     int
 	filteredHosts int
@@ -226,6 +227,7 @@ func (h *Handler) PortServiceResults(w http.ResponseWriter, r *http.Request) {
 			resultLen:     resultLen,
 			updatedAtNano: updatedNano,
 			results:       result.Results,
+			warnings:      result.Warnings,
 			upHosts:       upHosts,
 			downHosts:     downHosts,
 			filteredHosts: filteredHosts,
@@ -254,6 +256,7 @@ func (h *Handler) PortServiceResults(w http.ResponseWriter, r *http.Request) {
 
 	data["Scan"] = scan
 	data["Results"] = cached.results
+	data["Warnings"] = cached.warnings
 	data["UpHosts"] = cached.upHosts
 	data["DownHosts"] = cached.downHosts
 	data["FilteredHosts"] = cached.filteredHosts
@@ -295,6 +298,9 @@ func (h *Handler) PortServiceHostDetail(w http.ResponseWriter, r *http.Request) 
 	data := h.baseData(r, "Host "+ip+" — Advanced Host Scanner", "portservice_host")
 	data["Scan"] = scan
 	data["Host"] = host
+	// Scan-wide non-fatal warnings (e.g. the Nuclei phase did not complete)
+	// so the host detail page reflects an incomplete vuln scan too.
+	data["Warnings"] = result.Warnings
 	// Pre-bucket findings by severity for the summary cards.
 	sevCount := map[string]int{}
 	for _, f := range host.NucleiFindings {
@@ -571,7 +577,39 @@ func runNucleiPhase(ctx context.Context, scanID string, result *portservice.Scan
 	// standalone nuclei). Findings gathered before the kill are still
 	// stitched in below.
 	if nres.Truncated {
-		db.UpdateScanProgress(scanID, totalScale, "⚠ nuclei phase INCOMPLETE — "+nres.TruncateReason)
+		reason := strings.TrimSpace(nres.TruncateReason)
+		if reason == "" {
+			reason = "nuclei did not complete"
+		}
+		db.UpdateScanProgress(scanID, totalScale, "⚠ nuclei phase INCOMPLETE — "+reason)
+		// Persist the incomplete/failed state into the STRUCTURED result so
+		// the amber banner survives a reload of the finished scan — the
+		// progress line above is only visible while the live poller runs.
+		// TruncateReason already covers a missing nuclei binary / start
+		// failure (the nuclei module flags Truncated for those), so this
+		// single non-fatal channel handles both "did not run" and "ran but
+		// was time-capped". nmap port results still stand, so it's a
+		// non-fatal Warnings note, never a fatal Error. (silent-tool-degradation)
+		result.Warnings = append(result.Warnings, "Nuclei vulnerability scan did not complete: "+reason)
+	} else {
+		// Defensive belt-and-suspenders: even when the run wasn't flagged
+		// Truncated, a per-URL start/exec failure means nuclei never
+		// actually ran against that endpoint — surface it rather than
+		// presenting a clean "0 vulnerabilities".
+		for _, ntr := range nres.Results {
+			e := strings.TrimSpace(ntr.Error)
+			if e == "" {
+				continue
+			}
+			if strings.Contains(e, "nuclei start:") || strings.Contains(strings.ToLower(e), "executable file not found") {
+				friendly := e
+				if f, ok := shared.TranslateToolError(e); ok {
+					friendly = f
+				}
+				result.Warnings = append(result.Warnings, "Nuclei vulnerability scan could not run: "+friendly)
+				break
+			}
+		}
 	}
 	// Stitch findings back into the per-host result.
 	hostFindings := map[string][]portservice.NucleiFinding{}

@@ -17,6 +17,11 @@ import (
 type HTTPXFindConfig struct {
 	Targets []string           `json:"targets"`
 	Mode    httpxfind.ScanMode `json:"mode"`
+	// DirectHTTP (Full mode only): skip the TCP connect port-scan and probe
+	// HTTP/HTTPS directly on every port — only ports that actually answer HTTP
+	// are recorded, so a firewall that accepts/tarpits all connects can't
+	// inflate the result. Persisted for Restart replay.
+	DirectHTTP bool `json:"direct_http,omitempty"`
 }
 
 func (h *Handler) HTTPXFindPage(w http.ResponseWriter, r *http.Request) {
@@ -63,14 +68,18 @@ func (h *Handler) HTTPXFindRun(w http.ResponseWriter, r *http.Request) {
 	if mode != httpxfind.ModeFull {
 		mode = httpxfind.ModeCommon
 	}
+	// Full-mode-only knob: probe HTTP/HTTPS directly instead of a TCP
+	// connect port-scan first (firewall can't fool the port detection).
+	directHTTP := mode == httpxfind.ModeFull && r.FormValue("direct_http") == "on"
 
 	// No artificial target cap: the operator must be able to run large sweeps
 	// (e.g. 500 IPs × all 65 535 ports in Full mode). The only bound is the
 	// ExpandTargets expansion limit above (65 536 hosts) which stops a single
 	// pasted /8 from allocating millions of host strings. Memory stays bounded
-	// regardless of mode: Full mode scans one host at a time and only records
-	// the OPEN ports it discovers (not 65 535 tasks/host), and Common mode's
-	// task slice is len(targets) × len(CommonPorts) of tiny {host,port} structs.
+	// regardless of mode: Full mode sweeps ports round-robin across hosts via an
+	// O(1)-per-host permuter (no 65 535-entry slice per host) and records only
+	// the OPEN ports it discovers, and Common mode's task slice is
+	// len(targets) × len(CommonPorts) of tiny {host,port} structs.
 	// A huge sweep is slow — that's the operator's time to spend — not a memory
 	// blow-up, so it's allowed to run instead of being refused.
 
@@ -92,7 +101,7 @@ func (h *Handler) HTTPXFindRun(w http.ResponseWriter, r *http.Request) {
 
 	opts := h.BuildHTTPOptions(r)
 
-	cfgJSON, _ := json.Marshal(HTTPXFindConfig{Targets: targets, Mode: mode})
+	cfgJSON, _ := json.Marshal(HTTPXFindConfig{Targets: targets, Mode: mode, DirectHTTP: directHTTP})
 	scan, err := h.db.CreateScan(ws.ID, "httpxfind", string(cfgJSON), total)
 	if err != nil {
 		http.Redirect(w, r, "/modules/httpxfind?error=db_error", http.StatusSeeOther)
@@ -112,7 +121,7 @@ func (h *Handler) HTTPXFindRun(w http.ResponseWriter, r *http.Request) {
 	if t := parseHTTPTuning(r); t.RateSet && t.RateLimit == 0 {
 		rate = -1
 	}
-	go h.runHTTPXFind(scan.ID, targets, mode, opts, conc, rate)
+	go h.runHTTPXFind(scan.ID, targets, mode, directHTTP, opts, conc, rate)
 	http.Redirect(w, r, "/modules/httpxfind/results/"+scan.ID, http.StatusSeeOther)
 }
 
@@ -148,7 +157,7 @@ func (h *Handler) HTTPXFindStatus(w http.ResponseWriter, r *http.Request) {
 	h.writeScanStatus(w, scan)
 }
 
-func (h *Handler) runHTTPXFind(scanID string, targets []string, mode httpxfind.ScanMode, opts *shared.HTTPOptions, tcpConc, tcpRate int) {
+func (h *Handler) runHTTPXFind(scanID string, targets []string, mode httpxfind.ScanMode, directHTTP bool, opts *shared.HTTPOptions, tcpConc, tcpRate int) {
 	if !h.db.MarkRunning(scanID) {
 		return
 	}
@@ -210,7 +219,7 @@ func (h *Handler) runHTTPXFind(scanID string, targets []string, mode httpxfind.S
 	// probe defaults.
 	var result *httpxfind.ScanResult
 	if mode == httpxfind.ModeFull {
-		result = httpxfind.ScanFull(targets, 0, tcpConc, tcpRate, opts, onPartial, onProgress)
+		result = httpxfind.ScanFull(targets, 0, tcpConc, tcpRate, directHTTP, opts, onPartial, onProgress)
 	} else {
 		result = httpxfind.Scan(targets, mode, opts, onPartial, onProgress)
 	}

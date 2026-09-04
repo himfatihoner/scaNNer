@@ -38,6 +38,15 @@
                                 </div>
                             </label>
                         </div>
+
+                        <!-- Full-mode option: direct HTTP/HTTPS (skip the TCP connect port-scan) -->
+                        <label class="flex items-start gap-2 mt-2.5 cursor-pointer">
+                            <input type="checkbox" name="direct_http" class="mt-0.5 rounded border-dark-600 bg-dark-850 text-accent-500 focus:ring-0 focus:ring-offset-0">
+                            <span class="text-[11px] text-dark-400 leading-snug">
+                                <span class="text-dark-200">Doğrudan HTTP/HTTPS (port ön-taramasını atla)</span><br>
+                                Yalnızca <span class="text-warning">All Ports</span> modunda: TCP connect taraması yapılmaz, her porta doğrudan HTTP/HTTPS denenir. Sadece gerçekten HTTP yanıtı veren portlar raporlanır — connect'i kabul eden/tarpit yapan firewall sonucu şişiremez. Daha yavaş.
+                            </span>
+                        </label>
                     </div>
 
                     <!-- Targets -->

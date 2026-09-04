@@ -268,7 +268,7 @@ func (h *Handler) dispatchRestart(scanID, module, configJSON string) {
 	case "httpxfind":
 		var cfg HTTPXFindConfig
 		json.Unmarshal([]byte(configJSON), &cfg)
-		go h.runHTTPXFind(scanID, cfg.Targets, cfg.Mode, h.BuildHTTPOptionsFromSettings(), 0, 0)
+		go h.runHTTPXFind(scanID, cfg.Targets, cfg.Mode, cfg.DirectHTTP, h.BuildHTTPOptionsFromSettings(), 0, 0)
 	case "httpmethods":
 		var cfg HTTPMethodsConfig
 		json.Unmarshal([]byte(configJSON), &cfg)

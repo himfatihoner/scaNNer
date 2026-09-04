@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"net/http"
 	"regexp"
@@ -94,15 +95,18 @@ func Scan(targets []string, mode ScanMode, opts *shared.HTTPOptions, onPartial P
 // advancedweb suite where Deep + lots of subdomains produces 200k+ tasks
 // and a higher concurrency keeps wall-clock under an hour.
 func ScanWithConcurrency(targets []string, mode ScanMode, concurrency int, opts *shared.HTTPOptions, onPartial PartialFunc, progress ProgressFunc) *ScanResult {
-	return scanCore(targets, mode, nil, concurrency, 0, 0, opts, onPartial, progress)
+	return scanCore(targets, mode, nil, concurrency, 0, 0, false, opts, onPartial, progress)
 }
 
 // ScanFull runs Full-mode discovery with explicit TCP-scan tuning (Task 6
 // per-module override). tcpConc = concurrent connect()s during discovery
 // (0 = default 150); tcpRate = max NEW connections/sec (0 = default 500,
 // negative = unlimited). probeConc = HTTP-probe concurrency (0 = default).
-func ScanFull(targets []string, probeConc, tcpConc, tcpRate int, opts *shared.HTTPOptions, onPartial PartialFunc, progress ProgressFunc) *ScanResult {
-	return scanCore(targets, ModeFull, nil, probeConc, tcpConc, tcpRate, opts, onPartial, progress)
+// directHTTP skips the TCP connect port-scan entirely and fires HTTP/HTTPS
+// straight at every port — only ports that actually answer HTTP are recorded,
+// so a firewall that tarpits/accepts all connects can't inflate the result.
+func ScanFull(targets []string, probeConc, tcpConc, tcpRate int, directHTTP bool, opts *shared.HTTPOptions, onPartial PartialFunc, progress ProgressFunc) *ScanResult {
+	return scanCore(targets, ModeFull, nil, probeConc, tcpConc, tcpRate, directHTTP, opts, onPartial, progress)
 }
 
 // ScanWithPorts is the explicit-port-list variant. The caller supplies
@@ -115,14 +119,14 @@ func ScanFull(targets []string, probeConc, tcpConc, tcpRate int, opts *shared.HT
 // (concurrency-bounded). For "do an open-port discovery first" use
 // ScanWithConcurrency(..., ModeFull, ...) instead.
 func ScanWithPorts(targets []string, customPorts []int, concurrency int, opts *shared.HTTPOptions, onPartial PartialFunc, progress ProgressFunc) *ScanResult {
-	return scanCore(targets, ModeCommon, customPorts, concurrency, 0, 0, opts, onPartial, progress)
+	return scanCore(targets, ModeCommon, customPorts, concurrency, 0, 0, false, opts, onPartial, progress)
 }
 
 // scanCore is the shared body. When customPorts is non-empty it
 // overrides both ModeCommon (CommonPorts) and ModeFull (tcp discovery);
 // the mode argument is only consulted to choose between common and
 // full when no explicit list was supplied.
-func scanCore(targets []string, mode ScanMode, customPorts []int, concurrency, tcpConc, tcpRate int, opts *shared.HTTPOptions, onPartial PartialFunc, progress ProgressFunc) *ScanResult {
+func scanCore(targets []string, mode ScanMode, customPorts []int, concurrency, tcpConc, tcpRate int, directHTTP bool, opts *shared.HTTPOptions, onPartial PartialFunc, progress ProgressFunc) *ScanResult {
 	result := &ScanResult{}
 	var mu sync.Mutex
 
@@ -177,6 +181,15 @@ func scanCore(targets []string, mode ScanMode, customPorts []int, concurrency, t
 		},
 	}
 
+	// Full mode is a different shape from the fixed-port modes: an
+	// interleaved, per-host-randomized sweep of all 65535 ports (round-robin
+	// across hosts, random port order per host — IDS/firewall-evasion), with
+	// its own two-phase (or single-phase, when directHTTP) progress model.
+	// It owns its whole run and returns here.
+	if mode == ModeFull && len(customPorts) == 0 {
+		return runFullMode(result, &mu, targets, directHTTP, tcpConc, tcpRate, concurrency, sharedClient, opts, onPartial, progress)
+	}
+
 	type probeTask struct {
 		host string
 		port int
@@ -191,35 +204,6 @@ func scanCore(targets []string, mode ScanMode, customPorts []int, concurrency, t
 				tasks = append(tasks, probeTask{host: host, port: p})
 			}
 		}
-	case mode == ModeFull:
-		// Phase 1: fast TCP scan to find open ports. Progress is reported in
-		// GLOBAL port units — the handler now creates the scan with
-		// total = len(targets) × 65535 (the dominant work), so done climbs
-		// smoothly across all hosts instead of sitting at an indeterminate
-		// spinner for the whole (slow) discovery phase (Task 1).
-		for i, host := range targets {
-			if opts.Done() {
-				return result
-			}
-			doneBase := i * 65535 // ports fully scanned on earlier hosts
-			if progress != nil {
-				progress(doneBase, fmt.Sprintf("Port scanning %s (1-65535)", host))
-			}
-			openPorts := tcpScanAll(host, tcpConc, tcpRate, doneBase, opts, progress)
-			for _, p := range openPorts {
-				tasks = append(tasks, probeTask{host: host, port: p})
-			}
-		}
-		if progress != nil {
-			// Discovery done. The HTTP-probe phase (Phase 2) is a small tail;
-			// bump the denominator to (discovery total + probe tasks) so the
-			// bar reserves the last sliver for probing instead of already
-			// reading 100%. Sentinel carries the FINAL total; the handler maps
-			// it to db.UpdateScanProgressFull(scanID, discBase, finalTotal).
-			discBase := len(targets) * 65535
-			progress(discBase, fmt.Sprintf("%s%d", TotalUpdatePrefix, discBase+len(tasks)))
-			progress(discBase, fmt.Sprintf("Found %d open ports, probing for HTTP services", len(tasks)))
-		}
 	default:
 		for _, host := range targets {
 			for _, p := range CommonPorts {
@@ -230,13 +214,7 @@ func scanCore(targets []string, mode ScanMode, customPorts []int, concurrency, t
 
 	total := len(tasks)
 	done := 0
-	// In Full mode the bar's denominator already counts the 65535-port
-	// discovery sweep per host; the HTTP-probe phase continues past that
-	// base so the bar doesn't restart at 0 (Task 1).
 	probeBase := 0
-	if mode == ModeFull && len(customPorts) == 0 {
-		probeBase = len(targets) * 65535
-	}
 	sem := make(chan struct{}, concurrency)
 	var wg sync.WaitGroup
 
@@ -303,34 +281,96 @@ func scanCore(targets []string, mode ScanMode, customPorts []int, concurrency, t
 	return result
 }
 
-// tcpScanAll does a fast TCP connect scan on all 65535 ports.
-// progress (optional) gets heartbeat callbacks roughly every 2 seconds so
-// the UI doesn't sit on the same "Port scanning host (1-65535)" line for
-// minutes — see audit MEDIUM "Full-mode TCP scan emits no per-port
-// progress". Heartbeat messages are NOT prefixed with "$ " so they don't
-// pollute the scan's commands column.
-func tcpScanAll(host string, conc, rate, doneBase int, opts *shared.HTTPOptions, progress ProgressFunc) []int {
-	var openPorts []int
-	var mu sync.Mutex
+// portPermuter yields a per-host pseudo-random full permutation of ports
+// 1..65535 in O(1) memory (no 64K slice per host). It walks the residues of
+// the prime 65537 by a random stride: x -> (x + a) mod 65537, with a coprime
+// to 65537 (every a in [1,65536] is — 65537 is prime), which visits all
+// residues exactly once before repeating. Residues 0 and 65536 aren't valid
+// ports and are skipped. A random start x and random stride a PER HOST mean
+// each host is swept in a different, non-sequential order — defeating the
+// "ports probed strictly 1,2,3,…" scan signature an IDS/firewall keys on.
+type portPermuter struct {
+	a, x, emitted int
+}
+
+func newPortPermuter() *portPermuter {
+	return &portPermuter{a: rand.Intn(65536) + 1, x: rand.Intn(65537)}
+}
+
+// next returns the host's next port (1..65535) and true, or 0/false once all
+// 65535 ports have been emitted.
+func (p *portPermuter) next() (int, bool) {
+	for p.emitted < 65535 {
+		p.x = (p.x + p.a) % 65537
+		if p.x >= 1 && p.x <= 65535 {
+			p.emitted++
+			return p.x, true
+		}
+		// p.x == 0 or 65536 → not a port; step again without consuming a slot.
+	}
+	return 0, false
+}
+
+// runFullMode executes a Full-mode sweep: an interleaved round-robin across
+// hosts, each host's 65535 ports visited in a per-host-random order
+// (portPermuter). Two shapes:
+//
+//   - connect (default): each (host,port) is a TCP connect probe; the open
+//     ports are then HTTP-probed in a second phase.
+//   - directHTTP: each (host,port) is an HTTP/HTTPS probe directly — no connect
+//     pre-scan — so only ports that actually answer HTTP are recorded, and a
+//     firewall that accepts/tarpits every connect can't inflate the result.
+//
+// Progress (Task 1 — the HTTP-probe phase is now visible in the %):
+//   - directHTTP: single phase, denominator = hosts×65535, done = ports probed.
+//   - connect: phase 1 (the connect sweep) fills ~86% of the bar; the last ~14%
+//     is reserved for phase 2 (HTTP-probing the discovered open ports) so that
+//     phase is a visible band instead of a sub-1% sliver stuck at 100%.
+func runFullMode(result *ScanResult, mu *sync.Mutex, targets []string, directHTTP bool,
+	tcpConc, tcpRate, probeConc int, sharedClient *http.Client, opts *shared.HTTPOptions,
+	onPartial PartialFunc, progress ProgressFunc) *ScanResult {
+
+	const maxPort = 65535
+	discTotal := len(targets) * maxPort // phase-1 units: one per port probed
+
+	conc := tcpConc
 	if conc <= 0 {
 		conc = fullScanConc
 	}
-	sem := make(chan struct{}, conc)
-	var wg sync.WaitGroup
+	rate := tcpRate
+	if rate < 0 {
+		rate = 0 // unlimited
+	} else if rate == 0 {
+		rate = fullScanRate
+	}
 
-	// Rate limiter: cap NEW connect attempts to `rate`/sec (0 = unlimited).
-	// This is the primary safety valve — the concurrency bound alone doesn't
-	// stop fast-RST/refused ports from letting the loop spin at tens of
-	// thousands of new flows/sec, which is what fills a home router's
-	// conntrack table and drops the operator's own traffic (Task 0a).
-	//
-	// Batched token bucket: a per-second ticker resolution (~1ms) can't honour
-	// rates above ~1000/s, so instead refill `rate/tickHz` tokens on a coarse
-	// tick — any requested rate is met accurately. Bucket depth = 1s burst.
+	// Reserve the bar's tail for phase 2 (connect mode only) so HTTP-probing
+	// the open ports actually moves the %. The denominator is bumped up front
+	// so the bar never jumps backwards when phase 2 begins.
+	reserve := 0
+	if !directHTTP {
+		reserve = discTotal / 6 // ~14% of the bar
+		if reserve < 1 {
+			reserve = 1
+		}
+		if progress != nil {
+			progress(0, fmt.Sprintf("%s%d", TotalUpdatePrefix, discTotal+reserve))
+			progress(0, fmt.Sprintf("Full scan: %d host(s) × 65535 ports, randomized order", len(targets)))
+		}
+	} else if progress != nil {
+		progress(0, fmt.Sprintf("Full scan (direct HTTP/HTTPS): %d host(s) × 65535 ports, randomized order", len(targets)))
+	}
+
+	perms := make([]*portPermuter, len(targets))
+	for i := range targets {
+		perms[i] = newPortPermuter()
+	}
+
+	// Token-bucket rate limiter on NEW connections/sec, shared across hosts.
 	var tokens chan struct{}
 	rlDone := make(chan struct{})
 	if rate > 0 {
-		const tickHz = 20 // 50ms ticks — well above timer resolution
+		const tickHz = 20
 		per := rate / tickHz
 		if per < 1 {
 			per = 1
@@ -351,22 +391,27 @@ func tcpScanAll(host string, conc, rate, doneBase int, opts *shared.HTTPOptions,
 					for i := 0; i < per; i++ {
 						select {
 						case tokens <- struct{}{}:
-						default: // bucket full — drop
+						default:
 						}
 					}
 				}
 			}
 		}()
 	}
-	defer close(rlDone)
 
-	var scanned int32 // atomic — heartbeat reader counts probes regardless of result
-	var openCount int32
+	sem := make(chan struct{}, conc)
+	var wg sync.WaitGroup
+	var scanned int32
+	var found int32
+	var openMu sync.Mutex
+	type openHP struct {
+		host string
+		port int
+	}
+	var open []openHP
 
-	// Heartbeat ticker — surfaces progress every 2s so the UI knows the
-	// scan is alive. Reports done in GLOBAL port units (doneBase + scanned)
-	// so the % bar advances smoothly across hosts (Task 1). Stopped via
-	// hbDone after wg.Wait returns.
+	// Heartbeat: report the phase-1 climb (done = ports probed so far) every
+	// 2s so the bar advances without a DB write per port.
 	hbDone := make(chan struct{})
 	if progress != nil {
 		go func() {
@@ -378,58 +423,145 @@ func tcpScanAll(host string, conc, rate, doneBase int, opts *shared.HTTPOptions,
 					return
 				case <-ticker.C:
 					s := atomic.LoadInt32(&scanned)
-					o := atomic.LoadInt32(&openCount)
-					progress(doneBase+int(s), fmt.Sprintf("TCP scan %s — %d/65535 probed, %d open", host, s, o))
+					if directHTTP {
+						progress(int(s), fmt.Sprintf("Direct HTTP sweep — %d/%d probed, %d live", s, discTotal, atomic.LoadInt32(&found)))
+					} else {
+						progress(int(s), fmt.Sprintf("Port sweep — %d/%d probed, %d open", s, discTotal, atomic.LoadInt32(&found)))
+					}
 				}
 			}
 		}()
 	}
 
-	for port := 1; port <= 65535; port++ {
+	// Round-robin dispatch: each round emits one (random) port per still-live
+	// host, so in-flight probes hit different hosts on scattered ports.
+	for round := 0; round < maxPort; round++ {
 		if opts.Done() {
 			break
 		}
-		if tokens != nil {
-			<-tokens // pace new-connection dispatch
-		}
-		wg.Add(1)
-		sem <- struct{}{}
-		go func(p int) {
-			defer wg.Done()
-			defer func() { <-sem }()
-			defer atomic.AddInt32(&scanned, 1)
+		for hi, host := range targets {
 			if opts.Done() {
-				return
+				break
 			}
-			// JoinHostPort handles IPv6 bracketing — plain Sprintf builds
-			// "2001:db8:::443" which Dial cannot parse.
-			addr := net.JoinHostPort(host, strconv.Itoa(p))
-			// Use the shared bounded dialer so the killswitch's source-IP
-			// binding applies to TCP port-probe traffic too. nil opts =
-			// global fallback (set by handler.BuildHTTPOptions).
-			conn, err := shared.BoundDialer(nil, tcpTimeout).Dial("tcp", addr)
-			if err != nil {
-				return
+			port, ok := perms[hi].next()
+			if !ok {
+				continue
 			}
-			// Defer the Close so a panic between Dial and the mu.Lock
-			// section can't leak the half-open socket (audit B55).
-			// 65535-port full-mode scans run thousands of these per host;
-			// a single unclosed conn per panic over 2 days starves FDs.
-			defer conn.Close()
-			atomic.AddInt32(&openCount, 1)
-			mu.Lock()
-			openPorts = append(openPorts, p)
-			mu.Unlock()
-		}(port)
+			if tokens != nil {
+				<-tokens
+			}
+			wg.Add(1)
+			sem <- struct{}{}
+			go func(host string, port int) {
+				defer wg.Done()
+				defer func() { <-sem }()
+				defer atomic.AddInt32(&scanned, 1)
+				if opts.Done() {
+					return
+				}
+				if directHTTP {
+					svc := probeHTTP(host, port, sharedClient, opts)
+					if svc == nil {
+						return
+					}
+					atomic.AddInt32(&found, 1)
+					mu.Lock()
+					result.Services = append(result.Services, *svc)
+					var snap *ScanResult
+					if onPartial != nil {
+						snap = &ScanResult{Services: append([]ServiceResult(nil), result.Services...)}
+					}
+					mu.Unlock()
+					if progress != nil {
+						progress(int(atomic.LoadInt32(&scanned)), fmt.Sprintf("✓ %s (HTTP %d)", svc.URL, svc.StatusCode))
+					}
+					if snap != nil {
+						onPartial(snap)
+					}
+					return
+				}
+				// connect probe — killswitch-bound dialer so L2 source-IP
+				// pinning applies to the port-sweep traffic too.
+				conn, err := shared.BoundDialer(nil, tcpTimeout).Dial("tcp", net.JoinHostPort(host, strconv.Itoa(port)))
+				if err != nil {
+					return
+				}
+				conn.Close()
+				atomic.AddInt32(&found, 1)
+				openMu.Lock()
+				open = append(open, openHP{host, port})
+				openMu.Unlock()
+			}(host, port)
+		}
 	}
 	wg.Wait()
 	close(hbDone)
-	// Register this host's completion immediately (don't wait for the next
-	// host's "Port scanning" line) so the bar reflects the finished sweep.
-	if progress != nil {
-		progress(doneBase+int(atomic.LoadInt32(&scanned)), fmt.Sprintf("TCP scan %s done — %d open", host, atomic.LoadInt32(&openCount)))
+	close(rlDone)
+
+	if directHTTP {
+		if progress != nil {
+			progress(discTotal, fmt.Sprintf("Direct HTTP sweep done — %d live service(s)", atomic.LoadInt32(&found)))
+		}
+		return result
 	}
-	return openPorts
+
+	// ---- Phase 2 (connect mode): HTTP-probe the discovered open ports. ----
+	p := len(open)
+	if p == 0 {
+		if progress != nil {
+			progress(discTotal+reserve, "Port sweep done — 0 open ports")
+		}
+		return result
+	}
+	if progress != nil {
+		progress(discTotal, fmt.Sprintf("%d open port(s) — probing for HTTP services", p))
+	}
+	pc := probeConc
+	if pc <= 0 {
+		pc = probeConcLimit
+	}
+	psem := make(chan struct{}, pc)
+	var pwg sync.WaitGroup
+	var pdone int32
+	for _, hp := range open {
+		if opts.Done() {
+			break
+		}
+		pwg.Add(1)
+		psem <- struct{}{}
+		go func(host string, port int) {
+			defer pwg.Done()
+			defer func() { <-psem }()
+			svc := probeHTTP(host, port, sharedClient, opts)
+			d := atomic.AddInt32(&pdone, 1)
+			mu.Lock()
+			var snap *ScanResult
+			if svc != nil {
+				result.Services = append(result.Services, *svc)
+				if onPartial != nil {
+					snap = &ScanResult{Services: append([]ServiceResult(nil), result.Services...)}
+				}
+			}
+			mu.Unlock()
+			if progress != nil {
+				// Map the p probes into the reserved [discTotal, discTotal+reserve] band.
+				done := discTotal + int(int64(d)*int64(reserve)/int64(p))
+				if svc != nil {
+					progress(done, fmt.Sprintf("✓ %s (HTTP %d)", svc.URL, svc.StatusCode))
+				} else {
+					progress(done, fmt.Sprintf("· no HTTP on %s:%d", host, port))
+				}
+			}
+			if snap != nil {
+				onPartial(snap)
+			}
+		}(hp.host, hp.port)
+	}
+	pwg.Wait()
+	if progress != nil {
+		progress(discTotal+reserve, fmt.Sprintf("Full scan done — %d live HTTP service(s)", len(result.Services)))
+	}
+	return result
 }
 
 // probeHTTP tries HTTPS then HTTP on a host:port, returns nil if no HTTP service.

@@ -711,7 +711,11 @@ func runSubfinder(parent context.Context, domain, tmpDir string, log func(string
 	out := filepath.Join(tmpDir, "subfinder.txt")
 	ctx, cancel := context.WithTimeout(parent, 3*time.Minute)
 	defer cancel()
-	args := []string{"-d", domain, "-o", out, "-silent"}
+	// -all enables every data source (not just the fast default set) — this is
+	// the single biggest lever on subfinder's yield and what restores the old
+	// ~1800-result runs. Sources that need an API key are skipped gracefully
+	// when no key is configured, so -all is safe with an empty config.
+	args := []string{"-d", domain, "-o", out, "-silent", "-all"}
 	if log != nil {
 		log("$ " + shared.FormatCommand("subfinder", args))
 	}
@@ -802,11 +806,11 @@ func runAmass(parent context.Context, domain, tmpDir string, speed Speed, log fu
 	if parent.Err() != nil {
 		return nil, parent.Err()
 	}
-	timeout := "3"
-	hardCap := 6 * time.Minute
+	timeout := "2"
+	hardCap := 5 * time.Minute
 	if speed == SpeedDeep {
-		timeout = "10"
-		hardCap = 14 * time.Minute
+		timeout = "6"
+		hardCap = 12 * time.Minute
 	}
 	// amass v4+ dropped -o in favour of -oA <prefix> and — unlike v3 — flushes
 	// its output files only on a clean exit (its own -timeout firing, not our
@@ -839,9 +843,35 @@ func runAmass(parent context.Context, domain, tmpDir string, speed Speed, log fu
 	// results (e.g. it hit our hardCap after already writing files) is still a
 	// win, and the status board should show ok, not failed.
 	if len(subs) == 0 && err != nil {
-		return nil, toolErr(err, stderr.String())
+		return nil, fmt.Errorf("%s", amassFailReason(ctx, stderr.String()))
 	}
 	return subs, nil
+}
+
+// amassFailReason produces a clean status-board message when amass yielded
+// nothing. amass v5 redraws a progress bar on stderr with carriage returns, so
+// the raw last line is meaningless noise ("0 / 1 [___] 0.00% ? p/s"); strip it.
+// A hard-cap kill is the common failure since amass v5 flushes output only on a
+// clean exit — a kill means it never wrote anything — so name that explicitly.
+func amassFailReason(ctx context.Context, stderr string) string {
+	if ctx.Err() == context.DeadlineExceeded {
+		return "zaman aşımı — amass v5 süre dolmadan sonuç yazamadı (yavaş: bulduğu isimleri DNS ile çözüyor)"
+	}
+	msg := ""
+	for _, ln := range strings.Split(strings.ReplaceAll(stderr, "\r", "\n"), "\n") {
+		ln = strings.TrimSpace(ln)
+		if ln == "" || strings.Contains(ln, "p/s") || (strings.Contains(ln, "%") && strings.Contains(ln, "[")) {
+			continue // progress-bar redraw noise, not a real message
+		}
+		msg = ln
+	}
+	if msg == "" {
+		msg = "sonuç yok"
+	}
+	if len(msg) > 180 {
+		msg = msg[:180] + "…"
+	}
+	return msg
 }
 
 // validDomainLabel returns true only for strings that look like a DNS

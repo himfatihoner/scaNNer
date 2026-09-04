@@ -1593,7 +1593,12 @@ func (d *DB) CreateScan(workspaceID, module, config string, totalTargets int) (*
 		Module:        module,
 		Status:        models.ScanPending,
 		Config:        config,
-		Result:        "[]",
+		// Seed an empty JSON OBJECT, not an array: every module's ScanResult
+		// is an object, so a poll of the results page before the first partial
+		// flush unmarshals "{}" into a zero-value result ("no results yet")
+		// instead of erroring "cannot unmarshal array into ...ScanResult".
+		// Matches the scans.result column default ('{}').
+		Result:        "{}",
 		ProgressTotal: totalTargets,
 		CreatedAt:     time.Now(),
 	}

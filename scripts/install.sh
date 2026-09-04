@@ -363,6 +363,12 @@ for arg in "$@"; do
   esac
 done
 
+# Find the Go toolchain + common tool dirs even under a minimal caller PATH — the
+# in-app privileged updater / systemd-run / cron start us with systemd's default
+# PATH, which omits /usr/local/go/bin. Without this, `have go` fails and the build
+# + go-tool installs silently skip.
+export PATH="$PATH:/usr/local/go/bin:/usr/local/bin"
+
 # ---------------------------------------------------------------------------
 # Preconditions: must be root; must resolve a real target user and repo dir.
 # ---------------------------------------------------------------------------
@@ -371,6 +377,10 @@ done
 # The real, non-root user this install is FOR. SUDO_USER is set when invoked
 # via sudo; logname is the fallback for a plain root login.
 TARGET_USER="${SUDO_USER:-$(logname 2>/dev/null || true)}"
+# Fallback for non-interactive invocations (the in-app privileged updater via
+# systemd-run, or cron) where neither SUDO_USER nor logname is set: use the owner
+# of this checkout — that's the account scaNNer belongs to.
+[ -n "$TARGET_USER" ] || TARGET_USER="$(stat -c %U "$(dirname "$(readlink -f "$0")")" 2>/dev/null || true)"
 [ -n "$TARGET_USER" ] || die "could not determine the target user (set SUDO_USER or run via sudo)."
 [ "$TARGET_USER" != "root" ] || die "target user resolved to root; run via 'sudo' from your normal account so files stay user-owned."
 id "$TARGET_USER" >/dev/null 2>&1 || die "target user '$TARGET_USER' does not exist."

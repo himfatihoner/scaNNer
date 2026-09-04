@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -411,12 +412,40 @@ func (h *Handler) UpdateApplyPrivileged(w http.ResponseWriter, r *http.Request) 
 // argv element is a trusted absolute path, so there is no shell/argv injection.
 func runInstallerWithSudo(pw []byte, root string) (string, error) {
 	script := filepath.Join(root, "scripts", "install.sh")
+	// The transient unit starts as root with a CLEAN environment, but install.sh
+	// needs to know the real (non-root) owner and find the Go toolchain. Pass
+	// them explicitly: SUDO_USER (→ install.sh's TARGET_USER, so tools install to
+	// the right user/home and the checkout owner is correct), HOME, and a PATH
+	// that includes the Go toolchain + the user's go/bin. Without these, install.sh
+	// under systemd-run can't resolve the user or run `go`.
+	svcUser, svcHome := "", ""
+	if u, err := user.Current(); err == nil {
+		svcUser, svcHome = u.Username, u.HomeDir
+	}
+	if svcHome == "" {
+		if h, err := os.UserHomeDir(); err == nil {
+			svcHome = h
+		}
+	}
+	path := "/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+	if svcHome != "" {
+		path += ":" + filepath.Join(svcHome, "go", "bin") + ":" + filepath.Join(svcHome, ".local", "bin")
+	}
 	// -k: drop any cached sudo timestamp; -S: read the password from stdin;
 	// -p '': no prompt text. systemd-run --collect: GC the unit after it exits.
-	cmd := exec.Command("sudo", "-k", "-S", "-p", "",
+	args := []string{"-k", "-S", "-p", "",
 		"systemd-run", "--unit=scanner-selfupdate", "--collect",
-		"--working-directory="+root,
-		"/bin/bash", script, "--yes")
+		"--working-directory=" + root,
+		"--setenv=PATH=" + path,
+	}
+	if svcUser != "" {
+		args = append(args, "--setenv=SUDO_USER="+svcUser)
+	}
+	if svcHome != "" {
+		args = append(args, "--setenv=HOME="+svcHome)
+	}
+	args = append(args, "/bin/bash", script, "--yes")
+	cmd := exec.Command("sudo", args...)
 	var out bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &out
 	stdin, err := cmd.StdinPipe()

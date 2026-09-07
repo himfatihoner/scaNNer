@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"net"
 	"net/http"
 	"strings"
 	"sync/atomic"
@@ -113,11 +114,13 @@ func probeNetwork() netSample {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), connDNSTimeout)
 	start := time.Now()
-	// Resolve via the killswitch-bound resolver when armed, so this probe (a)
-	// measures the DNS path scans actually use and (b) isn't dropped by an
-	// all_traffic OUTPUT rule (which would false-report "slow DNS"/degraded).
-	// Falls back to the system resolver in default routing mode.
-	_, err := shared.SystemResolver().LookupHost(ctx, connDNSName)
+	// System resolver on the NORMAL path — this is a health probe (management),
+	// not scan traffic, so it must reflect the box's real DNS. Do NOT route it
+	// through the killswitch-bound resolver: on a box whose resolver isn't
+	// reachable from the VPN source IP (systemd-resolved's 127.0.0.53 loopback
+	// stub, or a LAN-only resolver) the bound lookup fails and the monitor
+	// false-reports "Degraded". Scan DNS is confined separately (BoundDialer).
+	_, err := net.DefaultResolver.LookupHost(ctx, connDNSName)
 	s.dnsLatency = time.Since(start)
 	cancel()
 	s.dnsOK = err == nil

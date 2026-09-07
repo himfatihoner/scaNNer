@@ -455,7 +455,19 @@ func boundResolver(la *net.TCPAddr, timeout time.Duration) *net.Resolver {
 	return &net.Resolver{
 		PreferGo: true,
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-			d := &net.Dialer{Timeout: timeout, ControlContext: throttleControl, LocalAddr: la}
+			d := &net.Dialer{Timeout: timeout, ControlContext: throttleControl}
+			// Pin the source to the killswitch interface ONLY for a non-loopback
+			// resolver. A loopback resolver (e.g. systemd-resolved's 127.0.0.53
+			// stub) cannot be reached from a bound non-loopback source, and
+			// loopback DNS never leaves the box — binding there would just break
+			// resolution (the systemd-resolved case). Non-loopback nameservers
+			// (a VPN-pushed or internal-AD resolver) still get bound so the query
+			// egresses the VPN.
+			if host, _, err := net.SplitHostPort(address); err != nil {
+				d.LocalAddr = la
+			} else if ip := net.ParseIP(host); ip == nil || !ip.IsLoopback() {
+				d.LocalAddr = la
+			}
 			return d.DialContext(ctx, network, address)
 		},
 	}

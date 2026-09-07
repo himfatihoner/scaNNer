@@ -124,6 +124,8 @@ func (h *Handler) DNSEnumRun(w http.ResponseWriter, r *http.Request) {
 		BruteRateLimit:     parseIntField("brute_rate_limit"),
 		PTRConcurrency:     parseIntField("ptr_concurrency"),
 		WordlistPath:       strings.TrimSpace(r.FormValue("wordlist_path")),
+		NSGobuster:         r.FormValue("ns_gobuster") == "on",
+		NSGobusterDelay:    strings.TrimSpace(r.FormValue("ns_gobuster_delay")),
 	}
 
 	cfgJSON, _ := json.Marshal(map[string]interface{}{
@@ -134,6 +136,8 @@ func (h *Handler) DNSEnumRun(w http.ResponseWriter, r *http.Request) {
 		"brute_rate_limit":    opts.BruteRateLimit,
 		"ptr_concurrency":     opts.PTRConcurrency,
 		"wordlist_path":       opts.WordlistPath,
+		"ns_gobuster":         opts.NSGobuster,
+		"ns_gobuster_delay":   opts.NSGobusterDelay,
 	})
 	// Audit fix: inflate total by dnsenum.PhaseCount so the progress bar
 	// advances within a domain (passive/brute/NS-brute/permutation/resolve

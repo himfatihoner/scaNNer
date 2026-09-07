@@ -135,7 +135,7 @@ func main() {
 	tools := []string{
 		"nmap", "nuclei", "wpscan", "hydra", "smbclient",
 		"whatweb", "snmpwalk", "snmpset", "theHarvester", "dig",
-		"subfinder", "amass", "puredns", "masscan",
+		"subfinder", "amass", "puredns", "masscan", "gobuster",
 		"enum4linux", "onesixtyone", "whois",
 		"sslscan", "openssl", // SSL/TLS Scanner's tool-driven engine
 		"hashcat", "hashid",  // Hashcat cracking module (+ hashid for hash-type auto-detect)

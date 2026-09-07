@@ -150,6 +150,19 @@
                                 <p class="text-[10px] text-dark-500 mt-0.5">Always fetched in the passive phase; toggle keeps issuer + validity dates.</p>
                             </div>
                         </label>
+
+                        <label class="flex items-start gap-2.5 cursor-pointer">
+                            <input type="checkbox" name="ns_gobuster" class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500">
+                            <div>
+                                <p class="text-xs font-medium text-dark-200">NS'e gobuster dns brute{{template "info_icon" "Hedefin KENDİ yetkili nameserver'ına doğrudan `gobuster dns` ile subdomain brute-force atar (puredns'in genel resolver listesine EK olarak). Split-horizon / iç DNS kayıtlarını yakalar. Keşfedilen her authoritative NS için çalışır. Her hızda (fast dahil) çalışır çünkü opt-in."}}</p>
+                                <p class="text-[10px] text-dark-500 mt-0.5">Keşfedilen her authoritative NS'e karşı <span class="mono">gobuster dns</span> — iç/özel kayıtları da bulur. Aşağıdaki delay ile yavaşlatabilirsin.</p>
+                            </div>
+                        </label>
+                        <div class="flex items-center gap-2 ml-7">
+                            <label class="text-[10px] text-dark-500 whitespace-nowrap">gobuster delay</label>
+                            <input type="text" name="ns_gobuster_delay" placeholder="ör. 200ms / 1s" class="w-32 mono bg-dark-850 border border-dark-700 rounded px-2 py-1 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                            <span class="text-[10px] text-dark-600">istek başına gecikme (Go süresi; boş = gecikme yok)</span>
+                        </div>
                     </div>
 
                     {{/* Advanced: DNS-load knobs. Hidden by default so the

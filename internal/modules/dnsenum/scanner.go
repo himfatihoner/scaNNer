@@ -78,6 +78,13 @@ type Options struct {
 	// engagements with a bespoke wordlist. Empty falls back to the
 	// per-speed WordlistFast/Normal/Deep defaults.
 	WordlistPath string
+
+	// NSGobuster, when true, runs `gobuster dns` directly against each
+	// discovered authoritative nameserver (opt-in, any speed). NSGobusterDelay
+	// is an optional per-request delay (Go duration, e.g. "200ms") passed to
+	// gobuster's --delay to go gentle / evade rate limits on the target NS.
+	NSGobuster      bool
+	NSGobusterDelay string
 }
 
 // Speed profile
@@ -602,6 +609,51 @@ func enumerateDomain(ctx context.Context, domain string, speed Speed, scanOpts O
 			firePhase()
 		}
 	}
+
+	// ---- Phase 4a: opt-in gobuster dns brute against the target's own
+	// authoritative nameserver(s). Runs on ANY speed (it's an explicit
+	// checkbox), honours the operator's --delay, and surfaces on the status
+	// board as the "gobuster" source. Uses the full per-speed wordlist. ----
+	if scanOpts.NSGobuster && len(dr.Nameservers) > 0 {
+		_, wlErr := os.Stat(wordlist)
+		switch {
+		case wlErr != nil:
+			logFn(fmt.Sprintf("[%s] $ # gobuster NS-brute skipped: wordlist missing %s", domain, wordlist))
+			setSrc("gobuster", "skipped", 0, "wordlist yok: "+wordlist)
+		case !toolInstalled("gobuster"):
+			setSrc("gobuster", "skipped", 0, "kurulu değil (not installed)")
+		default:
+			logFn(fmt.Sprintf("[%s] gobuster dns brute against %d nameserver(s) (delay=%q)...", domain, len(dr.Nameservers), scanOpts.NSGobusterDelay))
+			setSrc("gobuster", "running", -1, "")
+			var gobAll []string
+			var gobErr error
+			for _, ns := range dr.Nameservers {
+				if ctx.Err() != nil {
+					break
+				}
+				nsIP := resolveNS(ctx, ns)
+				if nsIP == "" {
+					continue
+				}
+				logFn(fmt.Sprintf("[%s] gobuster dns → NS %s (%s)...", domain, ns, nsIP))
+				subs, err := runGobusterNS(ctx, domain, nsIP, wordlist, scanOpts.NSGobusterDelay, logFn)
+				if err != nil && len(subs) == 0 {
+					gobErr = err
+				}
+				gobAll = append(gobAll, subs...)
+				collect(subs, "gobuster")
+				logFn(fmt.Sprintf("[%s] gobuster NS %s: %d results", domain, ns, len(subs)))
+				firePhase()
+			}
+			if len(gobAll) == 0 && gobErr != nil {
+				setSrc("gobuster", "failed", 0, gobErr.Error())
+			} else {
+				setSrc("gobuster", "ok", len(gobAll), "")
+			}
+		}
+		firePhase()
+	}
+
 	phaseFn(3, fmt.Sprintf("[%s] NS-brute done", domain))
 
 	if ctx.Err() != nil {
@@ -1036,6 +1088,63 @@ func runPureDNS(parent context.Context, domain, wordlist, resolverFile, tmpDir s
 	err := cmd.Run()
 	subs := readLines(out)
 	return subs, toolErr(err, stderr.String())
+}
+
+// runGobusterNS runs `gobuster dns` against ONE nameserver IP, brute-forcing
+// subdomains of domain with wordlist. delay (optional Go duration, e.g.
+// "200ms") throttles requests to go gentle on / evade rate limits at the
+// target NS. IMPORTANT: in `gobuster dns`, -d is --delay, NOT domain — use the
+// long flags. Output (--quiet --no-color) is one line per hit: "<fqdn> <ips>".
+func runGobusterNS(parent context.Context, domain, nsIP, wordlist, delay string, log func(string)) ([]string, error) {
+	if parent.Err() != nil {
+		return nil, parent.Err()
+	}
+	ctx, cancel := context.WithTimeout(parent, 20*time.Minute)
+	defer cancel()
+	args := []string{
+		"dns", "--domain", domain, "--wordlist", wordlist,
+		"--resolver", nsIP, "--quiet", "--no-color", "--no-progress", "--no-error",
+	}
+	if d := strings.TrimSpace(delay); d != "" {
+		// Only pass --delay when it's a valid Go duration; a bad value makes
+		// gobuster exit non-zero and the whole NS source show "failed".
+		if _, err := time.ParseDuration(d); err == nil {
+			args = append(args, "--delay", d)
+		}
+	}
+	if log != nil {
+		log("$ " + shared.FormatCommand("gobuster", args))
+	}
+	cmd := shared.Command(ctx, CachedToolPath("gobuster"), args...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+
+	var subs []string
+	seen := map[string]bool{}
+	for _, line := range strings.Split(stdout.String(), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		fqdn := strings.ToLower(strings.TrimSuffix(fields[0], "."))
+		if fqdn == "" || seen[fqdn] {
+			continue
+		}
+		if strings.HasSuffix(fqdn, "."+domain) || fqdn == domain {
+			seen[fqdn] = true
+			subs = append(subs, fqdn)
+		}
+	}
+	if len(subs) == 0 && err != nil {
+		return nil, toolErr(err, stderr.String())
+	}
+	return subs, nil
 }
 
 // bruteWithNS brute-forces subdomains using a specific nameserver

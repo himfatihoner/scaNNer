@@ -153,7 +153,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 data-module="{{.Module}}"
                 data-module-label="{{moduleDisplayName .Module}}"
                 data-status="{{.Status}}"
-                data-targets="{{.ProgressTotal}}"
+                data-targets="{{scanTargetCount .}}"
                 data-createdat="{{.CreatedAt.Unix}}"
                 data-duration="{{if and .StartedAt .FinishedAt}}{{printf "%.0f" (.FinishedAt.Sub (deref .StartedAt)).Seconds}}{{else}}0{{end}}">
                 <td class="px-5 py-3">

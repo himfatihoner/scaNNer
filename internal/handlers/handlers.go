@@ -115,6 +115,7 @@ func New(registry *modules.Registry, db *database.DB, templateDir string) (*Hand
 				URLs    []string `json:"urls"`
 				Domains []string `json:"domains"`
 				Hosts   []string `json:"hosts"`
+				Hashes  []string `json:"hashes"` // hashcat: the count that matters is the hash lines
 			}
 			if err := json.Unmarshal([]byte(s.Config), &cfg); err != nil {
 				return s.ProgressTotal
@@ -136,6 +137,12 @@ func New(registry *modules.Registry, db *database.DB, templateDir string) (*Hand
 				return n
 			}
 			if n := len(cfg.Hosts); n > 0 {
+				return n
+			}
+			// hashcat is host-less — its "targets" are the hash lines being
+			// cracked. (ProgressTotal stays 100 for the percent-based bar; this
+			// only fixes the Scans-list count.)
+			if n := len(cfg.Hashes); n > 0 {
 				return n
 			}
 			if cfg.Target != "" {

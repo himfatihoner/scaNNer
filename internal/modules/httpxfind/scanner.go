@@ -410,6 +410,13 @@ func runFullMode(result *ScanResult, mu *sync.Mutex, targets []string, directHTT
 	}
 	var open []openHP
 
+	// start feeds the ETA; hitLog throttles the per-hit console lines so a
+	// 100M-scale sweep with many live services doesn't emit one line per hit
+	// (the 2s heartbeat carries the running "%d live" total; the results table
+	// still lists every service via onPartial).
+	start := time.Now()
+	hitLog := shared.NewPartialThrottler(750 * time.Millisecond)
+
 	// Heartbeat: report the phase-1 climb (done = ports probed so far) every
 	// 2s so the bar advances without a DB write per port.
 	hbDone := make(chan struct{})
@@ -423,10 +430,11 @@ func runFullMode(result *ScanResult, mu *sync.Mutex, targets []string, directHTT
 					return
 				case <-ticker.C:
 					s := atomic.LoadInt32(&scanned)
+					eta := etaSuffix(start, int(s), discTotal)
 					if directHTTP {
-						progress(int(s), fmt.Sprintf("Direct HTTP sweep — %d/%d probed, %d live", s, discTotal, atomic.LoadInt32(&found)))
+						progress(int(s), fmt.Sprintf("Direct HTTP sweep — %d/%d probed, %d live%s", s, discTotal, atomic.LoadInt32(&found), eta))
 					} else {
-						progress(int(s), fmt.Sprintf("Port sweep — %d/%d probed, %d open", s, discTotal, atomic.LoadInt32(&found)))
+						progress(int(s), fmt.Sprintf("Port sweep — %d/%d probed, %d open%s", s, discTotal, atomic.LoadInt32(&found), eta))
 					}
 				}
 			}
@@ -472,7 +480,7 @@ func runFullMode(result *ScanResult, mu *sync.Mutex, targets []string, directHTT
 						snap = &ScanResult{Services: append([]ServiceResult(nil), result.Services...)}
 					}
 					mu.Unlock()
-					if progress != nil {
+					if progress != nil && hitLog.ShouldFire() {
 						progress(int(atomic.LoadInt32(&scanned)), fmt.Sprintf("✓ %s (HTTP %d)", svc.URL, svc.StatusCode))
 					}
 					if snap != nil {
@@ -523,6 +531,30 @@ func runFullMode(result *ScanResult, mu *sync.Mutex, targets []string, directHTT
 	psem := make(chan struct{}, pc)
 	var pwg sync.WaitGroup
 	var pdone int32
+	var plive int32
+	// Phase-2 heartbeat: a bounded 2s tick instead of one console line per open
+	// port (the old per-hit/per-miss lines flooded the log on a big sweep and
+	// buried the caption). Maps done into the reserved [discTotal, +reserve]
+	// band and carries its own ETA. Every live service still reaches the
+	// results table via onPartial.
+	p2start := time.Now()
+	p2Done := make(chan struct{})
+	if progress != nil {
+		go func() {
+			ticker := time.NewTicker(2 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-p2Done:
+					return
+				case <-ticker.C:
+					d := atomic.LoadInt32(&pdone)
+					done := discTotal + int(int64(d)*int64(reserve)/int64(p))
+					progress(done, fmt.Sprintf("HTTP probe — %d/%d open ports, %d live%s", d, p, atomic.LoadInt32(&plive), etaSuffix(p2start, int(d), p)))
+				}
+			}
+		}()
+	}
 	for _, hp := range open {
 		if opts.Done() {
 			break
@@ -533,35 +565,73 @@ func runFullMode(result *ScanResult, mu *sync.Mutex, targets []string, directHTT
 			defer pwg.Done()
 			defer func() { <-psem }()
 			svc := probeHTTP(host, port, sharedClient, opts)
-			d := atomic.AddInt32(&pdone, 1)
+			atomic.AddInt32(&pdone, 1)
+			if svc == nil {
+				return
+			}
+			atomic.AddInt32(&plive, 1)
 			mu.Lock()
+			result.Services = append(result.Services, *svc)
 			var snap *ScanResult
-			if svc != nil {
-				result.Services = append(result.Services, *svc)
-				if onPartial != nil {
-					snap = &ScanResult{Services: append([]ServiceResult(nil), result.Services...)}
-				}
+			if onPartial != nil {
+				snap = &ScanResult{Services: append([]ServiceResult(nil), result.Services...)}
 			}
 			mu.Unlock()
-			if progress != nil {
-				// Map the p probes into the reserved [discTotal, discTotal+reserve] band.
-				done := discTotal + int(int64(d)*int64(reserve)/int64(p))
-				if svc != nil {
-					progress(done, fmt.Sprintf("✓ %s (HTTP %d)", svc.URL, svc.StatusCode))
-				} else {
-					progress(done, fmt.Sprintf("· no HTTP on %s:%d", host, port))
-				}
-			}
 			if snap != nil {
 				onPartial(snap)
 			}
 		}(hp.host, hp.port)
 	}
 	pwg.Wait()
+	close(p2Done)
 	if progress != nil {
 		progress(discTotal+reserve, fmt.Sprintf("Full scan done — %d live HTTP service(s)", len(result.Services)))
 	}
 	return result
+}
+
+// fmtDur renders a coarse human duration for the ETA (handles hours — a
+// 100M-scale sweep's ETA is measured in hours, and the template's own
+// formatDuration FuncMap helper isn't reachable from module code).
+func fmtDur(d time.Duration) string {
+	if d < 0 {
+		d = 0
+	}
+	d = d.Round(time.Second)
+	h := d / time.Hour
+	m := (d % time.Hour) / time.Minute
+	s := (d % time.Minute) / time.Second
+	switch {
+	case h > 0:
+		return fmt.Sprintf("%dh%02dm", h, m)
+	case m > 0:
+		return fmt.Sprintf("%dm%02ds", m, s)
+	default:
+		return fmt.Sprintf("%ds", s)
+	}
+}
+
+// etaSuffix returns " · <rate>/s · ETA <dur>" from the run's average rate, or
+// "" until there's enough data (guards against a garbage/div-by-zero ETA on
+// the first tick).
+func etaSuffix(start time.Time, done, total int) string {
+	if done <= 0 || total <= 0 {
+		return ""
+	}
+	elapsed := time.Since(start).Seconds()
+	if elapsed <= 0 {
+		return ""
+	}
+	rate := float64(done) / elapsed
+	if rate <= 0 {
+		return ""
+	}
+	remaining := total - done
+	if remaining < 0 {
+		remaining = 0
+	}
+	eta := time.Duration(float64(remaining)/rate) * time.Second
+	return fmt.Sprintf(" · %.0f/s · ETA %s", rate, fmtDur(eta))
 }
 
 // probeHTTP tries HTTPS then HTTP on a host:port, returns nil if no HTTP service.

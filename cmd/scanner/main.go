@@ -338,7 +338,15 @@ func main() {
 	// If the privilege check fails (no CAP_NET_ADMIN, not root), we log
 	// a warning and fall through to default routing. Settings retain
 	// the pinned iface so a fix + restart re-engages without re-saving.
+	// Crash recovery: a prior process that died while armed leaves its
+	// comment-tagged iptables rules in the kernel — and the host OUTPUT DROP
+	// rules match by uid, so a stale all_traffic rule would blackhole THIS
+	// process's egress even in default mode. Unconditionally sweep our rules
+	// first (idempotent, by comment tag), then re-arm below if configured.
+	_ = scannet.Teardown()
 	if s := db.GetSettings(); s.NetworkInterface != "" {
+		// Preserve the admin's killswitch scope across reboots (read by Setup).
+		scannet.SetKillswitchScope(s.KillswitchScope)
 		if err := scannet.RequiresPrivilege(); err != nil {
 			log.Printf("⚠ Killswitch unavailable: %v — falling back to default routing", err)
 		} else if err := scannet.Setup(s.NetworkInterface); err != nil {

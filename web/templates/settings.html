@@ -433,6 +433,29 @@
                     {{end}}
                 </div>
             </div>
+
+            <!-- Killswitch scope: how far the fail-closed rules reach (DNS included) -->
+            <div class="mt-4 pt-4 border-t border-dark-800">
+                <label class="block text-xs text-dark-400 mb-2">
+                    Killswitch kapsamı — DNS dahil
+                    {{template "info_icon" "Killswitch armed iken uygulamanın hangi trafiğinin VPN'e zorlanacağı. DNS bu kapsamın PARÇASIDIR (ayrı bir ayar yok): seçilen moda göre DNS de aynı fail-closed kurala tabi olur. scan_only: yalnızca tarama trafiği + tarama DNS'i VPN'den, kernel-enforced (başka arayüz denenmez); yönetim (CVE güncelleme, self-update, SMTP/e-posta 2FA, NTP) normal yoldan. all_traffic: uygulamanın TÜM egress'i VPN'den ya da düşer."}}
+                </label>
+                <div class="space-y-2">
+                    <label class="flex items-start gap-2.5 cursor-pointer">
+                        <input type="radio" name="killswitch_scope" value="scan_only" {{if ne .Settings.KillswitchScope "all_traffic"}}checked{{end}} class="mt-0.5 w-4 h-4 border-dark-600 bg-dark-850 text-accent-500 focus:ring-0">
+                        <span class="text-[11px] text-dark-300 leading-snug">
+                            <span class="text-white">Sadece tarama trafiği</span> <span class="text-dark-500">(önerilen)</span> — tarama bağlantıları ve <b>tarama DNS'i</b> yalnızca VPN'den çıkar (kernel fail-closed, başka arayüz denenmez). Yönetim trafiği (güncelleme, e-posta 2FA, NTP) normal yoldan. Admin kilitlenme riski yok.
+                        </span>
+                    </label>
+                    <label class="flex items-start gap-2.5 cursor-pointer">
+                        <input type="radio" name="killswitch_scope" value="all_traffic" {{if eq .Settings.KillswitchScope "all_traffic"}}checked{{end}} class="mt-0.5 w-4 h-4 border-dark-600 bg-dark-850 text-warning focus:ring-0">
+                        <span class="text-[11px] text-dark-300 leading-snug">
+                            <span class="text-warning">Tüm uygulama trafiği</span> — scaNNer'ın yaptığı <b>her</b> bağlantı (DNS dahil) VPN'den çıkar ya da düşer. En sıkı sızıntı koruması.
+                            <span class="block mt-1 text-[10px] text-warning/90">⚠ VPN; e-posta (SMTP) veya NTP sunucularına ulaşamıyorsa <b>e-posta 2FA kodları ve TOTP saat senkronu bozulabilir</b> → yeni girişler engellenebilir. Mevcut açık oturumun kopmaz (web UI muaf, geri alabilirsin). Sadece ne yaptığını biliyorsan aç.</span>
+                        </span>
+                    </label>
+                </div>
+            </div>
         </div>
 
         <!-- VPN Watchdog (auto-reconnect + resume on tunnel drop) -->

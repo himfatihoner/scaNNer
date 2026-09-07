@@ -57,6 +57,14 @@ type AppSettings struct {
 	NetworkInterface   string `db:"network_interface"    json:"network_interface,omitempty"`
 	NetworkInterfaceIP string `db:"network_interface_ip" json:"network_interface_ip,omitempty"`
 
+	// KillswitchScope decides how far the host OUTPUT fail-closed rules reach
+	// when the killswitch is armed: "scan_only" (default) confines only scan
+	// traffic + scan DNS to the VPN and leaves management (CVE/self-update/
+	// SMTP/NTP) on the normal route; "all_traffic" confines EVERY connection
+	// the scanner makes (management included — can break email-2FA/NTP if the
+	// VPN can't reach them, so it is opt-in and warned in the UI).
+	KillswitchScope string `db:"killswitch_scope" json:"killswitch_scope,omitempty"`
+
 	// VPN watchdog. When VPNAutoReconnect is on, the connectivity monitor also
 	// watches VPNInterface (e.g. tun0): if it drops — even while the box still
 	// has plain internet via another iface — running scans are PAUSED (so no
@@ -239,7 +247,8 @@ func DefaultSettings() AppSettings {
 		UseProxy:             false,
 		UserAgent:            "scaNNer/1.0",
 		DefaultExportFmt:     "csv",
-		VPNAutoReconnect:         true, // watchdog on by default
+		VPNAutoReconnect:         true,        // watchdog on by default
+		KillswitchScope:          "scan_only", // safe default: management stays on the normal route
 		VPNReconnectAfterSec:     20,
 		WebReachabilityPreflight: true, // skip TLS-dead targets by default
 		WebPreflightTimeout:      4,

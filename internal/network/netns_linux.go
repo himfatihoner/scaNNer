@@ -161,6 +161,42 @@ func Setup(targetIface string) error {
 		}
 	}
 
+	// Host OUTPUT killswitch — the DNS/traffic-leak fix. The FORWARD rules
+	// above confine SUBPROCESS tools (they run inside the netns). But the Go
+	// scanner process runs in the HOST namespace, so its OWN dialers and DNS
+	// lookups never traverse FORWARD. These owner-scoped OUTPUT rules fail-close
+	// that gap: the scanner's egress may leave ONLY via targetIface, otherwise
+	// it is DROPped — no fallback to another interface. Scope decides reach:
+	//   - scan_only:   only SCAN egress (SO_MARK'd by shared.BoundDialer) is
+	//                  confined; management (SMTP/NTP/self-update, unmarked)
+	//                  keeps the normal route.
+	//   - all_traffic: EVERY scanner-originated new connection is confined.
+	// Exemptions come FIRST (Setup uses -A append, so order = match order):
+	//   - -o lo: the local web UI / IPC must never be cut.
+	//   - conntrack ESTABLISHED,RELATED: replies to inbound connections, so a
+	//     LAN admin browsing the web UI is never dropped (only NEW egress is
+	//     judged). This is what prevents an admin lockout in all_traffic mode.
+	uid := fmt.Sprintf("%d", os.Getuid())
+	outputRules := [][]string{
+		{"iptables", "-A", "OUTPUT", "-o", "lo", "-j", "ACCEPT", "-m", "comment", "--comment", IptablesComment},
+		{"iptables", "-A", "OUTPUT", "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT", "-m", "comment", "--comment", IptablesComment},
+	}
+	if KillswitchScope() == KillswitchScopeAllTraffic {
+		outputRules = append(outputRules,
+			[]string{"iptables", "-A", "OUTPUT", "-m", "owner", "--uid-owner", uid, "!", "-o", targetIface, "-j", "DROP", "-m", "comment", "--comment", IptablesComment})
+	} else {
+		mark := fmt.Sprintf("0x%x", ScanFwMark)
+		outputRules = append(outputRules,
+			[]string{"iptables", "-A", "OUTPUT", "-m", "owner", "--uid-owner", uid, "-m", "mark", "--mark", mark, "!", "-o", targetIface, "-j", "DROP", "-m", "comment", "--comment", IptablesComment})
+	}
+	for _, rule := range outputRules {
+		if err := runStep(rule); err != nil {
+			_ = teardownLocked()
+			setupErr = fmt.Errorf("netns iptables OUTPUT %q: %w", strings.Join(rule, " "), err)
+			return setupErr
+		}
+	}
+
 	// DNS: copy host's current /etc/resolv.conf into the per-netns
 	// override location. `ip netns exec` automatically bind-mounts this
 	// over /etc/resolv.conf inside the namespace. So a VPN-pushed DNS
@@ -193,6 +229,7 @@ func teardownLocked() error {
 	// iterate the FORWARD + nat POSTROUTING chains looking for our
 	// comment tag and delete by line number from the bottom up.
 	deleteByComment("iptables", "FORWARD")
+	deleteByComment("iptables", "OUTPUT") // host DNS/traffic killswitch rules
 	deleteByCommentNat("iptables", "POSTROUTING")
 
 	// Delete veth pair (kernel removes the peer automatically).
@@ -246,10 +283,17 @@ func HealthCheck(targetIface, expectedIP string) error {
 	if err := exec.Command("ip", "link", "show", HostVethName).Run(); err != nil {
 		return fmt.Errorf("host veth %q missing", HostVethName)
 	}
-	// 4. iptables rules still tagged with our comment.
+	// 4. iptables FORWARD rules (subprocess/netns confinement) still tagged.
 	checkOut, _ := exec.Command("iptables", "-S", "FORWARD").Output()
 	if !strings.Contains(string(checkOut), IptablesComment) {
 		return fmt.Errorf("iptables FORWARD rules missing")
+	}
+	// 5. Host OUTPUT killswitch rules (Go-side DNS/traffic confinement) still
+	// present — a flush here would silently re-open the Go-side leak, so treat
+	// it like any other tamper and let the monitor cancel running scans.
+	outOut, _ := exec.Command("iptables", "-S", "OUTPUT").Output()
+	if !strings.Contains(string(outOut), IptablesComment) {
+		return fmt.Errorf("iptables OUTPUT (DNS killswitch) rules missing")
 	}
 	return nil
 }

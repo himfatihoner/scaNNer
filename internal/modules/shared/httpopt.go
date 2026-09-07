@@ -417,18 +417,59 @@ func GlobalLocalAddr() *net.TCPAddr {
 // needed for outbound source binding.
 func BoundDialer(opts *HTTPOptions, timeout time.Duration) *net.Dialer {
 	// ControlContext runs the process-wide network throttle before each connect
-	// (no-op unless the health governor has installed a throttle). It's a
-	// per-connection pre-connect hook that respects the dial's context, so a
-	// throttled connect still cancels immediately on scan Stop.
+	// (no-op unless the health governor has installed a throttle) AND stamps the
+	// scan fwmark when the killswitch is armed. It's a per-connection pre-connect
+	// hook that respects the dial's context, so a throttled connect still cancels
+	// immediately on scan Stop.
 	d := &net.Dialer{Timeout: timeout, ControlContext: throttleControl}
-	if opts != nil && opts.LocalAddr != nil {
-		d.LocalAddr = opts.LocalAddr
-		return d
-	}
-	if g := globalLocalAddr.Load(); g != nil {
-		d.LocalAddr = g
+	la := effectiveLocalAddr(opts)
+	if la != nil {
+		d.LocalAddr = la
+		// Bind DNS resolution too. Go's default resolver ignores Dialer.LocalAddr
+		// — it opens its OWN socket for the query — so a hostname lookup would
+		// egress off the pinned interface (DNS leak) even though the data
+		// connection is bound. Attach a source-pinned resolver so the lookup
+		// leaves via the killswitch interface + carries the scan fwmark.
+		d.Resolver = boundResolver(la, timeout)
 	}
 	return d
+}
+
+// effectiveLocalAddr resolves the source bind for a dial: the per-scan override
+// wins, else the process-wide killswitch binding, else nil (default routing =
+// no binding, current behaviour preserved when the killswitch is off).
+func effectiveLocalAddr(opts *HTTPOptions) *net.TCPAddr {
+	if opts != nil && opts.LocalAddr != nil {
+		return opts.LocalAddr
+	}
+	return globalLocalAddr.Load()
+}
+
+// boundResolver builds a source-pinned DNS resolver so name lookups egress the
+// killswitch interface. PreferGo forces Go's pure-Go resolver so our custom
+// Dial is actually used (the cgo/getaddrinfo path would ignore it and leak via
+// the system resolver). The inner dialer binds LocalAddr and inherits
+// throttleControl (throttle + fwmark) but carries NO Resolver of its own —
+// resolv.conf servers are IPs, so no recursive lookup occurs.
+func boundResolver(la *net.TCPAddr, timeout time.Duration) *net.Resolver {
+	return &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			d := &net.Dialer{Timeout: timeout, ControlContext: throttleControl, LocalAddr: la}
+			return d.DialContext(ctx, network, address)
+		},
+	}
+}
+
+// SystemResolver returns a source-pinned resolver when the killswitch is armed
+// (so health/management name lookups obey the same egress path and aren't
+// dropped by an all_traffic OUTPUT rule), else the stdlib default resolver.
+// Used by the connectivity monitor's DNS-latency probe.
+func SystemResolver() *net.Resolver {
+	if la := globalLocalAddr.Load(); la != nil {
+		return boundResolver(la, 5*time.Second)
+	}
+	return net.DefaultResolver
 }
 
 // NewHTTPClient creates an http.Client with proxy and timeout from options.

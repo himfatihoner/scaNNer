@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"net"
 	"net/http"
 	"strings"
 	"sync/atomic"
@@ -114,7 +113,11 @@ func probeNetwork() netSample {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), connDNSTimeout)
 	start := time.Now()
-	_, err := net.DefaultResolver.LookupHost(ctx, connDNSName)
+	// Resolve via the killswitch-bound resolver when armed, so this probe (a)
+	// measures the DNS path scans actually use and (b) isn't dropped by an
+	// all_traffic OUTPUT rule (which would false-report "slow DNS"/degraded).
+	// Falls back to the system resolver in default routing mode.
+	_, err := shared.SystemResolver().LookupHost(ctx, connDNSName)
 	s.dnsLatency = time.Since(start)
 	cancel()
 	s.dnsOK = err == nil

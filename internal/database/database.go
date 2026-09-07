@@ -2392,6 +2392,11 @@ func (d *DB) GetSettings() models.AppSettings {
 	// so reads see a consistent (name, ip) pair.
 	s.NetworkInterface = d.GetSetting("network_interface")
 	s.NetworkInterfaceIP = d.GetSetting("network_interface_ip")
+	// Killswitch scope defaults to scan_only (set in DefaultSettings); only
+	// override when a value was explicitly saved.
+	if v := d.GetSetting("killswitch_scope"); v != "" {
+		s.KillswitchScope = v
+	}
 	// VPN watchdog. vpn_auto_reconnect defaults ON (from DefaultSettings); an
 	// absent key keeps that default, a present key overrides it.
 	if v := d.GetSetting("vpn_auto_reconnect"); v != "" {
@@ -2458,6 +2463,7 @@ func (d *DB) SaveSettings(s models.AppSettings) {
 	d.SetSetting("virustotal_api_key", s.VirusTotalAPIKey)
 	d.SetSetting("network_interface", s.NetworkInterface)
 	d.SetSetting("network_interface_ip", s.NetworkInterfaceIP)
+	d.SetSetting("killswitch_scope", s.KillswitchScope)
 	vpnAuto := "0"
 	if s.VPNAutoReconnect {
 		vpnAuto = "1"

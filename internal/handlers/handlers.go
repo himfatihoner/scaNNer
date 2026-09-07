@@ -1201,6 +1201,13 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 		ifaceIP = ip
 	}
 
+	// Killswitch scope (scan_only default). Only all_traffic is honoured as an
+	// explicit opt-in; anything else normalises to scan_only.
+	killswitchScope := "scan_only"
+	if r.FormValue("killswitch_scope") == "all_traffic" {
+		killswitchScope = "all_traffic"
+	}
+
 	// VPN watchdog (auto-reconnect + resume on tunnel drop). Checkbox absent =
 	// unchecked = off; the value is always persisted so the default-on only
 	// applies until the first save.
@@ -1255,6 +1262,7 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 		VirusTotalAPIKey:     strings.TrimSpace(r.FormValue("virustotal_api_key")),
 		NetworkInterface:     ifaceName,
 		NetworkInterfaceIP:   ifaceIP,
+		KillswitchScope:      killswitchScope,
 		VPNAutoReconnect:     vpnAutoReconnect,
 		VPNConnection:        vpnConnection,
 		VPNInterface:         vpnInterface,
@@ -1285,6 +1293,9 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 	// privileges or restore the interface manually.
 	_ = scannet.Teardown()
 	if s.NetworkInterface != "" {
+		// Record the scope BEFORE Setup so the OUTPUT rules match the choice;
+		// the monitor's self-heal Setup(iface) reads the same package value.
+		scannet.SetKillswitchScope(s.KillswitchScope)
 		if err := scannet.RequiresPrivilege(); err != nil {
 			log.Printf("⚠ Killswitch unavailable: %v", err)
 		} else if err := scannet.Setup(s.NetworkInterface); err != nil {

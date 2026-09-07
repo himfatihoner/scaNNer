@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	scannet "scanner/internal/network"
 )
 
 // Process-wide adaptive network throttle. The network-health governor
@@ -124,7 +126,15 @@ func throttleGate(ctx context.Context) error {
 }
 
 // throttleControl is the net.Dialer.ControlContext hook BoundDialer installs on
-// every dialer so the throttle applies to all Go-side outbound connections.
+// every dialer so the throttle applies to all Go-side outbound connections. It
+// also stamps the scan fwmark (SO_MARK) when the killswitch is armed, so the
+// host OUTPUT rule can single out SCAN egress in scan_only mode. Marking is
+// best-effort (see markSocket) and only happens while armed; management
+// dialers (SMTP/NTP/self-update) don't route through BoundDialer, so they never
+// reach this hook and stay unmarked → free to use the normal route.
 func throttleControl(ctx context.Context, network, address string, c syscall.RawConn) error {
+	if c != nil && scannet.IsActive() {
+		markSocket(c, scannet.ScanFwMark)
+	}
 	return throttleGate(ctx)
 }

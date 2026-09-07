@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -458,7 +457,9 @@ var commonDKIMSelectors = []string{
 
 func lookupDNSAuth(ctx context.Context, domain string) *DNSAuthInfo {
 	info := &DNSAuthInfo{}
-	resolver := &net.Resolver{}
+	// Killswitch-bound resolver so MX/SPF/DKIM/DMARC lookups egress the VPN
+	// interface when armed (no DNS leak); stdlib default in default routing.
+	resolver := shared.SystemResolver()
 	dnsCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 

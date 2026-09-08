@@ -496,6 +496,8 @@
                     {{template "page_user_detail" .}}
                 {{else if eq .Page "logs"}}
                     {{template "page_logs" .}}
+                {{else if eq .Page "leakreport"}}
+                    {{template "page_leakreport" .}}
                 {{else if eq .Page "update"}}
                     {{template "page_update" .}}
                 {{end}}

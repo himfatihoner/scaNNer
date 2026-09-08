@@ -479,6 +479,7 @@ func main() {
 	http.HandleFunc("/users/reset-2fa", h.UserResetTwoFactor)
 	http.HandleFunc("/users/permissions", h.UserPermissions)
 	http.HandleFunc("/logs", h.LogsPage)
+	http.HandleFunc("/leak-report", h.LeakReportPage) // admin-only (gated in authorizePath)
 
 	// Software self-update (admin-gated by the auth middleware).
 	http.HandleFunc("/update", h.UpdatePage)

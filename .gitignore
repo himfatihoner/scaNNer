@@ -39,3 +39,7 @@ PENTEST_PLAN.txt
 # Stray test artifacts (cookie/session values accidentally used as filenames)
 scanner_session*
 *.cookie
+
+# python
+__pycache__/
+*.pyc

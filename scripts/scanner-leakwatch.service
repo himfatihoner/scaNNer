@@ -1,0 +1,23 @@
+[Unit]
+Description=scaNNer leakwatch — DNS-leak detector for the outbound killswitch
+Documentation=file:/home/user/scaNNer/scripts/LEAKWATCH.md
+After=network-online.target scanner.service
+Wants=scanner.service
+
+[Service]
+Type=simple
+# Runs as root on purpose: tcpdump needs a raw socket and `iptables -S` needs
+# CAP_NET_ADMIN. It only READS iptables + the scanner DB and APPENDS to
+# data/leakwatch.log — it never scans and originates no outbound traffic.
+#
+# NOTE: paths below assume scaNNer is deployed at /home/user/scaNNer. If it
+# lives elsewhere, edit these three lines to match (a system unit runs as root,
+# so %h would resolve to /root — do not use it here).
+ExecStart=/usr/bin/python3 /home/user/scaNNer/scripts/leakwatch.py
+Environment=SCANNER_DB=/home/user/scaNNer/data/scanner.db
+Environment=LEAKWATCH_LOG=/home/user/scaNNer/data/leakwatch.log
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

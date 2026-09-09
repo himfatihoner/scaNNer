@@ -376,8 +376,20 @@ func (d *DB) migrate() error {
 		workspace_id TEXT NOT NULL,
 		archived     INTEGER NOT NULL DEFAULT 0,
 		reason       TEXT NOT NULL DEFAULT '',
+		status       TEXT NOT NULL DEFAULT 'open',
 		updated_at   DATETIME NOT NULL
 	)`)
+	// status is the operator-driven triage lifecycle: 'open' (default, active
+	// list), 'fixed', or 'false_positive' — the Vulnerabilities page's Fixed /
+	// False Positive tabs. Orthogonal to archived (rescan lifecycle) + deleted.
+	// Added by ALTER for DBs created before the column existed.
+	{
+		var hasStatus int
+		d.Get(&hasStatus, `SELECT COUNT(*) FROM pragma_table_info('vuln_overrides') WHERE name='status'`)
+		if hasStatus == 0 {
+			d.Exec(`ALTER TABLE vuln_overrides ADD COLUMN status TEXT NOT NULL DEFAULT 'open'`)
+		}
+	}
 	// deleted=1 permanently hides a finding from BOTH the active list and the
 	// Archive tab (operator's manual "delete" on a confirmed false positive).
 	// Separate from archived so a deleted finding stays hidden even if a later
@@ -839,6 +851,40 @@ func (d *DB) SetVulnArchived(vulnID, workspaceID string, archived bool, reason s
 		ON CONFLICT(vuln_id) DO UPDATE SET archived=excluded.archived, reason=excluded.reason, updated_at=excluded.updated_at`,
 		vulnID, workspaceID, a, reason, time.Now())
 	return err
+}
+
+// SetVulnStatus sets a vulnerability's triage status ('open' | 'fixed' |
+// 'false_positive'). 'open' returns it to the active list; 'fixed' /
+// 'false_positive' move it to the matching tab. Independent of archived/deleted.
+func (d *DB) SetVulnStatus(vulnID, workspaceID, status string) error {
+	if status != "fixed" && status != "false_positive" {
+		status = "open"
+	}
+	_, err := d.Exec(`INSERT INTO vuln_overrides (vuln_id, workspace_id, status, updated_at)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT(vuln_id) DO UPDATE SET status=excluded.status, updated_at=excluded.updated_at`,
+		vulnID, workspaceID, status, time.Now())
+	return err
+}
+
+// VulnStatusMap returns vuln_id -> triage status for the non-'open' findings in
+// a workspace ('fixed' / 'false_positive'). Used to partition the vuln index
+// into the Fixed / False Positive tabs.
+func (d *DB) VulnStatusMap(workspaceID string) map[string]string {
+	out := map[string]string{}
+	rows, err := d.Query(`SELECT vuln_id, status FROM vuln_overrides
+		WHERE workspace_id = ? AND status IN ('fixed','false_positive')`, workspaceID)
+	if err != nil {
+		return out
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, st string
+		if rows.Scan(&id, &st) == nil {
+			out[id] = st
+		}
+	}
+	return out
 }
 
 // SetVulnDeleted upserts a vulnerability's deleted state — a permanent hide from

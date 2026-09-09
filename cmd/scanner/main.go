@@ -515,6 +515,7 @@ func main() {
 	http.HandleFunc("/vulnerabilities/detail", h.VulnDetail)
 	http.HandleFunc("/vulnerabilities/rescan", h.VulnRescan)
 	http.HandleFunc("/vulnerabilities/archive", h.VulnArchiveToggle)
+	http.HandleFunc("/vulnerabilities/status", h.VulnStatusSet) // Fixed / False-Positive triage
 	// /assets/lists/* and /assets/membership routes were removed when
 	// the user-curated asset-lists feature was retired.
 	http.HandleFunc("/assets/", h.AssetDetail)

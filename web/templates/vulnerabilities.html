@@ -6,7 +6,9 @@
 </div>
 
 <div class="flex items-center gap-1 border-b border-dark-800 mb-4">
-    <a href="/vulnerabilities" class="px-4 py-2 text-sm font-medium border-b-2 {{if ne .ActiveTab "archive"}}border-accent-500 text-white{{else}}border-transparent text-dark-400 hover:text-white{{end}}">Active</a>
+    <a href="/vulnerabilities" class="px-4 py-2 text-sm font-medium border-b-2 {{if eq .ActiveTab ""}}border-accent-500 text-white{{else}}border-transparent text-dark-400 hover:text-white{{end}}">Active</a>
+    <a href="/vulnerabilities?tab=fixed" class="px-4 py-2 text-sm font-medium border-b-2 {{if eq .ActiveTab "fixed"}}border-emerald-500 text-white{{else}}border-transparent text-dark-400 hover:text-white{{end}}">Fixed{{if .FixedCount}} <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">{{.FixedCount}}</span>{{end}}</a>
+    <a href="/vulnerabilities?tab=false_positive" class="px-4 py-2 text-sm font-medium border-b-2 {{if eq .ActiveTab "false_positive"}}border-yellow-500 text-white{{else}}border-transparent text-dark-400 hover:text-white{{end}}">False Positive{{if .FalsePositiveCount}} <span class="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300">{{.FalsePositiveCount}}</span>{{end}}</a>
     <a href="/vulnerabilities?tab=archive" class="px-4 py-2 text-sm font-medium border-b-2 {{if eq .ActiveTab "archive"}}border-accent-500 text-white{{else}}border-transparent text-dark-400 hover:text-white{{end}}">Archive{{if .ArchivedCount}} <span class="text-[10px] px-1.5 py-0.5 rounded bg-dark-800 text-dark-300">{{.ArchivedCount}}</span>{{end}}</a>
 </div>
 
@@ -17,7 +19,7 @@
 </div>
 {{end}}
 
-{{if ne .ActiveTab "archive"}}
+{{if eq .ActiveTab ""}}
 <div class="flex flex-wrap items-center gap-2 mb-4">
     <button type="button" data-vsev="" onclick="setVulnSev(this)" class="vuln-sev-chip px-3 py-1.5 text-xs rounded-lg bg-accent-600 text-white">All</button>
     <button type="button" data-vsev="4" onclick="setVulnSev(this)" class="vuln-sev-chip px-3 py-1.5 text-xs rounded-lg bg-dark-850 border border-dark-700 text-red-300 hover:text-white">Critical {{.VCrit}}</button>
@@ -32,6 +34,8 @@
     </select>
     {{if .Vulns}}
     <button type="button" id="rescanSelectedBtn" onclick="rescanSelected()" class="ml-auto opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white" title="Re-run the source scan of each selected finding, scoped to its asset, to re-verify it. Findings the rescan no longer detects are moved to Archive automatically.">⟳ Rescan Selected (<span id="rescanSelCount">0</span>)</button>
+    <button type="button" id="fixedSelectedBtn" onclick="statusSelectedActive('fixed')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white" title="Seçili bulguları Fixed sekmesine gönder (düzeltildi olarak işaretle).">✓ Fixed (<span id="fixedSelCount">0</span>)</button>
+    <button type="button" id="fpSelectedBtn" onclick="statusSelectedActive('false_positive')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-yellow-700 hover:bg-yellow-600 text-white" title="Seçili bulguları False Positive sekmesine gönder.">⚠ False Positive (<span id="fpSelCount">0</span>)</button>
     <button type="button" id="archiveSelectedBtn" onclick="archiveSelected('archive')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-dark-700 hover:bg-dark-600 text-dark-200" title="Move the selected findings to the Archive tab.">🗄 Archive</button>
     <details id="exportSelectedMenu" class="vexport relative opacity-50 pointer-events-none">
         <summary class="cursor-pointer list-none select-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white">☑ Export Selected (<span id="selCount">0</span>)</summary>
@@ -123,6 +127,8 @@
                 <td class="px-4 py-2.5 whitespace-nowrap text-[11px] text-dark-400 mono" data-sort-val="{{if not .LastSeen.IsZero}}{{.LastSeen.Format "2006-01-02"}}{{end}}">{{if not .LastSeen.IsZero}}{{.LastSeen.Format "2006-01-02"}}{{else}}<span class="text-dark-600">—</span>{{end}}</td>
                 <td class="px-4 py-2.5 whitespace-nowrap text-right">
                     <button type="button" onclick="event.stopPropagation(); rescanVulns(['{{.ID}}'], this)" {{if .Rescanning}}disabled{{end}} class="rescan-btn mr-2 text-[11px] {{if .Rescanning}}text-emerald-400{{else}}text-accent-400 hover:text-accent-300{{end}}" title="{{if .Rescanning}}Rescan in progress — verifying this finding…{{else}}Rescan this finding's asset to re-verify it; if the rescan no longer detects it, it moves to Archive.{{end}}"><span class="rescan-spin inline-block {{if .Rescanning}}animate-spin{{end}}">⟳</span> {{if .Rescanning}}Rescanning…{{else}}Rescan{{end}}</button>
+                    <button type="button" onclick="event.stopPropagation(); statusVulns(['{{.ID}}'],'fixed','active')" class="mr-2 text-[11px] text-emerald-400 hover:text-emerald-300" title="Bu bulguyu Fixed (düzeltildi) sekmesine gönder.">✓ Fixed</button>
+                    <button type="button" onclick="event.stopPropagation(); statusVulns(['{{.ID}}'],'false_positive','active')" class="mr-2 text-[11px] text-yellow-400 hover:text-yellow-300" title="Bu bulguyu False Positive sekmesine gönder.">⚠ FP</button>
                     <details class="vexport relative inline-block">
                         <summary class="cursor-pointer list-none select-none text-[11px] text-accent-400 hover:text-accent-300">⤓ Export</summary>
                         <div class="absolute right-0 z-10 mt-1 w-36 bg-dark-850 border border-dark-700 rounded-lg shadow-xl p-1 text-[11px] text-left">
@@ -150,14 +156,29 @@
 {{end}}
 {{end}}{{/* /active tab */}}
 
-{{if eq .ActiveTab "archive"}}
-{{if .ArchivedVulns}}
+{{if ne .ActiveTab ""}}
+{{/* Triage tabs: archive / fixed / false_positive — one generalized table.
+     $rows picks the right list; $isArch flips actions between Restore/unarchive
+     (archive) and Reopen/status=open (fixed & false_positive). */}}
+{{$rows := .ArchivedVulns}}
+{{$isArch := true}}
+{{if eq .ActiveTab "fixed"}}{{$rows = .FixedVulns}}{{$isArch = false}}{{end}}
+{{if eq .ActiveTab "false_positive"}}{{$rows = .FalsePositiveVulns}}{{$isArch = false}}{{end}}
+{{if $rows}}
 <div class="flex flex-wrap items-center gap-2 mb-4">
     <input id="archSearch" type="search" placeholder="Search host, finding, CVE…" oninput="applyArchiveFilter()"
            class="w-64 mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
-    <span class="text-[11px] text-dark-500">Findings a rescan could no longer confirm land here and are hidden from the Active tab.</span>
+    <span class="text-[11px] text-dark-500">
+        {{if $isArch}}Findings a rescan could no longer confirm land here and are hidden from the Active tab.
+        {{else if eq .ActiveTab "fixed"}}Fixed olarak işaretlenen bulgular. Reopen ile Active sekmesine geri döner.
+        {{else}}False positive olarak işaretlenen bulgular. Reopen ile Active sekmesine geri döner.{{end}}
+    </span>
+    {{if $isArch}}
     <button type="button" id="restoreSelectedBtn" onclick="archiveSelected('unarchive')" class="ml-auto opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white" title="Move the selected findings back to the Active tab.">↺ Restore (<span id="archSelCount">0</span>)</button>
-    <button type="button" id="deleteSelectedBtn" onclick="deleteArchivedSelected()" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white" title="Permanently remove the selected findings from every view. Cannot be undone.">🗑 Delete (<span id="archDelCount">0</span>)</button>
+    {{else}}
+    <button type="button" id="restoreSelectedBtn" onclick="reopenSelectedTriage('{{.ActiveTab}}')" class="ml-auto opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white" title="Seçili bulguları yeniden aç — Active sekmesine döner.">↺ Reopen (<span id="archSelCount">0</span>)</button>
+    {{end}}
+    <button type="button" id="deleteSelectedBtn" onclick="deleteArchivedSelected('{{.ActiveTab}}')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white" title="Permanently remove the selected findings from every view. Cannot be undone.">🗑 Delete (<span id="archDelCount">0</span>)</button>
 </div>
 <div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
     <table id="archTable" class="w-full text-sm">
@@ -168,12 +189,12 @@
                 <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="title" data-sort-type="string">Finding</th>
                 <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="host" data-sort-type="string">Asset</th>
                 <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">Software</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">Reason</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">{{if $isArch}}Reason{{else}}Durum{{end}}</th>
                 <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold text-right">Actions</th>
             </tr>
         </thead>
         <tbody id="archTbody" class="divide-y divide-dark-800">
-            {{range .ArchivedVulns}}
+            {{range $rows}}
             <tr class="arch-row hover:bg-dark-850/60" data-sev="{{.SevRank}}" data-search="{{.ID}} {{.Host}} {{.Product}} {{.Title}} {{.Module}} {{range .CVEs}}{{.}} {{end}}">
                 <td class="px-3 py-2.5"><input type="checkbox" class="arch-cb align-middle cursor-pointer accent-emerald-500" value="{{.ID}}" onclick="refreshArchSelCount()"></td>
                 <td class="px-4 py-2.5 whitespace-nowrap"><span class="mono text-[10px] px-1.5 py-0.5 rounded
@@ -184,10 +205,14 @@
                 <td class="px-4 py-2.5"><span class="text-[12px] text-dark-200">{{.Title}}</span></td>
                 <td class="px-4 py-2.5">{{if .Host}}<a href="/assets/{{assetKey .Host}}" class="mono text-[11px] text-accent-400 hover:text-accent-300 break-all" title="Bu varlığın sayfasına git">{{.Host}}</a>{{else}}<span class="text-dark-600 text-[11px]">—</span>{{end}}</td>
                 <td class="px-4 py-2.5">{{if .Product}}<span class="text-[11px] text-dark-300 break-all">{{.Product}}</span>{{else}}<span class="text-dark-600 text-[11px]">—</span>{{end}}</td>
-                <td class="px-4 py-2.5"><span class="text-[11px] text-dark-500 break-all">{{if .ArchiveReason}}{{.ArchiveReason}}{{else}}Archived{{end}}</span></td>
+                <td class="px-4 py-2.5">{{if $isArch}}<span class="text-[11px] text-dark-500 break-all">{{if .ArchiveReason}}{{.ArchiveReason}}{{else}}Archived{{end}}</span>{{else if eq $.ActiveTab "fixed"}}<span class="text-[11px] text-emerald-400">✓ Fixed</span>{{else}}<span class="text-[11px] text-yellow-400">⚠ False positive</span>{{end}}</td>
                 <td class="px-4 py-2.5 whitespace-nowrap text-right">
+                    {{if $isArch}}
                     <button type="button" onclick="archiveVulns(['{{.ID}}'],'unarchive')" class="text-[11px] text-emerald-400 hover:text-emerald-300" title="Move this finding back to the Active tab.">↺ Restore</button>
-                    <button type="button" onclick="deleteArchivedVulns(['{{.ID}}'])" class="ml-3 text-[11px] text-red-400 hover:text-red-300" title="Permanently remove this finding from every view. Cannot be undone.">🗑 Sil</button>
+                    {{else}}
+                    <button type="button" onclick="statusVulns(['{{.ID}}'],'open','{{$.ActiveTab}}')" class="text-[11px] text-emerald-400 hover:text-emerald-300" title="Yeniden aç — Active sekmesine döner.">↺ Reopen</button>
+                    {{end}}
+                    <button type="button" onclick="deleteArchivedVulns(['{{.ID}}'],'{{$.ActiveTab}}')" class="ml-3 text-[11px] text-red-400 hover:text-red-300" title="Permanently remove this finding from every view. Cannot be undone.">🗑 Sil</button>
                 </td>
             </tr>
             {{end}}
@@ -196,10 +221,14 @@
 </div>
 {{else}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
-    <p class="text-sm">No archived vulnerabilities. Findings a rescan can no longer confirm are moved here automatically.</p>
+    <p class="text-sm">
+        {{if $isArch}}No archived vulnerabilities. Findings a rescan can no longer confirm are moved here automatically.
+        {{else if eq .ActiveTab "fixed"}}Fixed olarak işaretlenmiş bulgu yok. Active sekmesinde bulguları seçip “✓ Fixed” ile buraya gönder.
+        {{else}}False positive olarak işaretlenmiş bulgu yok. Active sekmesinde bulguları seçip “⚠ FP” ile buraya gönder.{{end}}
+    </p>
 </div>
 {{end}}
-{{end}}{{/* /archive tab */}}
+{{end}}{{/* /triage tabs */}}
 
 <script>
 // Severity chips are MULTI-select: each specific severity toggles independently
@@ -251,8 +280,10 @@ function refreshSelCount(){
     var ids=selectedVulnIds();
     var c=document.getElementById('selCount'); if(c) c.textContent=ids.length;
     var rc=document.getElementById('rescanSelCount'); if(rc) rc.textContent=ids.length;
+    var fx=document.getElementById('fixedSelCount'); if(fx) fx.textContent=ids.length;
+    var fp=document.getElementById('fpSelCount'); if(fp) fp.textContent=ids.length;
     var on=ids.length>0;
-    ['exportSelectedMenu','rescanSelectedBtn','archiveSelectedBtn'].forEach(function(bid){
+    ['exportSelectedMenu','rescanSelectedBtn','archiveSelectedBtn','fixedSelectedBtn','fpSelectedBtn'].forEach(function(bid){
         var el=document.getElementById(bid); if(!el) return;
         if(on){ el.classList.remove('opacity-50','pointer-events-none'); }
         else { el.classList.add('opacity-50','pointer-events-none'); if(el.removeAttribute) el.removeAttribute('open'); }
@@ -278,14 +309,20 @@ function rescanVulns(ids, btn){
 function rescanSelected(){ rescanVulns(selectedVulnIds()); }
 function archiveVulns(ids, action){ postIdsForm('/vulnerabilities/archive', ids, {action: action, from: (action==='unarchive'?'archive':'active')}); }
 function archiveSelected(action){ archiveVulns((action==='unarchive')?selectedArchiveIds():selectedVulnIds(), action); }
-function deleteArchivedVulns(ids){
+// ---- Triage: Fixed / False Positive / Reopen ----
+function statusVulns(ids, status, from){ postIdsForm('/vulnerabilities/status', ids, {status: status, from: (from||'active')}); }
+// From the Active tab (checkboxes = .vuln-cb) → send selected to Fixed/FP.
+function statusSelectedActive(status){ statusVulns(selectedVulnIds(), status, 'active'); }
+// From a triage tab (checkboxes = .arch-cb) → reopen selected back to Active.
+function reopenSelectedTriage(from){ statusVulns(selectedArchiveIds(), 'open', from); }
+function deleteArchivedVulns(ids, from){
     if(!ids || !ids.length) return;
     var msg = ids.length===1 ? 'Bu bulgu her görünümden kalıcı olarak silinecek. Bu işlem geri alınamaz.'
                              : (ids.length+' bulgu her görünümden kalıcı olarak silinecek. Bu işlem geri alınamaz.');
     if(!confirm(msg)) return;
-    postIdsForm('/vulnerabilities/archive', ids, {action: 'delete', from: 'archive'});
+    postIdsForm('/vulnerabilities/archive', ids, {action: 'delete', from: (from||'archive')});
 }
-function deleteArchivedSelected(){ deleteArchivedVulns(selectedArchiveIds()); }
+function deleteArchivedSelected(from){ deleteArchivedVulns(selectedArchiveIds(), from); }
 // ---- Archive tab ----
 function selectedArchiveIds(){ return Array.prototype.slice.call(document.querySelectorAll('.arch-cb:checked')).map(function(cb){return cb.value;}); }
 function refreshArchSelCount(){
@@ -404,7 +441,7 @@ function applyVulnFilter() {
     var c=document.getElementById('vulnResultCount'); if(c) c.textContent=vis+' / '+rows.length+' shown';
 }
 document.addEventListener('DOMContentLoaded', function(){
-{{if eq .ActiveTab "archive"}}
+{{if ne .ActiveTab ""}}
     if(window.bindSortableTable) bindSortableTable('#archTable',{defaultKey:'sev',defaultDir:'desc'});
     refreshArchSelCount();
     return;

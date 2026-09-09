@@ -295,8 +295,13 @@ func (h *Handler) VulnArchiveToggle(w http.ResponseWriter, r *http.Request) {
 	}
 	action := r.FormValue("action")
 	dest := "/vulnerabilities"
-	if r.FormValue("from") == "archive" {
+	switch r.FormValue("from") {
+	case "archive":
 		dest = "/vulnerabilities?tab=archive"
+	case "fixed":
+		dest = "/vulnerabilities?tab=fixed"
+	case "false_positive":
+		dest = "/vulnerabilities?tab=false_positive"
 	}
 	if action == "delete" {
 		for _, id := range ids {
@@ -312,6 +317,45 @@ func (h *Handler) VulnArchiveToggle(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, id := range ids {
 		h.db.SetVulnArchived(id, ws.ID, archived, reason)
+	}
+	http.Redirect(w, r, dest, http.StatusSeeOther)
+}
+
+// VulnStatusSet moves one or more findings to a triage status ('fixed' /
+// 'false_positive') or back to 'open' (reopen). Bulk-capable via a comma-sep
+// `ids` field (mirrors VulnArchiveToggle). Workspace-scoped.
+func (h *Handler) VulnStatusSet(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Redirect(w, r, "/vulnerabilities", http.StatusSeeOther)
+		return
+	}
+	ws := h.activeWorkspace(r)
+	if ws == nil {
+		http.Error(w, "no active workspace", http.StatusBadRequest)
+		return
+	}
+	_ = r.ParseForm()
+	var ids []string
+	if v := strings.TrimSpace(r.FormValue("id")); v != "" {
+		ids = append(ids, v)
+	}
+	for _, v := range strings.Split(r.FormValue("ids"), ",") {
+		if v = strings.TrimSpace(v); v != "" {
+			ids = append(ids, v)
+		}
+	}
+	status := r.FormValue("status") // "fixed" | "false_positive" | "open"
+	for _, id := range ids {
+		h.db.SetVulnStatus(id, ws.ID, status)
+	}
+	dest := "/vulnerabilities"
+	switch r.FormValue("from") {
+	case "fixed":
+		dest = "/vulnerabilities?tab=fixed"
+	case "false_positive":
+		dest = "/vulnerabilities?tab=false_positive"
+	case "archive":
+		dest = "/vulnerabilities?tab=archive"
 	}
 	http.Redirect(w, r, dest, http.StatusSeeOther)
 }

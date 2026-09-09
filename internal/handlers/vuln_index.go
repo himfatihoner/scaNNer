@@ -147,14 +147,24 @@ func (h *Handler) Vulnerabilities(w http.ResponseWriter, r *http.Request) {
 	// an index rebuild.
 	archivedMap := h.db.ArchivedVulnIDs(ws.ID)
 	deletedSet := h.db.DeletedVulnIDs(ws.ID)
+	statusMap := h.db.VulnStatusMap(ws.ID) // vuln_id -> "fixed"|"false_positive"
 	rescanningSet := h.db.RescanningVulnIDs(ws.ID)
 	vulns := make([]GlobalVuln, 0, len(allVulns))
-	var archivedVulns []GlobalVuln
+	var archivedVulns, fixedVulns, fpVulns []GlobalVuln
 	for _, v := range allVulns {
 		if deletedSet[v.ID] {
-			continue // permanently deleted — hidden from active AND archive
+			continue // permanently deleted — hidden from every tab
 		}
 		v.Rescanning = rescanningSet[v.ID] // spin the rescan icon while in flight
+		// Operator triage status takes precedence over the rescan-archive state.
+		switch statusMap[v.ID] {
+		case "fixed":
+			fixedVulns = append(fixedVulns, v)
+			continue
+		case "false_positive":
+			fpVulns = append(fpVulns, v)
+			continue
+		}
 		if reason, ok := archivedMap[v.ID]; ok {
 			v.ArchiveReason = reason
 			archivedVulns = append(archivedVulns, v)
@@ -163,10 +173,14 @@ func (h *Handler) Vulnerabilities(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	tab := r.URL.Query().Get("tab")
-	data["ActiveTab"] = tab // "archive" or "" (active)
+	data["ActiveTab"] = tab // "archive" | "fixed" | "false_positive" | "" (active)
 	data["Vulns"] = vulns
 	data["ArchivedVulns"] = archivedVulns
 	data["ArchivedCount"] = len(archivedVulns)
+	data["FixedVulns"] = fixedVulns
+	data["FixedCount"] = len(fixedVulns)
+	data["FalsePositiveVulns"] = fpVulns
+	data["FalsePositiveCount"] = len(fpVulns)
 	data["VulnReady"] = ready
 	if n := r.URL.Query().Get("rescan"); n != "" && n != "0" {
 		data["RescanNotice"] = n

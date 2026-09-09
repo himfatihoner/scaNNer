@@ -130,6 +130,8 @@ def nonvpn_ifaces(vpn):
             continue
         if name.startswith(("tun", "wg", "ppp")):  # other tunnels are VPN-like too
             continue
+        if name.startswith("scanner"):  # scaNNer killswitch veth (scanner0/1) —
+            continue                     # its own internal bridge, NOT a leak path
         if "UP" in l:  # link up (state col or flags)
             ifs.append(name)
     return ifs

@@ -1,4 +1,17 @@
 {{define "header"}}
+<!-- DNS leak banner — shown live (via /api/health) when the leak monitor trips.
+     A leak also cancels running scans server-side. Admin can dismiss. -->
+<div id="leakBanner" class="hidden bg-danger text-white px-6 py-2.5 flex items-center justify-between gap-4 text-sm">
+    <div class="flex items-center gap-2 min-w-0">
+        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M4.93 19h14.14a2 2 0 001.74-2.99l-7.07-12a2 2 0 00-3.48 0l-7.07 12A2 2 0 004.93 19z"/></svg>
+        <span class="font-semibold shrink-0">⚠ DNS LEAK tespit edildi</span>
+        <span class="text-white/80 truncate">— çalışan taramalar durduruldu. Ayrıntı için Leak Report'a bak.</span>
+    </div>
+    <div class="flex items-center gap-3 shrink-0">
+        <a href="/leak-report" class="underline text-white/90 hover:text-white whitespace-nowrap">Leak Report →</a>
+        {{if .IsAdmin}}<button type="button" onclick="leakDismiss()" class="px-2.5 py-0.5 rounded bg-white/20 hover:bg-white/30 text-xs">Kapat</button>{{end}}
+    </div>
+</div>
 <header class="relative z-40 h-16 bg-dark-900/80 backdrop-blur border-b border-dark-800 flex items-center justify-between px-6 shrink-0">
     <div class="flex items-center gap-4">
         <h2 class="text-lg font-semibold text-white">{{pageHeading .Page}}</h2>
@@ -120,15 +133,29 @@ syncThemeIcon();
         text.textContent = m.t;
         if (wrap) wrap.title = m.title;
     }
+    function applyLeak(d){
+        var lb = document.getElementById('leakBanner');
+        if (!lb) return;
+        if (d && d.leak && d.leak.active) {
+            lb.classList.remove('hidden');
+        } else {
+            lb.classList.add('hidden');
+        }
+    }
     function poll(){
         fetch('/api/health', {cache:'no-store'})
             .then(function(r){ return r.ok ? r.json() : {status:'err'}; })
-            .then(function(d){ apply(d && d.status ? d.status : 'err'); })
+            .then(function(d){ apply(d && d.status ? d.status : 'err'); applyLeak(d); })
             .catch(function(){ apply('err'); });
     }
     poll();
     setInterval(poll, 8000);
 })();
+function leakDismiss(){
+    fetch('/leak-report/ack', {method:'POST', cache:'no-store'})
+        .then(function(){ var lb=document.getElementById('leakBanner'); if(lb) lb.classList.add('hidden'); })
+        .catch(function(){});
+}
 </script>
 
 <!-- Close dropdown when clicking outside -->

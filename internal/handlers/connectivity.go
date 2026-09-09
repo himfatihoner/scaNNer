@@ -149,7 +149,16 @@ func checkInternet() bool { return probeNetwork().reachable > 0 }
 // and safe to poll frequently.
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"status":"` + netHealthLabel() + `"}`))
+	resp := map[string]interface{}{"status": netHealthLabel()}
+	// Live DNS-leak banner state (driven by the leak monitor). /api/health is
+	// auth-exempt (the header polls it), so expose only a boolean + count here —
+	// NOT the leaked target name. The detail lives on the admin-only Leak Report
+	// page + the scanner log + leakwatch.log.
+	if active, _, _, count := leakAlert.snapshot(); active {
+		resp["leak"] = map[string]interface{}{"active": true, "count": count}
+	}
+	b, _ := json.Marshal(resp)
+	w.Write(b)
 }
 
 // StartConnectivityMonitor launches the background reachability watcher. Call

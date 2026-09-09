@@ -324,6 +324,10 @@ func main() {
 	// socket states, load, CPU) correlated with scan throughput into a ring
 	// buffer the dashboard polls. Powers the "Live Network & Performance" panel.
 	h.StartPerfMonitor()
+	// DNS-leak monitor: tails data/leakwatch.log; on a new LEAK line it trips
+	// the header banner AND cancels running scans. No-ops if leakwatch isn't
+	// installed. See scripts/LEAKWATCH.md.
+	h.StartLeakMonitor()
 
 	// Re-arm the outbound-binding killswitch at startup if the user had
 	// previously pinned an interface. The killswitch has two layers:
@@ -480,6 +484,7 @@ func main() {
 	http.HandleFunc("/users/permissions", h.UserPermissions)
 	http.HandleFunc("/logs", h.LogsPage)
 	http.HandleFunc("/leak-report", h.LeakReportPage) // admin-only (gated in authorizePath)
+	http.HandleFunc("/leak-report/ack", h.LeakAck)    // dismiss the header leak banner (admin)
 
 	// Software self-update (admin-gated by the auth middleware).
 	http.HandleFunc("/update", h.UpdatePage)

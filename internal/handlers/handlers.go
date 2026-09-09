@@ -2225,6 +2225,19 @@ func (h *Handler) markHardFailure(scanID string, unitErrors []string, totalUnits
 	return true
 }
 
+// progressLogTail caps how many trailing console-log lines the live status poll
+// ships to the browser. The console_log column can reach its 200 KB cap (tens of
+// thousands of lines) on a 100M-scale sweep, and re-rendering all of them every
+// poll froze the page. Showing the tail keeps the live view responsive.
+const progressLogTail = 12
+
+func lastLogLines(lines []string, n int) string {
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	return strings.Join(lines, "\n")
+}
+
 func (h *Handler) writeScanStatus(w http.ResponseWriter, scan *models.Scan) {
 	done := scan.ProgressDone
 	total := scan.ProgressTotal
@@ -2251,11 +2264,12 @@ func (h *Handler) writeScanStatus(w http.ResponseWriter, scan *models.Scan) {
 		"percent":       pct,
 		"indeterminate": indeterminate,
 		"message":       scan.ProgressMsg,
-		// Full console history (every progress line, lossless). The client
-		// renders this instead of piecing the log together from 2s samples
-		// of `message`, so nothing is lost between polls and a reload shows
-		// the whole run.
-		"log":      scan.ConsoleLog,
+		// Console log: only the LAST progressLogTail lines. The full column can
+		// hit the 200 KB cap (tens of thousands of lines) on a 100M-scale sweep,
+		// and re-rendering all of them every poll froze the page. logLines still
+		// reports the true total so the UI shows "(N)". The full history remains
+		// in the DB / leakwatch-style tooling.
+		"log":      lastLogLines(scan.ConsoleLines(), progressLogTail),
 		"logLines": len(scan.ConsoleLines()),
 		"warning":  h.scanMgr.Warning(scan.ID),
 	})

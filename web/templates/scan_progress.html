@@ -132,7 +132,12 @@ function copyScanLog(btn) {
         });
         pre.innerHTML = html;
         var counter = document.getElementById('scanLogCount');
-        if (counter) counter.textContent = '(' + lineCount + ')';
+        if (counter) {
+            // The server ships only the tail (last N lines) so huge sweeps don't
+            // freeze the page; show "son N / total" when it's actually truncated.
+            var shown = (fullLog || '').split('\n').filter(function(l){ return l; }).length;
+            counter.textContent = (shown < lineCount) ? ('(son ' + shown + ' / ' + lineCount + ')') : ('(' + lineCount + ')');
+        }
         if (lastCmd) setCurrentCmd(lastCmd);
         if (stick) pre.scrollTop = pre.scrollHeight; else pre.scrollTop = prevTop;
     }

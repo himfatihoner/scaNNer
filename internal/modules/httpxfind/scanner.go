@@ -1,6 +1,7 @@
 package httpxfind
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -311,6 +312,42 @@ func (p *portPermuter) next() (int, bool) {
 	return 0, false
 }
 
+// resolvableTargets keeps literal-IP targets as-is and hostname targets only
+// when DNS actually resolves (via the killswitch-bound resolver, so it obeys the
+// VPN egress path). Returns (kept, droppedCount). A host that never resolves
+// would otherwise burn one failed DNS lookup per port across the whole sweep.
+func resolvableTargets(targets []string, opts *shared.HTTPOptions) ([]string, int) {
+	res := shared.SystemResolver()
+	sem := make(chan struct{}, 50)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	keep := make([]string, 0, len(targets))
+	for _, t := range targets {
+		if opts != nil && opts.Done() {
+			break
+		}
+		if net.ParseIP(t) != nil {
+			keep = append(keep, t) // literal IP — no resolution needed
+			continue
+		}
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(host string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if addrs, err := res.LookupHost(ctx, host); err == nil && len(addrs) > 0 {
+				mu.Lock()
+				keep = append(keep, host)
+				mu.Unlock()
+			}
+		}(t)
+	}
+	wg.Wait()
+	return keep, len(targets) - len(keep)
+}
+
 // runFullMode executes a Full-mode sweep: an interleaved round-robin across
 // hosts, each host's 65535 ports visited in a per-host-random order
 // (portPermuter). Two shapes:
@@ -331,6 +368,19 @@ func runFullMode(result *ScanResult, mu *sync.Mutex, targets []string, directHTT
 	onPartial PartialFunc, progress ProgressFunc) *ScanResult {
 
 	const maxPort = 65535
+
+	// Drop hostname targets that don't resolve BEFORE the sweep — probing all
+	// 65535 ports of a host whose DNS never resolves is pure waste (every dial
+	// re-fails the lookup). Literal IPs pass through untouched. This shrinks the
+	// denominator + ETA proportionally; the sentinel below corrects the total
+	// the handler seeded from the original (pre-filter) target count.
+	targets, dropped := resolvableTargets(targets, opts)
+	if len(targets) == 0 {
+		if progress != nil {
+			progress(0, fmt.Sprintf("Çözülebilir hedef yok (%d host çözülemedi) — taranacak bir şey yok", dropped))
+		}
+		return result
+	}
 	discTotal := len(targets) * maxPort // phase-1 units: one per port probed
 
 	conc := tcpConc
@@ -348,17 +398,27 @@ func runFullMode(result *ScanResult, mu *sync.Mutex, targets []string, directHTT
 	// the open ports actually moves the %. The denominator is bumped up front
 	// so the bar never jumps backwards when phase 2 begins.
 	reserve := 0
+	total := discTotal
 	if !directHTTP {
 		reserve = discTotal / 6 // ~14% of the bar
 		if reserve < 1 {
 			reserve = 1
 		}
-		if progress != nil {
-			progress(0, fmt.Sprintf("%s%d", TotalUpdatePrefix, discTotal+reserve))
-			progress(0, fmt.Sprintf("Full scan: %d host(s) × 65535 ports, randomized order", len(targets)))
+		total = discTotal + reserve
+	}
+	if progress != nil {
+		// Correct the seeded total (both modes) — accounts for any dropped
+		// unresolvable hosts so the % + ETA reflect the real remaining work.
+		progress(0, fmt.Sprintf("%s%d", TotalUpdatePrefix, total))
+		mode := "Full scan"
+		if directHTTP {
+			mode = "Full scan (direct HTTP/HTTPS)"
 		}
-	} else if progress != nil {
-		progress(0, fmt.Sprintf("Full scan (direct HTTP/HTTPS): %d host(s) × 65535 ports, randomized order", len(targets)))
+		if dropped > 0 {
+			progress(0, fmt.Sprintf("%s: %d host × 65535 port — %d host çözülemedi, atlandı", mode, len(targets), dropped))
+		} else {
+			progress(0, fmt.Sprintf("%s: %d host × 65535 port, rastgele sıra", mode, len(targets)))
+		}
 	}
 
 	perms := make([]*portPermuter, len(targets))

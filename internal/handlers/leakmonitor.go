@@ -106,7 +106,7 @@ func parseLeakLine(line string) (ts, detail string) {
 	}
 	var parts []string
 	for _, f := range fields {
-		for _, k := range []string{"iface=", "query=", "target=", "vpn="} {
+		for _, k := range []string{"iface=", "kind=", "query=", "dst=", "target=", "vpn="} {
 			if strings.HasPrefix(f, k) {
 				parts = append(parts, f)
 			}

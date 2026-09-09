@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
 """
-scaNNer leakwatch — long-running DNS-leak detector for the scaNNer killswitch.
+scaNNer leakwatch — long-running traffic-leak detector for the scaNNer killswitch.
 
 WHAT IT DOES
-  Watches the box's NON-VPN interface(s) for DNS queries that belong to a
-  currently-active scaNNer scan target. If such a query appears off the VPN
-  while the killswitch is armed, that is a real DNS leak — the killswitch should
-  have kept scan DNS on the VPN. Management probes (the connectivity health
-  check to cloudflare.com, NVD/GitHub/NTP, etc.) legitimately use the normal
-  route in scan_only mode and are allow-listed, so false positives are low.
+  Watches the box's NON-VPN interface(s) for ANY scaNNer scan-target traffic —
+  a DNS query for a target DOMAIN, or a NEW TCP connection to a target IP (any
+  port/protocol, not just DNS). If such traffic appears off the VPN while the
+  killswitch is armed, that is a real leak — the killswitch should have kept
+  scan traffic on the VPN.
+
+  SCOPE-AWARE by construction: it only ever flags SCAN-TARGET traffic. Management
+  traffic (the connectivity health probe, NVD/GitHub/NTP, self-update, SMTP) is
+  never a scan target, so it is never flagged — which is exactly the required
+  behaviour when the admin runs scan_only (management IS allowed off the VPN
+  there). Scan traffic off-VPN is flagged in every mode. The killswitch mode is
+  read from the live rules and logged for context.
 
 WHY IT'S "SMART" ABOUT MODE
   It reads the killswitch state from the LIVE iptables rules — no coupling to
@@ -66,7 +72,7 @@ REFRESH_SEC = int(os.environ.get("LEAKWATCH_REFRESH_SEC", "15"))
 # DNS query name in tcpdump output: "... A? foo.example.com. (32)" / "AAAA? x. (43)"
 _QRE = re.compile(r"\?\s+([A-Za-z0-9._-]+?)\.?\s+\(")
 # destination server (…> 1.0.0.1.53:)
-_DSTRE = re.compile(r">\s+([0-9a-fA-F:.]+)\.53:")
+_DSTRE = re.compile(r">\s+([0-9a-fA-F:.]+?)\.\d+:")  # dest IP before any .port:
 
 _stop = threading.Event()
 _state_lock = threading.Lock()
@@ -152,8 +158,11 @@ def _norm(t):
 
 
 def scan_targets():
-    """Domain-shaped targets of running/pending scans (skip bare IPs — no DNS)."""
-    targets = set()
+    """Active (running/pending) scan targets, split into (domains, ips). A leak
+    of scan traffic can be a DNS query for a target DOMAIN or a direct
+    connection to a target IP — we correlate both, so detection covers ALL
+    protocols, not just DNS."""
+    domains, ips = set(), set()
     try:
         con = sqlite3.connect(f"file:{DB}?mode=ro", uri=True, timeout=3)
         try:
@@ -174,36 +183,50 @@ def scan_targets():
                         vals.append(v)
                 for t in vals:
                     n = _norm(t)
-                    # keep only names (a DNS leak needs a name to resolve)
-                    if n and not re.fullmatch(r"[0-9.]+", n) and "." in n:
-                        targets.add(n)
+                    if not n:
+                        continue
+                    if re.fullmatch(r"\d+\.\d+\.\d+\.\d+", n):
+                        ips.add(n)
+                    elif "." in n:
+                        domains.add(n)
         finally:
             con.close()
     except Exception:
         pass
-    return targets
+    return domains, ips
 
 
 def is_allowlisted(q):
     return any(q == a or q.endswith("." + a) for a in ALLOWLIST)
 
 
-def matched_target(q, targets):
-    for t in targets:
+def matched_target(q, domains):
+    for t in domains:
         if q == t or q.endswith("." + t):
             return t
     return None
 
 
+def dest_ip(line):
+    m = _DSTRE.search(line)
+    return m.group(1) if m else ""
+
+
 # shared snapshot updated by the refresher, read by the sniffers
-_snap = {"armed": False, "scope": None, "vpn": None, "targets": set()}
+_snap = {"armed": False, "scope": None, "vpn": None, "domains": set(), "ips": set()}
 
 
 def sniff(iface):
-    """Run tcpdump -Q out on iface; correlate outbound DNS query names to targets."""
+    """tcpdump -Q out on iface; flag scan-TARGET traffic seen off the VPN — a DNS
+    query for a target domain OR a NEW TCP connection to a target IP. Covers all
+    protocols, not just DNS. Scope-aware by construction: management traffic is
+    never a scan target, so it never matches — which is exactly the required
+    behaviour (in scan_only the admin allows management off-VPN, and it simply is
+    never flagged; scan traffic off-VPN is flagged in every mode)."""
     global _leaks_total
-    cmd = ["tcpdump", "-i", iface, "-nn", "-l", "-p", "-Q", "out",
-           "udp port 53 or tcp port 53"]
+    # DNS queries + NEW outbound TCP connections (SYN set, ACK clear).
+    bpf = "(port 53) or (tcp[tcpflags] & tcp-syn != 0 and tcp[tcpflags] & tcp-ack == 0)"
+    cmd = ["tcpdump", "-i", iface, "-nn", "-l", "-p", "-Q", "out", bpf]
     while not _stop.is_set():
         try:
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
@@ -219,27 +242,33 @@ def sniff(iface):
             for line in proc.stdout:
                 if _stop.is_set():
                     break
-                m = _QRE.search(line)
-                if not m:
-                    continue
-                q = m.group(1).lower().rstrip(".")
-                if not q or is_allowlisted(q):
-                    continue
                 with _state_lock:
                     armed = _snap["armed"]; scope = _snap["scope"]
-                    vpn = _snap["vpn"]; targets = _snap["targets"]
-                t = matched_target(q, targets)
-                if not t:
-                    continue  # not a scan target → not our concern (browsing, etc.)
-                dm = _DSTRE.search(line)
-                dst = dm.group(1) if dm else "?"
+                    vpn = _snap["vpn"]; domains = _snap["domains"]; ips = _snap["ips"]
+
+                kind = what = tgt = ""
+                # 1) DNS query name → a scan-target domain?
+                qm = _QRE.search(line)
+                if qm:
+                    q = qm.group(1).lower().rstrip(".")
+                    if q and not is_allowlisted(q):
+                        if t := matched_target(q, domains):
+                            kind, what, tgt = "dns", "query=" + q, t
+                # 2) New TCP connection → a scan-target IP? (any port/protocol)
+                if not kind and " [S]" in line:  # tcpdump SYN (SYN-only via BPF)
+                    dip = dest_ip(line)
+                    if dip and dip in ips:
+                        kind, what, tgt = "conn", "dst=" + dip, dip
+                if not kind:
+                    continue  # not scan-target traffic → management/browsing, ignore
+
                 if armed:
                     _leaks_total += 1
-                    log(f"LEAK        iface={iface} query={q} target={t} dst={dst} "
+                    log(f"LEAK        iface={iface} kind={kind} {what} target={tgt} "
                         f"killswitch=armed/{scope} vpn={vpn} leaks_total={_leaks_total}")
                 else:
-                    log(f"UNPROTECTED iface={iface} query={q} target={t} dst={dst} "
-                        f"killswitch=off (scan-target DNS on non-VPN iface while killswitch disabled)")
+                    log(f"UNPROTECTED iface={iface} kind={kind} {what} target={tgt} "
+                        f"killswitch=off (scan-target traffic on non-VPN iface, killswitch disabled)")
         except Exception as e:
             log(f"WARN sniff loop {iface}: {e}")
         finally:
@@ -268,9 +297,9 @@ def main():
     while not _stop.is_set():
         armed, scope, vpn = killswitch_state()
         vpn = guess_vpn(vpn)
-        targets = scan_targets()
+        domains, ips = scan_targets()
         with _state_lock:
-            _snap.update(armed=armed, scope=scope, vpn=vpn, targets=targets)
+            _snap.update(armed=armed, scope=scope, vpn=vpn, domains=domains, ips=ips)
 
         nv = nonvpn_ifaces(vpn)
         # start a sniffer per non-VPN iface (once)
@@ -289,7 +318,7 @@ def main():
         t = time.time()
         if t - last_hb >= HEARTBEAT_SEC:
             log(f"STATE       killswitch={ks} vpn={vpn} nonvpn={','.join(nv) or '-'} "
-                f"active_targets={len(targets)} leaks_total={_leaks_total}")
+                f"active_targets={len(domains) + len(ips)} leaks_total={_leaks_total}")
             last_hb = t
 
         _stop.wait(REFRESH_SEC)

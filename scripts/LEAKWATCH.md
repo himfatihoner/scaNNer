@@ -6,9 +6,11 @@ leaking off the VPN — so you don't have to test every module by hand.
 
 ## What counts as a leak
 
-scaNNer's killswitch is supposed to keep **scan** DNS (and, in `all_traffic`
+scaNNer's killswitch is supposed to keep **scan** traffic (and, in `all_traffic`
 mode, all traffic) on the VPN interface. leakwatch watches the **non-VPN**
-interface(s) and flags a **scan-target** DNS query appearing there:
+interface(s) and flags **scan-target** traffic of ANY protocol appearing there —
+a DNS query for a target **domain**, OR a new TCP connection to a target **IP**
+(any port, not just DNS):
 
 - It reads killswitch state straight from the live iptables rules — no coupling
   to scaNNer internals:
@@ -17,11 +19,14 @@ interface(s) and flags a **scan-target** DNS query appearing there:
   - **VPN iface** the `! -o <iface>` in that DROP rule
 - It reads the **active scan targets** (running/pending scans) from
   `data/scanner.db` (read-only).
-- If a DNS query on a non-VPN iface matches an active scan target **and** the
-  killswitch is armed → **LEAK**. Management probes (the connectivity health
-  check to `cloudflare.com`, NVD/GitHub/NTP, reverse-DNS `*.arpa`) are
-  allow-listed, so false positives are low. Your own browsing isn't a scan
-  target, so it isn't flagged.
+- If scan-target traffic (a DNS query for a target domain, or a TCP SYN to a
+  target IP) appears on a non-VPN iface **and** the killswitch is armed → **LEAK**.
+- **Scope-aware by construction**: it only ever flags SCAN-TARGET traffic.
+  Management (the connectivity health check to `cloudflare.com`, NVD/GitHub/NTP,
+  self-update, SMTP) is never a scan target, so it is never flagged — which is
+  exactly what you want when the admin runs `scan_only` (management IS allowed
+  off the VPN there). Your own browsing isn't a scan target either. Scan traffic
+  off-VPN is flagged in every mode; the killswitch mode is logged for context.
 
 ## Install (deploy box)
 

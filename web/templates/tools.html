@@ -14,6 +14,7 @@
         <button type="button" data-tab="comparer"  class="tools-tab px-4 py-2 text-sm font-medium border-b-2 border-transparent text-dark-400 hover:text-white">Comparer</button>
         <button type="button" data-tab="urlcodec"  class="tools-tab px-4 py-2 text-sm font-medium border-b-2 border-transparent text-dark-400 hover:text-white">URL Encode / Decode</button>
         <button type="button" data-tab="viewstate" class="tools-tab px-4 py-2 text-sm font-medium border-b-2 border-transparent text-dark-400 hover:text-white">ViewState Decoder</button>
+        <button type="button" data-tab="jwt"       class="tools-tab px-4 py-2 text-sm font-medium border-b-2 border-transparent text-dark-400 hover:text-white">JWT</button>
     </div>
 
     <!-- ===================== CyberChef ===================== -->
@@ -130,6 +131,66 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </section>
+
+    <!-- ===================== JWT ===================== -->
+    <section data-panel="jwt" hidden>
+        <p class="text-[11px] text-dark-500 mb-3">JSON Web Token encode / decode (jwt.io benzeri). İmzalama + doğrulama tarayıcıda WebCrypto ile yapılır — anahtar/secret dışarı çıkmaz.</p>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <!-- Encoded -->
+            <div>
+                <label class="block text-[11px] text-dark-500 mb-1">Encoded (token)</label>
+                <textarea id="jwtEnc" rows="9" oninput="jwtDecode()" class="w-full mono text-[12px] bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 break-all" placeholder="eyJhbGciOi…">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c</textarea>
+                <div id="jwtVerify" class="mt-2 text-[12px] rounded-lg px-3 py-2 bg-dark-850 border border-dark-700 text-dark-400">İmza durumu — decode edin.</div>
+            </div>
+            <!-- Decoded -->
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-[11px] text-dark-500 mb-1">Header <span class="text-red-400">(alg / typ)</span></label>
+                    <textarea id="jwtHeader" rows="3" class="w-full mono text-[12px] bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-red-300 focus:outline-none focus:border-accent-500">{"alg":"HS256","typ":"JWT"}</textarea>
+                </div>
+                <div>
+                    <label class="block text-[11px] text-dark-500 mb-1">Payload <span class="text-fuchsia-400">(claims)</span></label>
+                    <textarea id="jwtPayload" rows="6" class="w-full mono text-[12px] bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-fuchsia-300 focus:outline-none focus:border-accent-500">{"sub":"1234567890","name":"John Doe","iat":1516239022}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Signing controls -->
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 mt-4 space-y-3">
+            <div class="flex flex-wrap items-center gap-3">
+                <label class="text-[11px] text-dark-500">Algoritma</label>
+                <select id="jwtAlg" onchange="jwtAlgChange()" class="mono text-[12px] bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-accent-500">
+                    <optgroup label="HMAC"><option>HS256</option><option>HS384</option><option>HS512</option></optgroup>
+                    <optgroup label="RSA"><option>RS256</option><option>RS384</option><option>RS512</option></optgroup>
+                    <optgroup label="RSA-PSS"><option>PS256</option><option>PS384</option><option>PS512</option></optgroup>
+                    <optgroup label="ECDSA"><option>ES256</option><option>ES384</option><option>ES512</option></optgroup>
+                    <optgroup label="Unsecured"><option>none</option></optgroup>
+                </select>
+                <button type="button" onclick="jwtSign()" class="ml-auto text-xs px-4 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white font-medium">Sign & Encode →</button>
+                <button type="button" onclick="copyText('jwtEnc', this)" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700">Token kopyala</button>
+            </div>
+            <!-- HMAC secret -->
+            <div id="jwtHsBox">
+                <label class="block text-[11px] text-dark-500 mb-1">Secret</label>
+                <div class="flex items-center gap-2">
+                    <input id="jwtSecret" oninput="jwtDecode()" value="your-256-bit-secret" class="flex-1 mono text-[12px] bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-accent-500" placeholder="imzalama secret'ı">
+                    <label class="flex items-center gap-1.5 text-[11px] text-dark-400 whitespace-nowrap"><input id="jwtSecretB64" type="checkbox" onchange="jwtDecode()" class="accent-accent-500"> base64 secret</label>
+                </div>
+            </div>
+            <!-- Asymmetric keys -->
+            <div id="jwtPkBox" hidden class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[11px] text-dark-500 mb-1">Private Key (PEM) — imzalamak için</label>
+                    <textarea id="jwtPriv" rows="5" class="w-full mono text-[11px] bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent-500" placeholder="-----BEGIN PRIVATE KEY-----"></textarea>
+                </div>
+                <div>
+                    <label class="block text-[11px] text-dark-500 mb-1">Public Key (PEM) — doğrulamak için</label>
+                    <textarea id="jwtPub" rows="5" oninput="jwtDecode()" class="w-full mono text-[11px] bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent-500" placeholder="-----BEGIN PUBLIC KEY-----"></textarea>
+                </div>
+            </div>
+            <p id="jwtErr" class="text-[11px] text-red-400" hidden></p>
         </div>
     </section>
 </div>
@@ -366,5 +427,100 @@ function vsRun(){
     sl.innerHTML = (r.strings&&r.strings.length)? r.strings.map(function(s){return '<div class="text-dark-200 break-all">'+esc(s)+'</div>';}).join('') : '<span class="text-dark-500">—</span>';
     document.getElementById('vsHex').textContent=vsHex(r.bytes,512);
 }
+
+/* ================= JWT (encode / decode / sign / verify via WebCrypto) ================= */
+var JHASH={'256':'SHA-256','384':'SHA-384','512':'SHA-512'};
+var JCURVE={'256':'P-256','384':'P-384','512':'P-521'};
+var JSALT={'256':32,'384':48,'512':64};
+var jwtVerSeq=0;
+function jB64uEnc(b){var s='';for(var i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function jB64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';var bin=atob(s),u=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u;}
+function jStr2B64u(s){return jB64uEnc(new TextEncoder().encode(s));}
+function jPemDer(pem){var b64=pem.replace(/-----[^-]+-----/g,'').replace(/\s+/g,'');var bin=atob(b64),u=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u;}
+function jAlgParams(alg,forVerify){
+    var n=alg.slice(2);
+    if(alg.indexOf('HS')===0)return{imp:{name:'HMAC',hash:JHASH[n]},sign:'HMAC',fmt:'raw'};
+    if(alg.indexOf('RS')===0)return{imp:{name:'RSASSA-PKCS1-v1_5',hash:JHASH[n]},sign:{name:'RSASSA-PKCS1-v1_5'},fmt:forVerify?'spki':'pkcs8'};
+    if(alg.indexOf('PS')===0)return{imp:{name:'RSA-PSS',hash:JHASH[n]},sign:{name:'RSA-PSS',saltLength:JSALT[n]},fmt:forVerify?'spki':'pkcs8'};
+    if(alg.indexOf('ES')===0)return{imp:{name:'ECDSA',namedCurve:JCURVE[n]},sign:{name:'ECDSA',hash:JHASH[n]},fmt:forVerify?'spki':'pkcs8'};
+    return null;
+}
+function jwtErr(m){var e=document.getElementById('jwtErr');if(m){e.textContent=m;e.hidden=false;}else e.hidden=true;}
+function jwtSetVerify(kind,msg){
+    var el=document.getElementById('jwtVerify');
+    var map={ok:'bg-emerald-500/10 border-emerald-500/40 text-emerald-300',
+             bad:'bg-red-500/10 border-red-500/40 text-red-300',
+             warn:'bg-yellow-500/10 border-yellow-500/40 text-yellow-200',
+             none:'bg-dark-850 border-dark-700 text-dark-400'};
+    el.className='mt-2 text-[12px] rounded-lg px-3 py-2 border '+(map[kind]||map.none);
+    el.textContent=msg;
+}
+function jwtAlgChange(){
+    var alg=document.getElementById('jwtAlg').value;
+    var hs=alg.indexOf('HS')===0, none=alg==='none';
+    document.getElementById('jwtHsBox').hidden=!hs;
+    document.getElementById('jwtPkBox').hidden=(hs||none);
+}
+function jwtSecretMaterial(){ return {sec:document.getElementById('jwtSecret').value, b64:document.getElementById('jwtSecretB64').checked}; }
+async function jwtImportSign(alg){
+    var P=jAlgParams(alg,false);
+    if(alg.indexOf('HS')===0){var m=jwtSecretMaterial();var raw=m.b64?jB64uDec(m.sec):new TextEncoder().encode(m.sec);return crypto.subtle.importKey('raw',raw,P.imp,false,['sign']);}
+    return crypto.subtle.importKey('pkcs8',jPemDer(document.getElementById('jwtPriv').value),P.imp,false,['sign']);
+}
+async function jwtImportVerify(alg){
+    var P=jAlgParams(alg,true);
+    if(alg.indexOf('HS')===0){var m=jwtSecretMaterial();var raw=m.b64?jB64uDec(m.sec):new TextEncoder().encode(m.sec);return crypto.subtle.importKey('raw',raw,P.imp,false,['verify']);}
+    return crypto.subtle.importKey('spki',jPemDer(document.getElementById('jwtPub').value),P.imp,false,['verify']);
+}
+async function jwtSign(){
+    jwtErr('');
+    var alg=document.getElementById('jwtAlg').value;
+    var hdr,pl;
+    try{ hdr=JSON.parse(document.getElementById('jwtHeader').value||'{}'); }catch(e){ jwtErr('Header geçerli JSON değil: '+e.message); return; }
+    try{ pl=JSON.parse(document.getElementById('jwtPayload').value||'{}'); }catch(e){ jwtErr('Payload geçerli JSON değil: '+e.message); return; }
+    hdr=Object.assign({alg:alg},hdr); hdr.alg=alg; // alg first (jwt.io davranışı)
+    document.getElementById('jwtHeader').value=JSON.stringify(hdr);
+    var si=jStr2B64u(JSON.stringify(hdr))+'.'+jStr2B64u(JSON.stringify(pl));
+    try{
+        if(alg==='none'){ document.getElementById('jwtEnc').value=si+'.'; jwtSetVerify('warn','alg: none — imzasız token.'); return; }
+        var P=jAlgParams(alg,false), key=await jwtImportSign(alg);
+        var sig=await crypto.subtle.sign(P.sign,key,new TextEncoder().encode(si));
+        document.getElementById('jwtEnc').value=si+'.'+jB64uEnc(new Uint8Array(sig));
+        jwtSetVerify('ok','✓ İmza geçerli (bu anahtarla imzalandı).');
+    }catch(e){ jwtErr('İmzalama hatası: '+e.message+' (anahtar/secret doğru mu?)'); }
+}
+async function jwtDecode(){
+    jwtErr('');
+    var tok=document.getElementById('jwtEnc').value.trim();
+    if(!tok){ jwtSetVerify('none','İmza durumu — token girin.'); return; }
+    var parts=tok.split('.');
+    if(parts.length<2){ jwtSetVerify('bad','Geçersiz token (nokta ile ayrılmış 2-3 parça beklenir).'); return; }
+    var hdrObj;
+    try{
+        var hdrStr=new TextDecoder().decode(jB64uDec(parts[0]));
+        hdrObj=JSON.parse(hdrStr);
+        document.getElementById('jwtHeader').value=JSON.stringify(hdrObj);
+    }catch(e){ jwtSetVerify('bad','Header çözülemedi: '+e.message); return; }
+    try{
+        document.getElementById('jwtPayload').value=JSON.stringify(JSON.parse(new TextDecoder().decode(jB64uDec(parts[1]))),null,2);
+    }catch(e){ /* payload düz base64url olmayabilir; ham göster */ try{document.getElementById('jwtPayload').value=new TextDecoder().decode(jB64uDec(parts[1]));}catch(_){} }
+    var alg=(hdrObj&&hdrObj.alg)?String(hdrObj.alg):'';
+    var sel=document.getElementById('jwtAlg');
+    if(alg && Array.prototype.some.call(sel.options,function(o){return o.value===alg;})){ sel.value=alg; }
+    jwtAlgChange();
+    // verify
+    var seq=++jwtVerSeq;
+    if(alg==='none'){ jwtSetVerify('warn','alg: none — imzasız token.'); return; }
+    if(!jAlgParams(alg,true)){ jwtSetVerify('none','Bilinmeyen alg "'+alg+'" — doğrulanamadı.'); return; }
+    var isHS=alg.indexOf('HS')===0;
+    if(!isHS && !document.getElementById('jwtPub').value.trim()){ jwtSetVerify('none','İmza doğrulanmadı — Public Key (PEM) girin.'); return; }
+    try{
+        var P=jAlgParams(alg,true), key=await jwtImportVerify(alg);
+        var ok=await crypto.subtle.verify(P.sign,key,jB64uDec(parts[2]||''),new TextEncoder().encode(parts[0]+'.'+parts[1]));
+        if(seq!==jwtVerSeq)return; // stale
+        ok? jwtSetVerify('ok','✓ İmza geçerli.') : jwtSetVerify('bad','✗ İmza GEÇERSİZ (secret/anahtar eşleşmiyor).');
+    }catch(e){ if(seq===jwtVerSeq) jwtSetVerify('bad','Doğrulama hatası: '+e.message); }
+}
+document.addEventListener('DOMContentLoaded', function(){ jwtAlgChange(); jwtDecode(); });
 </script>
 {{end}}

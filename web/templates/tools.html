@@ -1,0 +1,370 @@
+{{define "page_tools"}}
+<div class="max-w-6xl mx-auto">
+    <div class="mb-4">
+        <h1 class="text-xl font-semibold text-white flex items-center gap-2">
+            <svg class="w-5 h-5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437"/></svg>
+            Tools
+        </h1>
+        <p class="text-xs text-dark-500 mt-1">Çevrimdışı yardımcı araçlar — hepsi tarayıcıda çalışır, hiçbir veri sunucuya/dışarıya gönderilmez.</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex flex-wrap gap-1 border-b border-dark-800 mb-4">
+        <button type="button" data-tab="cyberchef" class="tools-tab px-4 py-2 text-sm font-medium border-b-2 border-accent-500 text-white">CyberChef</button>
+        <button type="button" data-tab="comparer"  class="tools-tab px-4 py-2 text-sm font-medium border-b-2 border-transparent text-dark-400 hover:text-white">Comparer</button>
+        <button type="button" data-tab="urlcodec"  class="tools-tab px-4 py-2 text-sm font-medium border-b-2 border-transparent text-dark-400 hover:text-white">URL Encode / Decode</button>
+        <button type="button" data-tab="viewstate" class="tools-tab px-4 py-2 text-sm font-medium border-b-2 border-transparent text-dark-400 hover:text-white">ViewState Decoder</button>
+    </div>
+
+    <!-- ===================== CyberChef ===================== -->
+    <section data-panel="cyberchef">
+        {{if .CyberChefReady}}
+        <div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+            <div class="flex items-center justify-between px-4 py-2 border-b border-dark-800">
+                <span class="text-[11px] text-dark-500">CyberChef — “The Cyber Swiss Army Knife”. Kendi sunucumuzda, çevrimdışı.</span>
+                <a href="{{.CyberChefSrc}}" target="_blank" rel="noopener" class="text-[11px] text-accent-400 hover:text-accent-300">Yeni sekmede aç ↗</a>
+            </div>
+            <iframe id="cyberchefFrame" data-src="{{.CyberChefSrc}}" title="CyberChef"
+                    class="w-full block bg-white" style="height:calc(100vh - 240px);min-height:560px;border:0"></iframe>
+        </div>
+        {{else}}
+        <div class="bg-dark-900 border border-dark-800 rounded-xl p-10 text-center text-dark-400">
+            <p class="text-sm mb-2">CyberChef bu kurulumda bulunamadı.</p>
+            <p class="text-[12px] text-dark-500">Normalde repoda gömülü gelir. Beklenen konum: <span class="mono">web/static/cyberchef/index.html</span>. Eksikse <a href="https://github.com/gchq/CyberChef/releases" target="_blank" rel="noopener" class="text-accent-400 hover:text-accent-300">GitHub release</a> zip’ini <span class="mono">web/static/cyberchef/</span> içine açın.</p>
+        </div>
+        {{end}}
+    </section>
+
+    <!-- ===================== Comparer ===================== -->
+    <section data-panel="comparer" hidden>
+        <div class="flex flex-wrap items-center gap-3 mb-3">
+            <span class="text-[11px] text-dark-500">İki metni karşılaştır — farklar renklendirilir (Burp Comparer benzeri).</span>
+            <div class="ml-auto flex items-center gap-1 text-[11px]">
+                <span class="text-dark-500 mr-1">Birim:</span>
+                <button type="button" data-cmpmode="words" class="cmp-mode px-2.5 py-1 rounded-md bg-accent-600 text-white">Kelime</button>
+                <button type="button" data-cmpmode="lines" class="cmp-mode px-2.5 py-1 rounded-md bg-dark-850 text-dark-300 hover:bg-dark-800">Satır</button>
+                <button type="button" data-cmpmode="chars" class="cmp-mode px-2.5 py-1 rounded-md bg-dark-850 text-dark-300 hover:bg-dark-800">Karakter</button>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+                <label class="block text-[11px] text-dark-500 mb-1">A</label>
+                <textarea id="cmpA" rows="8" class="w-full mono text-[12px] bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-white placeholder-dark-600 focus:outline-none focus:border-accent-500" placeholder="İlk metin…"></textarea>
+            </div>
+            <div>
+                <label class="block text-[11px] text-dark-500 mb-1">B</label>
+                <textarea id="cmpB" rows="8" class="w-full mono text-[12px] bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-white placeholder-dark-600 focus:outline-none focus:border-accent-500" placeholder="İkinci metin…"></textarea>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 mt-3">
+            <button type="button" onclick="cmpRun()" class="text-xs px-4 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white font-medium">Karşılaştır</button>
+            <button type="button" onclick="cmpSwap()" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700">A ⇄ B</button>
+            <button type="button" onclick="cmpClear()" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700">Temizle</button>
+            <span id="cmpSummary" class="text-[11px] text-dark-500 ml-2"></span>
+        </div>
+        <div id="cmpResult" class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3" hidden>
+            <div class="bg-dark-900 border border-dark-800 rounded-lg p-3 overflow-auto max-h-[52vh]">
+                <div class="text-[10px] uppercase tracking-wider text-dark-500 mb-2">A <span class="text-red-400 normal-case">(silinen = kırmızı)</span></div>
+                <div id="cmpOutA" class="mono text-[12px] whitespace-pre-wrap break-words leading-relaxed"></div>
+            </div>
+            <div class="bg-dark-900 border border-dark-800 rounded-lg p-3 overflow-auto max-h-[52vh]">
+                <div class="text-[10px] uppercase tracking-wider text-dark-500 mb-2">B <span class="text-emerald-400 normal-case">(eklenen = yeşil)</span></div>
+                <div id="cmpOutB" class="mono text-[12px] whitespace-pre-wrap break-words leading-relaxed"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===================== URL codec ===================== -->
+    <section data-panel="urlcodec" hidden>
+        <div class="grid grid-cols-1 gap-3">
+            <div>
+                <label class="block text-[11px] text-dark-500 mb-1">Girdi</label>
+                <textarea id="urlIn" rows="5" class="w-full mono text-[12px] bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-white placeholder-dark-600 focus:outline-none focus:border-accent-500" placeholder="Metin veya URL…"></textarea>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <button type="button" onclick="urlOp('enc')" class="text-xs px-3 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white font-medium">URL Encode</button>
+                <button type="button" onclick="urlOp('dec')" class="text-xs px-3 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white font-medium">URL Decode</button>
+                <button type="button" onclick="urlOp('encall')" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700" title="Her baytı %XX olarak kodla">Encode All (%XX)</button>
+                <button type="button" onclick="urlOp('form')" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700" title="Boşluk = +">Form Encode (+)</button>
+                <button type="button" onclick="urlOp('formdec')" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700">Form Decode (+)</button>
+                <span class="mx-1 text-dark-700">|</span>
+                <button type="button" onclick="urlUseOutput()" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700">↑ Çıktıyı girdi yap</button>
+                <button type="button" onclick="copyText('urlOut', this)" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700">Kopyala</button>
+            </div>
+            <div>
+                <label class="block text-[11px] text-dark-500 mb-1">Çıktı</label>
+                <textarea id="urlOut" rows="5" readonly class="w-full mono text-[12px] bg-dark-925 border border-dark-800 rounded-lg px-3 py-2 text-emerald-300 focus:outline-none"></textarea>
+                <p id="urlErr" class="text-[11px] text-red-400 mt-1" hidden></p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===================== ViewState ===================== -->
+    <section data-panel="viewstate" hidden>
+        <div class="grid grid-cols-1 gap-3">
+            <div>
+                <label class="block text-[11px] text-dark-500 mb-1">__VIEWSTATE (Base64)</label>
+                <textarea id="vsIn" rows="5" class="w-full mono text-[12px] bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-white placeholder-dark-600 focus:outline-none focus:border-accent-500" placeholder="/wEPDwUKMTU5MjIwODIxMg9k…"></textarea>
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="vsRun()" class="text-xs px-4 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white font-medium">Decode</button>
+                <button type="button" onclick="document.getElementById('vsIn').value='';vsRun()" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700">Temizle</button>
+                <span class="text-[11px] text-dark-500">ASP.NET ObjectStateFormatter (şifresiz) çözülür; şifreli/MAC’li olduğunda durum bildirilir.</span>
+            </div>
+            <div id="vsResult" hidden class="space-y-3">
+                <div id="vsProtect" class="rounded-lg px-3 py-2 text-[12px]"></div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    <div class="bg-dark-900 border border-dark-800 rounded-lg p-3 overflow-auto max-h-[46vh]">
+                        <div class="text-[10px] uppercase tracking-wider text-dark-500 mb-2">Yapı (tree)</div>
+                        <div id="vsTree" class="mono text-[12px] leading-relaxed"></div>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="bg-dark-900 border border-dark-800 rounded-lg p-3 overflow-auto max-h-[22vh]">
+                            <div class="text-[10px] uppercase tracking-wider text-dark-500 mb-2">Metinler</div>
+                            <div id="vsStrings" class="mono text-[12px] space-y-0.5"></div>
+                        </div>
+                        <div class="bg-dark-900 border border-dark-800 rounded-lg p-3 overflow-auto max-h-[22vh]">
+                            <div class="text-[10px] uppercase tracking-wider text-dark-500 mb-2">Hex</div>
+                            <pre id="vsHex" class="mono text-[11px] text-dark-300 whitespace-pre"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<style>
+    .cmp-del{background:rgba(239,68,68,.22);color:#fca5a5;border-radius:2px}
+    .cmp-ins{background:rgba(16,185,129,.22);color:#6ee7b7;border-radius:2px}
+    .vs-tree ul{list-style:none;margin:0;padding-left:1.1rem;border-left:1px solid #2a2a35}
+    .vs-tree li{padding:1px 0}
+    .vs-type{color:#7c8395}
+    .vs-str{color:#6ee7b7}
+    .vs-num{color:#93c5fd}
+    .vs-null{color:#7c8395;font-style:italic}
+    .vs-bool{color:#fbbf24}
+</style>
+
+<script>
+(function(){
+    // ---- Tabs (client-side; lazy-load the CyberChef iframe on first open) ----
+    var tabs=document.querySelectorAll('.tools-tab');
+    var panels=document.querySelectorAll('[data-panel]');
+    function show(name){
+        tabs.forEach(function(t){
+            var on=t.getAttribute('data-tab')===name;
+            t.classList.toggle('border-accent-500',on); t.classList.toggle('text-white',on);
+            t.classList.toggle('border-transparent',!on); t.classList.toggle('text-dark-400',!on);
+        });
+        panels.forEach(function(p){ p.hidden = p.getAttribute('data-panel')!==name; });
+        if(name==='cyberchef'){
+            var f=document.getElementById('cyberchefFrame');
+            if(f && !f.src && f.dataset.src) f.src=f.dataset.src; // load once
+        }
+        try{ localStorage.setItem('tools-tab',name); }catch(e){}
+    }
+    tabs.forEach(function(t){ t.addEventListener('click',function(){ show(t.getAttribute('data-tab')); }); });
+    var start='cyberchef';
+    try{ var s=localStorage.getItem('tools-tab'); if(s) start=s; }catch(e){}
+    if(!document.querySelector('[data-tab="'+start+'"]')) start='cyberchef';
+    show(start);
+})();
+
+function copyText(id, btn){
+    var el=document.getElementById(id); if(!el)return;
+    navigator.clipboard.writeText(el.value!==undefined?el.value:el.textContent).then(function(){
+        if(btn){var o=btn.textContent;btn.textContent='Kopyalandı ✓';setTimeout(function(){btn.textContent=o;},1200);}
+    });
+}
+
+/* ================= Comparer ================= */
+var cmpMode='words';
+document.querySelectorAll('.cmp-mode').forEach(function(b){
+    b.addEventListener('click',function(){
+        cmpMode=b.getAttribute('data-cmpmode');
+        document.querySelectorAll('.cmp-mode').forEach(function(x){
+            var on=x===b;
+            x.classList.toggle('bg-accent-600',on); x.classList.toggle('text-white',on);
+            x.classList.toggle('bg-dark-850',!on); x.classList.toggle('text-dark-300',!on);
+        });
+        if(!document.getElementById('cmpResult').hidden) cmpRun();
+    });
+});
+function cmpTokenize(s){
+    if(cmpMode==='lines') return s.split(/(\n)/);
+    if(cmpMode==='chars') return s.split('');
+    return s.split(/(\s+)/); // words, keeping whitespace tokens
+}
+function cmpLcs(a,b){
+    var n=a.length,m=b.length;
+    if(n*m>4000000) return null; // too large for O(nm) — caller warns
+    var dp=[]; for(var i=0;i<=n;i++)dp.push(new Int32Array(m+1));
+    for(i=n-1;i>=0;i--)for(var j=m-1;j>=0;j--)
+        dp[i][j]= a[i]===b[j]? dp[i+1][j+1]+1 : Math.max(dp[i+1][j],dp[i][j+1]);
+    var ops=[]; i=0; j=0;
+    while(i<n&&j<m){
+        if(a[i]===b[j]){ops.push([0,a[i]]);i++;j++;}
+        else if(dp[i+1][j]>=dp[i][j+1]){ops.push([-1,a[i]]);i++;}
+        else{ops.push([1,b[j]]);j++;}
+    }
+    while(i<n)ops.push([-1,a[i++]]);
+    while(j<m)ops.push([1,b[j++]]);
+    return ops;
+}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function cmpRun(){
+    var A=document.getElementById('cmpA').value, B=document.getElementById('cmpB').value;
+    var ta=cmpTokenize(A), tb=cmpTokenize(B);
+    var ops=cmpLcs(ta,tb);
+    var res=document.getElementById('cmpResult'), sum=document.getElementById('cmpSummary');
+    if(ops===null){
+        res.hidden=true;
+        sum.textContent='Girdi bu birim için çok büyük — "Satır" moduyla deneyin.';
+        sum.className='text-[11px] text-yellow-400 ml-2'; return;
+    }
+    var outA='',outB='',del=0,ins=0,same=0;
+    ops.forEach(function(o){
+        var v=esc(o[1]);
+        if(o[0]===0){ outA+=v; outB+=v; same++; }
+        else if(o[0]===-1){ outA+='<span class="cmp-del">'+v+'</span>'; del++; }
+        else { outB+='<span class="cmp-ins">'+v+'</span>'; ins++; }
+    });
+    document.getElementById('cmpOutA').innerHTML=outA;
+    document.getElementById('cmpOutB').innerHTML=outB;
+    res.hidden=false;
+    if(del===0&&ins===0){ sum.textContent='Metinler aynı.'; sum.className='text-[11px] text-emerald-400 ml-2'; }
+    else { sum.textContent=del+' silinen · '+ins+' eklenen · '+same+' ortak'; sum.className='text-[11px] text-dark-400 ml-2'; }
+}
+function cmpSwap(){ var a=document.getElementById('cmpA'),b=document.getElementById('cmpB'),t=a.value;a.value=b.value;b.value=t; if(!document.getElementById('cmpResult').hidden)cmpRun(); }
+function cmpClear(){ document.getElementById('cmpA').value='';document.getElementById('cmpB').value='';document.getElementById('cmpResult').hidden=true;document.getElementById('cmpSummary').textContent=''; }
+
+/* ================= URL codec ================= */
+function urlSetErr(m){ var e=document.getElementById('urlErr'); if(m){e.textContent=m;e.hidden=false;}else e.hidden=true; }
+function urlOp(op){
+    var s=document.getElementById('urlIn').value, out='';
+    urlSetErr('');
+    try{
+        if(op==='enc') out=encodeURIComponent(s);
+        else if(op==='dec') out=decodeURIComponent(s);
+        else if(op==='encall') out=Array.from(new TextEncoder().encode(s)).map(function(b){return '%'+b.toString(16).padStart(2,'0').toUpperCase();}).join('');
+        else if(op==='form') out=encodeURIComponent(s).replace(/%20/g,'+');
+        else if(op==='formdec') out=decodeURIComponent(s.replace(/\+/g,' '));
+    }catch(e){ urlSetErr('Çözme hatası: '+e.message+' (geçersiz % dizisi olabilir)'); return; }
+    document.getElementById('urlOut').value=out;
+}
+function urlUseOutput(){ document.getElementById('urlIn').value=document.getElementById('urlOut').value; }
+
+/* ================= ViewState ================= */
+function vsB64(s){
+    s=s.trim().replace(/-/g,'+').replace(/_/g,'/').replace(/\s+/g,'');
+    while(s.length%4)s+='=';
+    var bin=atob(s), u=new Uint8Array(bin.length);
+    for(var i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
+    return u;
+}
+function vsExtractStrings(b){
+    var res=[],cur='';
+    for(var i=0;i<b.length;i++){var c=b[i]; if(c>=0x20&&c<0x7e)cur+=String.fromCharCode(c); else {if(cur.length>=3)res.push(cur);cur='';}}
+    if(cur.length>=3)res.push(cur);
+    return res;
+}
+function vsDecode(input){
+    var bytes; try{bytes=vsB64(input);}catch(e){return {error:'Base64 çözülemedi: '+e.message};}
+    var out={len:bytes.length};
+    if(bytes.length<2){out.error='Çok kısa';return out;}
+    var td=new TextDecoder('utf-8',{fatal:false});
+    if(!(bytes[0]===0xff&&bytes[1]===0x01)){
+        out.encrypted=true;
+        out.note='0xFF 0x01 başlığı yok → büyük ihtimalle ŞİFRELİ (AES) ya da farklı bir format. machineKey olmadan çözülemez.';
+        out.strings=vsExtractStrings(bytes); out.bytes=bytes; return out;
+    }
+    out.encrypted=false;
+    var intern=[],p=2,stopped=null;
+    function read7(){var v=0,sh=0,b;do{if(p>=bytes.length)throw new Error('EOF');b=bytes[p++];v|=(b&0x7f)<<sh;sh+=7;}while(b&0x80);return v>>>0;}
+    function readStr(){var n=read7(),s=td.decode(bytes.subarray(p,p+n));p+=n;return s;}
+    function val(d){
+        if(d>200)throw new Error('too deep');
+        if(p>=bytes.length)throw new Error('EOF');
+        var t=bytes[p++];
+        switch(t){
+            case 0x0f: return {t:'Pair',v:[val(d+1),val(d+1)]};
+            case 0x10: return {t:'Triplet',v:[val(d+1),val(d+1),val(d+1)]};
+            case 0x16:{var n=read7(),a=[];for(var i=0;i<n;i++)a.push(val(d+1));return {t:'Collection('+n+')',v:a};}
+            case 0x05:{var s=readStr();intern.push(s);return {t:'String',v:s};}
+            case 0x1e:{var s2=readStr();intern.push(s2);return {t:'String',v:s2};}
+            case 0x1f:{var idx=read7();return {t:'StringRef',v:(idx<intern.length?intern[idx]:'#'+idx)};}
+            case 0x02: return {t:'Int32',v:(read7()|0)};
+            case 0x03: return {t:'Byte',v:bytes[p++]};
+            case 0x64: return {t:'null',v:null};
+            case 0x65: return {t:'String',v:''};
+            case 0x67: return {t:'Boolean',v:true};
+            case 0x68: return {t:'Boolean',v:false};
+            default: throw {unknown:t,at:p-1};
+        }
+    }
+    var tree=null;
+    try{tree=val(0);}catch(e){ if(e&&e.unknown!==undefined)stopped={token:e.unknown,offset:e.at}; else stopped={error:(e&&e.message)||String(e)}; }
+    out.tree=tree; out.consumed=p; out.trailing=bytes.length-p; out.stopped=stopped;
+    out.strings=vsExtractStrings(bytes); out.bytes=bytes;
+    return out;
+}
+function vsHex(b,limit){
+    limit=Math.min(b.length,limit||512);
+    var s='';
+    for(var i=0;i<limit;i+=16){
+        var off=i.toString(16).padStart(4,'0'),hex='',asc='';
+        for(var j=0;j<16;j++){
+            if(i+j<limit){var c=b[i+j];hex+=c.toString(16).padStart(2,'0')+' ';asc+=(c>=0x20&&c<0x7e)?String.fromCharCode(c):'.';}
+            else hex+='   ';
+        }
+        s+=off+'  '+hex+' '+asc+'\n';
+    }
+    if(b.length>limit)s+='… ('+(b.length-limit)+' bayt daha)\n';
+    return s;
+}
+function vsRenderTree(node){
+    if(node===null||node===undefined) return '<span class="vs-null">—</span>';
+    var label='<span class="vs-type">'+esc(node.t)+':</span> ';
+    if(Array.isArray(node.v)){
+        var h=label+'<ul>';
+        node.v.forEach(function(c){ h+='<li>'+vsRenderTree(c)+'</li>'; });
+        return h+'</ul>';
+    }
+    if(node.t==='null') return '<span class="vs-null">null</span>';
+    if(node.t==='Boolean') return label+'<span class="vs-bool">'+node.v+'</span>';
+    if(node.t==='Int32'||node.t==='Byte') return label+'<span class="vs-num">'+node.v+'</span>';
+    return label+'<span class="vs-str">"'+esc(String(node.v))+'"</span>';
+}
+function vsRun(){
+    var res=document.getElementById('vsResult');
+    var input=document.getElementById('vsIn').value;
+    if(!input.trim()){ res.hidden=true; return; }
+    var r=vsDecode(input);
+    var prot=document.getElementById('vsProtect');
+    if(r.error){
+        res.hidden=false;
+        prot.className='rounded-lg px-3 py-2 text-[12px] bg-red-500/10 border border-red-500/30 text-red-300';
+        prot.textContent='Hata: '+r.error;
+        document.getElementById('vsTree').innerHTML=''; document.getElementById('vsStrings').innerHTML=''; document.getElementById('vsHex').textContent='';
+        return;
+    }
+    res.hidden=false;
+    if(r.encrypted){
+        prot.className='rounded-lg px-3 py-2 text-[12px] bg-yellow-500/10 border border-yellow-500/30 text-yellow-200';
+        prot.innerHTML='🔒 <b>Şifreli / MAC’li olabilir.</b> '+esc(r.note)+' <span class="text-dark-400">('+r.len+' bayt)</span>';
+        document.getElementById('vsTree').innerHTML='<span class="text-dark-500">Yapı çözülemedi (şifreli). Aşağıdaki metinler/hex yine de faydalı olabilir.</span>';
+    } else {
+        var macTxt = r.trailing>0 ? (' · sondaki '+r.trailing+' bayt MAC/HMAC olabilir'+(r.trailing===20?' (SHA1)':r.trailing===32?' (SHA256)':'')) : ' · MAC yok gibi';
+        prot.className='rounded-lg px-3 py-2 text-[12px] bg-emerald-500/10 border border-emerald-500/30 text-emerald-200';
+        prot.innerHTML='🔓 <b>Şifresiz</b> (ObjectStateFormatter) · '+r.len+' bayt · '+r.consumed+' bayt çözüldü'+esc(macTxt)+
+            (r.stopped? ' · <span class="text-yellow-300">çözüm '+(r.stopped.token!==undefined?('bilinmeyen token 0x'+r.stopped.token.toString(16)+' @'+r.stopped.offset):r.stopped.error)+' noktasında durdu</span>':'');
+        var tw=document.getElementById('vsTree'); tw.className='mono text-[12px] leading-relaxed vs-tree';
+        tw.innerHTML = r.tree? vsRenderTree(r.tree) : '<span class="text-dark-500">—</span>';
+    }
+    var sl=document.getElementById('vsStrings');
+    sl.innerHTML = (r.strings&&r.strings.length)? r.strings.map(function(s){return '<div class="text-dark-200 break-all">'+esc(s)+'</div>';}).join('') : '<span class="text-dark-500">—</span>';
+    document.getElementById('vsHex').textContent=vsHex(r.bytes,512);
+}
+</script>
+{{end}}

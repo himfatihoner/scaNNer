@@ -486,6 +486,9 @@ func main() {
 	http.HandleFunc("/leak-report", h.LeakReportPage) // admin-only (gated in authorizePath)
 	http.HandleFunc("/leak-report/ack", h.LeakAck)    // dismiss the header leak banner (admin)
 
+	// Offline utility toolbox (CyberChef, Comparer, URL codec, ViewState) — any user.
+	http.HandleFunc("/tools", h.ToolsPage)
+
 	// Software self-update (admin-gated by the auth middleware).
 	http.HandleFunc("/update", h.UpdatePage)
 	http.HandleFunc("/update/check", h.UpdateCheck)

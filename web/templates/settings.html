@@ -60,7 +60,7 @@
                             {{if .IsDefault}}<span class="text-[9px] uppercase tracking-wider text-dark-500 bg-dark-800 px-1.5 py-0.5 rounded">{{T "default"}}</span>{{end}}
                             {{if eq .ID $.ActiveWorkspace.ID}}<span class="text-[9px] uppercase tracking-wider text-accent-400 bg-accent-600/20 px-1.5 py-0.5 rounded">{{T "active"}}</span>{{end}}
                         </div>
-                        <span class="text-[11px] text-dark-500">{{Tn .TargetCount `%d target` `%d targets`}}</span>
+                        <span class="text-[11px] text-dark-500">{{Tn .TargetCount `%d target` `%d targets` .TargetCount}}</span>
                     </div>
                 </div>
                 {{if not .IsDefault}}

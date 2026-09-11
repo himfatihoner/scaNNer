@@ -36,12 +36,13 @@ type User struct {
 	TwoFactorSecret    string     `db:"twofa_secret"         json:"-"`               // base32 TOTP secret
 	TwoFactorEnrolled  bool       `db:"twofa_enrolled"       json:"twofa_enrolled"`  // finished setup
 	TwoFactorLastStep  int64      `db:"twofa_last_step"      json:"-"`               // last accepted TOTP step (replay guard)
-	CanAddTargets      bool       `db:"can_add_targets"      json:"can_add_targets"`  // may this user add new targets at all
+	CanAddTargets      bool       `db:"can_add_targets"      json:"can_add_targets"` // may this user add new targets at all
 	FailedLoginCount   int        `db:"failed_login_count"   json:"-"`
 	LoginLockedUntil   *time.Time `db:"login_locked_until"   json:"-"`
 	Failed2FACount     int        `db:"failed_2fa_count"     json:"-"`
 	TwoFactorLockUntil *time.Time `db:"twofa_locked_until"   json:"-"`
 	LastLoginAt        *time.Time `db:"last_login_at"        json:"last_login_at"`
+	Language           string     `db:"language"             json:"language"` // UI language: '' | 'en' | 'tr'
 	CreatedAt          time.Time  `db:"created_at"           json:"created_at"`
 	UpdatedAt          time.Time  `db:"updated_at"           json:"updated_at"`
 }

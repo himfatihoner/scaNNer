@@ -200,7 +200,7 @@ func nonNilWorkspace(ws *models.Workspace) *models.Workspace {
 // authExempt is the set of paths reachable without a session.
 func authExempt(path string) bool {
 	switch path {
-	case "/login", "/login/2fa", "/logout", "/favicon.ico", "/api/health":
+	case "/login", "/login/2fa", "/logout", "/favicon.ico", "/api/health", "/lang":
 		return true
 	}
 	return strings.HasPrefix(path, "/static/")

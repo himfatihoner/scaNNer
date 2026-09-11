@@ -1,9 +1,9 @@
 {{define "page_portservice"}}
 {{template "form_error" .}}
 <div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
-    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <a href="/modules" class="hover:text-accent-400 transition-colors">{{T "Modules"}}</a>
     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-    <span class="text-dark-200">Advanced Host Scanner</span>
+    <span class="text-dark-200">{{T "Advanced Host Scanner"}}</span>
 </div>
 <!-- Hero card — explains the 4-phase scan strategy upfront so the user knows
      why this module is heavier than Host Discovery. -->
@@ -11,34 +11,34 @@
     <div class="flex items-start gap-4">
         <div class="w-12 h-12 rounded-lg bg-accent-600/20 border border-accent-500/30 flex items-center justify-center text-2xl shrink-0">🛰️</div>
         <div class="flex-1">
-            <h2 class="text-xl font-bold text-white">Advanced Host Scanner</h2>
-            <p class="text-sm text-dark-300 mt-1">Nessus-style deep scan: parallel port discovery → firewall detection → version-aware NSE scripts → banner grab → Nuclei vulnerability sweep.</p>
+            <h2 class="text-xl font-bold text-white">{{T "Advanced Host Scanner"}}</h2>
+            <p class="text-sm text-dark-300 mt-1">{{T "Nessus-style deep scan: parallel port discovery → firewall detection → version-aware NSE scripts → banner grab → Nuclei vulnerability sweep."}}</p>
             <div class="grid grid-cols-2 md:grid-cols-5 gap-2 mt-4">
                 <div class="px-3 py-2 bg-dark-900/60 border border-dark-800 rounded-lg">
-                    <p class="text-[9px] uppercase tracking-wider text-dark-500">Phase 1</p>
-                    <p class="text-[11px] text-dark-200">Parallel port disc.<br>(ping + -Pn)</p>
+                    <p class="text-[9px] uppercase tracking-wider text-dark-500">{{T "Phase 1"}}</p>
+                    <p class="text-[11px] text-dark-200">{{T "Parallel port disc."}}<br>{{T "(ping + -Pn)"}}</p>
                 </div>
                 <div class="px-3 py-2 bg-dark-900/60 border border-dark-800 rounded-lg">
-                    <p class="text-[9px] uppercase tracking-wider text-warning">Triage</p>
-                    <p class="text-[11px] text-dark-200">100+ ports<br>= firewall flag</p>
+                    <p class="text-[9px] uppercase tracking-wider text-warning">{{T "Triage"}}</p>
+                    <p class="text-[11px] text-dark-200">{{T "100+ ports"}}<br>{{T "= firewall flag"}}</p>
                 </div>
                 <div class="px-3 py-2 bg-dark-900/60 border border-dark-800 rounded-lg">
-                    <p class="text-[9px] uppercase tracking-wider text-dark-500">Phase 2</p>
-                    <p class="text-[11px] text-dark-200">-A + service<br>scripts</p>
+                    <p class="text-[9px] uppercase tracking-wider text-dark-500">{{T "Phase 2"}}</p>
+                    <p class="text-[11px] text-dark-200">{{T "-A + service"}}<br>{{T "scripts"}}</p>
                 </div>
                 <div class="px-3 py-2 bg-dark-900/60 border border-dark-800 rounded-lg">
-                    <p class="text-[9px] uppercase tracking-wider text-dark-500">Phase 3</p>
-                    <p class="text-[11px] text-dark-200">Follow-up for<br>new services</p>
+                    <p class="text-[9px] uppercase tracking-wider text-dark-500">{{T "Phase 3"}}</p>
+                    <p class="text-[11px] text-dark-200">{{T "Follow-up for"}}<br>{{T "new services"}}</p>
                 </div>
                 <div class="px-3 py-2 bg-dark-900/60 border border-dark-800 rounded-lg">
-                    <p class="text-[9px] uppercase tracking-wider text-accent-400">Phase 4</p>
-                    <p class="text-[11px] text-dark-200">Banners +<br>Nuclei</p>
+                    <p class="text-[9px] uppercase tracking-wider text-accent-400">{{T "Phase 4"}}</p>
+                    <p class="text-[11px] text-dark-200">{{T "Banners +"}}<br>Nuclei</p>
                 </div>
             </div>
             <p class="text-[11px] text-dark-400 mt-3">
-                <span class="text-dark-500">Parallelism:</span>
-                <a href="/settings" class="text-accent-400 hover:text-accent-300 hover:underline">{{.EffectiveConcurrency}} host{{if ne .EffectiveConcurrency 1}}s{{end}}</a>
-                <span class="text-dark-500">at a time — sourced from <em>Settings → Network Scan Defaults → Max Concurrent</em>. Each host runs phase 1a/1b in parallel internally and phase 2/3 sequentially. Soft cap: 50.</span>
+                <span class="text-dark-500">{{T "Parallelism:"}}</span>
+                <a href="/settings" class="text-accent-400 hover:text-accent-300 hover:underline">{{Tn .EffectiveConcurrency "%d host" "%d hosts" .EffectiveConcurrency}}</a>
+                <span class="text-dark-500">{{T "at a time — sourced from"}} <em>{{T "Settings → Network Scan Defaults → Max Concurrent"}}</em>. {{T "Each host runs phase 1a/1b in parallel internally and phase 2/3 sequentially. Soft cap: 50."}}</span>
             </p>
         </div>
     </div>
@@ -49,13 +49,13 @@
         <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
             <h3 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
                 <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                New Scan
+                {{T "New Scan"}}
             </h3>
             <form action="/modules/portservice/run" method="POST" id="ahsForm">
                 <div class="space-y-4">
                     {{if .WSTargetGroups}}
                     <div>
-                        <label class="block text-sm text-dark-300 mb-1.5">Targets from Workspace{{template "info_icon" "Workspace targets grouped by list. Tick a list header to select every member; un-tick individual rows to exclude specific hosts."}}</label>
+                        <label class="block text-sm text-dark-300 mb-1.5">{{T "Targets from Workspace"}}{{template "info_icon" (T `Workspace targets grouped by list. Tick a list header to select every member; un-tick individual rows to exclude specific hosts.`)}}</label>
                         <div class="max-h-64 overflow-y-auto bg-dark-850 border border-dark-700 rounded-lg p-2 space-y-2">
                             {{range $gi, $g := .WSTargetGroups}}
                             <details class="ahs-group" open>
@@ -107,7 +107,7 @@
                     {{end}}
 
                     <div>
-                        <label class="block text-sm text-dark-300 mb-1.5">Manual Targets{{template "info_icon" "Hostnames or IPs, one per line. CIDR is supported by nmap directly."}}</label>
+                        <label class="block text-sm text-dark-300 mb-1.5">{{T "Manual Targets"}}{{template "info_icon" (T `Hostnames or IPs, one per line. CIDR is supported by nmap directly.`)}}</label>
                         <textarea name="manual_targets" rows="3" placeholder="192.168.1.1&#10;192.168.2.0/24&#10;192.168.3.10-50&#10;example.com"
                                   class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
                     </div>
@@ -118,43 +118,43 @@
                          user can't pick "Common" by accident while typing -p. -->
                     <div>
                         <div class="flex items-center justify-between mb-2">
-                            <label class="text-sm text-dark-300">Ports <span class="text-danger">*</span></label>
-                            <span id="portsHint" class="text-[10px] text-dark-500 mono">Common (top 1000)</span>
+                            <label class="text-sm text-dark-300">{{T "Ports"}} <span class="text-danger">*</span></label>
+                            <span id="portsHint" class="text-[10px] text-dark-500 mono">{{T "Common (top 1000)"}}</span>
                         </div>
                         <div class="flex flex-wrap gap-1.5 mb-2">
                             <button type="button" data-preset="common" onclick="ahsPickPreset(this)"
-                                    class="ahs-chip px-2.5 py-1 text-[11px] rounded-md border border-success/40 bg-success/10 text-success">Common</button>
+                                    class="ahs-chip px-2.5 py-1 text-[11px] rounded-md border border-success/40 bg-success/10 text-success">{{T "Common"}}</button>
                             <button type="button" data-preset="top100" onclick="ahsPickPreset(this)"
-                                    class="ahs-chip px-2.5 py-1 text-[11px] rounded-md border border-dark-700 bg-dark-850 text-dark-300 hover:text-white">Top 100</button>
+                                    class="ahs-chip px-2.5 py-1 text-[11px] rounded-md border border-dark-700 bg-dark-850 text-dark-300 hover:text-white">{{T "Top 100"}}</button>
                             <button type="button" data-preset="web" onclick="ahsPickPreset(this)"
-                                    class="ahs-chip px-2.5 py-1 text-[11px] rounded-md border border-dark-700 bg-dark-850 text-dark-300 hover:text-white">Web</button>
+                                    class="ahs-chip px-2.5 py-1 text-[11px] rounded-md border border-dark-700 bg-dark-850 text-dark-300 hover:text-white">{{T "Web"}}</button>
                             <button type="button" data-preset="full" onclick="ahsPickPreset(this)"
-                                    class="ahs-chip px-2.5 py-1 text-[11px] rounded-md border border-dark-700 bg-dark-850 text-dark-300 hover:text-white">Full (1-65535)</button>
+                                    class="ahs-chip px-2.5 py-1 text-[11px] rounded-md border border-dark-700 bg-dark-850 text-dark-300 hover:text-white">{{T "Full (1-65535)"}}</button>
                         </div>
                         <input type="text" id="ahsPortSpec" name="port_spec" oninput="ahsOnPortInput()"
-                               placeholder="22,80,443  or  1-1024  or  80,443,8000-9000"
+                               placeholder="{{T `22,80,443  or  1-1024  or  80,443,8000-9000`}}"
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                         <input type="hidden" id="ahsScope" name="scope" value="common">
-                        <p class="text-[10px] text-dark-500 mt-1">Type ports to override: <span class="mono">22,80,443</span> → custom · <span class="mono">1-1024</span> → range · empty → preset.</p>
+                        <p class="text-[10px] text-dark-500 mt-1">{{T "Type ports to override:"}} <span class="mono">22,80,443</span> → {{T "custom"}} · <span class="mono">1-1024</span> → {{T "range"}} · {{T "empty → preset."}}</p>
                     </div>
 
                     <div>
-                        <label class="block text-sm text-dark-300 mb-1.5">Speed{{template "info_icon" "Maps directly to nmap timing templates. -T0/T1/T2 evade IDS at the cost of speed; -T3 is nmap default; -T4 (Fast) is scaNNer's default; -T5/Insane/Blast are loud and likely to set off alarms. Stealth pins --max-rate 50 packets/sec for very-low-noise audits."}}</label>
+                        <label class="block text-sm text-dark-300 mb-1.5">{{T "Speed"}}{{template "info_icon" (T `Maps directly to nmap timing templates. -T0/T1/T2 evade IDS at the cost of speed; -T3 is nmap default; -T4 (Fast) is scaNNer's default; -T5/Insane/Blast are loud and likely to set off alarms. Stealth pins --max-rate 50 packets/sec for very-low-noise audits.`)}}</label>
                         <select name="speed" class="w-full bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-accent-500">
-                            <optgroup label="Stealth (slower, harder to detect)">
-                                <option value="paranoid">Paranoid (-T0) — 5+ min between probes</option>
-                                <option value="sneaky">Sneaky (-T1) — slip past most IDS</option>
-                                <option value="stealth">Stealth (-T2 --max-rate 50) — throttled</option>
-                                <option value="polite">Polite (-T2) — minimal bandwidth</option>
+                            <optgroup label="{{T `Stealth (slower, harder to detect)`}}">
+                                <option value="paranoid">{{T "Paranoid (-T0) — 5+ min between probes"}}</option>
+                                <option value="sneaky">{{T "Sneaky (-T1) — slip past most IDS"}}</option>
+                                <option value="stealth">{{T "Stealth (-T2 --max-rate 50) — throttled"}}</option>
+                                <option value="polite">{{T "Polite (-T2) — minimal bandwidth"}}</option>
                             </optgroup>
-                            <optgroup label="Balanced">
-                                <option value="normal">Normal (-T3) — nmap default</option>
-                                <option value="fast" selected>Fast (-T4) — recommended</option>
+                            <optgroup label="{{T `Balanced`}}">
+                                <option value="normal">{{T "Normal (-T3) — nmap default"}}</option>
+                                <option value="fast" selected>{{T "Fast (-T4) — recommended"}}</option>
                             </optgroup>
-                            <optgroup label="Loud (faster, may be detected)">
-                                <option value="aggressive">Aggressive (-T5) — louder</option>
-                                <option value="insane">Insane (-T5 --max-rate 1500) — fast, capped</option>
-                                <option value="blast">Blast (-T5 --min-rate 5000) — no patience</option>
+                            <optgroup label="{{T `Loud (faster, may be detected)`}}">
+                                <option value="aggressive">{{T "Aggressive (-T5) — louder"}}</option>
+                                <option value="insane">{{T "Insane (-T5 --max-rate 1500) — fast, capped"}}</option>
+                                <option value="blast">{{T "Blast (-T5 --min-rate 5000) — no patience"}}</option>
                             </optgroup>
                         </select>
                     </div>
@@ -168,8 +168,8 @@
                     <details class="bg-dark-925 border border-dark-800 rounded-lg">
                         <summary class="px-3 py-2 text-xs font-medium text-dark-300 hover:text-white cursor-pointer select-none flex items-center gap-2">
                             <svg class="w-3.5 h-3.5 transition-transform" style="transform:rotate(0deg)" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                            Advanced options
-                            <span class="ml-auto text-[10px] text-dark-500">concurrency · NSE depth · brute lists · UDP</span>
+                            {{T "Advanced options"}}
+                            <span class="ml-auto text-[10px] text-dark-500">{{T "concurrency · NSE depth · brute lists · UDP"}}</span>
                         </summary>
                         <div class="p-3 border-t border-dark-800 space-y-4">
 
@@ -178,7 +178,7 @@
                          Default 10 (sweet spot), max 50. Above 25 needs
                          dedicated infrastructure + ulimit -n bump. */}}
                     <div>
-                        <label class="block text-sm text-dark-300 mb-1.5">Concurrency{{template "info_icon" "How many hosts run nmap in parallel. Each host = 2 nmap subprocesses (with-ping + no-ping). Going from 3 → 10 ≈ 3× faster scan with zero accuracy loss. Above 25 needs `ulimit -n 65535` and dedicated VPS — laptop Wi-Fi / NAT routers will choke."}}</label>
+                        <label class="block text-sm text-dark-300 mb-1.5">{{T "Concurrency"}}{{template "info_icon" (T "How many hosts run nmap in parallel. Each host = 2 nmap subprocesses (with-ping + no-ping). Going from 3 → 10 ≈ 3× faster scan with zero accuracy loss. Above 25 needs `ulimit -n 65535` and dedicated VPS — laptop Wi-Fi / NAT routers will choke.")}}</label>
                         <div class="flex items-center gap-3">
                             <input type="range" id="ahsConcRange" name="concurrency_range" min="1" max="50" value="10" step="1"
                                    oninput="document.getElementById('ahsConcNum').value=this.value;ahsUpdateConcHint(this.value)"
@@ -187,7 +187,7 @@
                                    oninput="document.getElementById('ahsConcRange').value=Math.min(50,Math.max(1,this.value||10));ahsUpdateConcHint(this.value)"
                                    class="w-16 bg-dark-850 border border-dark-700 rounded-lg px-2 py-1 text-xs text-white text-center focus:outline-none focus:border-accent-500">
                         </div>
-                        <p id="ahsConcHint" class="text-[10px] text-dark-500 mt-1">Balanced — good fit for laptops / VMs. ~3× faster than the legacy default of 3.</p>
+                        <p id="ahsConcHint" class="text-[10px] text-dark-500 mt-1">{{T "Balanced — good fit for laptops / VMs. ~3× faster than the legacy default of 3."}}</p>
                     </div>
                     <script>
                     function ahsUpdateConcHint(v) {
@@ -219,22 +219,22 @@
                          risk). Brute + auth only fire when wordlists below
                          are populated. */}}
                     <div>
-                        <label class="block text-sm text-dark-300 mb-2">Script depth{{template "info_icon" "Safe = curated vuln/discovery scripts only (production-safe, ~30s overhead). Deep = adds intrusive, fuzzer, exploit categories (much louder, may crash services, may take 10+ min per host). EXTERNAL and DOS categories are NEVER enabled in either preset."}}</label>
+                        <label class="block text-sm text-dark-300 mb-2">{{T "Script depth"}}{{template "info_icon" (T `Safe = curated vuln/discovery scripts only (production-safe, ~30s overhead). Deep = adds intrusive, fuzzer, exploit categories (much louder, may crash services, may take 10+ min per host). EXTERNAL and DOS categories are NEVER enabled in either preset.`)}}</label>
                         <div class="space-y-2">
                             <label class="flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-success has-[:checked]:bg-success/5">
                                 <input type="radio" name="script_depth" value="safe" class="mt-0.5 rounded-full border-dark-600 bg-dark-800 text-success" checked>
                                 <div>
-                                    <p class="text-xs font-medium text-dark-200">Safe — default + version + curated vuln scripts</p>
-                                    <p class="text-[11px] text-dark-500 mt-0.5">Production-safe NSE set: ssl-cert, ssl-heartbleed, http-shellshock, smb-vuln-*, vb. Servisi crash etmez, brute denemez. ~30sn ek süre/host.</p>
-                                    <p class="text-[10px] text-dark-600 mt-0.5 mono">categories: default, version, safe + selective vuln/discovery</p>
+                                    <p class="text-xs font-medium text-dark-200">{{T "Safe — default + version + curated vuln scripts"}}</p>
+                                    <p class="text-[11px] text-dark-500 mt-0.5">{{T "Production-safe NSE set: ssl-cert, ssl-heartbleed, http-shellshock, smb-vuln-*, etc. Won't crash the service, won't attempt brute. ~30s extra per host."}}</p>
+                                    <p class="text-[10px] text-dark-600 mt-0.5 mono">{{T "categories: default, version, safe + selective vuln/discovery"}}</p>
                                 </div>
                             </label>
                             <label class="flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-danger has-[:checked]:bg-danger/5">
                                 <input type="radio" name="script_depth" value="deep" class="mt-0.5 rounded-full border-dark-600 bg-dark-800 text-danger">
                                 <div>
-                                    <p class="text-xs font-medium text-dark-200">Deep — adds intrusive + fuzzer + exploit categories</p>
-                                    <p class="text-[11px] text-dark-500 mt-0.5">NSE'nin tüm vuln/exploit scriptleri tetiklenir. Bazı scriptler servisi geçici olarak crashleyebilir, NIDS alarmları büyük olasılıkla tetiklenir. 10+ dakika/host.</p>
-                                    <p class="text-[10px] text-warning mt-0.5 mono">⚠ adds: intrusive, fuzzer, exploit · still excludes: external, dos</p>
+                                    <p class="text-xs font-medium text-dark-200">{{T "Deep — adds intrusive + fuzzer + exploit categories"}}</p>
+                                    <p class="text-[11px] text-dark-500 mt-0.5">{{T "Fires all of NSE's vuln/exploit scripts. Some scripts may temporarily crash the service, and NIDS alarms will very likely fire. 10+ minutes per host."}}</p>
+                                    <p class="text-[10px] text-warning mt-0.5 mono">⚠ {{T "adds: intrusive, fuzzer, exploit · still excludes: external, dos"}}</p>
                                 </div>
                             </label>
                         </div>
@@ -246,16 +246,16 @@
                          means nmap brute errors immediately, so we don't
                          bother adding brute+auth categories at all. */}}
                     <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
-                        <p class="text-[11px] uppercase tracking-wider text-dark-300 mb-1">Brute / auth wordlists <span class="text-dark-500 normal-case lowercase font-normal">(optional)</span></p>
-                        <p class="text-[10px] text-dark-500 mb-3">Both fields must be filled for brute/auth NSE scripts (ftp-brute, ssh-brute, http-brute, smb-brute, mysql-brute, …) to fire. One entry per line, or comma-separated. Leaving either empty silently skips brute — no error.</p>
+                        <p class="text-[11px] uppercase tracking-wider text-dark-300 mb-1">{{T "Brute / auth wordlists"}} <span class="text-dark-500 normal-case lowercase font-normal">{{T "(optional)"}}</span></p>
+                        <p class="text-[10px] text-dark-500 mb-3">{{T "Both fields must be filled for brute/auth NSE scripts (ftp-brute, ssh-brute, http-brute, smb-brute, mysql-brute, …) to fire. One entry per line, or comma-separated. Leaving either empty silently skips brute — no error."}}</p>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-[10px] uppercase text-dark-500 mb-1">Usernames</label>
+                                <label class="block text-[10px] uppercase text-dark-500 mb-1">{{T "Usernames"}}</label>
                                 <textarea name="username_list" rows="4" placeholder="admin&#10;root&#10;administrator"
                                           class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
                             </div>
                             <div>
-                                <label class="block text-[10px] uppercase text-dark-500 mb-1">Passwords</label>
+                                <label class="block text-[10px] uppercase text-dark-500 mb-1">{{T "Passwords"}}</label>
                                 <textarea name="password_list" rows="4" placeholder="admin&#10;password&#10;123456"
                                           class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
                             </div>
@@ -270,9 +270,9 @@
                         <label class="flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer has-[:checked]:border-warning has-[:checked]:bg-warning/5">
                             <input type="checkbox" name="udp_scan" class="mt-0.5 rounded border-dark-600 bg-dark-800 text-warning">
                             <div>
-                                <p class="text-xs font-medium text-dark-200">Also run UDP scan (-sU){{template "info_icon" "Adds an nmap -sU pass alongside the TCP discovery passes. Catches DNS (53/udp), SNMP (161), NTP (123), DHCP (67), TFTP (69), NetBIOS (137/138), VPN gateways. Requires root/CAP_NET_RAW. Significantly slower than TCP."}}</p>
-                                <p class="text-[11px] text-dark-500 mt-0.5">Catches DNS, SNMP, NTP, NetBIOS, VPN services that TCP scan misses.</p>
-                                <p class="text-[10px] text-warning mt-0.5">⚠ Slow — nmap rate-limits UDP to ~1pps per closed port. A /24 can take 30+ minutes. Needs root privileges.</p>
+                                <p class="text-xs font-medium text-dark-200">{{T "Also run UDP scan (-sU)"}}{{template "info_icon" (T `Adds an nmap -sU pass alongside the TCP discovery passes. Catches DNS (53/udp), SNMP (161), NTP (123), DHCP (67), TFTP (69), NetBIOS (137/138), VPN gateways. Requires root/CAP_NET_RAW. Significantly slower than TCP.`)}}</p>
+                                <p class="text-[11px] text-dark-500 mt-0.5">{{T "Catches DNS, SNMP, NTP, NetBIOS, VPN services that TCP scan misses."}}</p>
+                                <p class="text-[10px] text-warning mt-0.5">⚠ {{T "Slow — nmap rate-limits UDP to ~1pps per closed port. A /24 can take 30+ minutes. Needs root privileges."}}</p>
                             </div>
                         </label>
                     </div>
@@ -282,7 +282,7 @@
                 {{template "queue_option" .}}
                 <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                    Start Port &amp; Service Scan
+                    {{T "Start Port & Service Scan"}}
                 </button>
             </form>
             <script>
@@ -344,7 +344,7 @@
     </div>
     <div class="lg:col-span-2">
         <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
-            <h3 class="text-sm font-semibold text-white mb-4">Scan History{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
+            <h3 class="text-sm font-semibold text-white mb-4">{{T "Scan History"}}{{if .Scans}} <span class="text-dark-500 font-normal">({{len .Scans}})</span>{{end}}</h3>
             {{if .Scans}}
             <div class="space-y-2">
                 {{range .Scans}}
@@ -353,7 +353,7 @@
                         {{if eq (print .Status) "done"}}<span class="w-2 h-2 rounded-full bg-success"></span>
                         {{else if eq (print .Status) "running"}}<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
                         {{else}}<span class="w-2 h-2 rounded-full bg-dark-500"></span>{{end}}
-                        <span class="text-sm text-dark-200 group-hover:text-white">Scan #{{.ID | printf "%.8s"}}</span>
+                        <span class="text-sm text-dark-200 group-hover:text-white">{{T "Scan #%s" (printf "%.8s" .ID)}}</span>
                         <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
                     </div>
                     <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
@@ -361,7 +361,7 @@
                 {{end}}
             </div>
             {{else}}
-            <div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">No scans yet</p></div>
+            <div class="flex flex-col items-center py-8 text-dark-500"><p class="text-sm">{{T "No scans yet"}}</p></div>
             {{end}}
         </div>
     </div>

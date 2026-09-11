@@ -82,15 +82,17 @@ func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
 		"Title": "Sign in - scaNNer",
 		"Next":  r.URL.Query().Get("next"),
 		"Error": r.URL.Query().Get("error"),
+		"Lang":  h.lang(r),
 	})
 }
 
-func (h *Handler) renderLoginError(w http.ResponseWriter, next, msg string) {
+func (h *Handler) renderLoginError(w http.ResponseWriter, r *http.Request, next, msg string) {
 	w.WriteHeader(http.StatusUnauthorized)
 	h.render(w, "login_page", map[string]interface{}{
 		"Title": "Sign in - scaNNer",
 		"Next":  next,
 		"Error": msg,
+		"Lang":  h.lang(r),
 	})
 }
 
@@ -111,17 +113,17 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 		// "no such user" from "wrong password".
 		auth.CheckPassword(auth.DummyHash, password)
 		h.audit(r, nil, models.AuditAccess, "login.fail", "unknown user: "+username)
-		h.renderLoginError(w, next, loginFailMsg)
+		h.renderLoginError(w, r, next, loginFailMsg)
 		return
 	}
 	now := time.Now()
 	if !user.IsActive {
-		h.renderLoginError(w, next, loginFailMsg)
+		h.renderLoginError(w, r, next, loginFailMsg)
 		return
 	}
 	if user.LoginLocked(now) {
 		h.audit(r, user, models.AuditAccess, "login.locked", "attempt during lockout")
-		h.renderLoginError(w, next, loginFailMsg)
+		h.renderLoginError(w, r, next, loginFailMsg)
 		return
 	}
 	if !auth.CheckPassword(user.PasswordHash, password) {
@@ -131,7 +133,7 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 		} else {
 			h.audit(r, user, models.AuditAccess, "login.fail", "bad password")
 		}
-		h.renderLoginError(w, next, loginFailMsg)
+		h.renderLoginError(w, r, next, loginFailMsg)
 		return
 	}
 
@@ -139,14 +141,14 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 	if user.TwoFactorRequired && user.TwoFactorEnrolled && user.TwoFactorMethod != models.TwoFactorNone {
 		sess, err := h.issueSession(w, r, user.ID, models.SessionPending2FA, pendingTTL)
 		if err != nil {
-			h.renderLoginError(w, next, "Could not start session. Try again.")
+			h.renderLoginError(w, r, next, "Could not start session. Try again.")
 			return
 		}
 		if user.TwoFactorMethod == models.TwoFactorEmail {
 			if err := h.sendEmailOTP(sess.ID, user); err != nil {
 				h.db.DeleteSession(sess.ID)
 				h.clearSessionCookie(w)
-				h.renderLoginError(w, next, "Could not send your e-mail code: "+err.Error())
+				h.renderLoginError(w, r, next, "Could not send your e-mail code: "+err.Error())
 				return
 			}
 		}
@@ -158,10 +160,11 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 	// No 2FA (or required-but-not-enrolled → the middleware will force
 	// enrollment on the account page): full login.
 	if _, err := h.issueSession(w, r, user.ID, models.SessionActive, sessionTTL); err != nil {
-		h.renderLoginError(w, next, "Could not start session. Try again.")
+		h.renderLoginError(w, r, next, "Could not start session. Try again.")
 		return
 	}
 	h.db.ClearLoginFailures(user.ID)
+	h.applyUserLanguageCookie(w, user)
 	h.audit(r, user, models.AuditAccess, "login.success", "")
 	http.Redirect(w, r, next, http.StatusSeeOther)
 }
@@ -193,6 +196,7 @@ func (h *Handler) TwoFactorPage(w http.ResponseWriter, r *http.Request) {
 		"Method": user.TwoFactorMethod,
 		"Next":   r.URL.Query().Get("next"),
 		"Error":  r.URL.Query().Get("error"),
+		"Lang":   h.lang(r),
 	})
 }
 
@@ -212,7 +216,7 @@ func (h *Handler) TwoFactorSubmit(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 
 	if user.TwoFactorLocked(now) {
-		h.render2FAError(w, user.TwoFactorMethod, next, "Two-factor temporarily locked. Try again later.")
+		h.render2FAError(w, r, user.TwoFactorMethod, next, "Two-factor temporarily locked. Try again later.")
 		return
 	}
 
@@ -242,7 +246,7 @@ func (h *Handler) TwoFactorSubmit(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.audit(r, user, models.AuditAccess, "2fa.fail", "")
-		h.render2FAError(w, user.TwoFactorMethod, next, "Incorrect code.")
+		h.render2FAError(w, r, user.TwoFactorMethod, next, "Incorrect code.")
 		return
 	}
 
@@ -257,17 +261,19 @@ func (h *Handler) TwoFactorSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.db.ClearLoginFailures(user.ID)
+	h.applyUserLanguageCookie(w, user)
 	h.audit(r, user, models.AuditAccess, "login.success", "2FA "+user.TwoFactorMethod)
 	http.Redirect(w, r, next, http.StatusSeeOther)
 }
 
-func (h *Handler) render2FAError(w http.ResponseWriter, method, next, msg string) {
+func (h *Handler) render2FAError(w http.ResponseWriter, r *http.Request, method, next, msg string) {
 	w.WriteHeader(http.StatusUnauthorized)
 	h.render(w, "twofactor_page", map[string]interface{}{
 		"Title":  "Two-factor - scaNNer",
 		"Method": method,
 		"Next":   next,
 		"Error":  msg,
+		"Lang":   h.lang(r),
 	})
 }
 
@@ -303,6 +309,7 @@ func (h *Handler) AccountPage(w http.ResponseWriter, r *http.Request) {
 		"EmailEligible":      strings.TrimSpace(user.Email) != "" && settings.SMTPConfigured() && settings.TwoFactorAvailable,
 		"Success":            r.URL.Query().Get("success"),
 		"Error":              r.URL.Query().Get("error"),
+		"Lang":               h.lang(r),
 	}
 	// When TOTP setup is mid-flight (secret set, not yet confirmed), show the QR.
 	// The QR is streamed from its own URL (/account/2fa/qr.png) rather than an

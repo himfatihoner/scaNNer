@@ -1,10 +1,10 @@
 {{define "page_spider_results"}}
 <div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
-    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <a href="/modules" class="hover:text-accent-400 transition-colors">{{T `Modules`}}</a>
     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
     <a href="/modules/spider" class="hover:text-accent-400 transition-colors">Web Spider</a>
     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-    <span class="text-dark-200">Results</span>
+    <span class="text-dark-200">{{T `Results`}}</span>
 </div>
 {{template "scan_actions" .}}
 
@@ -19,10 +19,10 @@
 {{end}}
 
 {{define "spider_results_inner"}}
-<p class="text-sm text-dark-400 mb-4">{{.TotalRes}} resources — {{.TotalDirs}} directories, {{.TotalFiles}} files</p>
+<p class="text-sm text-dark-400 mb-4">{{printf (T `%d resources — %d directories, %d files`) .TotalRes .TotalDirs .TotalFiles}}</p>
 {{if .Results}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl mb-4 overflow-hidden">
-    {{template "empty_toggle" (dict "Scope" "spider-targets" "ContainerSel" "#spiderTargetGroups" "Group" "aw-suite" "Label" "Hide URLs with no resources discovered")}}
+    {{template "empty_toggle" (dict "Scope" "spider-targets" "ContainerSel" "#spiderTargetGroups" "Group" "aw-suite" "Label" (T `Hide URLs with no resources discovered`))}}
     <div id="spiderTargetGroups" class="max-h-[700px] overflow-y-auto p-3 space-y-3">
 {{end}}
 {{range $tIdx, $tr := .Results}}
@@ -32,17 +32,17 @@
         <div>
             <span class="mono text-sm font-semibold text-accent-400">{{.URL}}</span>
             <div class="flex items-center gap-3 mt-1 text-[11px] text-dark-500">
-                <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-accent-400"></span>{{.TotalDirs}} dirs</span>
-                <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-success"></span>{{.TotalFiles}} files</span>
-                <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-dark-400"></span>{{.TotalPages}} total</span>
+                <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-accent-400"></span>{{printf (T `%d dirs`) .TotalDirs}}</span>
+                <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-success"></span>{{printf (T `%d files`) .TotalFiles}}</span>
+                <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-dark-400"></span>{{printf (T `%d total`) .TotalPages}}</span>
             </div>
         </div>
         <!-- Type filter -->
         <div class="flex gap-1 bg-dark-850 border border-dark-700 rounded-lg p-0.5">
-            <a href="?type=" class="px-2.5 py-1 text-[11px] rounded-md {{if or (eq $.FilterType "") (eq $.FilterType "all")}}text-white bg-accent-600{{else}}text-dark-400 hover:text-white{{end}}">All</a>
-            <a href="?type=directory" class="px-2.5 py-1 text-[11px] rounded-md {{if eq $.FilterType "directory"}}text-white bg-accent-600{{else}}text-dark-400 hover:text-white{{end}}">Dirs</a>
-            <a href="?type=file" class="px-2.5 py-1 text-[11px] rounded-md {{if eq $.FilterType "file"}}text-white bg-accent-600{{else}}text-dark-400 hover:text-white{{end}}">Files</a>
-            <a href="?type=endpoint" class="px-2.5 py-1 text-[11px] rounded-md {{if eq $.FilterType "endpoint"}}text-white bg-accent-600{{else}}text-dark-400 hover:text-white{{end}}">Endpoints</a>
+            <a href="?type=" class="px-2.5 py-1 text-[11px] rounded-md {{if or (eq $.FilterType "") (eq $.FilterType "all")}}text-white bg-accent-600{{else}}text-dark-400 hover:text-white{{end}}">{{T `All`}}</a>
+            <a href="?type=directory" class="px-2.5 py-1 text-[11px] rounded-md {{if eq $.FilterType "directory"}}text-white bg-accent-600{{else}}text-dark-400 hover:text-white{{end}}">{{T `Dirs`}}</a>
+            <a href="?type=file" class="px-2.5 py-1 text-[11px] rounded-md {{if eq $.FilterType "file"}}text-white bg-accent-600{{else}}text-dark-400 hover:text-white{{end}}">{{T `Files`}}</a>
+            <a href="?type=endpoint" class="px-2.5 py-1 text-[11px] rounded-md {{if eq $.FilterType "endpoint"}}text-white bg-accent-600{{else}}text-dark-400 hover:text-white{{end}}">{{T `Endpoints`}}</a>
         </div>
     </div>
 
@@ -51,12 +51,12 @@
         <table class="w-full">
             <thead class="sticky top-0 bg-dark-900">
                 <tr class="border-b border-dark-800">
-                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Path</th>
-                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Type</th>
-                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Status</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">{{T `Path`}}</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">{{T `Type`}}</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">{{T `Status`}}</th>
                     <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Content-Type</th>
-                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Found On</th>
-                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Depth</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">{{T `Found On`}}</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">{{T `Depth`}}</th>
                 </tr>
             </thead>
             <tbody>
@@ -70,12 +70,12 @@
                         {{if eq (print $r.Type) "directory"}}
                         <span class="inline-flex items-center gap-1 text-[11px] text-accent-400">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
-                            dir
+                            {{T `dir`}}
                         </span>
                         {{else if eq (print $r.Type) "file"}}
                         <span class="inline-flex items-center gap-1 text-[11px] text-success">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                            file
+                            {{T `file`}}
                         </span>
                         {{else}}
                         <span class="inline-flex items-center gap-1 text-[11px] text-warning">
@@ -108,30 +108,30 @@
         </table>
     </div>
     {{else}}
-    <div class="p-8 text-center text-dark-500"><p class="text-sm">No resources found</p></div>
+    <div class="p-8 text-center text-dark-500"><p class="text-sm">{{T `No resources found`}}</p></div>
     {{end}}
 
     {{/* ---- Harvested recon artifacts ---- */}}
     {{if or .Emails .Forms .Comments .Links .ExternalLinks .JSFiles .Images .Videos .Audio}}
     <div class="border-t border-dark-800 p-4 space-y-2">
-        <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-1">Harvested from crawled pages</p>
+        <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-1">{{T `Harvested from crawled pages`}}</p>
 
         {{if .Emails}}
         <details class="bg-dark-850 border border-dark-800 rounded-lg">
-            <summary class="cursor-pointer px-4 py-2 text-xs text-white flex items-center gap-2">✉️ Emails <span class="mono text-[10px] px-1.5 py-0.5 rounded bg-accent-500/15 text-accent-300">{{len .Emails}}</span></summary>
+            <summary class="cursor-pointer px-4 py-2 text-xs text-white flex items-center gap-2">✉️ {{T `Emails`}} <span class="mono text-[10px] px-1.5 py-0.5 rounded bg-accent-500/15 text-accent-300">{{len .Emails}}</span></summary>
             <div class="px-4 pb-3 max-h-48 overflow-auto space-y-0.5">{{range .Emails}}<div class="mono text-[11px] text-dark-200 select-all">{{.}}</div>{{end}}</div>
         </details>
         {{end}}
 
         {{if .Forms}}
         <details class="bg-dark-850 border border-dark-800 rounded-lg">
-            <summary class="cursor-pointer px-4 py-2 text-xs text-white flex items-center gap-2">📝 Forms <span class="mono text-[10px] px-1.5 py-0.5 rounded bg-accent-500/15 text-accent-300">{{len .Forms}}</span></summary>
+            <summary class="cursor-pointer px-4 py-2 text-xs text-white flex items-center gap-2">📝 {{T `Forms`}} <span class="mono text-[10px] px-1.5 py-0.5 rounded bg-accent-500/15 text-accent-300">{{len .Forms}}</span></summary>
             <div class="px-4 pb-3 max-h-64 overflow-auto space-y-2">
                 {{range .Forms}}
                 <div class="border border-dark-700 rounded p-2">
                     <div class="text-[11px] mb-1"><span class="mono px-1.5 py-0.5 rounded bg-dark-700 text-warning">{{.Method}}</span> <span class="mono text-accent-400 break-all">{{.Action}}</span></div>
-                    {{if .Fields}}<div class="flex flex-wrap gap-1">{{range .Fields}}<span class="mono text-[10px] px-1.5 py-0.5 rounded bg-dark-800 text-dark-300 border border-dark-700" title="type: {{.Type}}">{{.Name}}</span>{{end}}</div>{{else}}<span class="text-[10px] text-dark-600">no named fields</span>{{end}}
-                    <div class="text-[9px] text-dark-600 mt-1">on {{.FoundOn}}</div>
+                    {{if .Fields}}<div class="flex flex-wrap gap-1">{{range .Fields}}<span class="mono text-[10px] px-1.5 py-0.5 rounded bg-dark-800 text-dark-300 border border-dark-700" title="{{printf (T `type: %s`) .Type}}">{{.Name}}</span>{{end}}</div>{{else}}<span class="text-[10px] text-dark-600">{{T `no named fields`}}</span>{{end}}
+                    <div class="text-[9px] text-dark-600 mt-1">{{printf (T `on %s`) .FoundOn}}</div>
                 </div>
                 {{end}}
             </div>
@@ -140,24 +140,24 @@
 
         {{if .Comments}}
         <details class="bg-dark-850 border border-dark-800 rounded-lg">
-            <summary class="cursor-pointer px-4 py-2 text-xs text-white flex items-center gap-2">💬 HTML Comments <span class="mono text-[10px] px-1.5 py-0.5 rounded bg-accent-500/15 text-accent-300">{{len .Comments}}</span></summary>
+            <summary class="cursor-pointer px-4 py-2 text-xs text-white flex items-center gap-2">💬 {{T `HTML Comments`}} <span class="mono text-[10px] px-1.5 py-0.5 rounded bg-accent-500/15 text-accent-300">{{len .Comments}}</span></summary>
             <div class="px-4 pb-3 max-h-64 overflow-auto space-y-1.5">
                 {{range .Comments}}
                 <div class="border border-dark-700 rounded p-2">
                     <pre class="mono text-[10px] text-dark-300 whitespace-pre-wrap break-all">{{.Text}}</pre>
-                    <div class="text-[9px] text-dark-600 mt-1">on {{.FoundOn}}</div>
+                    <div class="text-[9px] text-dark-600 mt-1">{{printf (T `on %s`) .FoundOn}}</div>
                 </div>
                 {{end}}
             </div>
         </details>
         {{end}}
 
-        {{if .Links}}{{template "spider_urllist" (dict "Icon" "🔗" "Label" "Links (in-scope)" "Items" .Links)}}{{end}}
-        {{if .ExternalLinks}}{{template "spider_urllist" (dict "Icon" "🌐" "Label" "External links / files" "Items" .ExternalLinks)}}{{end}}
-        {{if .JSFiles}}{{template "spider_urllist" (dict "Icon" "📜" "Label" "JS files" "Items" .JSFiles)}}{{end}}
-        {{if .Images}}{{template "spider_urllist" (dict "Icon" "🖼️" "Label" "Images" "Items" .Images)}}{{end}}
-        {{if .Videos}}{{template "spider_urllist" (dict "Icon" "🎞️" "Label" "Videos" "Items" .Videos)}}{{end}}
-        {{if .Audio}}{{template "spider_urllist" (dict "Icon" "🔊" "Label" "Audio" "Items" .Audio)}}{{end}}
+        {{if .Links}}{{template "spider_urllist" (dict "Icon" "🔗" "Label" (T `Links (in-scope)`) "Items" .Links)}}{{end}}
+        {{if .ExternalLinks}}{{template "spider_urllist" (dict "Icon" "🌐" "Label" (T `External links / files`) "Items" .ExternalLinks)}}{{end}}
+        {{if .JSFiles}}{{template "spider_urllist" (dict "Icon" "📜" "Label" (T `JS files`) "Items" .JSFiles)}}{{end}}
+        {{if .Images}}{{template "spider_urllist" (dict "Icon" "🖼️" "Label" (T `Images`) "Items" .Images)}}{{end}}
+        {{if .Videos}}{{template "spider_urllist" (dict "Icon" "🎞️" "Label" (T `Videos`) "Items" .Videos)}}{{end}}
+        {{if .Audio}}{{template "spider_urllist" (dict "Icon" "🔊" "Label" (T `Audio`) "Items" .Audio)}}{{end}}
     </div>
     {{end}}
 </div>
@@ -168,7 +168,7 @@
 {{end}}
 
 {{if not .Results}}
-<div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500"><p class="text-sm">{{if eq (print .Scan.Status) "running"}}Waiting for first results...{{else}}No results{{end}}</p></div>
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500"><p class="text-sm">{{if eq (print .Scan.Status) "running"}}{{T `Waiting for first results...`}}{{else}}{{T `No results`}}{{end}}</p></div>
 {{end}}
 {{end}}
 

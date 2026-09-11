@@ -49,46 +49,46 @@ html.light {
 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
     <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
         <div class="flex items-center justify-between mb-3">
-            <span class="text-sm font-semibold text-dark-300 uppercase tracking-wider">Total Scans</span>
+            <span class="text-sm font-semibold text-dark-300 uppercase tracking-wider">{{T "Total Scans"}}</span>
             <svg class="w-5 h-5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
             </svg>
         </div>
         <p class="text-3xl font-bold text-white">{{.TotalScanCount}}</p>
-        <p class="text-sm text-dark-400 mt-1">{{if .TotalScanCount}}In this workspace{{else}}No scans yet{{end}}</p>
+        <p class="text-sm text-dark-400 mt-1">{{if .TotalScanCount}}{{T "In this workspace"}}{{else}}{{T "No scans yet"}}{{end}}</p>
     </div>
 
     <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
         <div class="flex items-center justify-between mb-3">
-            <span class="text-sm font-semibold text-dark-300 uppercase tracking-wider">Active</span>
+            <span class="text-sm font-semibold text-dark-300 uppercase tracking-wider">{{T "Active"}}</span>
             <svg class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
             </svg>
         </div>
         <p class="text-3xl font-bold text-white">{{.ActiveScanCount}}</p>
-        <p class="text-sm text-dark-400 mt-1">{{if .ActiveScanCount}}Running now{{else}}No active scans{{end}}</p>
+        <p class="text-sm text-dark-400 mt-1">{{if .ActiveScanCount}}{{T "Running now"}}{{else}}{{T "No active scans"}}{{end}}</p>
     </div>
 
     <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
         <div class="flex items-center justify-between mb-3">
-            <span class="text-sm font-semibold text-dark-300 uppercase tracking-wider">Modules</span>
+            <span class="text-sm font-semibold text-dark-300 uppercase tracking-wider">{{T "Modules"}}</span>
             <svg class="w-5 h-5 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
             </svg>
         </div>
         <p class="text-3xl font-bold text-white">{{len .Modules}}</p>
-        <p class="text-sm text-dark-400 mt-1">Loaded modules</p>
+        <p class="text-sm text-dark-400 mt-1">{{T "Loaded modules"}}</p>
     </div>
 
     <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
         <div class="flex items-center justify-between mb-3">
-            <span class="text-sm font-semibold text-dark-300 uppercase tracking-wider">Targets</span>
+            <span class="text-sm font-semibold text-dark-300 uppercase tracking-wider">{{T "Targets"}}</span>
             <svg class="w-5 h-5 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
         </div>
         <p class="text-3xl font-bold text-white">{{.TotalCount}}</p>
-        <p class="text-sm text-dark-400 mt-1">Unique targets</p>
+        <p class="text-sm text-dark-400 mt-1">{{T "Unique targets"}}</p>
     </div>
 </div>
 
@@ -101,36 +101,36 @@ html.light {
             <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M3 12h4l3 8 4-16 3 8h4"/>
             </svg>
-            Live Network &amp; Performance
-            <span id="perfHealth" class="text-[10px] uppercase px-2 py-0.5 rounded ml-1 bg-dark-700/60 text-dark-300">idle</span>
+            {{T "Live Network & Performance"}}
+            <span id="perfHealth" class="text-[10px] uppercase px-2 py-0.5 rounded ml-1 bg-dark-700/60 text-dark-300">{{T "idle"}}</span>
         </h3>
         <div class="flex items-center gap-x-4 gap-y-1 text-xs text-dark-300 mono flex-wrap">
-            <span title="Ephemeral (client-side) TCP ports in use across all scans, and what share of the usable range that is — nearing 100% means new connections start failing.">ports <b id="perfPorts" class="text-white">—</b></span>
-            <span title="Scans running right now.">scans <b id="perfActive" class="text-white">—</b></span>
-            <span title="Combined live scan throughput — results/requests processed per second.">tput <b id="perfTput" class="text-white">—</b>/s</span>
-            <span title="System 1-minute load average over the CPU core count — above 1.0 per core means work is queueing.">load <b id="perfLoad" class="text-white">—</b></span>
+            <span title="{{T `Ephemeral (client-side) TCP ports in use across all scans, and what share of the usable range that is — nearing 100% means new connections start failing.`}}">{{T "ports"}} <b id="perfPorts" class="text-white">—</b></span>
+            <span title="{{T `Scans running right now.`}}">{{T "scans"}} <b id="perfActive" class="text-white">—</b></span>
+            <span title="{{T `Combined live scan throughput — results/requests processed per second.`}}">{{T "tput"}} <b id="perfTput" class="text-white">—</b>/s</span>
+            <span title="{{T `System 1-minute load average over the CPU core count — above 1.0 per core means work is queueing.`}}">{{T "load"}} <b id="perfLoad" class="text-white">—</b></span>
         </div>
     </div>
-    <p class="text-xs text-dark-400 mb-4">Outbound-port &amp; connection pressure vs live scan throughput · <span id="perfMeta" class="text-dark-500">…</span></p>
+    <p class="text-xs text-dark-400 mb-4">{{T "Outbound-port & connection pressure vs live scan throughput"}} · <span id="perfMeta" class="text-dark-500">…</span></p>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-4">
         <div>
-            <div class="flex justify-between text-xs text-dark-400 mb-1"><span title="Percentage of the usable outbound (ephemeral) source-port range currently consumed by scan connections.">Outbound Port Usage (%)</span><span class="text-danger/80" title="Above ~75% the machine is close to running out of source ports and new connections may fail.">exhaustion &gt; 75%</span></div>
+            <div class="flex justify-between text-xs text-dark-400 mb-1"><span title="{{T `Percentage of the usable outbound (ephemeral) source-port range currently consumed by scan connections.`}}">{{T "Outbound Port Usage (%)"}}</span><span class="text-danger/80" title="{{T `Above ~75% the machine is close to running out of source ports and new connections may fail.`}}">{{T "exhaustion > 75%"}}</span></div>
             <div id="perfPortChart" class="w-full h-40 relative"></div>
         </div>
         <div>
-            <div class="flex justify-between text-xs text-dark-400 mb-1"><span title="Number of open TCP connections grouped by their state — shows how much connection pressure the scans create.">Connections by State</span><span class="text-dark-500"><span style="color:var(--chart-green)">▬</span><span title="Active, established connections currently carrying traffic (TCP ESTABLISHED).">active</span> <span style="color:var(--chart-purple)">▬</span><span title="Recently-closed connections held briefly by the OS before the source port can be reused (TCP TIME-WAIT).">recently closed</span> <span style="color:var(--chart-orange)">▬</span><span title="Connections we have closed on our side, waiting for the peer's final acknowledgement (TCP FIN-WAIT-2).">closing</span></span></div>
+            <div class="flex justify-between text-xs text-dark-400 mb-1"><span title="{{T `Number of open TCP connections grouped by their state — shows how much connection pressure the scans create.`}}">{{T "Connections by State"}}</span><span class="text-dark-500"><span style="color:var(--chart-green)">▬</span><span title="{{T `Active, established connections currently carrying traffic (TCP ESTABLISHED).`}}">{{T "active"}}</span> <span style="color:var(--chart-purple)">▬</span><span title="{{T `Recently-closed connections held briefly by the OS before the source port can be reused (TCP TIME-WAIT).`}}">{{T "recently closed"}}</span> <span style="color:var(--chart-orange)">▬</span><span title="{{T `Connections we have closed on our side, waiting for the peer's final acknowledgement (TCP FIN-WAIT-2).`}}">{{T "closing"}}</span></span></div>
             <div id="perfSockChart" class="w-full h-40 relative"></div>
         </div>
         <div>
-            <div class="flex justify-between text-xs text-dark-400 mb-1"><span title="System run-queue length vs CPU usage — shows whether scans are CPU-bound.">CPU Load</span><span class="text-dark-500"><span style="color:var(--chart-red)">▬</span><span title="1-minute load average: the average number of processes waiting to run (a run-queue length &gt; number of CPU cores means the machine is saturated).">run queue (1m)</span> <span style="color:var(--chart-blue)">▬</span><span title="Percentage of total CPU capacity in use across all cores.">CPU %</span></span></div>
+            <div class="flex justify-between text-xs text-dark-400 mb-1"><span title="{{T `System run-queue length vs CPU usage — shows whether scans are CPU-bound.`}}">{{T "CPU Load"}}</span><span class="text-dark-500"><span style="color:var(--chart-red)">▬</span><span title="{{T `1-minute load average: the average number of processes waiting to run (a run-queue length > number of CPU cores means the machine is saturated).`}}">{{T "run queue (1m)"}}</span> <span style="color:var(--chart-blue)">▬</span><span title="{{T `Percentage of total CPU capacity in use across all cores.`}}">{{T "CPU %"}}</span></span></div>
             <div id="perfLoadChart" class="w-full h-40 relative"></div>
         </div>
         <div>
-            <div class="flex justify-between text-xs text-dark-400 mb-1"><span title="Live scan work completed per second, and the rate of errors it produces.">Scan Throughput &amp; Errors (/s)</span><span class="text-dark-500"><span style="color:var(--chart-green)">▬</span><span title="Requests/results successfully processed per second across all running scans.">completed /s</span> <span style="color:var(--chart-red)">▬</span><span title="Errored requests per second (timeouts, refused connections, tool failures).">errors /s</span></span></div>
+            <div class="flex justify-between text-xs text-dark-400 mb-1"><span title="{{T `Live scan work completed per second, and the rate of errors it produces.`}}">{{T "Scan Throughput & Errors (/s)"}}</span><span class="text-dark-500"><span style="color:var(--chart-green)">▬</span><span title="{{T `Requests/results successfully processed per second across all running scans.`}}">{{T "completed /s"}}</span> <span style="color:var(--chart-red)">▬</span><span title="{{T `Errored requests per second (timeouts, refused connections, tool failures).`}}">{{T "errors /s"}}</span></span></div>
             <div id="perfTputChart" class="w-full h-40 relative"></div>
         </div>
         <div>
-            <div class="flex justify-between text-xs text-dark-400 mb-1"><span title="How many outbound (ephemeral) ports are held by scaNNer's own processes vs by other applications on this machine — attributes port pressure to its source.">Outbound Ports by Owner</span><span class="text-dark-500"><span style="color:var(--chart-blue)">▬</span><span title="Ephemeral ports held by the scaNNer process tree (scanner + spawned tools: nmap, whatweb, nuclei, …).">scaNNer</span> <span style="color:var(--chart-orange)">▬</span><span title="Ephemeral ports held by every OTHER application on this machine (kernel-held TIME-WAIT sockets are excluded — they belong to no process).">other apps</span></span></div>
+            <div class="flex justify-between text-xs text-dark-400 mb-1"><span title="{{T `How many outbound (ephemeral) ports are held by scaNNer's own processes vs by other applications on this machine — attributes port pressure to its source.`}}">{{T "Outbound Ports by Owner"}}</span><span class="text-dark-500"><span style="color:var(--chart-blue)">▬</span><span title="{{T `Ephemeral ports held by the scaNNer process tree (scanner + spawned tools: nmap, whatweb, nuclei, …).`}}">scaNNer</span> <span style="color:var(--chart-orange)">▬</span><span title="{{T `Ephemeral ports held by every OTHER application on this machine (kernel-held TIME-WAIT sockets are excluded — they belong to no process).`}}">{{T "other apps"}}</span></span></div>
             <div id="perfOwnerChart" class="w-full h-40 relative"></div>
         </div>
     </div>
@@ -293,14 +293,14 @@ html.light {
                     <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 10V3L4 14h7v7l9-11h-7z"/>
                     </svg>
-                    Scan Workload
+                    {{T "Scan Workload"}}
                 </h3>
-                <p class="text-xs text-dark-400 mt-0.5">Probes / items processed across all scans · last 7 days · proxy for tool activity, not literal HTTP requests</p>
+                <p class="text-xs text-dark-400 mt-0.5">{{T "Probes / items processed across all scans · last 7 days · proxy for tool activity, not literal HTTP requests"}}</p>
             </div>
             <div class="flex items-center gap-3 text-xs text-dark-300">
-                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-accent-400"></span>Per day</span>
-                <span class="flex items-center gap-1.5" title="Running total of progress units across the last 7 days. Each module counts its own work differently — nuclei = URLs probed, httpxfind = (host × port) tasks, dnsenum = domains processed."><span class="w-2.5 h-2.5 rounded-full" style="background:var(--chart-purple)"></span>7-day total</span>
-                <span id="totalRequests" class="ml-2 mono font-bold text-white" title="Sum of all progress units across past scans in the last 7 days">—</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-accent-400"></span>{{T "Per day"}}</span>
+                <span class="flex items-center gap-1.5" title="{{T `Running total of progress units across the last 7 days. Each module counts its own work differently — nuclei = URLs probed, httpxfind = (host × port) tasks, dnsenum = domains processed.`}}"><span class="w-2.5 h-2.5 rounded-full" style="background:var(--chart-purple)"></span>{{T "7-day total"}}</span>
+                <span id="totalRequests" class="ml-2 mono font-bold text-white" title="{{T `Sum of all progress units across past scans in the last 7 days`}}">—</span>
             </div>
         </div>
         <div id="trafficChart" class="w-full h-64 relative"></div>
@@ -313,9 +313,9 @@ html.light {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/>
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/>
             </svg>
-            Status Mix
+            {{T "Status Mix"}}
         </h3>
-        <p class="text-xs text-dark-400 mb-3">All scans, all-time</p>
+        <p class="text-xs text-dark-400 mb-3">{{T "All scans, all-time"}}</p>
         <div id="statusDonut" class="w-full flex items-center justify-center"></div>
     </div>
 
@@ -327,14 +327,14 @@ html.light {
                     <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
                 </svg>
-                    Scans · Vulnerabilities · Assets
+                    {{T "Scans · Vulnerabilities · Assets"}}
                 </h3>
-                <p class="text-xs text-dark-400 mt-0.5">Daily scans, severe findings (critical/high/medium), and new assets discovered</p>
+                <p class="text-xs text-dark-400 mt-0.5">{{T "Daily scans, severe findings (critical/high/medium), and new assets discovered"}}</p>
             </div>
             <div class="flex items-center gap-3 text-xs text-dark-300">
-                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-accent-400"></span>Scans</span>
-                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:var(--chart-orange)"></span>Vulns</span>
-                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-success"></span>Assets</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-accent-400"></span>{{T "Scans"}}</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:var(--chart-orange)"></span>{{T "Vulns"}}</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-success"></span>{{T "Assets"}}</span>
             </div>
         </div>
         <div id="findingsChart" class="w-full h-64 relative"></div>
@@ -346,14 +346,14 @@ html.light {
             <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
             </svg>
-            New Vulnerabilities
+            {{T "New Vulnerabilities"}}
         </h3>
-        <p class="text-xs text-dark-400 mb-2">Distinct (deduplicated) findings first detected per day · last 7 days</p>
+        <p class="text-xs text-dark-400 mb-2">{{T "Distinct (deduplicated) findings first detected per day · last 7 days"}}</p>
         <div class="flex items-center gap-3 text-[11px] text-dark-300 mb-2">
-            <span class="flex items-center gap-1" title="Critical severity"><span class="w-2.5 h-2.5 rounded-full" style="background:var(--chart-red)"></span>Critical</span>
-            <span class="flex items-center gap-1" title="High severity"><span class="w-2.5 h-2.5 rounded-full" style="background:var(--chart-orange)"></span>High</span>
-            <span class="flex items-center gap-1" title="Medium severity"><span class="w-2.5 h-2.5 rounded-full" style="background:var(--chart-yellow)"></span>Medium</span>
-            <span class="flex items-center gap-1" title="Low severity"><span class="w-2.5 h-2.5 rounded-full" style="background:var(--chart-blue)"></span>Low</span>
+            <span class="flex items-center gap-1" title="{{T `Critical severity`}}"><span class="w-2.5 h-2.5 rounded-full" style="background:var(--chart-red)"></span>Critical</span>
+            <span class="flex items-center gap-1" title="{{T `High severity`}}"><span class="w-2.5 h-2.5 rounded-full" style="background:var(--chart-orange)"></span>High</span>
+            <span class="flex items-center gap-1" title="{{T `Medium severity`}}"><span class="w-2.5 h-2.5 rounded-full" style="background:var(--chart-yellow)"></span>Medium</span>
+            <span class="flex items-center gap-1" title="{{T `Low severity`}}"><span class="w-2.5 h-2.5 rounded-full" style="background:var(--chart-blue)"></span>Low</span>
         </div>
         <div id="vulnSevChart" class="w-full h-40 relative"></div>
     </div>
@@ -363,9 +363,9 @@ html.light {
             <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
             </svg>
-            Module Usage
+            {{T "Module Usage"}}
         </h3>
-        <p class="text-xs text-dark-400 mb-4">How scans are distributed across modules</p>
+        <p class="text-xs text-dark-400 mb-4">{{T "How scans are distributed across modules"}}</p>
         <div id="moduleUsage" class="w-full"></div>
     </div>
 </div>
@@ -732,26 +732,26 @@ html.light {
                 <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
                 </svg>
-                Quick Actions
+                {{T "Quick Actions"}}
             </h3>
             <div class="space-y-2">
                 <a href="/modules" class="w-full flex items-center gap-3 px-4 py-3 bg-dark-850 hover:bg-dark-800 border border-dark-700 hover:border-accent-500/50 rounded-lg text-sm text-dark-300 hover:text-white transition-all duration-200 group">
                     <span class="w-8 h-8 rounded-md bg-accent-600/20 text-accent-400 flex items-center justify-center group-hover:bg-accent-600/30 transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                     </span>
-                    New Scan
+                    {{T "New Scan"}}
                 </a>
                 <a href="/scans" class="w-full flex items-center gap-3 px-4 py-3 bg-dark-850 hover:bg-dark-800 border border-dark-700 hover:border-accent-500/50 rounded-lg text-sm text-dark-300 hover:text-white transition-all duration-200 group">
                     <span class="w-8 h-8 rounded-md bg-success/20 text-success flex items-center justify-center group-hover:bg-success/30 transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                     </span>
-                    View Scans
+                    {{T "View Scans"}}
                 </a>
                 <a href="/targets" class="w-full flex items-center gap-3 px-4 py-3 bg-dark-850 hover:bg-dark-800 border border-dark-700 hover:border-accent-500/50 rounded-lg text-sm text-dark-300 hover:text-white transition-all duration-200 group">
                     <span class="w-8 h-8 rounded-md bg-warning/20 text-warning flex items-center justify-center group-hover:bg-warning/30 transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
                     </span>
-                    Add Target
+                    {{T "Add Target"}}
                 </a>
             </div>
         </div>
@@ -763,10 +763,10 @@ html.light {
                     <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
-                    Recent Assets
+                    {{T "Recent Assets"}}
                 </h3>
                 {{if .RecentAssets}}
-                <a href="/assets" class="text-[11px] text-accent-400 hover:text-accent-300 transition-colors">View all →</a>
+                <a href="/assets" class="text-[11px] text-accent-400 hover:text-accent-300 transition-colors">{{T "View all →"}}</a>
                 {{end}}
             </div>
             {{if .RecentAssets}}
@@ -781,17 +781,17 @@ html.light {
                             {{else}}bg-dark-500{{end}}"></span>
                         <span class="mono text-xs text-dark-200 group-hover:text-white truncate">{{.Value}}</span>
                         {{if gt .RunningJobs 0}}
-                        <span class="w-1.5 h-1.5 rounded-full bg-accent-400 scan-pulse shrink-0" title="{{.RunningJobs}} running"></span>
+                        <span class="w-1.5 h-1.5 rounded-full bg-accent-400 scan-pulse shrink-0" title="{{T `%d running` .RunningJobs}}"></span>
                         {{end}}
                     </div>
-                    <span class="text-[10px] text-dark-500 mono shrink-0 ml-2">{{.ScanCount}} scan{{if ne .ScanCount 1}}s{{end}}</span>
+                    <span class="text-[10px] text-dark-500 mono shrink-0 ml-2">{{Tn .ScanCount "%d scan" "%d scans" .ScanCount}}</span>
                 </a>
                 {{end}}
             </div>
             {{else}}
             <div class="flex flex-col items-center justify-center py-6 text-dark-500 gap-2">
-                <p class="text-xs">No assets scanned yet</p>
-                <a href="/modules" class="text-[11px] text-accent-400 hover:text-accent-300 underline">Pick a module to start →</a>
+                <p class="text-xs">{{T "No assets scanned yet"}}</p>
+                <a href="/modules" class="text-[11px] text-accent-400 hover:text-accent-300 underline">{{T "Pick a module to start →"}}</a>
             </div>
             {{end}}
         </div>
@@ -804,7 +804,7 @@ html.light {
                 <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
-                Recent Activity
+                {{T "Recent Activity"}}
             </h3>
             {{if .RecentScans}}
             <div class="space-y-1.5 overflow-y-auto flex-1">
@@ -841,7 +841,7 @@ html.light {
                         {{if eq (print .Status) "done"}}text-success bg-success/10
                         {{else if eq (print .Status) "running"}}text-accent-400 bg-accent-600/10
                         {{else if eq (print .Status) "error"}}text-danger bg-danger/10
-                        {{else}}text-dark-500 bg-dark-700{{end}}">{{if eq (print .Status) "done"}}Done{{else if eq (print .Status) "running"}}Running{{else if eq (print .Status) "pending"}}Pending{{else if eq (print .Status) "error"}}Error{{else if eq (print .Status) "cancelled"}}Cancelled{{else}}{{.Status}}{{end}}</span>
+                        {{else}}text-dark-500 bg-dark-700{{end}}">{{if eq (print .Status) "done"}}{{T "Done"}}{{else if eq (print .Status) "running"}}{{T "Running"}}{{else if eq (print .Status) "pending"}}{{T "Pending"}}{{else if eq (print .Status) "error"}}{{T "Error"}}{{else if eq (print .Status) "cancelled"}}{{T "Cancelled"}}{{else}}{{.Status}}{{end}}</span>
                 </a>
                 {{end}}
             </div>
@@ -850,8 +850,8 @@ html.light {
                 <svg class="w-12 h-12 mb-3 text-dark-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                 </svg>
-                <p class="text-sm">No recent activity</p>
-                <p class="text-xs text-dark-600 mt-1">Start a scan to see results here</p>
+                <p class="text-sm">{{T "No recent activity"}}</p>
+                <p class="text-xs text-dark-600 mt-1">{{T "Start a scan to see results here"}}</p>
             </div>
             {{end}}
         </div>

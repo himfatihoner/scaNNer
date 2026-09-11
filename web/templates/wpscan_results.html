@@ -1,10 +1,10 @@
 {{define "page_wpscan_results"}}
 <div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
-    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <a href="/modules" class="hover:text-accent-400 transition-colors">{{T "Modules"}}</a>
     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
     <a href="/modules/wpscan" class="hover:text-accent-400 transition-colors">WPScan</a>
     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-    <span class="text-dark-200">Results</span>
+    <span class="text-dark-200">{{T "Results"}}</span>
 </div>
 
 {{template "scan_actions" .}}
@@ -21,12 +21,12 @@
 
 {{define "wpscan_results_inner"}}
 <p class="text-sm text-dark-400 mb-4">
-    {{if .VulnCount}}<span class="text-danger">{{.VulnCount}} vulnerabilities</span>{{else}}No vulnerabilities{{end}}
-    {{if .InfoCount}} · <span class="text-dark-400">{{.InfoCount}} info findings</span>{{end}}
+    {{if .VulnCount}}<span class="text-danger">{{Tn .VulnCount "%d vulnerability" "%d vulnerabilities" .VulnCount}}</span>{{else}}{{T "No vulnerabilities"}}{{end}}
+    {{if .InfoCount}} · <span class="text-dark-400">{{Tn .InfoCount "%d info finding" "%d info findings" .InfoCount}}</span>{{end}}
 </p>
 {{if .Results}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl mb-4 overflow-hidden">
-    {{template "empty_toggle" (dict "Scope" "wpscan-targets" "ContainerSel" "#wpScanGroups" "Group" "aw-suite" "Label" "Hide URLs where WordPress not detected")}}
+    {{template "empty_toggle" (dict "Scope" "wpscan-targets" "ContainerSel" "#wpScanGroups" "Group" "aw-suite" "Label" (T `Hide URLs where WordPress not detected`))}}
     <div id="wpScanGroups" class="max-h-[600px] overflow-y-auto p-3 space-y-3">
 {{end}}
 {{range .Results}}
@@ -48,13 +48,13 @@
             </div>
             <div class="flex items-center gap-3 text-xs text-dark-400">
                 {{if .WPVersion}}
-                <span class="px-2 py-0.5 rounded {{if eq .WPStatus "insecure"}}bg-danger/10 text-danger{{else}}bg-dark-700 text-dark-300{{end}}">WP {{.WPVersion}}</span>
+                <span class="px-2 py-0.5 rounded {{if eq .WPStatus "insecure"}}bg-danger/10 text-danger{{else}}bg-dark-700 text-dark-300{{end}}">{{T "WP %s" .WPVersion}}</span>
                 {{end}}
                 {{if .Theme}}
                 <span class="bg-dark-700 px-2 py-0.5 rounded">{{.Theme}}</span>
                 {{end}}
                 {{if .PluginCount}}
-                <span class="bg-dark-700 px-2 py-0.5 rounded">{{.PluginCount}} plugins</span>
+                <span class="bg-dark-700 px-2 py-0.5 rounded">{{Tn .PluginCount "%d plugin" "%d plugins" .PluginCount}}</span>
                 {{end}}
             </div>
         </div>
@@ -65,7 +65,7 @@
         <div class="flex items-center gap-3 px-4 py-3 bg-danger/5 border border-danger/20 rounded-lg">
             <svg class="w-5 h-5 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636L5.636 18.364m12.728 0L5.636 5.636"/></svg>
             <div>
-                <p class="text-sm font-medium text-danger">Site unreachable</p>
+                <p class="text-sm font-medium text-danger">{{T "Site unreachable"}}</p>
                 <p class="text-xs text-dark-400 mt-0.5">{{.Error}}</p>
             </div>
         </div>
@@ -73,7 +73,7 @@
         <div class="flex items-center gap-3 px-4 py-3 bg-warning/5 border border-warning/20 rounded-lg">
             <svg class="w-5 h-5 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             <div>
-                <p class="text-sm font-medium text-warning">WordPress not detected</p>
+                <p class="text-sm font-medium text-warning">{{T "WordPress not detected"}}</p>
                 <p class="text-xs text-dark-400 mt-0.5">{{.Error}}</p>
             </div>
         </div>
@@ -81,7 +81,7 @@
         <div class="flex items-center gap-3 px-4 py-3 bg-danger/5 border border-danger/20 rounded-lg">
             <svg class="w-5 h-5 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
             <div>
-                <p class="text-sm font-medium text-danger">Scan failed</p>
+                <p class="text-sm font-medium text-danger">{{T "Scan failed"}}</p>
                 <p class="text-xs text-dark-400 mt-0.5">{{.Error}}</p>
             </div>
         </div>
@@ -120,7 +120,7 @@
         {{else if .IsWordPress}}
         <div class="flex items-center gap-3 px-4 py-3 bg-success/5 border border-success/20 rounded-lg">
             <svg class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-            <p class="text-sm font-medium text-success">WordPress site scanned — no vulnerabilities found</p>
+            <p class="text-sm font-medium text-success">{{T "WordPress site scanned — no vulnerabilities found"}}</p>
         </div>
         {{end}}
     </div>
@@ -133,7 +133,7 @@
 
 {{if not .Results}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
-    <p class="text-sm">{{if eq (print .Scan.Status) "running"}}Waiting for first results...{{else}}No results available{{end}}</p>
+    <p class="text-sm">{{if eq (print .Scan.Status) "running"}}{{T "Waiting for first results..."}}{{else}}{{T "No results available"}}{{end}}</p>
 </div>
 {{end}}
 {{end}}

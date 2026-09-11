@@ -1,7 +1,7 @@
 {{define "page_settings"}}
 <div class="mb-6">
-    <h2 class="text-xl font-bold text-white">Settings</h2>
-    <p class="text-sm text-dark-400 mt-1">Configure scaNNer preferences</p>
+    <h2 class="text-xl font-bold text-white">{{T "Settings"}}</h2>
+    <p class="text-sm text-dark-400 mt-1">{{T "Configure scaNNer preferences"}}</p>
 </div>
 
 <!-- Notifications -->
@@ -33,16 +33,16 @@
                     <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
                     </svg>
-                    Workspaces
+                    {{T "Workspaces"}}
                 </h3>
-                <p class="text-xs text-dark-500 mt-0.5">Create and manage your scanning workspaces</p>
+                <p class="text-xs text-dark-500 mt-0.5">{{T "Create and manage your scanning workspaces"}}</p>
             </div>
             <button onclick="document.getElementById('createWSModal').classList.remove('hidden')"
                     class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                 </svg>
-                New Workspace
+                {{T "New Workspace"}}
             </button>
         </div>
         <div class="space-y-2">
@@ -57,14 +57,14 @@
                     <div>
                         <div class="flex items-center gap-2">
                             <span class="text-sm font-medium {{if eq .ID $.ActiveWorkspace.ID}}text-accent-400{{else}}text-white{{end}}">{{.Name}}</span>
-                            {{if .IsDefault}}<span class="text-[9px] uppercase tracking-wider text-dark-500 bg-dark-800 px-1.5 py-0.5 rounded">default</span>{{end}}
-                            {{if eq .ID $.ActiveWorkspace.ID}}<span class="text-[9px] uppercase tracking-wider text-accent-400 bg-accent-600/20 px-1.5 py-0.5 rounded">active</span>{{end}}
+                            {{if .IsDefault}}<span class="text-[9px] uppercase tracking-wider text-dark-500 bg-dark-800 px-1.5 py-0.5 rounded">{{T "default"}}</span>{{end}}
+                            {{if eq .ID $.ActiveWorkspace.ID}}<span class="text-[9px] uppercase tracking-wider text-accent-400 bg-accent-600/20 px-1.5 py-0.5 rounded">{{T "active"}}</span>{{end}}
                         </div>
-                        <span class="text-[11px] text-dark-500">{{.TargetCount}} targets</span>
+                        <span class="text-[11px] text-dark-500">{{Tn .TargetCount `%d target` `%d targets`}}</span>
                     </div>
                 </div>
                 {{if not .IsDefault}}
-                <form action="/workspace/delete" method="POST" onsubmit="return confirm('Delete workspace and all its data?')">
+                <form action="/workspace/delete" method="POST" onsubmit="return confirm('{{T `Delete workspace and all its data?`}}')">
                     <input type="hidden" name="id" value="{{.ID}}">
                     <button type="submit" class="p-1.5 text-dark-500 hover:text-danger hover:bg-danger/10 rounded-md transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
@@ -84,15 +84,15 @@
                 <div>
                     <h4 class="text-sm font-semibold text-warning flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                        Reset active workspace
+                        {{T "Reset active workspace"}}
                     </h4>
-                    <p class="text-[11px] text-dark-400 mt-1">Wipes ALL scans, targets, and target lists in <span class="text-accent-300 mono">{{.ActiveWorkspace.Name}}</span>. The workspace itself stays — your settings, API keys, CVE database and other workspaces are untouched.</p>
+                    <p class="text-[11px] text-dark-400 mt-1">{{T "Wipes ALL scans, targets, and target lists in"}} <span class="text-accent-300 mono">{{.ActiveWorkspace.Name}}</span>. {{T "The workspace itself stays — your settings, API keys, CVE database and other workspaces are untouched."}}</p>
                 </div>
                 <form action="/workspace/reset" method="POST" class="flex items-center gap-2"
-                      onsubmit="return confirm('This will permanently delete all scans, targets and target lists in this workspace. Settings + CVE DB are NOT affected. Continue?')">
+                      onsubmit="return confirm('{{T `This will permanently delete all scans, targets and target lists in this workspace. Settings + CVE DB are NOT affected. Continue?`}}')">
                     <input type="hidden" name="confirm" value="yes">
                     <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-warning/10 border border-warning/30 text-warning hover:bg-warning/20 transition-colors">
-                        Reset workspace
+                        {{T "Reset workspace"}}
                     </button>
                 </form>
             </div>
@@ -105,8 +105,8 @@
         <div class="flex items-center gap-3 px-4 py-3 mb-4 bg-warning/10 border border-warning/20 rounded-lg text-sm text-warning">
             <svg class="w-5 h-5 shrink-0 scan-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
             <div>
-                <p class="font-medium">Scans are currently running</p>
-                <p class="text-xs text-warning/70 mt-0.5">Settings cannot be changed while scans are active. Wait for all scans to complete.</p>
+                <p class="font-medium">{{T "Scans are currently running"}}</p>
+                <p class="text-xs text-warning/70 mt-0.5">{{T "Settings cannot be changed while scans are active. Wait for all scans to complete."}}</p>
             </div>
         </div>
         {{end}}
@@ -117,28 +117,28 @@
                 <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.6 9h16.8M3.6 15h16.8M11 3a16 16 0 000 18M13 3a16 16 0 010 18M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
-                Web Scan Defaults
+                {{T "Web Scan Defaults"}}
             </h3>
-            <p class="text-xs text-dark-500 mb-4">Used by HTTP-based modules: Spider, Directory Enum, HTTPX Finder, HTTP Methods, WAF Detector, WPScan, Security Headers, Tech Detector, Param Discovery, Nuclei.</p>
+            <p class="text-xs text-dark-500 mb-4">{{T "Used by HTTP-based modules: Spider, Directory Enum, HTTPX Finder, HTTP Methods, WAF Detector, WPScan, Security Headers, Tech Detector, Param Discovery, Nuclei."}}</p>
             <div class="space-y-4">
                 <div class="grid grid-cols-3 gap-4">
                     <div>
-                        <label class="block text-xs text-dark-400 mb-1.5">Request Timeout (sec)</label>
+                        <label class="block text-xs text-dark-400 mb-1.5">{{T "Request Timeout (sec)"}}</label>
                         <input type="number" name="web_timeout" value="{{.Settings.WebTimeout}}" min="1" max="600"
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-accent-500">
-                        <p class="text-[10px] text-dark-600 mt-1">1-600 sec per HTTP request</p>
+                        <p class="text-[10px] text-dark-600 mt-1">{{T "1-600 sec per HTTP request"}}</p>
                     </div>
                     <div>
-                        <label class="block text-xs text-dark-400 mb-1.5">Max Concurrent</label>
+                        <label class="block text-xs text-dark-400 mb-1.5">{{T "Max Concurrent"}}</label>
                         <input type="number" name="web_max_concurrent" value="{{.Settings.WebMaxConcurrent}}" min="1" max="999"
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-accent-500">
-                        <p class="text-[10px] text-dark-600 mt-1">parallel HTTP requests (1-999)</p>
+                        <p class="text-[10px] text-dark-600 mt-1">{{T "parallel HTTP requests (1-999)"}}</p>
                     </div>
                     <div>
-                        <label class="block text-xs text-dark-400 mb-1.5">Rate Limit (req/s)</label>
+                        <label class="block text-xs text-dark-400 mb-1.5">{{T "Rate Limit (req/s)"}}</label>
                         <input type="number" name="web_rate_limit" value="{{.Settings.WebRateLimit}}" min="0" max="10000"
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-accent-500">
-                        <p class="text-[10px] text-dark-600 mt-1">0 = unlimited</p>
+                        <p class="text-[10px] text-dark-600 mt-1">{{T "0 = unlimited"}}</p>
                     </div>
                 </div>
 
@@ -147,16 +147,13 @@
                     <label class="flex items-center gap-2 cursor-pointer">
                         <input type="checkbox" name="web_reachability_preflight" {{if .Settings.WebReachabilityPreflight}}checked{{end}}
                                class="w-4 h-4 rounded border-dark-600 bg-dark-850 text-accent-500 focus:ring-accent-500">
-                        <span class="text-xs text-dark-300">Skip unreachable web targets (TCP + TLS preflight)</span>
+                        <span class="text-xs text-dark-300">{{T "Skip unreachable web targets (TCP + TLS preflight)"}}</span>
                     </label>
                     <p class="text-[10px] text-dark-600 mt-1 ml-6">
-                        Before a web tool runs, probe each target and skip any that resets or times out the TLS handshake — so a
-                        dead host doesn't make the tool grind through thousands of failing requests. Invalid/self-signed certs are
-                        still scanned (handshake completes). Skipped targets appear as explicit "unreachable" rows.
-                        Turn off to force-scan everything.
+                        {{T `Before a web tool runs, probe each target and skip any that resets or times out the TLS handshake — so a dead host doesn't make the tool grind through thousands of failing requests. Invalid/self-signed certs are still scanned (handshake completes). Skipped targets appear as explicit "unreachable" rows. Turn off to force-scan everything.`}}
                     </p>
                     <div class="mt-2 max-w-[200px]">
-                        <label class="block text-[10px] text-dark-500 mb-1">Preflight timeout (s)</label>
+                        <label class="block text-[10px] text-dark-500 mb-1">{{T "Preflight timeout (s)"}}</label>
                         <input type="number" name="web_preflight_timeout" value="{{.Settings.EffectiveWebPreflightTimeout}}" min="1" max="60"
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-500">
                     </div>
@@ -165,12 +162,12 @@
                 <!-- Proxy -->
                 <div>
                     <div class="flex items-center justify-between mb-2">
-                        <label class="text-xs text-dark-400">HTTP Proxy</label>
+                        <label class="text-xs text-dark-400">{{T "HTTP Proxy"}}</label>
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input type="checkbox" name="use_proxy" {{if .Settings.UseProxy}}checked{{end}}
                                    class="rounded border-dark-600 bg-dark-800 text-accent-500" id="proxyToggle"
                                    onchange="document.getElementById('proxyInput').disabled = !this.checked; updateBurpSuccessOnlyState()">
-                            <span class="text-[11px] text-dark-400">Enable Proxy</span>
+                            <span class="text-[11px] text-dark-400">{{T "Enable Proxy"}}</span>
                         </label>
                     </div>
                     <div class="flex gap-2">
@@ -180,22 +177,22 @@
                                oninput="updateBurpSuccessOnlyState()"
                                class="flex-1 mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 disabled:opacity-40">
                         <label class="flex items-center gap-2 px-3 py-2.5 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer hover:border-orange-500/50 transition-colors shrink-0"
-                               title="Burp Suite default proxy">
+                               title="{{T `Burp Suite default proxy`}}">
                             <input type="checkbox" name="burp_proxy" class="rounded border-dark-600 bg-dark-800 text-orange-500"
                                    onchange="if(this.checked){document.getElementById('proxyInput').value='http://127.0.0.1:8080';document.getElementById('proxyToggle').checked=true;document.getElementById('proxyInput').disabled=false}; updateBurpSuccessOnlyState()">
                             <span class="text-[11px] text-orange-400 font-medium">Burp</span>
                         </label>
                     </div>
-                    <p class="text-[10px] text-dark-600 mt-1">HTTP / SOCKS5. Routes web-module traffic through the proxy.</p>
+                    <p class="text-[10px] text-dark-600 mt-1">{{T "HTTP / SOCKS5. Routes web-module traffic through the proxy."}}</p>
 
                     <label id="burpSuccessOnlyLabel"
                            class="mt-3 flex items-start gap-3 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer hover:border-orange-500/40 transition-colors">
                         <input type="checkbox" name="burp_success_only" id="burpSuccessOnly" {{if .Settings.BurpSuccessOnly}}checked{{end}}
                                class="mt-0.5 rounded border-dark-600 bg-dark-800 text-orange-500">
                         <div>
-                            <p class="text-xs font-medium text-orange-300">Proxy only successful findings</p>
-                            <p class="text-[11px] text-dark-500 mt-0.5">Probe traffic bypasses the proxy — only confirmed hits (discovered directories, live subdomains, detected technologies, …) are replayed through the proxy so tools like Burp see signal, not noise.</p>
-                            <p class="text-[10px] text-dark-600 mt-1 hidden" id="burpSuccessOnlyHint">Enable a proxy URL above to use this option.</p>
+                            <p class="text-xs font-medium text-orange-300">{{T "Proxy only successful findings"}}</p>
+                            <p class="text-[11px] text-dark-500 mt-0.5">{{T "Probe traffic bypasses the proxy — only confirmed hits (discovered directories, live subdomains, detected technologies, …) are replayed through the proxy so tools like Burp see signal, not noise."}}</p>
+                            <p class="text-[10px] text-dark-600 mt-1 hidden" id="burpSuccessOnlyHint">{{T "Enable a proxy URL above to use this option."}}</p>
                         </div>
                     </label>
                     <script>
@@ -226,7 +223,7 @@
 
                 <!-- User-Agent -->
                 <div>
-                    <label class="block text-xs text-dark-400 mb-1.5">Default User-Agent</label>
+                    <label class="block text-xs text-dark-400 mb-1.5">{{T "Default User-Agent"}}</label>
                     <input type="text" name="user_agent" value="{{.Settings.UserAgent}}"
                            class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-accent-500">
                 </div>
@@ -239,40 +236,40 @@
                 <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 12a7 7 0 0014 0M5 12a7 7 0 0114 0M5 12H3m18 0h-2M9 5l3-3 3 3M9 19l3 3 3-3"/>
                 </svg>
-                Network Scan Defaults
+                {{T "Network Scan Defaults"}}
             </h3>
-            <p class="text-xs text-dark-500 mb-4">Used by nmap-/hydra-/SNMP-driven modules: Host Discovery, Port + Service, SMB Enum, SNMP Enum, Service Brute Forcer, WHOIS / ASN Lookup. The HTTP proxy and User-Agent above don't apply here.</p>
+            <p class="text-xs text-dark-500 mb-4">{{T "Used by nmap-/hydra-/SNMP-driven modules: Host Discovery, Port + Service, SMB Enum, SNMP Enum, Service Brute Forcer, WHOIS / ASN Lookup. The HTTP proxy and User-Agent above don't apply here."}}</p>
             <div class="space-y-4">
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
-                        <label class="block text-xs text-dark-400 mb-1.5">Host Timeout (sec)</label>
+                        <label class="block text-xs text-dark-400 mb-1.5">{{T "Host Timeout (sec)"}}</label>
                         <input type="number" name="network_timeout" value="{{.Settings.NetworkTimeout}}" min="1" max="1800"
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-accent-500">
-                        <p class="text-[10px] text-dark-600 mt-1">per-host nmap timeout</p>
+                        <p class="text-[10px] text-dark-600 mt-1">{{T "per-host nmap timeout"}}</p>
                     </div>
                     <div>
-                        <label class="block text-xs text-dark-400 mb-1.5">Max Concurrent</label>
+                        <label class="block text-xs text-dark-400 mb-1.5">{{T "Max Concurrent"}}</label>
                         <input type="number" name="network_max_concurrent" value="{{.Settings.NetworkMaxConcurrent}}" min="1" max="32"
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-accent-500">
-                        <p class="text-[10px] text-dark-600 mt-1">parallel host scans (1-32)</p>
+                        <p class="text-[10px] text-dark-600 mt-1">{{T "parallel host scans (1-32)"}}</p>
                     </div>
                     <div>
-                        <label class="block text-xs text-dark-400 mb-1.5">Max Rate (pkt/s)</label>
+                        <label class="block text-xs text-dark-400 mb-1.5">{{T "Max Rate (pkt/s)"}}</label>
                         <input type="number" name="network_rate_limit" value="{{.Settings.NetworkRateLimit}}" min="0" max="1000000"
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-accent-500">
-                        <p class="text-[10px] text-dark-600 mt-1">nmap --max-rate · 0 = ∞</p>
+                        <p class="text-[10px] text-dark-600 mt-1">{{T "nmap --max-rate · 0 = ∞"}}</p>
                     </div>
                     <div>
-                        <label class="block text-xs text-dark-400 mb-1.5">Brute-force Threads</label>
+                        <label class="block text-xs text-dark-400 mb-1.5">{{T "Brute-force Threads"}}</label>
                         <input type="number" name="brute_threads" value="{{.Settings.BruteThreads}}" min="1" max="256"
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-accent-500">
-                        <p class="text-[10px] text-dark-600 mt-1">hydra/medusa -t (1-256)</p>
+                        <p class="text-[10px] text-dark-600 mt-1">{{T "hydra/medusa -t (1-256)"}}</p>
                     </div>
                     <div>
-                        <label class="block text-xs text-dark-400 mb-1.5">CPU Budget (% of cores)</label>
+                        <label class="block text-xs text-dark-400 mb-1.5">{{T "CPU Budget (% of cores)"}}</label>
                         <input type="number" name="max_cpu_percent" value="{{.Settings.MaxCPUPercent}}" min="10" max="100"
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-accent-500">
-                        <p class="text-[10px] text-dark-600 mt-1">Max share of CPU cores CPU-bound modules (e.g. techdetect/whatweb) may use — sizes their auto-concurrency (10-100, default 75)</p>
+                        <p class="text-[10px] text-dark-600 mt-1">{{T "Max share of CPU cores CPU-bound modules (e.g. techdetect/whatweb) may use — sizes their auto-concurrency (10-100, default 75)"}}</p>
                     </div>
                 </div>
             </div>
@@ -283,22 +280,22 @@
         <div id="nettune" class="bg-dark-900 border border-dark-800 rounded-xl p-5 mb-6">
             <h3 class="text-sm font-semibold text-white mb-2 flex items-center gap-2">
                 <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M3 12h4l3 8 4-16 3 8h4"/></svg>
-                Network Tuning
-                {{if .Tuned}}<span class="text-[10px] uppercase text-success bg-success/10 px-2 py-0.5 rounded">tuned</span>{{else}}<span class="text-[10px] uppercase text-warning bg-warning/10 px-2 py-0.5 rounded">stock</span>{{end}}
+                {{T "Network Tuning"}}
+                {{if .Tuned}}<span class="text-[10px] uppercase text-success bg-success/10 px-2 py-0.5 rounded">{{T "tuned"}}</span>{{else}}<span class="text-[10px] uppercase text-warning bg-warning/10 px-2 py-0.5 rounded">{{T "stock"}}</span>{{end}}
             </h3>
-            <p class="text-xs text-dark-400 mb-3">OS network-stack limits the adaptive per-module concurrency works within. Widening the ephemeral-port range and shortening <span class="mono">tcp_fin_timeout</span> prevents "the network fills up" under heavy scans. Applies system-wide; per-module concurrency recomputes automatically on the next scan.</p>
-            {{if .OK}}<p class="text-[11px] text-success bg-success/10 border border-success/20 rounded px-3 py-2 mb-3">✓ Applied. New limits are live.</p>{{end}}
+            <p class="text-xs text-dark-400 mb-3">{{T "OS network-stack limits the adaptive per-module concurrency works within. Widening the ephemeral-port range and shortening"}} <span class="mono">tcp_fin_timeout</span> {{T `prevents "the network fills up" under heavy scans. Applies system-wide; per-module concurrency recomputes automatically on the next scan.`}}</p>
+            {{if .OK}}<p class="text-[11px] text-success bg-success/10 border border-success/20 rounded px-3 py-2 mb-3">✓ {{T "Applied. New limits are live."}}</p>{{end}}
             {{if .Err}}<p class="text-[11px] text-error bg-error/10 border border-error/20 rounded px-3 py-2 mb-3 mono break-words">⚠ {{.Err}}</p>{{end}}
             {{if not .Available}}
             <div class="text-[11px] text-dark-300 bg-dark-950 border border-dark-800 rounded-lg px-3 py-2.5 mb-3">
-                <p class="text-warning font-semibold mb-1">Re-tune helper not installed — run the one-time installer:</p>
+                <p class="text-warning font-semibold mb-1">{{T "Re-tune helper not installed — run the one-time installer:"}}</p>
                 <pre class="mono text-[10px] text-dark-200 whitespace-pre-wrap">sudo ./scripts/install.sh</pre>
-                <p class="text-dark-500 mt-1">Installs the sysctl tuning, a systemd unit (ambient CAP_NET_ADMIN), and this NOPASSWD re-tune helper. Until then the values below are read-only.</p>
+                <p class="text-dark-500 mt-1">{{T "Installs the sysctl tuning, a systemd unit (ambient CAP_NET_ADMIN), and this NOPASSWD re-tune helper. Until then the values below are read-only."}}</p>
             </div>
             {{end}}
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3 text-[11px]">
                 <div class="bg-dark-950 border border-dark-800 rounded-lg px-3 py-2">
-                    <p class="text-dark-500 uppercase tracking-wide mb-0.5">Ephemeral ports</p>
+                    <p class="text-dark-500 uppercase tracking-wide mb-0.5">{{T "Ephemeral ports"}}</p>
                     <p class="mono text-white">{{.Current.UsablePorts}} <span class="text-dark-500">({{.Current.PortRangeLo}}–{{.Current.PortRangeHi}})</span></p>
                 </div>
                 <div class="bg-dark-950 border border-dark-800 rounded-lg px-3 py-2">
@@ -333,8 +330,8 @@
                     <input type="number" form="netTuneForm" name="tw_buckets" min="1024" value="{{.Rec.TWBuckets}}" {{if not .Available}}disabled{{end}} class="w-full mt-0.5 mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-xs text-white disabled:opacity-50">
                 </label>
                 <div class="col-span-2 sm:col-span-3">
-                    <button type="submit" form="netTuneForm" {{if not .Available}}disabled{{end}} class="px-4 py-2 text-xs font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Apply &amp; recompute</button>
-                    <span class="text-[10px] text-dark-500 ml-2">Values pre-filled with the recommended set; edit if your box can take more/less.</span>
+                    <button type="submit" form="netTuneForm" {{if not .Available}}disabled{{end}} class="px-4 py-2 text-xs font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed">{{T "Apply & recompute"}}</button>
+                    <span class="text-[10px] text-dark-500 ml-2">{{T "Values pre-filled with the recommended set; edit if your box can take more/less."}}</span>
                 </div>
             </div>
         </div>
@@ -346,21 +343,21 @@
                 <svg class="w-4 h-4 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12a9 9 0 0118 0M3 12a9 9 0 0018 0M3 12h18M12 3a9 9 0 010 18M12 3a9 9 0 000 18"/>
                 </svg>
-                Outbound Network Interface
-                {{template "info_icon" "All scans run inside an isolated network namespace bridged only to this interface. The kernel-level killswitch enforces that no traffic can escape via the system default route — if the selected interface goes down (e.g. VPN disconnect), every running scan is aborted and iptables continues to drop any fallback traffic. Leave on 'Default' to disable."}}
+                {{T "Outbound Network Interface"}}
+                {{template "info_icon" (T `All scans run inside an isolated network namespace bridged only to this interface. The kernel-level killswitch enforces that no traffic can escape via the system default route — if the selected interface goes down (e.g. VPN disconnect), every running scan is aborted and iptables continues to drop any fallback traffic. Leave on 'Default' to disable.`)}}
             </h3>
-            <p class="text-xs text-dark-500 mb-4">Pin all scan traffic to a specific interface. Typical use: bind to <span class="mono text-dark-300">tun0</span> while connected to a VPN so a sudden disconnect cannot leak scan packets through your default route.</p>
+            <p class="text-xs text-dark-500 mb-4">{{T "Pin all scan traffic to a specific interface. Typical use: bind to"}} <span class="mono text-dark-300">tun0</span> {{T "while connected to a VPN so a sudden disconnect cannot leak scan packets through your default route."}}</p>
 
             {{if or .KillswitchPrivilegeError .KillswitchSetupError}}
             <div class="bg-error/10 border border-error/30 rounded-lg p-3 mb-4 space-y-3">
                 <div>
-                    <p class="text-[11px] text-error font-semibold mb-1.5">⚠ Killswitch is OFF — scan traffic will use the system default route</p>
+                    <p class="text-[11px] text-error font-semibold mb-1.5">⚠ {{T "Killswitch is OFF — scan traffic will use the system default route"}}</p>
                     {{if .KillswitchPrivilegeError}}
-                    <p class="text-[10px] text-dark-300 mb-1">Privilege probe failed:</p>
+                    <p class="text-[10px] text-dark-300 mb-1">{{T "Privilege probe failed:"}}</p>
                     <p class="text-[10px] text-dark-400 mono bg-dark-950 border border-dark-800 rounded px-2 py-1.5 mb-2">{{.KillswitchPrivilegeError}}</p>
                     {{end}}
                     {{if .KillswitchSetupError}}
-                    <p class="text-[10px] text-dark-300 mb-1">Namespace setup failed:</p>
+                    <p class="text-[10px] text-dark-300 mb-1">{{T "Namespace setup failed:"}}</p>
                     <p class="text-[10px] text-dark-400 mono bg-dark-950 border border-dark-800 rounded px-2 py-1.5 mb-2">{{.KillswitchSetupError}}</p>
                     {{end}}
                 </div>
@@ -371,9 +368,9 @@
                      a down interface up, so the installer/setcap guidance must
                      not show here. */}}
                 <div class="bg-warning/5 border border-warning/30 rounded p-3">
-                    <p class="text-[11px] text-warning font-semibold mb-1.5">⚠ The pinned interface is down or unavailable</p>
-                    <p class="text-[10px] text-dark-400">Nothing is wrong with the killswitch itself — the interface it's bound to just isn't up right now, so it refuses to route scans anywhere. That's exactly the leak it exists to prevent.</p>
-                    <p class="text-[10px] text-dark-300 mt-1.5">Fix: bring the interface up — <span class="mono">reconnect your VPN</span> so <span class="mono">tun0</span> comes back up — or pick an interface that's up in the dropdown below, then click <span class="text-white font-semibold">Save</span>. The killswitch arms automatically once the interface is up. No restart, no sudo.</p>
+                    <p class="text-[11px] text-warning font-semibold mb-1.5">⚠ {{T "The pinned interface is down or unavailable"}}</p>
+                    <p class="text-[10px] text-dark-400">{{T "Nothing is wrong with the killswitch itself — the interface it's bound to just isn't up right now, so it refuses to route scans anywhere. That's exactly the leak it exists to prevent."}}</p>
+                    <p class="text-[10px] text-dark-300 mt-1.5">{{T "Fix: bring the interface up — reconnect your VPN so"}} <span class="mono">tun0</span> {{T "comes back up — or pick an interface that's up in the dropdown below, then click Save. The killswitch arms automatically once the interface is up. No restart, no sudo."}}</p>
                 </div>
                 {{else}}
                 {{/* Privilege / namespace-wiring failure. The systemd installer
@@ -381,16 +378,16 @@
                      runs as root — that is the supported fix now (the old
                      "sudo ./scanner" workaround is retired). */}}
                 <div class="bg-warning/5 border border-warning/30 rounded p-3">
-                    <p class="text-[11px] text-warning font-semibold mb-1.5">⚠ The service can't build the killswitch namespace — run the installer</p>
-                    <p class="text-[10px] text-dark-400">Building the network namespace needs <span class="mono">CAP_NET_ADMIN</span>, <span class="mono">CAP_NET_RAW</span> and <span class="mono">CAP_SYS_ADMIN</span>. The installer wires these onto the systemd service via <span class="mono">AmbientCapabilities</span> (plus the <span class="mono">/run/netns</span> tmpfiles rule and the <span class="mono">ip_forward</span> sysctl), so scanner keeps running as your normal user — never root:</p>
+                    <p class="text-[11px] text-warning font-semibold mb-1.5">⚠ {{T "The service can't build the killswitch namespace — run the installer"}}</p>
+                    <p class="text-[10px] text-dark-400">{{T "Building the network namespace needs CAP_NET_ADMIN, CAP_NET_RAW and CAP_SYS_ADMIN. The installer wires these onto the systemd service via AmbientCapabilities (plus the /run/netns tmpfiles rule and the ip_forward sysctl), so scanner keeps running as your normal user — never root:"}}</p>
                     <code class="block bg-dark-950 border border-dark-800 rounded px-2 py-1.5 text-[11px] text-accent-300 mono select-all mt-1.5">sudo scripts/install.sh</code>
-                    <p class="text-[10px] text-dark-500 mt-1.5">Then reload this page. Already installed? Re-run it — it rewrites the unit, reloads systemd and restarts the service. Verify with <span class="mono">systemctl show scanner -p AmbientCapabilities</span> (expect all three caps).</p>
+                    <p class="text-[10px] text-dark-500 mt-1.5">{{T "Then reload this page. Already installed? Re-run it — it rewrites the unit, reloads systemd and restarts the service. Verify with"}} <span class="mono">systemctl show scanner -p AmbientCapabilities</span> {{T "(expect all three caps)."}}</p>
                     <details class="mt-2">
-                        <summary class="text-[11px] text-dark-300 cursor-pointer hover:text-white">Legacy alternative — setcap (iptables-legacy, non-Kali only)</summary>
+                        <summary class="text-[11px] text-dark-300 cursor-pointer hover:text-white">{{T "Legacy alternative — setcap (iptables-legacy, non-Kali only)"}}</summary>
                         <div class="mt-2 pl-2 border-l-2 border-dark-700 space-y-1.5">
-                            <p class="text-[10px] text-dark-400">Grants <span class="mono">CAP_NET_ADMIN</span> + <span class="mono">CAP_NET_RAW</span> directly on the binary. Works only where iptables uses the legacy backend AND the netfilter/nat modules are pre-loaded — and it does NOT cover the namespace-creation cap (<span class="mono">CAP_SYS_ADMIN</span>), so prefer the installer above.</p>
+                            <p class="text-[10px] text-dark-400">{{T "Grants CAP_NET_ADMIN + CAP_NET_RAW directly on the binary. Works only where iptables uses the legacy backend AND the netfilter/nat modules are pre-loaded — and it does NOT cover the namespace-creation cap (CAP_SYS_ADMIN), so prefer the installer above."}}</p>
                             <code class="block bg-dark-950 border border-dark-800 rounded px-2 py-1.5 text-[11px] text-accent-300 mono select-all">sudo setcap cap_net_admin,cap_net_raw+ep ./scanner</code>
-                            <p class="text-[10px] text-dark-500">setcap lives on the binary inode — every <span class="mono">go build</span> clears it, so you'd re-run it after each rebuild. The installer avoids this entirely.</p>
+                            <p class="text-[10px] text-dark-500">{{T "setcap lives on the binary inode — every"}} <span class="mono">go build</span> {{T "clears it, so you'd re-run it after each rebuild. The installer avoids this entirely."}}</p>
                         </div>
                     </details>
                 </div>
@@ -400,36 +397,36 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-xs text-dark-400 mb-1.5">Interface</label>
+                    <label class="block text-xs text-dark-400 mb-1.5">{{T "Interface"}}</label>
                     <select name="network_interface" class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-accent-500">
-                        <option value="" {{if eq .Settings.NetworkInterface ""}}selected{{end}}>Default (system routing)</option>
+                        <option value="" {{if eq .Settings.NetworkInterface ""}}selected{{end}}>{{T "Default (system routing)"}}</option>
                         {{range .NetworkInterfaces}}
                         <option value="{{.Name}}" {{if eq $.Settings.NetworkInterface .Name}}selected{{end}} {{if not .Up}}disabled{{end}}>
-                            {{.Display}}{{if not .Up}} (down){{end}}
+                            {{.Display}}{{if not .Up}} {{T "(down)"}}{{end}}
                         </option>
                         {{end}}
                     </select>
                     {{if .KillswitchActive}}
-                    <p class="text-[10px] text-success mt-1">⛓ Killswitch armed — namespace <span class="mono">scanner-ns</span> bridged to <span class="mono">{{.Settings.NetworkInterface}}</span> ({{.Settings.NetworkInterfaceIP}})</p>
+                    <p class="text-[10px] text-success mt-1">⛓ {{T "Killswitch armed — namespace"}} <span class="mono">scanner-ns</span> {{T "bridged to"}} <span class="mono">{{.Settings.NetworkInterface}}</span> ({{.Settings.NetworkInterfaceIP}})</p>
                     {{else if .Settings.NetworkInterface}}
-                    <p class="text-[10px] text-warning mt-1">⚠ Interface pinned but namespace is not active — check privileges and reload</p>
+                    <p class="text-[10px] text-warning mt-1">⚠ {{T "Interface pinned but namespace is not active — check privileges and reload"}}</p>
                     {{else}}
-                    <p class="text-[10px] text-dark-600 mt-1">Default mode — scans use the OS-chosen interface (no binding).</p>
+                    <p class="text-[10px] text-dark-600 mt-1">{{T "Default mode — scans use the OS-chosen interface (no binding)."}}</p>
                     {{end}}
                 </div>
                 <div>
                     {{if .KillswitchActive}}
-                    <p class="text-[11px] text-dark-400 mb-1.5">Namespace status</p>
+                    <p class="text-[11px] text-dark-400 mb-1.5">{{T "Namespace status"}}</p>
                     <div class="bg-dark-950 border border-dark-800 rounded-lg p-2.5 text-[10px] text-dark-400 mono leading-relaxed">
                         <div>namespace:&nbsp; <span class="text-white">scanner-ns</span></div>
                         <div>bridge:&nbsp;&nbsp;&nbsp;&nbsp; <span class="text-white">scanner0 (10.200.0.1)</span> ↔ <span class="text-white">scanner1 (10.200.0.2)</span></div>
                         <div>egress:&nbsp;&nbsp;&nbsp;&nbsp; <span class="text-white">{{.Settings.NetworkInterface}} ({{.Settings.NetworkInterfaceIP}})</span></div>
-                        <div>iptables:&nbsp;&nbsp; tagged <span class="text-white">scaNNer-killswitch</span></div>
-                        <div>health:&nbsp;&nbsp;&nbsp;&nbsp; <span class="text-success">✓ monitored every 2s</span></div>
+                        <div>iptables:&nbsp;&nbsp; {{T "tagged"}} <span class="text-white">scaNNer-killswitch</span></div>
+                        <div>health:&nbsp;&nbsp;&nbsp;&nbsp; <span class="text-success">✓ {{T "monitored every 2s"}}</span></div>
                     </div>
                     {{else}}
-                    <p class="text-[11px] text-dark-400 mb-1.5">How the killswitch works</p>
-                    <p class="text-[10px] text-dark-500 leading-relaxed">scaNNer creates an isolated network namespace (<span class="mono">scanner-ns</span>) bridged to the selected interface via a veth pair. All scan subprocesses (nmap, nuclei, wpscan, hydra, etc.) spawn inside this namespace — iptables rules drop any traffic that would escape via another interface. If the pinned interface goes down (e.g. VPN disconnect), the kernel-level DROP rule kicks in and every running scan is aborted.</p>
+                    <p class="text-[11px] text-dark-400 mb-1.5">{{T "How the killswitch works"}}</p>
+                    <p class="text-[10px] text-dark-500 leading-relaxed">{{T "scaNNer creates an isolated network namespace (scanner-ns) bridged to the selected interface via a veth pair. All scan subprocesses (nmap, nuclei, wpscan, hydra, etc.) spawn inside this namespace — iptables rules drop any traffic that would escape via another interface. If the pinned interface goes down (e.g. VPN disconnect), the kernel-level DROP rule kicks in and every running scan is aborted."}}</p>
                     {{end}}
                 </div>
             </div>
@@ -437,21 +434,21 @@
             <!-- Killswitch scope: how far the fail-closed rules reach (DNS included) -->
             <div class="mt-4 pt-4 border-t border-dark-800">
                 <label class="block text-xs text-dark-400 mb-2">
-                    Killswitch kapsamı — DNS dahil
-                    {{template "info_icon" "Killswitch armed iken uygulamanın hangi trafiğinin VPN'e zorlanacağı. DNS bu kapsamın PARÇASIDIR (ayrı bir ayar yok): seçilen moda göre DNS de aynı fail-closed kurala tabi olur. scan_only: yalnızca tarama trafiği + tarama DNS'i VPN'den, kernel-enforced (başka arayüz denenmez); yönetim (CVE güncelleme, self-update, SMTP/e-posta 2FA, NTP) normal yoldan. all_traffic: uygulamanın TÜM egress'i VPN'den ya da düşer."}}
+                    {{T "Killswitch scope — DNS included"}}
+                    {{template "info_icon" (T `Which of the app's traffic is forced onto the VPN while the killswitch is armed. DNS is PART of this scope (there is no separate setting): depending on the selected mode, DNS is subject to the same fail-closed rule. scan_only: only scan traffic + scan DNS go through the VPN, kernel-enforced (no other interface is tried); management (CVE updates, self-update, SMTP/e-mail 2FA, NTP) goes the normal way. all_traffic: ALL of the app's egress goes through the VPN or is dropped.`)}}
                 </label>
                 <div class="space-y-2">
                     <label class="flex items-start gap-2.5 cursor-pointer">
                         <input type="radio" name="killswitch_scope" value="scan_only" {{if ne .Settings.KillswitchScope "all_traffic"}}checked{{end}} class="mt-0.5 w-4 h-4 border-dark-600 bg-dark-850 text-accent-500 focus:ring-0">
                         <span class="text-[11px] text-dark-300 leading-snug">
-                            <span class="text-white">Sadece tarama trafiği</span> <span class="text-dark-500">(önerilen)</span> — tarama bağlantıları ve <b>tarama DNS'i</b> yalnızca VPN'den çıkar (kernel fail-closed, başka arayüz denenmez). Yönetim trafiği (güncelleme, e-posta 2FA, NTP) normal yoldan. Admin kilitlenme riski yok.
+                            <span class="text-white">{{T "Scan traffic only"}}</span> <span class="text-dark-500">{{T "(recommended)"}}</span> — {{T "scan connections and"}} <b>{{T "scan DNS"}}</b> {{T "exit only through the VPN (kernel fail-closed, no other interface is tried). Management traffic (updates, e-mail 2FA, NTP) goes the normal way. No risk of admin lockout."}}
                         </span>
                     </label>
                     <label class="flex items-start gap-2.5 cursor-pointer">
                         <input type="radio" name="killswitch_scope" value="all_traffic" {{if eq .Settings.KillswitchScope "all_traffic"}}checked{{end}} class="mt-0.5 w-4 h-4 border-dark-600 bg-dark-850 text-warning focus:ring-0">
                         <span class="text-[11px] text-dark-300 leading-snug">
-                            <span class="text-warning">Tüm uygulama trafiği</span> — scaNNer'ın yaptığı <b>her</b> bağlantı (DNS dahil) VPN'den çıkar ya da düşer. En sıkı sızıntı koruması.
-                            <span class="block mt-1 text-[10px] text-warning/90">⚠ VPN; e-posta (SMTP) veya NTP sunucularına ulaşamıyorsa <b>e-posta 2FA kodları ve TOTP saat senkronu bozulabilir</b> → yeni girişler engellenebilir. Mevcut açık oturumun kopmaz (web UI muaf, geri alabilirsin). Sadece ne yaptığını biliyorsan aç.</span>
+                            <span class="text-warning">{{T "All application traffic"}}</span> — {{T "every connection scaNNer makes (including DNS) exits through the VPN or is dropped. The strictest leak protection."}}
+                            <span class="block mt-1 text-[10px] text-warning/90">⚠ {{T "If the VPN can't reach e-mail (SMTP) or NTP servers, e-mail 2FA codes and TOTP clock sync may break → new logins can be blocked. Your current open session won't drop (the web UI is exempt, you can revert). Only enable this if you know what you're doing."}}</span>
                         </span>
                     </label>
                 </div>
@@ -464,41 +461,41 @@
                 <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
                 </svg>
-                VPN Watchdog — Otomatik Reconnect
-                {{template "info_icon" "Watches the VPN device; if the tunnel drops (even while the box still has plain internet via another interface) running scans are paused so no traffic leaks off the VPN, then after the grace period scaNNer runs `nmcli connection up` to bring the tunnel back and resumes the scans from their checkpoint. On by default."}}
+                {{T "VPN Watchdog — Auto Reconnect"}}
+                {{template "info_icon" (T "Watches the VPN device; if the tunnel drops (even while the box still has plain internet via another interface) running scans are paused so no traffic leaks off the VPN, then after the grace period scaNNer runs `nmcli connection up` to bring the tunnel back and resumes the scans from their checkpoint. On by default.")}}
             </h3>
-            <p class="text-xs text-dark-500 mb-4">VPN arayüzü düşünce taramayı <b>duraklatır</b> (sızıntı önlemi), belirtilen süre sonra <span class="mono">nmcli</span> ile otomatik <b>reconnect</b> atar ve tarama <b>kaldığı yerden</b> devam eder. Sunucu reboot'u / kernel güncellemesi gibi kopmalarda taramayı kurtarır.</p>
+            <p class="text-xs text-dark-500 mb-4">{{T "When the VPN interface goes down it pauses the scan (leak prevention), after the configured delay it runs an automatic reconnect via"}} <span class="mono">nmcli</span>{{T ", and the scan resumes from where it left off. Recovers scans across drops like a server reboot / kernel update."}}</p>
 
             <label class="flex items-center gap-2.5 mb-4 cursor-pointer">
                 <input type="checkbox" name="vpn_auto_reconnect" {{if .Settings.VPNAutoReconnect}}checked{{end}} class="w-4 h-4 rounded border-dark-600 bg-dark-850 text-accent-500 focus:ring-accent-500">
-                <span class="text-sm text-white">Etkin — VPN kopunca otomatik reconnect + kaldığı yerden devam</span>
+                <span class="text-sm text-white">{{T "Enabled — auto reconnect on VPN drop + resume from where it left off"}}</span>
             </label>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                    <label class="block text-xs text-dark-400 mb-1.5">VPN bağlantı adı (nmcli id)</label>
-                    <input type="text" name="vpn_connection" value="{{.Settings.VPNConnection}}" placeholder="ör. corpvpn" class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-accent-500">
-                    <p class="text-[10px] text-dark-600 mt-1"><span class="mono">nmcli connection show</span>'daki isim. Boşsa reconnect atılmaz (yalnız pause/resume).</p>
+                    <label class="block text-xs text-dark-400 mb-1.5">{{T "VPN connection name (nmcli id)"}}</label>
+                    <input type="text" name="vpn_connection" value="{{.Settings.VPNConnection}}" placeholder="{{T `e.g. corpvpn`}}" class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-accent-500">
+                    <p class="text-[10px] text-dark-600 mt-1"><span class="mono">nmcli connection show</span> {{T "— the name shown there. Leave blank to skip reconnect (pause/resume only)."}}</p>
                 </div>
                 <div>
-                    <label class="block text-xs text-dark-400 mb-1.5">İzlenecek arayüz</label>
+                    <label class="block text-xs text-dark-400 mb-1.5">{{T "Interface to watch"}}</label>
                     {{$vpnIf := .Settings.VPNInterface}}
                     <select name="vpn_interface" class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-accent-500">
-                        <option value="" {{if eq $vpnIf ""}}selected{{end}}>Otomatik (tun0)</option>
+                        <option value="" {{if eq $vpnIf ""}}selected{{end}}>{{T "Automatic (tun0)"}}</option>
                         {{$found := false}}
                         {{range .NetworkInterfaces}}
-                        {{/* down arayüzleri DISABLE etmiyoruz — VPN düşünce bile seçilebilmeli */}}
-                        <option value="{{.Name}}" {{if eq $vpnIf .Name}}selected{{end}}>{{.Display}}{{if not .Up}} — şu an down{{end}}</option>
+                        {{/* We do NOT disable down interfaces — must stay selectable even when the VPN drops */}}
+                        <option value="{{.Name}}" {{if eq $vpnIf .Name}}selected{{end}}>{{.Display}}{{if not .Up}} {{T "— currently down"}}{{end}}</option>
                         {{if eq $vpnIf .Name}}{{$found = true}}{{end}}
                         {{end}}
-                        {{if and (ne $vpnIf "") (not $found)}}<option value="{{$vpnIf}}" selected>{{$vpnIf}} — şu an yok (kayıtlı)</option>{{end}}
+                        {{if and (ne $vpnIf "") (not $found)}}<option value="{{$vpnIf}}" selected>{{$vpnIf}} {{T "— currently missing (saved)"}}</option>{{end}}
                     </select>
-                    <p class="text-[10px] text-dark-600 mt-1">Boş/Otomatik = <span class="mono">tun0</span>. Bu arayüz UP + IPv4'lü değilse VPN "kopuk" sayılır. VPN düşüp arayüz listeden kaybolsa bile seçili değer korunur.</p>
+                    <p class="text-[10px] text-dark-600 mt-1">{{T "Blank/Automatic ="}} <span class="mono">tun0</span>. {{T `If this interface is not UP + has no IPv4, the VPN is considered "down". The selected value is kept even if the VPN drops and the interface disappears from the list.`}}</p>
                 </div>
                 <div>
-                    <label class="block text-xs text-dark-400 mb-1.5">Reconnect gecikmesi (sn)</label>
+                    <label class="block text-xs text-dark-400 mb-1.5">{{T "Reconnect delay (sec)"}}</label>
                     <input type="number" name="vpn_reconnect_after_sec" value="{{.Settings.EffectiveVPNReconnectAfterSec}}" min="5" max="3600" class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-accent-500">
-                    <p class="text-[10px] text-dark-600 mt-1">Kopukluk bu kadar sürünce reconnect denenir.</p>
+                    <p class="text-[10px] text-dark-600 mt-1">{{T "Reconnect is attempted after the disconnection lasts this long."}}</p>
                 </div>
             </div>
         </div>
@@ -507,32 +504,32 @@
         <div class="bg-dark-900 border border-dark-800 rounded-xl p-5 mb-6">
             <h3 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
                 <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
-                Appearance
+                {{T "Appearance"}}
             </h3>
-            <p class="text-xs text-dark-500 mb-4">These preferences are stored in your browser (localStorage) and applied instantly — no server save needed.</p>
+            <p class="text-xs text-dark-500 mb-4">{{T "These preferences are stored in your browser (localStorage) and applied instantly — no server save needed."}}</p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <!-- Theme -->
                 <div>
-                    <label class="block text-xs text-dark-400 mb-2">Theme</label>
+                    <label class="block text-xs text-dark-400 mb-2">{{T "Theme"}}</label>
                     <div class="grid grid-cols-2 gap-2">
                         <button type="button" data-theme="dark" class="theme-btn flex items-center justify-center gap-2 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer transition-colors hover:border-accent-500/50">
                             <svg class="w-4 h-4 text-dark-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
-                            <span class="text-xs text-dark-200">Dark</span>
+                            <span class="text-xs text-dark-200">{{T "Dark"}}</span>
                         </button>
                         <button type="button" data-theme="light" class="theme-btn flex items-center justify-center gap-2 p-3 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer transition-colors hover:border-accent-500/50">
                             <svg class="w-4 h-4 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.36-6.36l-1.42 1.42M6.06 17.94l-1.42 1.42m0-13.72l1.42 1.42m11.88 11.88l1.42 1.42M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-                            <span class="text-xs text-dark-200">Light</span>
+                            <span class="text-xs text-dark-200">{{T "Light"}}</span>
                         </button>
                     </div>
                 </div>
 
                 <!-- UI Scale -->
                 <div>
-                    <label class="block text-xs text-dark-400 mb-2">UI Scale <span class="text-[10px] text-dark-500 normal-case">— "Auto" picks based on your screen width</span></label>
+                    <label class="block text-xs text-dark-400 mb-2">{{T "UI Scale"}} <span class="text-[10px] text-dark-500 normal-case">{{T `— "Auto" picks based on your screen width`}}</span></label>
                     <div class="grid grid-cols-2 gap-2">
                         <select id="uiScaleSelect" onchange="setUIScale(this.value)"
                                 class="bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-accent-500">
-                            <option value="auto">Auto (responsive)</option>
+                            <option value="auto">{{T "Auto (responsive)"}}</option>
                             <option value="0.75">75%</option>
                             <option value="0.8">80%</option>
                             <option value="0.9">90%</option>
@@ -542,18 +539,18 @@
                             <option value="1.3">130%</option>
                             <option value="1.4">140%</option>
                             <option value="1.5">150%</option>
-                            <option value="custom">Custom…</option>
+                            <option value="custom">{{T "Custom…"}}</option>
                         </select>
                         <div id="uiScaleCustomBox" class="hidden flex items-center gap-2">
                             <input type="number" id="uiScaleCustomInput" min="50" max="200" step="5" placeholder="100"
                                    class="flex-1 mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                             <span class="text-xs text-dark-400">%</span>
                             <button type="button" onclick="applyCustomScale()"
-                                    class="px-3 py-2 text-xs bg-accent-600 hover:bg-accent-500 text-white rounded-lg transition-colors">Apply</button>
+                                    class="px-3 py-2 text-xs bg-accent-600 hover:bg-accent-500 text-white rounded-lg transition-colors">{{T "Apply"}}</button>
                         </div>
                     </div>
                     <p id="uiScaleCurrent" class="text-[10px] text-dark-500 mt-1.5"></p>
-                    <p class="text-[10px] text-dark-500 mt-0.5">Range: 50% – 200%. Custom input accepts any integer step of 5.</p>
+                    <p class="text-[10px] text-dark-500 mt-0.5">{{T "Range: 50% – 200%. Custom input accepts any integer step of 5."}}</p>
                 </div>
             </div>
         </div>
@@ -564,61 +561,61 @@
         <div class="bg-dark-900 border border-dark-800 rounded-xl p-5 mb-6">
             <h3 class="text-sm font-semibold text-white mb-1 flex items-center gap-2">
                 <svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                CVE Database
+                {{T "CVE Database"}}
             </h3>
-            <p class="text-xs text-dark-500 mb-3">CVE Matcher always uses the built-in 35 curated landmark CVEs. Pull NVD feeds below to supplement with the full ~250 000-CVE database.</p>
+            <p class="text-xs text-dark-500 mb-3">{{T "CVE Matcher always uses the built-in 35 curated landmark CVEs. Pull NVD feeds below to supplement with the full ~250 000-CVE database."}}</p>
 
             <div class="bg-dark-850 border border-dark-700 rounded-lg p-3 mb-3 text-[11px] grid grid-cols-4 gap-3" id="cveDBStats">
-                <div title="One row = one (CVE × product × version-range) tuple. A single CVE produces 1–100 rows.">
-                    <span class="text-dark-500">Total rows</span>
+                <div title="{{T `One row = one (CVE × product × version-range) tuple. A single CVE produces 1–100 rows.`}}">
+                    <span class="text-dark-500">{{T "Total rows"}}</span>
                     <p class="mono text-white" id="cveDBCount">—</p>
                 </div>
-                <div title="Number of distinct CVE identifiers indexed. NVD has ~250 000 published CVEs total.">
-                    <span class="text-dark-500">Distinct CVEs</span>
+                <div title="{{T `Number of distinct CVE identifiers indexed. NVD has ~250 000 published CVEs total.`}}">
+                    <span class="text-dark-500">{{T "Distinct CVEs"}}</span>
                     <p class="mono text-white" id="cveDBDistinct">—</p>
                 </div>
                 <div>
-                    <span class="text-dark-500">Last refresh</span>
-                    <p class="mono text-white" id="cveDBLastRefresh">never</p>
+                    <span class="text-dark-500">{{T "Last refresh"}}</span>
+                    <p class="mono text-white" id="cveDBLastRefresh">{{T "never"}}</p>
                 </div>
                 <div>
-                    <span class="text-dark-500">Age</span>
+                    <span class="text-dark-500">{{T "Age"}}</span>
                     <p class="mono text-white" id="cveDBAge">—</p>
                 </div>
             </div>
-            <p id="cveDBCoverage" class="text-[11px] text-dark-400 mb-3 hidden">Coverage: <span class="mono text-dark-200" id="cveDBCoverageYears">—</span> · newest CVE <span class="mono text-dark-200" id="cveDBNewest">—</span></p>
+            <p id="cveDBCoverage" class="text-[11px] text-dark-400 mb-3 hidden">{{T "Coverage:"}} <span class="mono text-dark-200" id="cveDBCoverageYears">—</span> · {{T "newest CVE"}} <span class="mono text-dark-200" id="cveDBNewest">—</span></p>
             <div id="cveDBCoverageHint" class="hidden mb-3 px-3 py-2 rounded-lg bg-warning/5 border border-warning/30 text-[11px] text-warning leading-relaxed"></div>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 items-end mb-3">
                 <div>
-                    <label class="block text-xs text-dark-400 mb-1.5">NVD year span</label>
+                    <label class="block text-xs text-dark-400 mb-1.5">{{T "NVD year span"}}</label>
                     <select id="cveDBYears" class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-500">
-                        <option value="2" selected>Last 2 years (~30 MB · 2-3 min) — recommended</option>
-                        <option value="5">Last 5 years (~80 MB · 5-8 min)</option>
-                        <option value="10">Last 10 years (~180 MB · 12-15 min)</option>
-                        <option value="all">All time 2002–today (~350 MB · 25-30 min)</option>
+                        <option value="2" selected>{{T "Last 2 years (~30 MB · 2-3 min) — recommended"}}</option>
+                        <option value="5">{{T "Last 5 years (~80 MB · 5-8 min)"}}</option>
+                        <option value="10">{{T "Last 10 years (~180 MB · 12-15 min)"}}</option>
+                        <option value="all">{{T "All time 2002–today (~350 MB · 25-30 min)"}}</option>
                     </select>
                 </div>
                 <label class="flex items-center gap-2 text-xs text-dark-300 self-center">
                     <input type="checkbox" id="cveDBClearFirst">
-                    <span>Clear NVD rows first</span>
+                    <span>{{T "Clear NVD rows first"}}</span>
                 </label>
                 <button type="button" id="cveDBRefreshBtn" onclick="__cveDBRefresh(false)"
                         class="px-4 py-2 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                    Sync NVD
+                    {{T "Sync NVD"}}
                 </button>
             </div>
 
             <!-- Live progress bar — shows during sync. -->
             <div id="cveDBProgressBox" class="hidden mb-3 bg-dark-950 border border-dark-700 rounded-lg p-3">
                 <div class="flex items-center justify-between mb-1.5 text-[11px]">
-                    <span class="text-dark-300" id="cveDBProgressLabel">starting…</span>
+                    <span class="text-dark-300" id="cveDBProgressLabel">{{T "starting…"}}</span>
                     <div class="flex items-center gap-2">
                         <span class="mono text-accent-400" id="cveDBProgressPercent">0%</span>
                         <button type="button" id="cveDBCancelBtn" onclick="__cveDBCancel()"
                                 class="text-[10px] px-2 py-0.5 rounded bg-danger/10 text-danger border border-danger/30 hover:bg-danger/20 transition-colors">
-                            Cancel
+                            {{T "Cancel"}}
                         </button>
                     </div>
                 </div>
@@ -631,13 +628,13 @@
             <div class="flex items-center gap-3">
                 <button type="button" onclick="__cveDBRefresh(true)"
                         class="text-[11px] px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700 transition-colors">
-                    Quick daily refresh <span class="text-dark-500">(NVD modified feed — last 8 days)</span>
+                    {{T "Quick daily refresh"}} <span class="text-dark-500">{{T "(NVD modified feed — last 8 days)"}}</span>
                 </button>
                 <span id="cveDBStatus" class="text-[11px] text-dark-300"></span>
             </div>
             <p class="text-[10px] text-dark-500 mt-2 leading-relaxed">
-                Daily refresh fetches the NVD "modified" delta feed only (very fast, last 8 days of changes). For initial setup or full re-sync use the source picker above.
-                <br>All sources are public — no API key required. Downloads run in the background; you can leave the page. Built-in 35 curated CVEs are always loaded at startup so the matcher works even with an empty cache.
+                {{T `Daily refresh fetches the NVD "modified" delta feed only (very fast, last 8 days of changes). For initial setup or full re-sync use the source picker above.`}}
+                <br>{{T "All sources are public — no API key required. Downloads run in the background; you can leave the page. Built-in 35 curated CVEs are always loaded at startup so the matcher works even with an empty cache."}}
             </p>
 
             <script>
@@ -790,39 +787,39 @@
         <div class="bg-dark-900 border border-dark-800 rounded-xl p-5 mb-6 {{if .HasRunning}}opacity-50 pointer-events-none{{end}}">
             <h3 class="text-sm font-semibold text-white mb-1 flex items-center gap-2">
                 <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
-                API Keys
+                {{T "API Keys"}}
             </h3>
-            <p class="text-xs text-dark-500 mb-4">Modules read these keys at scan time. Leave a field blank to disable that integration — affected modules will show a warning instead.</p>
+            <p class="text-xs text-dark-500 mb-4">{{T "Modules read these keys at scan time. Leave a field blank to disable that integration — affected modules will show a warning instead."}}</p>
             <div class="space-y-3">
                 <div>
-                    <label class="block text-xs text-dark-400 mb-1.5">WPScan API Token <span class="text-[10px] text-dark-500 normal-case">— enriches WPScan with WPVulnDB vulnerability details. WPScan still runs without it.</span></label>
-                    <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="wpscan_api_key" value="{{.Settings.WPScanAPIKey}}" placeholder="get one free at wpscan.com (33-char token)"
+                    <label class="block text-xs text-dark-400 mb-1.5">{{T "WPScan API Token"}} <span class="text-[10px] text-dark-500 normal-case">{{T "— enriches WPScan with WPVulnDB vulnerability details. WPScan still runs without it."}}</span></label>
+                    <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="wpscan_api_key" value="{{.Settings.WPScanAPIKey}}" placeholder="{{T `get one free at wpscan.com (33-char token)`}}"
                            class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                 </div>
                 <div>
-                    <label class="block text-xs text-dark-400 mb-1.5">Have I Been Pwned API Key <span class="text-[10px] text-dark-500 normal-case">— premium per-account breach checks. Domain-level checks work without a key.</span></label>
-                    <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="hibp_api_key" value="{{.Settings.HIBPAPIKey}}" placeholder="hibp-api-key (paid)"
+                    <label class="block text-xs text-dark-400 mb-1.5">{{T "Have I Been Pwned API Key"}} <span class="text-[10px] text-dark-500 normal-case">{{T "— premium per-account breach checks. Domain-level checks work without a key."}}</span></label>
+                    <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="hibp_api_key" value="{{.Settings.HIBPAPIKey}}" placeholder="{{T `hibp-api-key (paid)`}}"
                            class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                 </div>
                 <div>
-                    <label class="block text-xs text-dark-400 mb-1.5">GitHub Personal Access Token <span class="text-[10px] text-dark-500 normal-case">— required for the GitHub Leak Scanner module (raises rate limits 60→5000/hr).</span></label>
-                    <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="github_token" value="{{.Settings.GitHubToken}}" placeholder="ghp_... (classic, public_repo scope is enough)"
+                    <label class="block text-xs text-dark-400 mb-1.5">{{T "GitHub Personal Access Token"}} <span class="text-[10px] text-dark-500 normal-case">{{T "— required for the GitHub Leak Scanner module (raises rate limits 60→5000/hr)."}}</span></label>
+                    <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="github_token" value="{{.Settings.GitHubToken}}" placeholder="{{T `ghp_... (classic, public_repo scope is enough)`}}"
                            class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                 </div>
                 <div>
-                    <label class="block text-xs text-dark-400 mb-1.5">Shodan API Key <span class="text-[10px] text-dark-500 normal-case">— reserved for future Shodan integration.</span></label>
-                    <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="shodan_api_key" value="{{.Settings.ShodanAPIKey}}" placeholder="optional"
+                    <label class="block text-xs text-dark-400 mb-1.5">{{T "Shodan API Key"}} <span class="text-[10px] text-dark-500 normal-case">{{T "— reserved for future Shodan integration."}}</span></label>
+                    <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="shodan_api_key" value="{{.Settings.ShodanAPIKey}}" placeholder="{{T `optional`}}"
                            class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs text-dark-400 mb-1.5">Censys API ID</label>
-                        <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="censys_id" value="{{.Settings.CensysID}}" placeholder="optional"
+                        <label class="block text-xs text-dark-400 mb-1.5">{{T "Censys API ID"}}</label>
+                        <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="censys_id" value="{{.Settings.CensysID}}" placeholder="{{T `optional`}}"
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                     </div>
                     <div>
-                        <label class="block text-xs text-dark-400 mb-1.5">Censys API Secret</label>
-                        <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="censys_secret" value="{{.Settings.CensysSecret}}" placeholder="optional"
+                        <label class="block text-xs text-dark-400 mb-1.5">{{T "Censys API Secret"}}</label>
+                        <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="censys_secret" value="{{.Settings.CensysSecret}}" placeholder="{{T `optional`}}"
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                     </div>
                 </div>
@@ -833,63 +830,63 @@
         <div id="smtp" class="bg-dark-900 border border-dark-800 rounded-xl p-5 mb-6">
             <h3 class="text-sm font-semibold text-white mb-1 flex items-center gap-2">
                 <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                Email / SMTP
+                {{T "Email / SMTP"}}
             </h3>
-            <p class="text-[11px] text-dark-400 mb-4">Delivers two-factor login codes and admin notifications. SMTP dials the host network directly (never the killswitch interface). <span class="text-warning">Send a test e-mail below before you enable e-mail 2FA</span> — a misconfigured server would otherwise lock users out.</p>
+            <p class="text-[11px] text-dark-400 mb-4">{{T "Delivers two-factor login codes and admin notifications. SMTP dials the host network directly (never the killswitch interface)."}} <span class="text-warning">{{T "Send a test e-mail below before you enable e-mail 2FA"}}</span> {{T "— a misconfigured server would otherwise lock users out."}}</p>
 
             <!-- config fields — saved by the Save Settings button below -->
             <div class="{{if .HasRunning}}opacity-50 pointer-events-none{{end}}">
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div class="sm:col-span-2">
-                        <label class="block text-xs text-dark-400 mb-1.5">SMTP Host</label>
+                        <label class="block text-xs text-dark-400 mb-1.5">{{T "SMTP Host"}}</label>
                         <input type="text" name="smtp_host" value="{{.Settings.SMTPHost}}" placeholder="smtp.gmail.com" autocomplete="off" spellcheck="false"
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                     </div>
                     <div>
-                        <label class="block text-xs text-dark-400 mb-1.5">Port <span class="text-[10px] text-dark-500 normal-case">— blank = auto</span></label>
+                        <label class="block text-xs text-dark-400 mb-1.5">{{T "Port"}} <span class="text-[10px] text-dark-500 normal-case">{{T "— blank = auto"}}</span></label>
                         <input type="number" id="smtpPort" name="smtp_port" value="{{if .Settings.SMTPPort}}{{.Settings.SMTPPort}}{{end}}" placeholder="{{if eq .Settings.SMTPTLSMode "ssl"}}465{{else if eq .Settings.SMTPTLSMode "none"}}25{{else}}587{{end}}" min="0" max="65535"
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                     </div>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
                     <div>
-                        <label class="block text-xs text-dark-400 mb-1.5">Encryption</label>
+                        <label class="block text-xs text-dark-400 mb-1.5">{{T "Encryption"}}</label>
                         <select id="smtpTls" name="smtp_tls_mode" onchange="(function(s){var p=document.getElementById('smtpPort');if(p)p.placeholder=({starttls:'587',ssl:'465',none:'25'})[s.value]||'587';})(this)" class="w-full bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-accent-500">
-                            <option value="starttls" {{if eq .Settings.SMTPTLSMode "starttls"}}selected{{end}}>STARTTLS (587)</option>
-                            <option value="ssl" {{if eq .Settings.SMTPTLSMode "ssl"}}selected{{end}}>SSL / TLS (465)</option>
-                            <option value="none" {{if eq .Settings.SMTPTLSMode "none"}}selected{{end}}>None (25 — insecure)</option>
+                            <option value="starttls" {{if eq .Settings.SMTPTLSMode "starttls"}}selected{{end}}>{{T "STARTTLS (587)"}}</option>
+                            <option value="ssl" {{if eq .Settings.SMTPTLSMode "ssl"}}selected{{end}}>{{T "SSL / TLS (465)"}}</option>
+                            <option value="none" {{if eq .Settings.SMTPTLSMode "none"}}selected{{end}}>{{T "None (25 — insecure)"}}</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs text-dark-400 mb-1.5">Username <span class="text-[10px] text-dark-500 normal-case">— optional</span></label>
+                        <label class="block text-xs text-dark-400 mb-1.5">{{T "Username"}} <span class="text-[10px] text-dark-500 normal-case">{{T "— optional"}}</span></label>
                         <input type="text" name="smtp_user" value="{{.Settings.SMTPUser}}" placeholder="user@example.com" autocomplete="off" spellcheck="false"
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                     </div>
                     <div>
-                        <label class="block text-xs text-dark-400 mb-1.5">Password <span class="text-[10px] text-dark-500 normal-case">— optional</span></label>
-                        <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="smtp_password" value="" placeholder="{{if .Settings.SMTPPassword}}•••••• saved — blank keeps it{{else}}leave blank if none{{end}}"
+                        <label class="block text-xs text-dark-400 mb-1.5">{{T "Password"}} <span class="text-[10px] text-dark-500 normal-case">{{T "— optional"}}</span></label>
+                        <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="smtp_password" value="" placeholder="{{if .Settings.SMTPPassword}}{{T `•••••• saved — blank keeps it`}}{{else}}{{T `leave blank if none`}}{{end}}"
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                         {{if .Settings.SMTPPassword}}
                         <label class="flex items-center gap-1.5 mt-1.5 text-[11px] text-dark-500 cursor-pointer">
                             <input type="checkbox" name="smtp_password_clear" class="w-3.5 h-3.5 rounded border-dark-600 bg-dark-850 text-accent-600 focus:ring-accent-500/40">
-                            Clear saved password
+                            {{T "Clear saved password"}}
                         </label>
                         {{end}}
                     </div>
                 </div>
-                <p class="text-[11px] text-dark-500 mt-2">Leave <b>Username</b> and <b>Password</b> empty for a relay that doesn't require authentication (internal / localhost / open relay). Authentication is only attempted when a username is set.</p>
+                <p class="text-[11px] text-dark-500 mt-2">{{T "Leave Username and Password empty for a relay that doesn't require authentication (internal / localhost / open relay). Authentication is only attempted when a username is set."}}</p>
                 <div class="mt-3">
-                    <label class="block text-xs text-dark-400 mb-1.5">From Address</label>
+                    <label class="block text-xs text-dark-400 mb-1.5">{{T "From Address"}}</label>
                     <input type="text" name="smtp_from" value="{{.Settings.SMTPFrom}}" placeholder="scaNNer &lt;noreply@example.com&gt;" autocomplete="off" spellcheck="false"
                            class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                 </div>
                 <label class="flex items-start gap-2.5 mt-4 cursor-pointer">
                     <input type="checkbox" name="two_factor_available" {{if .Settings.TwoFactorAvailable}}checked{{end}}
                            class="mt-0.5 w-4 h-4 rounded border-dark-600 bg-dark-850 text-accent-600 focus:ring-accent-500/40">
-                    <span class="text-xs text-dark-300">Allow users to enable <b class="text-white">e-mail</b> two-factor authentication
-                        <span class="block text-[11px] text-dark-500 mt-0.5">TOTP (authenticator app) is always available regardless. Test delivery first — this only controls the e-mail option.</span></span>
+                    <span class="text-xs text-dark-300">{{T "Allow users to enable"}} <b class="text-white">{{T "e-mail"}}</b> {{T "two-factor authentication"}}
+                        <span class="block text-[11px] text-dark-500 mt-0.5">{{T "TOTP (authenticator app) is always available regardless. Test delivery first — this only controls the e-mail option."}}</span></span>
                 </label>
-                <p class="text-[11px] text-dark-500 mt-3">These fields save with the <b>Save Settings</b> button below.</p>
+                <p class="text-[11px] text-dark-500 mt-3">{{T "These fields save with the"}} <b>{{T "Save Settings"}}</b> {{T "button below."}}</p>
             </div>
 
             <!-- test panel — posts to its own form so it works even mid-scan -->
@@ -902,20 +899,20 @@
                     <span>{{.SMTPResult}}</span>
                 </div>
                 {{end}}
-                <label class="block text-xs font-medium text-dark-300 mb-1.5">Send a test e-mail to</label>
+                <label class="block text-xs font-medium text-dark-300 mb-1.5">{{T "Send a test e-mail to"}}</label>
                 <div class="flex flex-col sm:flex-row gap-2">
-                    <input type="email" name="test_to" form="smtpTestForm" placeholder="you@example.com  (defaults to the From address)"
+                    <input type="email" name="test_to" form="smtpTestForm" placeholder="{{T `you@example.com  (defaults to the From address)`}}"
                            class="flex-1 bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                     <button type="submit" form="smtpTestForm" {{if not .Settings.SMTPConfigured}}disabled{{end}}
                             class="shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 12L3.27 3.13a1 1 0 011.32-1.22l16 8a1 1 0 010 1.78l-16 8a1 1 0 01-1.32-1.22L6 12zm0 0h7"/></svg>
-                        Send test e-mail
+                        {{T "Send test e-mail"}}
                     </button>
                 </div>
                 {{if not .Settings.SMTPConfigured}}
-                <p class="text-[11px] text-warning mt-2">Fill in an SMTP host + From address, click <b>Save Settings</b>, then send a test.</p>
+                <p class="text-[11px] text-warning mt-2">{{T "Fill in an SMTP host + From address, click"}} <b>{{T "Save Settings"}}</b>{{T ", then send a test."}}</p>
                 {{else}}
-                <p class="text-[11px] text-dark-500 mt-2">Uses the <b>saved</b> settings — after changing anything above, click Save Settings first, then test.</p>
+                <p class="text-[11px] text-dark-500 mt-2">{{T "Uses the saved settings — after changing anything above, click Save Settings first, then test."}}</p>
                 {{end}}
             </div>
         </div>
@@ -924,47 +921,47 @@
         <div id="ntp" class="bg-dark-900 border border-dark-800 rounded-xl p-5 mb-6">
             <h3 class="text-sm font-semibold text-white mb-1 flex items-center gap-2">
                 <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"/></svg>
-                Server Clock
+                {{T "Server Clock"}}
             </h3>
-            <p class="text-[11px] text-dark-400 mb-4">Authenticator (TOTP) codes are time-based and tolerate only ~90&nbsp;s of skew — a drifting server clock silently breaks 2FA logins. The best fix is host NTP (chrony / systemd-timesyncd); optionally point scaNNer at an NTP server below and it will correct TOTP time by the measured offset. <b>The system clock is never modified.</b></p>
+            <p class="text-[11px] text-dark-400 mb-4">{{T "Authenticator (TOTP) codes are time-based and tolerate only ~90 s of skew — a drifting server clock silently breaks 2FA logins. The best fix is host NTP (chrony / systemd-timesyncd); optionally point scaNNer at an NTP server below and it will correct TOTP time by the measured offset."}} <b>{{T "The system clock is never modified."}}</b></p>
 
             {{with .NTP}}
             {{if .Err}}
             <div class="mb-3 flex items-start gap-2 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2.5 text-sm text-danger">
                 <svg class="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
-                <span>NTP check failed: {{.Err}} <span class="text-danger/70">(TOTP still uses the last known offset)</span></span>
+                <span>{{T "NTP check failed:"}} {{.Err}} <span class="text-danger/70">{{T "(TOTP still uses the last known offset)"}}</span></span>
             </div>
             {{end}}
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3 text-xs">
-                <div class="bg-dark-950 border border-dark-800 rounded-lg px-3 py-2"><p class="text-dark-500 uppercase tracking-wide mb-0.5">Local time</p><p class="mono text-white">{{.LocalTime}}</p></div>
-                <div class="bg-dark-950 border border-dark-800 rounded-lg px-3 py-2"><p class="text-dark-500 uppercase tracking-wide mb-0.5">TOTP time</p><p class="mono text-white">{{.CorrectedTime}}</p></div>
-                <div class="bg-dark-950 border border-dark-800 rounded-lg px-3 py-2"><p class="text-dark-500 uppercase tracking-wide mb-0.5">Offset</p><p class="mono {{if .Skewed}}text-danger{{else}}text-success{{end}}">{{.OffsetHuman}}</p></div>
-                <div class="bg-dark-950 border border-dark-800 rounded-lg px-3 py-2"><p class="text-dark-500 uppercase tracking-wide mb-0.5">Last check</p><p class="mono text-white">{{if .Checked}}{{.Checked}}{{else}}—{{end}}</p></div>
+                <div class="bg-dark-950 border border-dark-800 rounded-lg px-3 py-2"><p class="text-dark-500 uppercase tracking-wide mb-0.5">{{T "Local time"}}</p><p class="mono text-white">{{.LocalTime}}</p></div>
+                <div class="bg-dark-950 border border-dark-800 rounded-lg px-3 py-2"><p class="text-dark-500 uppercase tracking-wide mb-0.5">{{T "TOTP time"}}</p><p class="mono text-white">{{.CorrectedTime}}</p></div>
+                <div class="bg-dark-950 border border-dark-800 rounded-lg px-3 py-2"><p class="text-dark-500 uppercase tracking-wide mb-0.5">{{T "Offset"}}</p><p class="mono {{if .Skewed}}text-danger{{else}}text-success{{end}}">{{.OffsetHuman}}</p></div>
+                <div class="bg-dark-950 border border-dark-800 rounded-lg px-3 py-2"><p class="text-dark-500 uppercase tracking-wide mb-0.5">{{T "Last check"}}</p><p class="mono text-white">{{if .Checked}}{{.Checked}}{{else}}—{{end}}</p></div>
             </div>
-            {{if .Skewed}}<p class="text-[11px] text-danger mb-3">⚠ Clock offset exceeds 30&nbsp;s — authenticator logins may start failing. Fix host NTP, or set/verify a server below.</p>{{end}}
+            {{if .Skewed}}<p class="text-[11px] text-danger mb-3">⚠ {{T "Clock offset exceeds 30 s — authenticator logins may start failing. Fix host NTP, or set/verify a server below."}}</p>{{end}}
             {{end}}
 
             <div class="{{if .HasRunning}}opacity-50 pointer-events-none{{end}}">
-                <label class="block text-xs text-dark-400 mb-1.5">NTP server <span class="text-[10px] text-dark-500 normal-case">— optional</span></label>
-                <input type="text" name="ntp_server" value="{{.Settings.NTPServer}}" placeholder="pool.ntp.org   (blank = trust the host clock as-is)" autocomplete="off" spellcheck="false"
+                <label class="block text-xs text-dark-400 mb-1.5">{{T "NTP server"}} <span class="text-[10px] text-dark-500 normal-case">{{T "— optional"}}</span></label>
+                <input type="text" name="ntp_server" value="{{.Settings.NTPServer}}" placeholder="{{T `pool.ntp.org   (blank = trust the host clock as-is)`}}" autocomplete="off" spellcheck="false"
                        class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
-                <p class="text-[11px] text-dark-500 mt-2">Saves with the <b>Save Settings</b> button below; re-checked automatically every 30&nbsp;min.</p>
+                <p class="text-[11px] text-dark-500 mt-2">{{T "Saves with the"}} <b>{{T "Save Settings"}}</b> {{T "button below; re-checked automatically every 30 min."}}</p>
             </div>
             <div class="mt-3">
                 <button type="submit" form="ntpCheckForm" {{if not .Settings.NTPServer}}disabled{{end}}
                         class="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.023 9.348h4.992V4.356M2.985 19.644v-4.992h4.993m-.023-4.243a7.5 7.5 0 0111.667-1.98L20.015 9.35M4.031 12.63a7.5 7.5 0 0011.667 4.31l3.359-2.98"/></svg>
-                    Check clock now
+                    {{T "Check clock now"}}
                 </button>
-                <span class="text-[10px] text-dark-500 ml-2">Uses the saved server.</span>
+                <span class="text-[10px] text-dark-500 ml-2">{{T "Uses the saved server."}}</span>
             </div>
         </div>
 
         <!-- Data -->
         <div class="bg-dark-900 border border-dark-800 rounded-xl p-5 mb-6 {{if .HasRunning}}opacity-50 pointer-events-none{{end}}">
-            <h3 class="text-sm font-semibold text-white mb-4">Data & Storage</h3>
+            <h3 class="text-sm font-semibold text-white mb-4">{{T "Data & Storage"}}</h3>
             <div>
-                <label class="block text-xs text-dark-400 mb-1.5">Default Export Format</label>
+                <label class="block text-xs text-dark-400 mb-1.5">{{T "Default Export Format"}}</label>
                 <select name="default_export_fmt" class="w-40 bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-accent-500">
                     <option value="csv" {{if eq .Settings.DefaultExportFmt "csv"}}selected{{end}}>CSV</option>
                     <option value="json" {{if eq .Settings.DefaultExportFmt "json"}}selected{{end}}>JSON</option>
@@ -976,7 +973,7 @@
         <div class="flex justify-end">
             <button type="submit" {{if .HasRunning}}disabled{{end}}
                     class="px-6 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-                Save Settings
+                {{T "Save Settings"}}
             </button>
         </div>
     </form>
@@ -994,17 +991,17 @@
          is at least one row to act on. */}}
     {{if .LargestScans}}
     <div class="bg-dark-900 border border-dark-800 rounded-xl p-5 mb-6">
-        <h3 class="text-sm font-semibold text-white mb-1">Database Housekeeping</h3>
-        <p class="text-[11px] text-dark-500 mb-4">Top-10 scans by stored result size — the actual contributors to a bloated <span class="mono">scanner.db</span>. Delete or archive offenders, then run VACUUM to reclaim disk.</p>
+        <h3 class="text-sm font-semibold text-white mb-1">{{T "Database Housekeeping"}}</h3>
+        <p class="text-[11px] text-dark-500 mb-4">{{T "Top-10 scans by stored result size — the actual contributors to a bloated"}} <span class="mono">scanner.db</span>. {{T "Delete or archive offenders, then run VACUUM to reclaim disk."}}</p>
         <div class="overflow-x-auto mb-4">
             <table class="w-full text-xs">
                 <thead class="text-[10px] uppercase tracking-wider text-dark-500">
                     <tr>
-                        <th class="text-left pb-2 pr-3">Module</th>
-                        <th class="text-left pb-2 pr-3">Status</th>
-                        <th class="text-right pb-2 pr-3">Result size</th>
-                        <th class="text-left pb-2 pr-3">Created</th>
-                        <th class="text-right pb-2">Action</th>
+                        <th class="text-left pb-2 pr-3">{{T "Module"}}</th>
+                        <th class="text-left pb-2 pr-3">{{T "Status"}}</th>
+                        <th class="text-right pb-2 pr-3">{{T "Result size"}}</th>
+                        <th class="text-left pb-2 pr-3">{{T "Created"}}</th>
+                        <th class="text-right pb-2">{{T "Action"}}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1012,10 +1009,10 @@
                     <tr class="border-t border-dark-800">
                         <td class="py-2 pr-3 mono text-dark-200">{{moduleDisplayName .Module}}</td>
                         <td class="py-2 pr-3">
-                            {{if eq .Status "done"}}<span class="text-[10px] uppercase tracking-wider text-success">done</span>
-                            {{else if eq .Status "error"}}<span class="text-[10px] uppercase tracking-wider text-danger">error</span>
-                            {{else if eq .Status "cancelled"}}<span class="text-[10px] uppercase tracking-wider text-warning">cancelled</span>
-                            {{else if eq .Status "running"}}<span class="text-[10px] uppercase tracking-wider text-accent-400">running</span>
+                            {{if eq .Status "done"}}<span class="text-[10px] uppercase tracking-wider text-success">{{T "done"}}</span>
+                            {{else if eq .Status "error"}}<span class="text-[10px] uppercase tracking-wider text-danger">{{T "error"}}</span>
+                            {{else if eq .Status "cancelled"}}<span class="text-[10px] uppercase tracking-wider text-warning">{{T "cancelled"}}</span>
+                            {{else if eq .Status "running"}}<span class="text-[10px] uppercase tracking-wider text-accent-400">{{T "running"}}</span>
                             {{else}}<span class="text-[10px] uppercase tracking-wider text-dark-400">{{.Status}}</span>{{end}}
                         </td>
                         <td class="py-2 pr-3 mono text-right {{if gt .ResultBytes 52428800}}text-danger{{else if gt .ResultBytes 10485760}}text-warning{{else}}text-dark-300{{end}}">
@@ -1023,10 +1020,10 @@
                         </td>
                         <td class="py-2 pr-3 mono text-dark-400">{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
                         <td class="py-2 text-right">
-                            <a href="/modules/{{if eq .Module "advancedweb"}}advanced-web{{else}}{{.Module}}{{end}}/results/{{.ID}}" class="text-[11px] text-accent-400 hover:text-accent-300 mr-2">View →</a>
-                            <form action="/scans/delete/" method="POST" class="inline" onsubmit="return confirm('Delete this scan permanently? Its result AND its findings (Vulnerabilities page, assets) will be lost — Export first if you need them.');">
+                            <a href="/modules/{{if eq .Module "advancedweb"}}advanced-web{{else}}{{.Module}}{{end}}/results/{{.ID}}" class="text-[11px] text-accent-400 hover:text-accent-300 mr-2">{{T "View →"}}</a>
+                            <form action="/scans/delete/" method="POST" class="inline" onsubmit="return confirm('{{T `Delete this scan permanently? Its result AND its findings (Vulnerabilities page, assets) will be lost — Export first if you need them.`}}');">
                                 <input type="hidden" name="id" value="{{.ID}}">
-                                <button type="submit" class="text-[11px] text-danger hover:text-red-300">Delete</button>
+                                <button type="submit" class="text-[11px] text-danger hover:text-red-300">{{T "Delete"}}</button>
                             </form>
                         </td>
                     </tr>
@@ -1038,14 +1035,14 @@
         <div class="border-t border-dark-800 pt-4 flex items-start justify-between gap-4">
             <div class="text-[11px] text-dark-500 max-w-md">
                 <p class="text-dark-300 font-semibold mb-1">VACUUM</p>
-                <p>Rebuilds the SQLite file to reclaim space from deleted rows. Safe but slow on a large DB (minutes for 1+ GB). Block the process — don't run during active scans.</p>
-                {{if eq .VacuumResult "done"}}<p class="text-success mt-1">✓ VACUUM completed.</p>{{end}}
-                {{if eq .VacuumResult "error"}}<p class="text-danger mt-1">✗ VACUUM failed — see server log.</p>{{end}}
+                <p>{{T "Rebuilds the SQLite file to reclaim space from deleted rows. Safe but slow on a large DB (minutes for 1+ GB). Block the process — don't run during active scans."}}</p>
+                {{if eq .VacuumResult "done"}}<p class="text-success mt-1">✓ {{T "VACUUM completed."}}</p>{{end}}
+                {{if eq .VacuumResult "error"}}<p class="text-danger mt-1">✗ {{T "VACUUM failed — see server log."}}</p>{{end}}
             </div>
-            <form action="/settings/vacuum" method="POST" onsubmit="return confirm('Run VACUUM now? This blocks the server for the duration. Make sure no scans are running.');">
+            <form action="/settings/vacuum" method="POST" onsubmit="return confirm('{{T `Run VACUUM now? This blocks the server for the duration. Make sure no scans are running.`}}');">
                 <button type="submit" {{if .HasRunning}}disabled{{end}}
                         class="px-4 py-2 text-xs font-medium text-white bg-warning/80 hover:bg-warning rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-                    Run VACUUM
+                    {{T "Run VACUUM"}}
                 </button>
             </form>
         </div>
@@ -1157,28 +1154,28 @@ function applyCustomScale() {
     <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="awModalClose(this.parentElement)"></div>
     <div class="relative bg-dark-900 border border-dark-800 rounded-xl w-full max-w-md mx-4 p-6 shadow-2xl">
         <div class="flex items-center justify-between mb-5">
-            <h3 class="text-lg font-semibold text-white">New Workspace</h3>
-            <button onclick="awModalClose(this)" class="text-dark-500 hover:text-white transition-colors" aria-label="Close">
+            <h3 class="text-lg font-semibold text-white">{{T "New Workspace"}}</h3>
+            <button onclick="awModalClose(this)" class="text-dark-500 hover:text-white transition-colors" aria-label="{{T `Close`}}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
         <form action="/workspace/create" method="POST">
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm text-dark-300 mb-1.5">Workspace Name <span class="text-danger">*</span></label>
-                    <input type="text" name="name" required placeholder="e.g. Bug Bounty - Target Corp"
+                    <label class="block text-sm text-dark-300 mb-1.5">{{T "Workspace Name"}} <span class="text-danger">*</span></label>
+                    <input type="text" name="name" required placeholder="{{T `e.g. Bug Bounty - Target Corp`}}"
                            class="w-full bg-dark-850 border border-dark-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-dark-500 focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500/50">
                 </div>
                 <div>
-                    <label class="block text-sm text-dark-300 mb-1.5">Description</label>
-                    <textarea name="description" rows="3" placeholder="Optional description..."
+                    <label class="block text-sm text-dark-300 mb-1.5">{{T "Description"}}</label>
+                    <textarea name="description" rows="3" placeholder="{{T `Optional description...`}}"
                               class="w-full bg-dark-850 border border-dark-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-dark-500 focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500/50 resize-none"></textarea>
                 </div>
             </div>
             <div class="flex justify-end gap-3 mt-6">
                 <button type="button" onclick="document.getElementById('createWSModal').classList.add('hidden')"
-                        class="px-4 py-2.5 text-sm text-dark-400 hover:text-white bg-dark-850 border border-dark-700 rounded-lg transition-colors">Cancel</button>
-                <button type="submit" class="px-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors">Create Workspace</button>
+                        class="px-4 py-2.5 text-sm text-dark-400 hover:text-white bg-dark-850 border border-dark-700 rounded-lg transition-colors">{{T "Cancel"}}</button>
+                <button type="submit" class="px-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors">{{T "Create Workspace"}}</button>
             </div>
         </form>
     </div>

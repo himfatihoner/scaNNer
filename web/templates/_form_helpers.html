@@ -23,7 +23,7 @@
 {{define "field_label"}}
 {{$tip := .Tooltip}}
 <label class="block text-sm text-dark-300 mb-1.5">
-    {{.Text}}{{if .Required}} <span class="text-danger" title="Required" aria-label="Required">*</span>{{end}}{{if $tip}}{{template "info_icon" $tip}}{{end}}
+    {{.Text}}{{if .Required}} <span class="text-danger" title="{{T `Required`}}" aria-label="{{T `Required`}}">*</span>{{end}}{{if $tip}}{{template "info_icon" $tip}}{{end}}
 </label>
 {{end}}
 
@@ -48,7 +48,7 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.732-3L13.732 4a2 2 0 00-3.464 0L3.268 16A2 2 0 005 19z"/>
     </svg>
     <div>
-        <p class="text-sm font-medium text-danger">Submission rejected</p>
+        <p class="text-sm font-medium text-danger">{{T "Submission rejected"}}</p>
         <p class="text-xs text-dark-300 mt-0.5">{{friendlyFormError .FormError}}</p>
     </div>
 </div>

@@ -625,7 +625,9 @@ func (h *Handler) VulnDetail(w http.ResponseWriter, r *http.Request) {
 	vulns, _ := h.getVulnIndex(ws.ID, liteScans)
 	for i := range vulns {
 		if vulns[i].ID == id {
-			h.render(w, "vuln_detail_inner", vulns[i])
+			// Struct data (not a Lang-carrying map): pick the tree explicitly so
+			// the drawer's {{vulnReport}} renders in the active language.
+			h.renderLang(w, h.lang(r), "vuln_detail_inner", vulns[i])
 			return
 		}
 	}
@@ -653,9 +655,11 @@ func (h *Handler) VulnExport(w http.ResponseWriter, r *http.Request) {
 	if format != "docx" {
 		format = "pdf"
 	}
-	lang := strings.ToLower(get("lang"))
-	if lang != "en" {
-		lang = "tr"
+	// Explicit ?lang= (from the export modal) wins; otherwise follow the UI
+	// language cookie so the report matches the rest of the app.
+	lang := strings.ToLower(strings.TrimSpace(get("lang")))
+	if lang != "en" && lang != "tr" {
+		lang = h.lang(r)
 	}
 
 	var selected []GlobalVuln

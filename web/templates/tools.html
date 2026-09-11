@@ -3,9 +3,9 @@
     <div class="mb-4">
         <h1 class="text-xl font-semibold text-white flex items-center gap-2">
             <svg class="w-5 h-5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437"/></svg>
-            Tools
+            {{T "Tools"}}
         </h1>
-        <p class="text-xs text-dark-500 mt-1">Çevrimdışı yardımcı araçlar — hepsi tarayıcıda çalışır, hiçbir veri sunucuya/dışarıya gönderilmez.</p>
+        <p class="text-xs text-dark-500 mt-1">{{T "Offline helper tools — everything runs in the browser; no data is sent to the server or outside."}}</p>
     </div>
 
     <!-- Tabs -->
@@ -22,16 +22,16 @@
         {{if .CyberChefReady}}
         <div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
             <div class="flex items-center justify-between px-4 py-2 border-b border-dark-800">
-                <span class="text-[11px] text-dark-500">CyberChef — “The Cyber Swiss Army Knife”. Kendi sunucumuzda, çevrimdışı.</span>
-                <a href="{{.CyberChefSrc}}" target="_blank" rel="noopener" class="text-[11px] text-accent-400 hover:text-accent-300">Yeni sekmede aç ↗</a>
+                <span class="text-[11px] text-dark-500">{{T "CyberChef — “The Cyber Swiss Army Knife”. Self-hosted, offline."}}</span>
+                <a href="{{.CyberChefSrc}}" target="_blank" rel="noopener" class="text-[11px] text-accent-400 hover:text-accent-300">{{T "Open in new tab ↗"}}</a>
             </div>
             <iframe id="cyberchefFrame" data-src="{{.CyberChefSrc}}" title="CyberChef"
                     class="w-full block bg-white" style="height:calc(100vh - 240px);min-height:560px;border:0"></iframe>
         </div>
         {{else}}
         <div class="bg-dark-900 border border-dark-800 rounded-xl p-10 text-center text-dark-400">
-            <p class="text-sm mb-2">CyberChef bu kurulumda bulunamadı.</p>
-            <p class="text-[12px] text-dark-500">Normalde repoda gömülü gelir. Beklenen konum: <span class="mono">web/static/cyberchef/index.html</span>. Eksikse <a href="https://github.com/gchq/CyberChef/releases" target="_blank" rel="noopener" class="text-accent-400 hover:text-accent-300">GitHub release</a> zip’ini <span class="mono">web/static/cyberchef/</span> içine açın.</p>
+            <p class="text-sm mb-2">{{T "CyberChef was not found in this installation."}}</p>
+            <p class="text-[12px] text-dark-500">{{T "Normally it ships embedded in the repo. Expected location: "}}<span class="mono">web/static/cyberchef/index.html</span>{{T ". If missing, unzip the "}}<a href="https://github.com/gchq/CyberChef/releases" target="_blank" rel="noopener" class="text-accent-400 hover:text-accent-300">GitHub release</a>{{T " archive into "}}<span class="mono">web/static/cyberchef/</span>{{T "."}}</p>
         </div>
         {{end}}
     </section>
@@ -39,37 +39,37 @@
     <!-- ===================== Comparer ===================== -->
     <section data-panel="comparer" hidden>
         <div class="flex flex-wrap items-center gap-3 mb-3">
-            <span class="text-[11px] text-dark-500">İki metni karşılaştır — farklar renklendirilir (Burp Comparer benzeri).</span>
+            <span class="text-[11px] text-dark-500">{{T "Compare two texts — differences are highlighted (similar to Burp Comparer)."}}</span>
             <div class="ml-auto flex items-center gap-1 text-[11px]">
-                <span class="text-dark-500 mr-1">Birim:</span>
-                <button type="button" data-cmpmode="words" class="cmp-mode px-2.5 py-1 rounded-md bg-accent-600 text-white">Kelime</button>
-                <button type="button" data-cmpmode="lines" class="cmp-mode px-2.5 py-1 rounded-md bg-dark-850 text-dark-300 hover:bg-dark-800">Satır</button>
-                <button type="button" data-cmpmode="chars" class="cmp-mode px-2.5 py-1 rounded-md bg-dark-850 text-dark-300 hover:bg-dark-800">Karakter</button>
+                <span class="text-dark-500 mr-1">{{T "Unit:"}}</span>
+                <button type="button" data-cmpmode="words" class="cmp-mode px-2.5 py-1 rounded-md bg-accent-600 text-white">{{T "Words"}}</button>
+                <button type="button" data-cmpmode="lines" class="cmp-mode px-2.5 py-1 rounded-md bg-dark-850 text-dark-300 hover:bg-dark-800">{{T "Lines"}}</button>
+                <button type="button" data-cmpmode="chars" class="cmp-mode px-2.5 py-1 rounded-md bg-dark-850 text-dark-300 hover:bg-dark-800">{{T "Characters"}}</button>
             </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
                 <label class="block text-[11px] text-dark-500 mb-1">A</label>
-                <textarea id="cmpA" rows="8" class="w-full mono text-[12px] bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-white placeholder-dark-600 focus:outline-none focus:border-accent-500" placeholder="İlk metin…"></textarea>
+                <textarea id="cmpA" rows="8" class="w-full mono text-[12px] bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-white placeholder-dark-600 focus:outline-none focus:border-accent-500" placeholder="{{T `First text…`}}"></textarea>
             </div>
             <div>
                 <label class="block text-[11px] text-dark-500 mb-1">B</label>
-                <textarea id="cmpB" rows="8" class="w-full mono text-[12px] bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-white placeholder-dark-600 focus:outline-none focus:border-accent-500" placeholder="İkinci metin…"></textarea>
+                <textarea id="cmpB" rows="8" class="w-full mono text-[12px] bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-white placeholder-dark-600 focus:outline-none focus:border-accent-500" placeholder="{{T `Second text…`}}"></textarea>
             </div>
         </div>
         <div class="flex items-center gap-2 mt-3">
-            <button type="button" onclick="cmpRun()" class="text-xs px-4 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white font-medium">Karşılaştır</button>
+            <button type="button" onclick="cmpRun()" class="text-xs px-4 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white font-medium">{{T "Compare"}}</button>
             <button type="button" onclick="cmpSwap()" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700">A ⇄ B</button>
-            <button type="button" onclick="cmpClear()" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700">Temizle</button>
+            <button type="button" onclick="cmpClear()" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700">{{T "Clear"}}</button>
             <span id="cmpSummary" class="text-[11px] text-dark-500 ml-2"></span>
         </div>
         <div id="cmpResult" class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3" hidden>
             <div class="bg-dark-900 border border-dark-800 rounded-lg p-3 overflow-auto max-h-[52vh]">
-                <div class="text-[10px] uppercase tracking-wider text-dark-500 mb-2">A <span class="text-red-400 normal-case">(silinen = kırmızı)</span></div>
+                <div class="text-[10px] uppercase tracking-wider text-dark-500 mb-2">A <span class="text-red-400 normal-case">{{T "(deleted = red)"}}</span></div>
                 <div id="cmpOutA" class="mono text-[12px] whitespace-pre-wrap break-words leading-relaxed"></div>
             </div>
             <div class="bg-dark-900 border border-dark-800 rounded-lg p-3 overflow-auto max-h-[52vh]">
-                <div class="text-[10px] uppercase tracking-wider text-dark-500 mb-2">B <span class="text-emerald-400 normal-case">(eklenen = yeşil)</span></div>
+                <div class="text-[10px] uppercase tracking-wider text-dark-500 mb-2">B <span class="text-emerald-400 normal-case">{{T "(added = green)"}}</span></div>
                 <div id="cmpOutB" class="mono text-[12px] whitespace-pre-wrap break-words leading-relaxed"></div>
             </div>
         </div>
@@ -79,21 +79,21 @@
     <section data-panel="urlcodec" hidden>
         <div class="grid grid-cols-1 gap-3">
             <div>
-                <label class="block text-[11px] text-dark-500 mb-1">Girdi</label>
-                <textarea id="urlIn" rows="5" class="w-full mono text-[12px] bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-white placeholder-dark-600 focus:outline-none focus:border-accent-500" placeholder="Metin veya URL…"></textarea>
+                <label class="block text-[11px] text-dark-500 mb-1">{{T "Input"}}</label>
+                <textarea id="urlIn" rows="5" class="w-full mono text-[12px] bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-white placeholder-dark-600 focus:outline-none focus:border-accent-500" placeholder="{{T `Text or URL…`}}"></textarea>
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <button type="button" onclick="urlOp('enc')" class="text-xs px-3 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white font-medium">URL Encode</button>
                 <button type="button" onclick="urlOp('dec')" class="text-xs px-3 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white font-medium">URL Decode</button>
-                <button type="button" onclick="urlOp('encall')" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700" title="Her baytı %XX olarak kodla">Encode All (%XX)</button>
-                <button type="button" onclick="urlOp('form')" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700" title="Boşluk = +">Form Encode (+)</button>
+                <button type="button" onclick="urlOp('encall')" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700" title="{{T `Encode every byte as %XX`}}">Encode All (%XX)</button>
+                <button type="button" onclick="urlOp('form')" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700" title="{{T `Space = +`}}">Form Encode (+)</button>
                 <button type="button" onclick="urlOp('formdec')" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700">Form Decode (+)</button>
                 <span class="mx-1 text-dark-700">|</span>
-                <button type="button" onclick="urlUseOutput()" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700">↑ Çıktıyı girdi yap</button>
-                <button type="button" onclick="copyText('urlOut', this)" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700">Kopyala</button>
+                <button type="button" onclick="urlUseOutput()" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700">{{T "↑ Use output as input"}}</button>
+                <button type="button" onclick="copyText('urlOut', this)" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700">{{T "Copy"}}</button>
             </div>
             <div>
-                <label class="block text-[11px] text-dark-500 mb-1">Çıktı</label>
+                <label class="block text-[11px] text-dark-500 mb-1">{{T "Output"}}</label>
                 <textarea id="urlOut" rows="5" readonly class="w-full mono text-[12px] bg-dark-925 border border-dark-800 rounded-lg px-3 py-2 text-emerald-300 focus:outline-none"></textarea>
                 <p id="urlErr" class="text-[11px] text-red-400 mt-1" hidden></p>
             </div>
@@ -109,19 +109,19 @@
             </div>
             <div class="flex items-center gap-2">
                 <button type="button" onclick="vsRun()" class="text-xs px-4 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white font-medium">Decode</button>
-                <button type="button" onclick="document.getElementById('vsIn').value='';vsRun()" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700">Temizle</button>
-                <span class="text-[11px] text-dark-500">ASP.NET ObjectStateFormatter (şifresiz) çözülür; şifreli/MAC’li olduğunda durum bildirilir.</span>
+                <button type="button" onclick="document.getElementById('vsIn').value='';vsRun()" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700">{{T "Clear"}}</button>
+                <span class="text-[11px] text-dark-500">{{T "ASP.NET ObjectStateFormatter (unencrypted) is decoded; when encrypted/MAC-protected, the status is reported."}}</span>
             </div>
             <div id="vsResult" hidden class="space-y-3">
                 <div id="vsProtect" class="rounded-lg px-3 py-2 text-[12px]"></div>
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
                     <div class="bg-dark-900 border border-dark-800 rounded-lg p-3 overflow-auto max-h-[46vh]">
-                        <div class="text-[10px] uppercase tracking-wider text-dark-500 mb-2">Yapı (tree)</div>
+                        <div class="text-[10px] uppercase tracking-wider text-dark-500 mb-2">{{T "Structure (tree)"}}</div>
                         <div id="vsTree" class="mono text-[12px] leading-relaxed"></div>
                     </div>
                     <div class="space-y-3">
                         <div class="bg-dark-900 border border-dark-800 rounded-lg p-3 overflow-auto max-h-[22vh]">
-                            <div class="text-[10px] uppercase tracking-wider text-dark-500 mb-2">Metinler</div>
+                            <div class="text-[10px] uppercase tracking-wider text-dark-500 mb-2">{{T "Strings"}}</div>
                             <div id="vsStrings" class="mono text-[12px] space-y-0.5"></div>
                         </div>
                         <div class="bg-dark-900 border border-dark-800 rounded-lg p-3 overflow-auto max-h-[22vh]">
@@ -136,13 +136,13 @@
 
     <!-- ===================== JWT ===================== -->
     <section data-panel="jwt" hidden>
-        <p class="text-[11px] text-dark-500 mb-3">JSON Web Token encode / decode (jwt.io benzeri). İmzalama + doğrulama tarayıcıda WebCrypto ile yapılır — anahtar/secret dışarı çıkmaz.</p>
+        <p class="text-[11px] text-dark-500 mb-3">{{T "JSON Web Token encode / decode (similar to jwt.io). Signing + verification happen in the browser with WebCrypto — the key/secret never leaves."}}</p>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <!-- Encoded -->
             <div>
                 <label class="block text-[11px] text-dark-500 mb-1">Encoded (token)</label>
                 <textarea id="jwtEnc" rows="9" oninput="jwtDecode()" class="w-full mono text-[12px] bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 break-all" placeholder="eyJhbGciOi…">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c</textarea>
-                <div id="jwtVerify" class="mt-2 text-[12px] rounded-lg px-3 py-2 bg-dark-850 border border-dark-700 text-dark-400">İmza durumu — decode edin.</div>
+                <div id="jwtVerify" class="mt-2 text-[12px] rounded-lg px-3 py-2 bg-dark-850 border border-dark-700 text-dark-400">{{T "Signature status — decode it."}}</div>
             </div>
             <!-- Decoded -->
             <div class="space-y-3">
@@ -160,7 +160,7 @@
         <!-- Signing controls -->
         <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 mt-4 space-y-3">
             <div class="flex flex-wrap items-center gap-3">
-                <label class="text-[11px] text-dark-500">Algoritma</label>
+                <label class="text-[11px] text-dark-500">{{T "Algorithm"}}</label>
                 <select id="jwtAlg" onchange="jwtAlgChange()" class="mono text-[12px] bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-accent-500">
                     <optgroup label="HMAC"><option>HS256</option><option>HS384</option><option>HS512</option></optgroup>
                     <optgroup label="RSA"><option>RS256</option><option>RS384</option><option>RS512</option></optgroup>
@@ -169,24 +169,24 @@
                     <optgroup label="Unsecured"><option>none</option></optgroup>
                 </select>
                 <button type="button" onclick="jwtSign()" class="ml-auto text-xs px-4 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white font-medium">Sign & Encode →</button>
-                <button type="button" onclick="copyText('jwtEnc', this)" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700">Token kopyala</button>
+                <button type="button" onclick="copyText('jwtEnc', this)" class="text-xs px-3 py-1.5 rounded-lg bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700">{{T "Copy token"}}</button>
             </div>
             <!-- HMAC secret -->
             <div id="jwtHsBox">
                 <label class="block text-[11px] text-dark-500 mb-1">Secret</label>
                 <div class="flex items-center gap-2">
-                    <input id="jwtSecret" oninput="jwtDecode()" value="your-256-bit-secret" class="flex-1 mono text-[12px] bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-accent-500" placeholder="imzalama secret'ı">
+                    <input id="jwtSecret" oninput="jwtDecode()" value="your-256-bit-secret" class="flex-1 mono text-[12px] bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-accent-500" placeholder="{{T `signing secret`}}">
                     <label class="flex items-center gap-1.5 text-[11px] text-dark-400 whitespace-nowrap"><input id="jwtSecretB64" type="checkbox" onchange="jwtDecode()" class="accent-accent-500"> base64 secret</label>
                 </div>
             </div>
             <!-- Asymmetric keys -->
             <div id="jwtPkBox" hidden class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-[11px] text-dark-500 mb-1">Private Key (PEM) — imzalamak için</label>
+                    <label class="block text-[11px] text-dark-500 mb-1">{{T "Private Key (PEM) — for signing"}}</label>
                     <textarea id="jwtPriv" rows="5" class="w-full mono text-[11px] bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent-500" placeholder="-----BEGIN PRIVATE KEY-----"></textarea>
                 </div>
                 <div>
-                    <label class="block text-[11px] text-dark-500 mb-1">Public Key (PEM) — doğrulamak için</label>
+                    <label class="block text-[11px] text-dark-500 mb-1">{{T "Public Key (PEM) — for verifying"}}</label>
                     <textarea id="jwtPub" rows="5" oninput="jwtDecode()" class="w-full mono text-[11px] bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent-500" placeholder="-----BEGIN PUBLIC KEY-----"></textarea>
                 </div>
             </div>
@@ -235,7 +235,7 @@
 function copyText(id, btn){
     var el=document.getElementById(id); if(!el)return;
     navigator.clipboard.writeText(el.value!==undefined?el.value:el.textContent).then(function(){
-        if(btn){var o=btn.textContent;btn.textContent='Kopyalandı ✓';setTimeout(function(){btn.textContent=o;},1200);}
+        if(btn){var o=btn.textContent;btn.textContent='Copied ✓';setTimeout(function(){btn.textContent=o;},1200);}
     });
 }
 
@@ -281,7 +281,7 @@ function cmpRun(){
     var res=document.getElementById('cmpResult'), sum=document.getElementById('cmpSummary');
     if(ops===null){
         res.hidden=true;
-        sum.textContent='Girdi bu birim için çok büyük — "Satır" moduyla deneyin.';
+        sum.textContent='Input is too large for this unit — try "Lines" mode.';
         sum.className='text-[11px] text-yellow-400 ml-2'; return;
     }
     var outA='',outB='',del=0,ins=0,same=0;
@@ -294,7 +294,7 @@ function cmpRun(){
     document.getElementById('cmpOutA').innerHTML=outA;
     document.getElementById('cmpOutB').innerHTML=outB;
     res.hidden=false;
-    if(del===0&&ins===0){ sum.textContent='Metinler aynı.'; sum.className='text-[11px] text-emerald-400 ml-2'; }
+    if(del===0&&ins===0){ sum.textContent='Texts are identical.'; sum.className='text-[11px] text-emerald-400 ml-2'; }
     else { sum.textContent=del+' silinen · '+ins+' eklenen · '+same+' ortak'; sum.className='text-[11px] text-dark-400 ml-2'; }
 }
 function cmpSwap(){ var a=document.getElementById('cmpA'),b=document.getElementById('cmpB'),t=a.value;a.value=b.value;b.value=t; if(!document.getElementById('cmpResult').hidden)cmpRun(); }
@@ -311,7 +311,7 @@ function urlOp(op){
         else if(op==='encall') out=Array.from(new TextEncoder().encode(s)).map(function(b){return '%'+b.toString(16).padStart(2,'0').toUpperCase();}).join('');
         else if(op==='form') out=encodeURIComponent(s).replace(/%20/g,'+');
         else if(op==='formdec') out=decodeURIComponent(s.replace(/\+/g,' '));
-    }catch(e){ urlSetErr('Çözme hatası: '+e.message+' (geçersiz % dizisi olabilir)'); return; }
+    }catch(e){ urlSetErr('Decode error: '+e.message+' (may be an invalid % sequence)'); return; }
     document.getElementById('urlOut').value=out;
 }
 function urlUseOutput(){ document.getElementById('urlIn').value=document.getElementById('urlOut').value; }
@@ -333,11 +333,11 @@ function vsExtractStrings(b){
 function vsDecode(input){
     var bytes; try{bytes=vsB64(input);}catch(e){return {error:'Base64 çözülemedi: '+e.message};}
     var out={len:bytes.length};
-    if(bytes.length<2){out.error='Çok kısa';return out;}
+    if(bytes.length<2){out.error='Too short';return out;}
     var td=new TextDecoder('utf-8',{fatal:false});
     if(!(bytes[0]===0xff&&bytes[1]===0x01)){
         out.encrypted=true;
-        out.note='0xFF 0x01 başlığı yok → büyük ihtimalle ŞİFRELİ (AES) ya da farklı bir format. machineKey olmadan çözülemez.';
+        out.note='No 0xFF 0x01 header → likely ENCRYPTED (AES) or a different format. Cannot decode without the machineKey.';
         out.strings=vsExtractStrings(bytes); out.bytes=bytes; return out;
     }
     out.encrypted=false;
@@ -413,13 +413,13 @@ function vsRun(){
     res.hidden=false;
     if(r.encrypted){
         prot.className='rounded-lg px-3 py-2 text-[12px] bg-yellow-500/10 border border-yellow-500/30 text-yellow-200';
-        prot.innerHTML='🔒 <b>Şifreli / MAC’li olabilir.</b> '+esc(r.note)+' <span class="text-dark-400">('+r.len+' bayt)</span>';
-        document.getElementById('vsTree').innerHTML='<span class="text-dark-500">Yapı çözülemedi (şifreli). Aşağıdaki metinler/hex yine de faydalı olabilir.</span>';
+        prot.innerHTML='🔒 <b>Possibly encrypted / MAC-protected.</b> '+esc(r.note)+' <span class="text-dark-400">('+r.len+' bayt)</span>';
+        document.getElementById('vsTree').innerHTML='<span class="text-dark-500">Structure could not be parsed (encrypted). The strings/hex below may still be useful.</span>';
     } else {
         var macTxt = r.trailing>0 ? (' · sondaki '+r.trailing+' bayt MAC/HMAC olabilir'+(r.trailing===20?' (SHA1)':r.trailing===32?' (SHA256)':'')) : ' · MAC yok gibi';
         prot.className='rounded-lg px-3 py-2 text-[12px] bg-emerald-500/10 border border-emerald-500/30 text-emerald-200';
-        prot.innerHTML='🔓 <b>Şifresiz</b> (ObjectStateFormatter) · '+r.len+' bayt · '+r.consumed+' bayt çözüldü'+esc(macTxt)+
-            (r.stopped? ' · <span class="text-yellow-300">çözüm '+(r.stopped.token!==undefined?('bilinmeyen token 0x'+r.stopped.token.toString(16)+' @'+r.stopped.offset):r.stopped.error)+' noktasında durdu</span>':'');
+        prot.innerHTML='🔓 <b>Unencrypted</b> (ObjectStateFormatter) · '+r.len+' bytes · '+r.consumed+' bytes decoded'+esc(macTxt)+
+            (r.stopped? ' · <span class="text-yellow-300">parsing stopped: '+(r.stopped.token!==undefined?('unknown token 0x'+r.stopped.token.toString(16)+' @'+r.stopped.offset):r.stopped.error)+'</span>':'');
         var tw=document.getElementById('vsTree'); tw.className='mono text-[12px] leading-relaxed vs-tree';
         tw.innerHTML = r.tree? vsRenderTree(r.tree) : '<span class="text-dark-500">—</span>';
     }
@@ -476,25 +476,25 @@ async function jwtSign(){
     jwtErr('');
     var alg=document.getElementById('jwtAlg').value;
     var hdr,pl;
-    try{ hdr=JSON.parse(document.getElementById('jwtHeader').value||'{}'); }catch(e){ jwtErr('Header geçerli JSON değil: '+e.message); return; }
-    try{ pl=JSON.parse(document.getElementById('jwtPayload').value||'{}'); }catch(e){ jwtErr('Payload geçerli JSON değil: '+e.message); return; }
-    hdr=Object.assign({alg:alg},hdr); hdr.alg=alg; // alg first (jwt.io davranışı)
+    try{ hdr=JSON.parse(document.getElementById('jwtHeader').value||'{}'); }catch(e){ jwtErr('Header is not valid JSON: '+e.message); return; }
+    try{ pl=JSON.parse(document.getElementById('jwtPayload').value||'{}'); }catch(e){ jwtErr('Payload is not valid JSON: '+e.message); return; }
+    hdr=Object.assign({alg:alg},hdr); hdr.alg=alg; // alg first (jwt.io behavior)
     document.getElementById('jwtHeader').value=JSON.stringify(hdr);
     var si=jStr2B64u(JSON.stringify(hdr))+'.'+jStr2B64u(JSON.stringify(pl));
     try{
-        if(alg==='none'){ document.getElementById('jwtEnc').value=si+'.'; jwtSetVerify('warn','alg: none — imzasız token.'); return; }
+        if(alg==='none'){ document.getElementById('jwtEnc').value=si+'.'; jwtSetVerify('warn','alg: none — unsigned token.'); return; }
         var P=jAlgParams(alg,false), key=await jwtImportSign(alg);
         var sig=await crypto.subtle.sign(P.sign,key,new TextEncoder().encode(si));
         document.getElementById('jwtEnc').value=si+'.'+jB64uEnc(new Uint8Array(sig));
-        jwtSetVerify('ok','✓ İmza geçerli (bu anahtarla imzalandı).');
-    }catch(e){ jwtErr('İmzalama hatası: '+e.message+' (anahtar/secret doğru mu?)'); }
+        jwtSetVerify('ok','✓ Signature valid (signed with this key).');
+    }catch(e){ jwtErr('Signing error: '+e.message+' (is the key/secret correct?)'); }
 }
 async function jwtDecode(){
     jwtErr('');
     var tok=document.getElementById('jwtEnc').value.trim();
-    if(!tok){ jwtSetVerify('none','İmza durumu — token girin.'); return; }
+    if(!tok){ jwtSetVerify('none','Signature status — enter a token.'); return; }
     var parts=tok.split('.');
-    if(parts.length<2){ jwtSetVerify('bad','Geçersiz token (nokta ile ayrılmış 2-3 parça beklenir).'); return; }
+    if(parts.length<2){ jwtSetVerify('bad','Invalid token (expected 2-3 dot-separated parts).'); return; }
     var hdrObj;
     try{
         var hdrStr=new TextDecoder().decode(jB64uDec(parts[0]));
@@ -510,16 +510,16 @@ async function jwtDecode(){
     jwtAlgChange();
     // verify
     var seq=++jwtVerSeq;
-    if(alg==='none'){ jwtSetVerify('warn','alg: none — imzasız token.'); return; }
-    if(!jAlgParams(alg,true)){ jwtSetVerify('none','Bilinmeyen alg "'+alg+'" — doğrulanamadı.'); return; }
+    if(alg==='none'){ jwtSetVerify('warn','alg: none — unsigned token.'); return; }
+    if(!jAlgParams(alg,true)){ jwtSetVerify('none','Unknown alg "'+alg+'" — could not verify.'); return; }
     var isHS=alg.indexOf('HS')===0;
-    if(!isHS && !document.getElementById('jwtPub').value.trim()){ jwtSetVerify('none','İmza doğrulanmadı — Public Key (PEM) girin.'); return; }
+    if(!isHS && !document.getElementById('jwtPub').value.trim()){ jwtSetVerify('none','Signature not verified — enter a Public Key (PEM).'); return; }
     try{
         var P=jAlgParams(alg,true), key=await jwtImportVerify(alg);
         var ok=await crypto.subtle.verify(P.sign,key,jB64uDec(parts[2]||''),new TextEncoder().encode(parts[0]+'.'+parts[1]));
         if(seq!==jwtVerSeq)return; // stale
-        ok? jwtSetVerify('ok','✓ İmza geçerli.') : jwtSetVerify('bad','✗ İmza GEÇERSİZ (secret/anahtar eşleşmiyor).');
-    }catch(e){ if(seq===jwtVerSeq) jwtSetVerify('bad','Doğrulama hatası: '+e.message); }
+        ok? jwtSetVerify('ok','✓ Signature valid.') : jwtSetVerify('bad','✗ Signature INVALID (secret/key does not match).');
+    }catch(e){ if(seq===jwtVerSeq) jwtSetVerify('bad','Verification error: '+e.message); }
 }
 document.addEventListener('DOMContentLoaded', function(){ jwtAlgChange(); jwtDecode(); });
 </script>

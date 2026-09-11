@@ -1,18 +1,18 @@
 {{define "otp_input"}}
 <div class="flex items-center justify-center gap-2 sm:gap-2.5" data-otp>
     <input type="hidden" name="code" class="otp-value">
-    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="Digit 1" autofocus
+    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="{{T `Digit %d` 1}}" autofocus
         class="otp-box w-11 h-14 sm:w-12 sm:h-14 rounded-lg bg-dark-950 border border-dark-700 text-center text-2xl font-semibold text-white caret-accent-500 focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30 focus:outline-none transition">
-    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 2"
+    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="{{T `Digit %d` 2}}"
         class="otp-box w-11 h-14 sm:w-12 sm:h-14 rounded-lg bg-dark-950 border border-dark-700 text-center text-2xl font-semibold text-white caret-accent-500 focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30 focus:outline-none transition">
-    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 3"
+    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="{{T `Digit %d` 3}}"
         class="otp-box w-11 h-14 sm:w-12 sm:h-14 rounded-lg bg-dark-950 border border-dark-700 text-center text-2xl font-semibold text-white caret-accent-500 focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30 focus:outline-none transition">
     <span class="w-2 text-center text-dark-600 select-none">–</span>
-    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 4"
+    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="{{T `Digit %d` 4}}"
         class="otp-box w-11 h-14 sm:w-12 sm:h-14 rounded-lg bg-dark-950 border border-dark-700 text-center text-2xl font-semibold text-white caret-accent-500 focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30 focus:outline-none transition">
-    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 5"
+    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="{{T `Digit %d` 5}}"
         class="otp-box w-11 h-14 sm:w-12 sm:h-14 rounded-lg bg-dark-950 border border-dark-700 text-center text-2xl font-semibold text-white caret-accent-500 focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30 focus:outline-none transition">
-    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 6"
+    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="{{T `Digit %d` 6}}"
         class="otp-box w-11 h-14 sm:w-12 sm:h-14 rounded-lg bg-dark-950 border border-dark-700 text-center text-2xl font-semibold text-white caret-accent-500 focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30 focus:outline-none transition">
 </div>
 <script>

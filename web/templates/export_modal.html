@@ -5,15 +5,15 @@
     <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="awModalClose(this.parentElement)"></div>
     <div class="relative bg-dark-900 border border-dark-800 rounded-xl w-full max-w-2xl mx-4 p-6 shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <div class="flex items-center justify-between mb-5">
-            <h3 class="text-lg font-semibold text-white">Export Results</h3>
-            <button onclick="awModalClose(this)" class="text-dark-500 hover:text-white transition-colors" aria-label="Close">
+            <h3 class="text-lg font-semibold text-white">{{T "Export Results"}}</h3>
+            <button onclick="awModalClose(this)" class="text-dark-500 hover:text-white transition-colors" aria-label="{{T `Close`}}">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
 
         <!-- Format -->
         <div class="mb-4">
-            <label class="block text-sm text-dark-300 mb-2">Format</label>
+            <label class="block text-sm text-dark-300 mb-2">{{T "Format"}}</label>
             <div class="grid grid-cols-3 gap-2">
                 <label class="relative cursor-pointer">
                     <input type="radio" name="export_format" value="csv" class="peer sr-only" checked>
@@ -41,8 +41,8 @@
              ticked; LOW + INFO unticked — pentester-report defaults. -->
         <div id="exportSeverityGroup" class="hidden mb-4">
             <div class="flex items-center justify-between mb-2">
-                <label class="text-sm text-dark-300">Severity Filter</label>
-                <span class="text-[10px] text-dark-500">applies to findings/vulnerabilities sections only</span>
+                <label class="text-sm text-dark-300">{{T "Severity Filter"}}</label>
+                <span class="text-[10px] text-dark-500">{{T "applies to findings/vulnerabilities sections only"}}</span>
             </div>
             <div class="flex flex-wrap gap-2 bg-dark-850 border border-dark-700 rounded-lg p-3">
                 <label class="cursor-pointer">
@@ -65,28 +65,28 @@
                     <input type="checkbox" name="export_severity" value="INFO" class="peer sr-only">
                     <span class="text-[11px] mono px-2.5 py-1 rounded border border-dark-700 bg-dark-900 text-dark-400 peer-checked:bg-dark-700 peer-checked:text-dark-200 peer-checked:border-dark-500">INFO</span>
                 </label>
-                <span class="ml-auto text-[10px] text-dark-500 self-center">untick a level to drop those rows from the export</span>
+                <span class="ml-auto text-[10px] text-dark-500 self-center">{{T "untick a level to drop those rows from the export"}}</span>
             </div>
         </div>
 
         <!-- Sections + Columns -->
         <div class="mb-5 flex-1 overflow-hidden flex flex-col min-h-0">
             <div class="flex items-center justify-between mb-2">
-                <label class="text-sm text-dark-300">Sections &amp; Columns</label>
-                <span class="text-[10px] text-dark-500">tick exactly the columns you want — only those will be exported</span>
+                <label class="text-sm text-dark-300">{{T "Sections & Columns"}}</label>
+                <span class="text-[10px] text-dark-500">{{T "tick exactly the columns you want — only those will be exported"}}</span>
             </div>
             <div id="exportSections" class="space-y-2 bg-dark-850 border border-dark-700 rounded-lg p-3 overflow-y-auto flex-1 min-h-0">
-                <p class="text-xs text-dark-500">Loading sections...</p>
+                <p class="text-xs text-dark-500">{{T "Loading sections..."}}</p>
             </div>
         </div>
 
         <div class="flex justify-end gap-3 shrink-0">
             <button type="button" onclick="document.getElementById('exportModal').classList.add('hidden')"
-                    class="px-4 py-2.5 text-sm text-dark-400 hover:text-white bg-dark-850 border border-dark-700 rounded-lg transition-colors">Cancel</button>
+                    class="px-4 py-2.5 text-sm text-dark-400 hover:text-white bg-dark-850 border border-dark-700 rounded-lg transition-colors">{{T "Cancel"}}</button>
             <button type="button" onclick="doExport()"
                     class="px-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                Download
+                {{T "Download"}}
             </button>
         </div>
     </div>

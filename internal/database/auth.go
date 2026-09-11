@@ -125,6 +125,20 @@ func (d *DB) SetTwoFactorLastStep(id string, step int64) {
 	d.Exec(`UPDATE users SET twofa_last_step = ? WHERE id = ?`, step, id)
 }
 
+// SetUserLanguage persists a user's UI language preference ('en' | 'tr') so it
+// follows the account across devices/logins. The request cookie stays the
+// per-request source of truth; this keeps the account in sync.
+func (d *DB) SetUserLanguage(id, lang string) error {
+	if lang != "tr" {
+		lang = "en"
+	}
+	_, err := d.Exec(`UPDATE users SET language = ?, updated_at = ? WHERE id = ?`, lang, time.Now(), id)
+	if err != nil {
+		return fmt.Errorf("set language: %w", err)
+	}
+	return nil
+}
+
 // --- Target-add permission + per-workspace domain scope ---------------------
 
 // UserCanAddTargets reports whether a user may add new targets at all.

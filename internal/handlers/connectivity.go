@@ -203,7 +203,7 @@ func (h *Handler) StartConnectivityMonitor() {
 						log.Printf("vpn-watchdog: %s down — pausing scans; will reconnect %q", iface, st.VPNConnection)
 					}
 					if ids := h.scanMgr.ActiveIDs(); len(ids) > 0 {
-						h.scanMgr.PauseAll("Paused — VPN (" + iface + ") koptu; otomatik reconnect + kaldığı yerden devam. · VPN down; auto-reconnecting.")
+						h.scanMgr.PauseAll("Paused — VPN (" + iface + ") down; auto-reconnecting and resuming from checkpoint.")
 					}
 					clearThrottle()
 					up = false
@@ -257,7 +257,7 @@ func (h *Handler) StartConnectivityMonitor() {
 					throttled = true
 					log.Printf("connectivity: network degraded (dns=%s, reachable=%d/%d) — throttling scans",
 						sample.dnsLatency.Round(time.Millisecond), sample.reachable, len(connProbeHosts))
-					h.scanMgr.WarnAll("⚠ Ağ yavaşladı — tarama otomatik yavaşlatıldı · Network degraded — scan auto-throttled")
+					h.scanMgr.WarnAll("⚠ Network degraded — scan auto-throttled")
 				}
 				// Partial connectivity is enough to make (throttled) progress: if
 				// we were paused by a full loss, resume now rather than waiting

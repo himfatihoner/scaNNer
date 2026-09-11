@@ -10,21 +10,21 @@
 
 <div class="flex items-start justify-between mb-6">
     <div>
-        <h2 class="text-xl font-bold text-white">Assets</h2>
-        <p class="text-sm text-dark-400 mt-1">All hosts, IPs and URLs that have been scanned in this workspace</p>
+        <h2 class="text-xl font-bold text-white">{{T "Assets"}}</h2>
+        <p class="text-sm text-dark-400 mt-1">{{T "All hosts, IPs and URLs that have been scanned in this workspace"}}</p>
     </div>
 </div>
 
 <!-- Stats -->
 <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
     <div class="bg-dark-900 border border-dark-800 rounded-xl p-4">
-        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">Total Assets</p>
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">{{T "Total Assets"}}</p>
         <p class="text-2xl font-bold text-white">{{.AssetTotal}}</p>
     </div>
     <div class="bg-dark-900 border border-dark-800 rounded-xl p-4">
         <div class="flex items-center gap-2 mb-1">
             <span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
-            <p class="text-xs text-dark-500 uppercase tracking-wider">Scanning</p>
+            <p class="text-xs text-dark-500 uppercase tracking-wider">{{T "Scanning"}}</p>
         </div>
         <p class="text-2xl font-bold text-white">{{.AssetRunning}}</p>
     </div>
@@ -59,13 +59,13 @@
 <div class="flex flex-wrap items-center gap-2 mb-4">
     <button type="button" data-asset-tab="fqdn" onclick="setAssetTypeTab(this)" class="asset-tab px-3 py-1.5 text-xs rounded-lg transition-colors {{if eq .FilterType "ip"}}bg-dark-850 border border-dark-700 text-dark-300 hover:text-white{{else}}bg-accent-600 text-white{{end}}">FQDN</button>
     <button type="button" data-asset-tab="ip" onclick="setAssetTypeTab(this)" class="asset-tab px-3 py-1.5 text-xs rounded-lg transition-colors {{if eq .FilterType "ip"}}bg-accent-600 text-white{{else}}bg-dark-850 border border-dark-700 text-dark-300 hover:text-white{{end}}">IP</button>
-    <input id="assetSearch" type="search" placeholder="Search host, port, service or technology (e.g. nginx, 443, wordpress)…" oninput="applyAssetFilter()"
+    <input id="assetSearch" type="search" placeholder="{{T `Search host, port, service or technology (e.g. nginx, 443, wordpress)…`}}" oninput="applyAssetFilter()"
            class="w-64 mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
     <select id="assetStatusFilter" onchange="applyAssetFilter()"
             class="bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
-        <option value="">All statuses</option>
-        <option value="running">Running</option>
-        <option value="idle">Idle</option>
+        <option value="">{{T "All statuses"}}</option>
+        <option value="running">{{T "Running"}}</option>
+        <option value="idle">{{T "Idle"}}</option>
     </select>
     <span id="assetResultCount" class="ml-auto text-[11px] text-dark-500"></span>
 </div>
@@ -75,8 +75,8 @@
      and all of its subdomains. */}}
 {{if .AssetBaseDomains}}
 <div class="flex flex-wrap items-center gap-1.5 mb-4">
-    <span class="text-[10px] uppercase tracking-wider text-dark-500 mr-1">Base domain</span>
-    <button type="button" data-basedomain="" onclick="setBaseDomain(this)" class="asset-bd-chip px-2.5 py-1 text-[11px] rounded-lg bg-accent-600 text-white">All</button>
+    <span class="text-[10px] uppercase tracking-wider text-dark-500 mr-1">{{T "Base domain"}}</span>
+    <button type="button" data-basedomain="" onclick="setBaseDomain(this)" class="asset-bd-chip px-2.5 py-1 text-[11px] rounded-lg bg-accent-600 text-white">{{T "All"}}</button>
     {{range .AssetBaseDomains}}{{$c := index $.AssetBaseDomainCounts .}}
     <button type="button" data-basedomain="{{.}}" onclick="setBaseDomain(this)" class="asset-bd-chip px-2.5 py-1 text-[11px] rounded-lg bg-dark-850 border border-dark-700 text-dark-300 hover:text-white">{{.}} <span class="opacity-60 mono">{{$c}}</span></button>
     {{end}}
@@ -88,17 +88,17 @@
     <table id="assetsTable" class="w-full text-sm">
         <thead class="bg-dark-850 border-b border-dark-800 text-left">
             <tr>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="value" data-sort-type="string">Asset</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="type" data-sort-type="string">Type</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="value" data-sort-type="string">{{T "Asset"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="type" data-sort-type="string">{{T "Type"}}</th>
                 <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">IP</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="live" data-sort-type="number">Status</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">Modules</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">Ports / Services</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">Services / Technologies</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">Related (IP ↔ Host)</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold text-center" data-sort-key="scans" data-sort-type="number">Scans</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="last-scanned" data-sort-type="number">Last Scanned</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="running" data-sort-type="number">Activity</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="live" data-sort-type="number">{{T "Status"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">{{T "Modules"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">{{T "Ports / Services"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">{{T "Services / Technologies"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">{{T "Related (IP ↔ Host)"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold text-center" data-sort-key="scans" data-sort-type="number">{{T "Scans"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="last-scanned" data-sort-type="number">{{T "Last Scanned"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="running" data-sort-type="number">{{T "Activity"}}</th>
             </tr>
         </thead>
         <tbody id="assetsTbody" class="divide-y divide-dark-800">
@@ -118,10 +118,10 @@
                         <span class="w-2 h-2 rounded-full {{if eq .Type "ipv4"}}bg-success{{else if eq .Type "domain"}}bg-warning{{else if eq .Type "fqdn"}}bg-danger{{else}}bg-dark-500{{end}}"></span>
                         <a href="/assets/{{.Value}}" class="mono text-sm text-dark-100 hover:text-accent-400 transition-colors">{{.Value}}</a>
                         {{if .InWorkspace}}
-                        <span class="text-[9px] uppercase tracking-wider text-accent-300 bg-accent-500/10 border border-accent-500/20 px-1.5 py-0.5 rounded">In WS</span>
+                        <span class="text-[9px] uppercase tracking-wider text-accent-300 bg-accent-500/10 border border-accent-500/20 px-1.5 py-0.5 rounded">{{T "In WS"}}</span>
                         {{end}}
                         {{if .Discovered}}
-                        <span class="text-[9px] uppercase tracking-wider text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded" title="Discovered from scan results (not an explicit scan target)">Discovered</span>
+                        <span class="text-[9px] uppercase tracking-wider text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded" title="{{T `Discovered from scan results (not an explicit scan target)`}}">{{T "Discovered"}}</span>
                         {{end}}
                     </div>
                 </td>
@@ -149,11 +149,11 @@
                 <td class="px-4 py-3">
                     {{if .RedirectTo}}
                     <div class="flex flex-col gap-0.5">
-                        <span class="inline-flex w-fit items-center gap-1 text-[10px] uppercase tracking-wider text-warning bg-warning/10 border border-warning/20 px-2 py-0.5 rounded" title="redirects to {{.RedirectTo}}">Redirect</span>
+                        <span class="inline-flex w-fit items-center gap-1 text-[10px] uppercase tracking-wider text-warning bg-warning/10 border border-warning/20 px-2 py-0.5 rounded" title="{{T `redirects to %s` .RedirectTo}}">{{T "Redirect"}}</span>
                         <span class="mono text-[10px] text-dark-500 max-w-[12rem] truncate" title="{{.RedirectTo}}">&rarr; {{.RedirectTo}}</span>
                     </div>
                     {{else if .Live}}
-                    <span class="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-success bg-success/10 border border-success/20 px-2 py-0.5 rounded">Live{{if .LiveStatus}} <span class="mono opacity-70">{{.LiveStatus}}</span>{{end}}</span>
+                    <span class="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-success bg-success/10 border border-success/20 px-2 py-0.5 rounded">{{T "Live"}}{{if .LiveStatus}} <span class="mono opacity-70">{{.LiveStatus}}</span>{{end}}</span>
                     {{else}}<span class="text-[11px] text-dark-600">—</span>{{end}}
                 </td>
                 <td class="px-4 py-3">
@@ -195,10 +195,10 @@
                     {{if gt .RunningJobs 0}}
                     <span class="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-accent-400 bg-accent-600/10 px-2 py-0.5 rounded">
                         <span class="w-1.5 h-1.5 rounded-full bg-accent-400 scan-pulse"></span>
-                        {{.RunningJobs}} running
+                        {{T "%d running" .RunningJobs}}
                     </span>
                     {{else}}
-                    <span class="text-[10px] uppercase tracking-wider text-success bg-success/10 px-2 py-0.5 rounded">Idle</span>
+                    <span class="text-[10px] uppercase tracking-wider text-success bg-success/10 px-2 py-0.5 rounded">{{T "Idle"}}</span>
                     {{end}}
                 </td>
             </tr>
@@ -213,9 +213,9 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
     </div>
-    <h3 class="text-lg font-semibold text-white mb-1">No Assets Yet</h3>
-    <p class="text-sm text-dark-500 text-center max-w-md">Assets appear here after you run your first scan. Every target, URL, or domain scanned through any module is aggregated into this view.</p>
-    <a href="/modules" class="mt-4 px-4 py-2 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors">Go to Modules</a>
+    <h3 class="text-lg font-semibold text-white mb-1">{{T "No Assets Yet"}}</h3>
+    <p class="text-sm text-dark-500 text-center max-w-md">{{T "Assets appear here after you run your first scan. Every target, URL, or domain scanned through any module is aggregated into this view."}}</p>
+    <a href="/modules" class="mt-4 px-4 py-2 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors">{{T "Go to Modules"}}</a>
 </div>
 {{end}}
 
@@ -333,7 +333,7 @@ document.addEventListener('DOMContentLoaded', function() {
 {{define "page_asset_detail"}}
 <!-- Breadcrumb -->
 <div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
-    <a href="/assets" class="hover:text-accent-400 transition-colors">Assets</a>
+    <a href="/assets" class="hover:text-accent-400 transition-colors">{{T "Assets"}}</a>
     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
     <span class="text-dark-200 mono">{{.Asset.Value}}</span>
 </div>
@@ -366,12 +366,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     <span class="text-[10px] uppercase tracking-wider text-dark-300 bg-dark-800 px-2 py-0.5 rounded">{{.Asset.Type}}</span>
                     {{end}}
                     {{if .Asset.InWorkspace}}
-                    <span class="text-[10px] uppercase tracking-wider text-accent-300 bg-accent-500/10 border border-accent-500/20 px-2 py-0.5 rounded">In Workspace</span>
+                    <span class="text-[10px] uppercase tracking-wider text-accent-300 bg-accent-500/10 border border-accent-500/20 px-2 py-0.5 rounded">{{T "In Workspace"}}</span>
                     {{end}}
                     {{if gt .Asset.RunningJobs 0}}
                     <span class="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-accent-400 bg-accent-600/10 px-2 py-0.5 rounded">
                         <span class="w-1.5 h-1.5 rounded-full bg-accent-400 scan-pulse"></span>
-                        {{.Asset.RunningJobs}} running
+                        {{T "%d running" .Asset.RunningJobs}}
                     </span>
                     {{end}}
                 </div>
@@ -380,19 +380,19 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div class="bg-dark-900/60 border border-dark-800 rounded-lg p-3">
-            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1">Total Scans</p>
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1">{{T "Total Scans"}}</p>
             <p class="text-xl font-bold text-white">{{.Asset.ScanCount}}</p>
         </div>
         <div class="bg-dark-900/60 border border-dark-800 rounded-lg p-3">
-            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1">Modules Used</p>
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1">{{T "Modules Used"}}</p>
             <p class="text-xl font-bold text-white">{{len .Groups}}</p>
         </div>
         <div class="bg-dark-900/60 border border-dark-800 rounded-lg p-3">
-            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1">Running</p>
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1">{{T "Running"}}</p>
             <p class="text-xl font-bold text-white">{{.Asset.RunningJobs}}</p>
         </div>
         <div class="bg-dark-900/60 border border-dark-800 rounded-lg p-3">
-            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1">Last Scanned</p>
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1">{{T "Last Scanned"}}</p>
             <p class="text-sm font-medium text-white mono mt-1">{{if not .Asset.LastScanned.IsZero}}{{.Asset.LastScanned.Format "2006-01-02 15:04"}}{{else}}—{{end}}</p>
         </div>
     </div>
@@ -405,14 +405,14 @@ document.addEventListener('DOMContentLoaded', function() {
         <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/>
         </svg>
-        <h3 class="text-sm font-semibold text-white">Findings</h3>
-        <span class="text-[10px] text-dark-500">every discovery across all scans, with detection dates</span>
+        <h3 class="text-sm font-semibold text-white">{{T "Findings"}}</h3>
+        <span class="text-[10px] text-dark-500">{{T "every discovery across all scans, with detection dates"}}</span>
         {{with .FindingSet}}
         <div class="ml-auto flex items-center gap-1.5">
-            {{if .CritCount}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-300">Crit {{.CritCount}}</span>{{end}}
-            {{if .HighCount}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-300">High {{.HighCount}}</span>{{end}}
-            {{if .MedCount}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-300">Med {{.MedCount}}</span>{{end}}
-            {{if .LowCount}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300">Low {{.LowCount}}</span>{{end}}
+            {{if .CritCount}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-300">{{T "Crit %d" .CritCount}}</span>{{end}}
+            {{if .HighCount}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-300">{{T "High %d" .HighCount}}</span>{{end}}
+            {{if .MedCount}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-300">{{T "Med %d" .MedCount}}</span>{{end}}
+            {{if .LowCount}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300">{{T "Low %d" .LowCount}}</span>{{end}}
         </div>
         {{end}}
     </div>
@@ -423,18 +423,18 @@ document.addEventListener('DOMContentLoaded', function() {
         {{/* ---- Severity-sorted vulnerability table (each row carries first/last detection date + scan link) ---- */}}
         {{if .Vulns}}
         <div>
-            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-2">🚨 Vulnerabilities ({{len .Vulns}})</p>
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-2">🚨 {{T "Vulnerabilities (%d)" (len .Vulns)}}</p>
             <div class="border border-dark-800 rounded-lg overflow-hidden">
                 <div class="max-h-[460px] overflow-y-auto overflow-x-auto">
                 <table class="w-full" id="targetVulnTable">
                     <thead class="sticky top-0 bg-dark-850 z-10">
                         <tr class="border-b border-dark-800">
-                            <th class="text-left px-3 py-2 text-[10px] font-semibold text-dark-500 uppercase cursor-pointer select-none" data-sort-key="sev-rank" data-sort-type="number">Severity</th>
-                            <th class="text-left px-3 py-2 text-[10px] font-semibold text-dark-500 uppercase cursor-pointer select-none" data-sort-key="title" data-sort-type="string">Finding</th>
-                            <th class="text-left px-3 py-2 text-[10px] font-semibold text-dark-500 uppercase cursor-pointer select-none" data-sort-key="module" data-sort-type="string">Module</th>
-                            <th class="text-left px-3 py-2 text-[10px] font-semibold text-dark-500 uppercase cursor-pointer select-none" data-sort-key="firstseen" data-sort-type="number">First seen</th>
-                            <th class="text-left px-3 py-2 text-[10px] font-semibold text-dark-500 uppercase cursor-pointer select-none" data-sort-key="lastseen" data-sort-type="number">Last seen</th>
-                            <th class="text-left px-3 py-2 text-[10px] font-semibold text-dark-500 uppercase">Scan</th>
+                            <th class="text-left px-3 py-2 text-[10px] font-semibold text-dark-500 uppercase cursor-pointer select-none" data-sort-key="sev-rank" data-sort-type="number">{{T "Severity"}}</th>
+                            <th class="text-left px-3 py-2 text-[10px] font-semibold text-dark-500 uppercase cursor-pointer select-none" data-sort-key="title" data-sort-type="string">{{T "Finding"}}</th>
+                            <th class="text-left px-3 py-2 text-[10px] font-semibold text-dark-500 uppercase cursor-pointer select-none" data-sort-key="module" data-sort-type="string">{{T "Module"}}</th>
+                            <th class="text-left px-3 py-2 text-[10px] font-semibold text-dark-500 uppercase cursor-pointer select-none" data-sort-key="firstseen" data-sort-type="number">{{T "First seen"}}</th>
+                            <th class="text-left px-3 py-2 text-[10px] font-semibold text-dark-500 uppercase cursor-pointer select-none" data-sort-key="lastseen" data-sort-type="number">{{T "Last seen"}}</th>
+                            <th class="text-left px-3 py-2 text-[10px] font-semibold text-dark-500 uppercase">{{T "Scan"}}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -458,13 +458,13 @@ document.addEventListener('DOMContentLoaded', function() {
                                 {{if .CVEs}}<p class="mt-1 flex flex-wrap gap-1">{{range .CVEs}}<a href="https://nvd.nist.gov/vuln/detail/{{.}}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="text-[10px] mono px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 hover:bg-red-500/25">{{.}}</a>{{end}}</p>{{end}}
                                 {{if .HasDetailDrawer}}
                                 <details class="mt-1.5">
-                                    <summary class="text-[10px] text-accent-400 hover:text-accent-300 cursor-pointer select-none">▸ details</summary>
+                                    <summary class="text-[10px] text-accent-400 hover:text-accent-300 cursor-pointer select-none">▸ {{T "details"}}</summary>
                                     <div class="mt-1.5 space-y-2 text-[11px]">
-                                        {{if .Evidence}}<div><span class="text-[9px] uppercase tracking-wider text-dark-500">Evidence</span><pre class="mono text-[10px] text-dark-200 bg-dark-950 border border-dark-800 rounded p-2 mt-0.5 whitespace-pre-wrap break-all max-h-40 overflow-auto">{{.Evidence}}</pre></div>{{end}}
-                                        {{if .Remediation}}<div><span class="text-[9px] uppercase tracking-wider text-dark-500">Remediation</span><p class="text-dark-200 mt-0.5">{{.Remediation}}</p></div>{{end}}
-                                        {{if .References}}<div><span class="text-[9px] uppercase tracking-wider text-dark-500">References</span><div class="flex flex-col gap-0.5 mt-0.5">{{range .References}}<a href="{{.}}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="text-accent-400 hover:text-accent-300 break-all">{{.}}</a>{{end}}</div></div>{{end}}
-                                        {{if .RawRequest}}<div><span class="text-[9px] uppercase tracking-wider text-dark-500">Request</span><pre class="mono text-[10px] text-dark-300 bg-dark-950 border border-dark-800 rounded p-2 mt-0.5 whitespace-pre-wrap break-all max-h-52 overflow-auto">{{.RawRequest}}</pre></div>{{end}}
-                                        {{if .RawResponse}}<div><span class="text-[9px] uppercase tracking-wider text-dark-500">Response</span><pre class="mono text-[10px] text-dark-300 bg-dark-950 border border-dark-800 rounded p-2 mt-0.5 whitespace-pre-wrap break-all max-h-52 overflow-auto">{{.RawResponse}}</pre></div>{{end}}
+                                        {{if .Evidence}}<div><span class="text-[9px] uppercase tracking-wider text-dark-500">{{T "Evidence"}}</span><pre class="mono text-[10px] text-dark-200 bg-dark-950 border border-dark-800 rounded p-2 mt-0.5 whitespace-pre-wrap break-all max-h-40 overflow-auto">{{.Evidence}}</pre></div>{{end}}
+                                        {{if .Remediation}}<div><span class="text-[9px] uppercase tracking-wider text-dark-500">{{T "Remediation"}}</span><p class="text-dark-200 mt-0.5">{{.Remediation}}</p></div>{{end}}
+                                        {{if .References}}<div><span class="text-[9px] uppercase tracking-wider text-dark-500">{{T "References"}}</span><div class="flex flex-col gap-0.5 mt-0.5">{{range .References}}<a href="{{.}}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="text-accent-400 hover:text-accent-300 break-all">{{.}}</a>{{end}}</div></div>{{end}}
+                                        {{if .RawRequest}}<div><span class="text-[9px] uppercase tracking-wider text-dark-500">{{T "Request"}}</span><pre class="mono text-[10px] text-dark-300 bg-dark-950 border border-dark-800 rounded p-2 mt-0.5 whitespace-pre-wrap break-all max-h-52 overflow-auto">{{.RawRequest}}</pre></div>{{end}}
+                                        {{if .RawResponse}}<div><span class="text-[9px] uppercase tracking-wider text-dark-500">{{T "Response"}}</span><pre class="mono text-[10px] text-dark-300 bg-dark-950 border border-dark-800 rounded p-2 mt-0.5 whitespace-pre-wrap break-all max-h-52 overflow-auto">{{.RawResponse}}</pre></div>{{end}}
                                     </div>
                                 </details>
                                 {{end}}
@@ -472,7 +472,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <td class="px-3 py-2 whitespace-nowrap"><span class="text-[10px] text-dark-300 bg-dark-850 border border-dark-700 px-1.5 py-0.5 rounded">{{.Module}}</span></td>
                             <td class="px-3 py-2 whitespace-nowrap mono text-[11px] text-dark-400">{{.FirstSeen.Format "2006-01-02"}}</td>
                             <td class="px-3 py-2 whitespace-nowrap mono text-[11px] text-dark-200">{{.LastSeen.Format "2006-01-02"}}{{if gt .Count 1}} <span class="text-dark-500">×{{.Count}}</span>{{end}}</td>
-                            <td class="px-3 py-2 whitespace-nowrap"><a href="{{.ScanURL}}" class="text-[11px] text-accent-400 hover:text-accent-300">&rarr; scan</a></td>
+                            <td class="px-3 py-2 whitespace-nowrap"><a href="{{.ScanURL}}" class="text-[11px] text-accent-400 hover:text-accent-300">&rarr; {{T "scan"}}</a></td>
                         </tr>
                         {{end}}
                     </tbody>
@@ -496,7 +496,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         {{else if eq .Category "WAF"}}text-warning bg-warning/10 border-warning/20
                         {{else if eq .Category "Headers / Web-Misconfig"}}text-warning bg-warning/5 border-warning/20
                         {{else}}text-dark-200 bg-dark-850 border-dark-700{{end}}"
-                        title="first {{.FirstSeen.Format "2006-01-02"}} &middot; last {{.LastSeen.Format "2006-01-02"}}{{if gt .Count 1}} &middot; seen &times;{{.Count}}{{end}}{{if .Detail}} &mdash; {{.Detail}}{{end}}">
+                        title="{{T `first`}} {{.FirstSeen.Format "2006-01-02"}} &middot; {{T `last`}} {{.LastSeen.Format "2006-01-02"}}{{if gt .Count 1}} &middot; {{T `seen`}} &times;{{.Count}}{{end}}{{if .Detail}} &mdash; {{.Detail}}{{end}}">
                         <span class="mono break-all">{{.Title}}</span>
                         <span class="text-[9px] text-dark-500 whitespace-nowrap">{{.LastSeen.Format "01-02"}}</span>
                     </span>
@@ -519,9 +519,9 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="flex items-center justify-between px-5 py-3 bg-dark-850 border-b border-dark-800">
             <div class="flex items-center gap-3">
                 <h3 class="text-sm font-semibold text-white">{{.DisplayName}}</h3>
-                <span class="text-[10px] uppercase tracking-wider text-dark-500 bg-dark-900 px-2 py-0.5 rounded">{{len .Scans}} scan{{if ne (len .Scans) 1}}s{{end}}</span>
+                <span class="text-[10px] uppercase tracking-wider text-dark-500 bg-dark-900 px-2 py-0.5 rounded">{{Tn (len .Scans) "%d scan" "%d scans" (len .Scans)}}</span>
             </div>
-            <a href="/modules/{{.Module}}" class="text-[11px] text-accent-400 hover:text-accent-300 transition-colors">Open module →</a>
+            <a href="/modules/{{.Module}}" class="text-[11px] text-accent-400 hover:text-accent-300 transition-colors">{{T "Open module"}} →</a>
         </div>
         <div class="divide-y divide-dark-800">
             {{range .Scans}}
@@ -538,7 +538,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     {{else}}
                     <span class="w-2 h-2 rounded-full bg-dark-500"></span>
                     {{end}}
-                    <span class="text-sm text-dark-200 group-hover:text-white mono">Scan #{{.ID | printf "%.8s"}}</span>
+                    <span class="text-sm text-dark-200 group-hover:text-white mono">{{T "Scan #%s" (printf "%.8s" .ID)}}</span>
                     <span class="text-[11px] text-dark-500">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
                     {{if gt .ProgressTotal 0}}
                     <span class="text-[11px] text-dark-500">{{.ProgressDone}}/{{.ProgressTotal}}</span>
@@ -546,15 +546,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
                 <div class="flex items-center gap-2">
                     {{if eq (print .Status) "done"}}
-                    <span class="text-[10px] uppercase tracking-wider text-success bg-success/10 px-2 py-0.5 rounded">Done</span>
+                    <span class="text-[10px] uppercase tracking-wider text-success bg-success/10 px-2 py-0.5 rounded">{{T "Done"}}</span>
                     {{else if eq (print .Status) "running"}}
-                    <span class="text-[10px] uppercase tracking-wider text-accent-400 bg-accent-600/10 px-2 py-0.5 rounded">Running</span>
+                    <span class="text-[10px] uppercase tracking-wider text-accent-400 bg-accent-600/10 px-2 py-0.5 rounded">{{T "Running"}}</span>
                     {{else if eq (print .Status) "error"}}
-                    <span class="text-[10px] uppercase tracking-wider text-danger bg-danger/10 px-2 py-0.5 rounded">Error</span>
+                    <span class="text-[10px] uppercase tracking-wider text-danger bg-danger/10 px-2 py-0.5 rounded">{{T "Error"}}</span>
                     {{else if eq (print .Status) "cancelled"}}
-                    <span class="text-[10px] uppercase tracking-wider text-dark-400 bg-dark-800 px-2 py-0.5 rounded">Cancelled</span>
+                    <span class="text-[10px] uppercase tracking-wider text-dark-400 bg-dark-800 px-2 py-0.5 rounded">{{T "Cancelled"}}</span>
                     {{else}}
-                    <span class="text-[10px] uppercase tracking-wider text-dark-500 bg-dark-800 px-2 py-0.5 rounded">Pending</span>
+                    <span class="text-[10px] uppercase tracking-wider text-dark-500 bg-dark-800 px-2 py-0.5 rounded">{{T "Pending"}}</span>
                     {{end}}
                     <svg class="w-4 h-4 text-dark-600 group-hover:text-accent-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -569,8 +569,8 @@ document.addEventListener('DOMContentLoaded', function() {
 {{else}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl p-10 flex flex-col items-center justify-center">
     <svg class="w-10 h-10 text-dark-700 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-    <p class="text-sm text-dark-300">No scan results for this asset</p>
-    <a href="/modules" class="mt-4 px-4 py-2 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors">Go to Modules</a>
+    <p class="text-sm text-dark-300">{{T "No scan results for this asset"}}</p>
+    <a href="/modules" class="mt-4 px-4 py-2 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors">{{T "Go to Modules"}}</a>
 </div>
 {{end}}
 {{end}}

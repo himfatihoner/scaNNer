@@ -377,7 +377,7 @@ func runFullMode(result *ScanResult, mu *sync.Mutex, targets []string, directHTT
 	targets, dropped := resolvableTargets(targets, opts)
 	if len(targets) == 0 {
 		if progress != nil {
-			progress(0, fmt.Sprintf("Çözülebilir hedef yok (%d host çözülemedi) — taranacak bir şey yok", dropped))
+			progress(0, fmt.Sprintf("No resolvable targets (%d hosts unresolved) — nothing to scan", dropped))
 		}
 		return result
 	}
@@ -415,9 +415,9 @@ func runFullMode(result *ScanResult, mu *sync.Mutex, targets []string, directHTT
 			mode = "Full scan (direct HTTP/HTTPS)"
 		}
 		if dropped > 0 {
-			progress(0, fmt.Sprintf("%s: %d host × 65535 port — %d host çözülemedi, atlandı", mode, len(targets), dropped))
+			progress(0, fmt.Sprintf("%s: %d hosts × 65535 ports — %d hosts unresolved, skipped", mode, len(targets), dropped))
 		} else {
-			progress(0, fmt.Sprintf("%s: %d host × 65535 port, rastgele sıra", mode, len(targets)))
+			progress(0, fmt.Sprintf("%s: %d hosts × 65535 ports, random order", mode, len(targets)))
 		}
 	}
 

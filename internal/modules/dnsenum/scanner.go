@@ -395,9 +395,9 @@ func enumerateDomain(ctx context.Context, domain string, speed Speed, scanOpts O
 	// errored but still returned some hits is treated as ok (partial).
 	runSource := func(name string, subprocess bool, fn func() ([]string, error)) {
 		if subprocess && !toolInstalled(name) {
-			setSrc(name, "skipped", 0, "kurulu değil (not installed)")
+			setSrc(name, "skipped", 0, "not installed")
 			collect(nil, name)
-			logFn(fmt.Sprintf("[%s] %s: skipped (kurulu değil)", domain, name))
+			logFn(fmt.Sprintf("[%s] %s: skipped (not installed)", domain, name))
 			return
 		}
 		setSrc(name, "running", -1, "")
@@ -477,7 +477,7 @@ func enumerateDomain(ctx context.Context, domain string, speed Speed, scanOpts O
 		// return usually means the API rate-limited or timed out rather than
 		// a genuine empty set, so flag that instead of a bare "0".
 		if len(subs) == 0 && ctx.Err() == nil {
-			setSrc("crt.sh", "failed", 0, "yanıt yok / rate-limit (crt.sh)")
+			setSrc("crt.sh", "failed", 0, "no response / rate-limit (crt.sh)")
 		} else {
 			setSrc("crt.sh", "ok", len(subs), "")
 		}
@@ -564,9 +564,9 @@ func enumerateDomain(ctx context.Context, domain string, speed Speed, scanOpts O
 		logFn(fmt.Sprintf("[%s] $ # wordlist missing: %s — skipping brute-force phase (install seclists to enable)", domain, wordlist))
 		setSrc("puredns", "skipped", 0, "wordlist yok: "+wordlist)
 	} else if !toolInstalled("puredns") {
-		setSrc("puredns", "skipped", 0, "kurulu değil (not installed)")
+		setSrc("puredns", "skipped", 0, "not installed")
 	} else if !toolInstalled("massdns") {
-		setSrc("puredns", "skipped", 0, "massdns kurulu değil (puredns onu çağırır)")
+		setSrc("puredns", "skipped", 0, "massdns not installed (puredns calls it)")
 	} else {
 		logFn(fmt.Sprintf("[%s] Brute-forcing with global resolvers...", domain))
 		setSrc("puredns", "running", -1, "")
@@ -621,7 +621,7 @@ func enumerateDomain(ctx context.Context, domain string, speed Speed, scanOpts O
 			logFn(fmt.Sprintf("[%s] $ # gobuster NS-brute skipped: wordlist missing %s", domain, wordlist))
 			setSrc("gobuster", "skipped", 0, "wordlist yok: "+wordlist)
 		case !toolInstalled("gobuster"):
-			setSrc("gobuster", "skipped", 0, "kurulu değil (not installed)")
+			setSrc("gobuster", "skipped", 0, "not installed")
 		default:
 			logFn(fmt.Sprintf("[%s] gobuster dns brute against %d nameserver(s) (delay=%q)...", domain, len(dr.Nameservers), scanOpts.NSGobusterDelay))
 			setSrc("gobuster", "running", -1, "")
@@ -907,7 +907,7 @@ func runAmass(parent context.Context, domain, tmpDir string, speed Speed, log fu
 // clean exit — a kill means it never wrote anything — so name that explicitly.
 func amassFailReason(ctx context.Context, stderr string) string {
 	if ctx.Err() == context.DeadlineExceeded {
-		return "zaman aşımı — amass v5 süre dolmadan sonuç yazamadı (yavaş: bulduğu isimleri DNS ile çözüyor)"
+		return "timeout — amass v5 did not write results before the deadline (slow: it resolves the names it finds via DNS)"
 	}
 	msg := ""
 	for _, ln := range strings.Split(strings.ReplaceAll(stderr, "\r", "\n"), "\n") {
@@ -966,7 +966,7 @@ func runReconNG(parent context.Context, domain, tmpDir string, log func(string))
 	// inject extra recon-ng commands (e.g. `\nexec sh -c '...' \n`).
 	// Reject anything that isn't a plain DNS-safe label sequence.
 	if !validDomainLabel(domain) {
-		return nil, fmt.Errorf("geçersiz alan adı: %q", domain)
+		return nil, fmt.Errorf("invalid domain: %q", domain)
 	}
 
 	// One-time marketplace bootstrap. Best-effort; if it fails (offline,
@@ -1052,7 +1052,7 @@ func runPureDNS(parent context.Context, domain, wordlist, resolverFile, tmpDir s
 	// absent the brute silently yields nothing. Surface that as a clear
 	// failure instead of a mysterious "0 results".
 	if !toolInstalled("massdns") {
-		return nil, fmt.Errorf("massdns kurulu değil (puredns onu çağırır)")
+		return nil, fmt.Errorf("massdns not installed (puredns calls it)")
 	}
 
 	// Audit fix: caller can override the per-speed default via Options
@@ -1368,7 +1368,7 @@ func toolErr(err error, stderr string) error {
 		return nil
 	}
 	if strings.Contains(err.Error(), "executable file not found") {
-		return fmt.Errorf("kurulu değil (not installed)")
+		return fmt.Errorf("not installed")
 	}
 	msg := ""
 	for _, ln := range strings.Split(stderr, "\n") {

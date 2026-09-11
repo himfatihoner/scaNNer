@@ -1,10 +1,10 @@
 {{define "page_dnsenum_results"}}
 <div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
-    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <a href="/modules" class="hover:text-accent-400 transition-colors">{{T "Modules"}}</a>
     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-    <a href="/modules/dnsenum" class="hover:text-accent-400 transition-colors">DNS Enumerator</a>
+    <a href="/modules/dnsenum" class="hover:text-accent-400 transition-colors">{{T "DNS Enumerator"}}</a>
     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-    <span class="text-dark-200">Results</span>
+    <span class="text-dark-200">{{T "Results"}}</span>
 </div>
 {{template "scan_actions" .}}
 
@@ -25,12 +25,12 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.732-3L13.732 4a2 2 0 00-3.464 0L3.268 16A2 2 0 005 19z"/>
     </svg>
     <div>
-        <p class="text-sm font-medium text-danger">Could not parse scan result</p>
+        <p class="text-sm font-medium text-danger">{{T "Could not parse scan result"}}</p>
         <p class="text-xs text-dark-300 mt-0.5 mono break-all">{{.ParseError}}</p>
     </div>
 </div>
 {{end}}
-<p class="text-sm text-dark-400 mb-4">{{.TotalSubs}} subdomains discovered</p>
+<p class="text-sm text-dark-400 mb-4">{{Tn .TotalSubs "%d subdomain discovered" "%d subdomains discovered" .TotalSubs}}</p>
 
 {{/* Import-to-Targets panel: pushes discovered subdomains into the
      workspace as Target rows in a list of the user's choice. Submits
@@ -41,38 +41,38 @@
 {{if and .Results (or (eq (print .Scan.Status) "done") (eq (print .Scan.Status) "error"))}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl mb-6 p-5">
     <div class="flex items-center justify-between mb-3">
-        <h3 class="text-sm font-semibold text-white">Import discovered subdomains</h3>
-        <span class="text-[10px] text-dark-500 uppercase tracking-wider">→ Workspace targets</span>
+        <h3 class="text-sm font-semibold text-white">{{T "Import discovered subdomains"}}</h3>
+        <span class="text-[10px] text-dark-500 uppercase tracking-wider">→ {{T "Workspace targets"}}</span>
     </div>
     <form id="dnsenumImportForm" class="space-y-3">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <label class="flex items-start gap-2 cursor-pointer">
                 <input type="checkbox" name="include_wildcards" class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500">
-                <span class="text-xs text-dark-300">Include wildcard-flagged subdomains</span>
+                <span class="text-xs text-dark-300">{{T "Include wildcard-flagged subdomains"}}</span>
             </label>
             <label class="flex items-start gap-2 cursor-pointer">
                 <input type="checkbox" name="only_resolved" checked class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500">
-                <span class="text-xs text-dark-300">Only resolved (skip subs with no IPs)</span>
+                <span class="text-xs text-dark-300">{{T "Only resolved (skip subs with no IPs)"}}</span>
             </label>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
             <div class="md:col-span-2">
-                <label class="block text-[11px] text-dark-300 mb-1">Target list</label>
+                <label class="block text-[11px] text-dark-300 mb-1">{{T "Target list"}}</label>
                 <select name="list_id" class="w-full bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500"
                         onchange="(function(s){var n=document.getElementById('dnsenumNewListName');if(n){n.style.display=s.value==='__new__'?'block':'none';}})(this)">
-                    <option value="">(Uncategorized)</option>
+                    <option value="">{{T "(Uncategorized)"}}</option>
                     {{range .TargetLists}}
                     <option value="{{.ID}}">{{.Name}}</option>
                     {{end}}
-                    <option value="__new__">+ Create new list…</option>
+                    <option value="__new__">{{T "+ Create new list…"}}</option>
                 </select>
-                <input type="text" id="dnsenumNewListName" name="new_list_name" placeholder="New list name"
+                <input type="text" id="dnsenumNewListName" name="new_list_name" placeholder="{{T `New list name`}}"
                        style="display:none"
                        class="mt-2 w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
             </div>
             <button type="submit"
                     class="py-2 px-3 text-xs font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors">
-                Import to targets
+                {{T "Import to targets"}}
             </button>
         </div>
         <p id="dnsenumImportStatus" class="text-[11px]"></p>
@@ -129,7 +129,7 @@
         <div class="flex items-center justify-between">
             <div>
                 <span class="mono text-base font-semibold text-accent-400">{{.Domain}}</span>
-                <span class="text-xs text-dark-400 ml-3">{{.TotalFound}} subdomains</span>
+                <span class="text-xs text-dark-400 ml-3">{{Tn .TotalFound "%d subdomain" "%d subdomains" .TotalFound}}</span>
             </div>
             <div class="flex items-center gap-3">
                 {{range $src, $cnt := .Sources}}
@@ -153,8 +153,8 @@
     {{if .SourceStates}}
     <div class="px-5 py-3 border-b border-dark-800 bg-dark-850/30">
         <div class="flex items-center gap-2 mb-2">
-            <span class="text-[10px] text-dark-500 uppercase tracking-wider">Kaynak Durumu</span>
-            <span class="text-[10px] text-dark-600">(tool status)</span>
+            <span class="text-[10px] text-dark-500 uppercase tracking-wider">{{T "Source Status"}}</span>
+            <span class="text-[10px] text-dark-600">{{T "(tool status)"}}</span>
         </div>
         <div class="flex flex-wrap gap-2">
             {{range .SourceStates}}
@@ -162,10 +162,10 @@
             <span class="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-300">
                 <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
                 <span class="mono font-medium">{{.Name}}</span>
-                <span class="text-amber-400/70">çalışıyor…</span>
+                <span class="text-amber-400/70">{{T "running…"}}</span>
             </span>
             {{else if eq .State "ok"}}
-            <span class="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-300" title="{{.Count}} sonuç">
+            <span class="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-300" title="{{T `%d results` .Count}}">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
                 <span class="mono font-medium">{{.Name}}</span>
                 <span class="text-emerald-400/70">{{.Count}}</span>
@@ -193,11 +193,11 @@
          clipboard. Includes wildcard rows since the user may still want
          to review them — they're rendered with opacity-50 below. */}}
     <div class="px-5 py-2 flex items-center justify-between border-b border-dark-800 bg-dark-850/40">
-        <span class="text-[10px] text-dark-500 uppercase tracking-wider">{{len .Subdomains}} subdomains</span>
+        <span class="text-[10px] text-dark-500 uppercase tracking-wider">{{Tn (len .Subdomains) "%d subdomain" "%d subdomains" (len .Subdomains)}}</span>
         <button type="button" data-copy-subdomains
                 class="text-[10px] px-2 py-1 rounded bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700 transition-colors inline-flex items-center gap-1">
             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-            Copy all
+            {{T "Copy all"}}
         </button>
     </div>
     {{/* Per-domain copy source. When BulkText is set (suite view), every
@@ -236,18 +236,18 @@
     {{$totalSubs := len .Subdomains}}
     {{if and (gt $limit 0) (gt $totalSubs $limit)}}
     <div class="px-5 py-1.5 bg-dark-850/60 border-b border-dark-800 text-[10px] text-dark-400">
-        Showing first <span class="mono text-dark-200">{{$limit}}</span> of <span class="mono text-dark-200">{{$totalSubs}}</span> subdomains —
-        <button type="button" data-copy-subdomains class="underline text-accent-400 hover:text-accent-300">Copy all</button> to grab the full list.
+        {{T "Showing first"}} <span class="mono text-dark-200">{{$limit}}</span> {{T "of"}} <span class="mono text-dark-200">{{$totalSubs}}</span> {{T "subdomains —"}}
+        <button type="button" data-copy-subdomains class="underline text-accent-400 hover:text-accent-300">{{T "Copy all"}}</button> {{T "to grab the full list."}}
     </div>
     {{end}}
     <div class="max-h-[600px] overflow-y-auto">
         <table class="w-full">
             <thead class="sticky top-0 bg-dark-900">
                 <tr class="border-b border-dark-800">
-                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase tracking-wider">Subdomain</th>
-                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase tracking-wider">IP Address(es)</th>
-                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase tracking-wider">Source</th>
-                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase tracking-wider">Wildcard</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase tracking-wider">{{T "Subdomain"}}</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase tracking-wider">{{T "IP Address(es)"}}</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase tracking-wider">{{T "Source"}}</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase tracking-wider">{{T "Wildcard"}}</th>
                 </tr>
             </thead>
             <tbody>
@@ -266,20 +266,20 @@
     </div>
     {{else}}
     <div class="p-8 text-center text-dark-500">
-        <p class="text-sm">No subdomains found</p>
+        <p class="text-sm">{{T "No subdomains found"}}</p>
     </div>
     {{end}}
 
     {{if .AXFRRecords}}
     <div class="px-5 pb-5">
-        <h4 class="text-xs font-semibold text-warning uppercase tracking-wider mb-2">⚠ Zone Transfer Succeeded ({{len .AXFRRecords}} records)</h4>
+        <h4 class="text-xs font-semibold text-warning uppercase tracking-wider mb-2">⚠ {{T "Zone Transfer Succeeded (%d records)" (len .AXFRRecords)}}</h4>
         <div class="bg-dark-850 rounded-lg overflow-hidden">
             <table class="w-full">
                 <thead><tr class="border-b border-dark-700">
                     <th class="text-left px-3 py-1.5 text-[10px] text-dark-500 uppercase">NS</th>
-                    <th class="text-left px-3 py-1.5 text-[10px] text-dark-500 uppercase">Name</th>
-                    <th class="text-left px-3 py-1.5 text-[10px] text-dark-500 uppercase">Type</th>
-                    <th class="text-left px-3 py-1.5 text-[10px] text-dark-500 uppercase">Value</th>
+                    <th class="text-left px-3 py-1.5 text-[10px] text-dark-500 uppercase">{{T "Name"}}</th>
+                    <th class="text-left px-3 py-1.5 text-[10px] text-dark-500 uppercase">{{T "Type"}}</th>
+                    <th class="text-left px-3 py-1.5 text-[10px] text-dark-500 uppercase">{{T "Value"}}</th>
                 </tr></thead>
                 <tbody>
                 {{range .AXFRRecords}}
@@ -298,7 +298,7 @@
 
     {{if .ReverseDNS}}
     <div class="px-5 pb-5">
-        <h4 class="text-xs font-semibold text-dark-400 uppercase tracking-wider mb-2">Reverse DNS ({{len .ReverseDNS}})</h4>
+        <h4 class="text-xs font-semibold text-dark-400 uppercase tracking-wider mb-2">{{T "Reverse DNS (%d)" (len .ReverseDNS)}}</h4>
         <div class="bg-dark-850 rounded-lg max-h-72 overflow-auto p-2">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-1">
                 {{range .ReverseDNS}}
@@ -316,14 +316,14 @@
     {{if .CrtShCerts}}
     <div class="px-5 pb-5">
         <details class="bg-dark-850 border border-dark-700 rounded">
-            <summary class="px-3 py-1.5 cursor-pointer text-[11px] text-accent-400 hover:text-accent-300">▸ crt.sh certificates ({{len .CrtShCerts}})</summary>
+            <summary class="px-3 py-1.5 cursor-pointer text-[11px] text-accent-400 hover:text-accent-300">▸ {{T "crt.sh certificates (%d)" (len .CrtShCerts)}}</summary>
             <div class="max-h-72 overflow-auto p-2">
                 <table class="w-full">
                     <thead><tr class="border-b border-dark-700">
-                        <th class="text-left px-2 py-1 text-[10px] text-dark-500 uppercase">Hostname</th>
-                        <th class="text-left px-2 py-1 text-[10px] text-dark-500 uppercase">Issuer</th>
-                        <th class="text-left px-2 py-1 text-[10px] text-dark-500 uppercase">Valid From</th>
-                        <th class="text-left px-2 py-1 text-[10px] text-dark-500 uppercase">Valid Until</th>
+                        <th class="text-left px-2 py-1 text-[10px] text-dark-500 uppercase">{{T "Hostname"}}</th>
+                        <th class="text-left px-2 py-1 text-[10px] text-dark-500 uppercase">{{T "Issuer"}}</th>
+                        <th class="text-left px-2 py-1 text-[10px] text-dark-500 uppercase">{{T "Valid From"}}</th>
+                        <th class="text-left px-2 py-1 text-[10px] text-dark-500 uppercase">{{T "Valid Until"}}</th>
                     </tr></thead>
                     <tbody>
                     {{range .CrtShCerts}}
@@ -345,7 +345,7 @@
 
 {{if not .Results}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
-    <p class="text-sm">{{if eq (print .Scan.Status) "running"}}Waiting for first results...{{else}}No results available{{end}}</p>
+    <p class="text-sm">{{if eq (print .Scan.Status) "running"}}{{T "Waiting for first results..."}}{{else}}{{T "No results available"}}{{end}}</p>
 </div>
 {{end}}
 {{end}}

@@ -20,6 +20,7 @@ import (
 
 	"scanner/internal/capacity"
 	"scanner/internal/database"
+	"scanner/internal/i18n"
 	"scanner/internal/models"
 	"scanner/internal/modules"
 	"scanner/internal/modules/shared"
@@ -29,11 +30,20 @@ import (
 
 const activeWSCookie = "scanner_active_ws"
 
+// langCookie holds the per-visitor UI language ("en" | "tr"). It is the
+// per-request source of truth (read in baseData/render); for logged-in users it
+// is kept in sync with the account's stored preference.
+const langCookie = "scanner_lang"
+
 // Handler holds dependencies for HTTP handlers
 type Handler struct {
-	registry      *modules.Registry
-	db            *database.DB
-	templates     *template.Template
+	registry *modules.Registry
+	db       *database.DB
+	// templates is parsed ONCE PER LANGUAGE ("en","tr"), each tree carrying a
+	// FuncMap whose text-emitting funcs (T/Thtml/Tn, vulnReport, …) are bound to
+	// that language. render() picks the tree by the request's Lang, so a
+	// {{T "…"}} inside any partial localizes correctly with no .Lang threading.
+	templates     map[string]*template.Template
 	scanMgr       *ScanManager
 	secureCookies bool // Secure flag on the session cookie (true when serving HTTPS)
 }
@@ -43,373 +53,412 @@ type Handler struct {
 // at unexported state.
 func (h *Handler) ScanMgr() *ScanManager { return h.scanMgr }
 
+// formErrorMsg maps a ?error=<code> query param to its English message (the
+// i18n msgid). Returns "" for unknown/empty codes; the friendlyFormError
+// FuncMap wrapper handles those and runs the result through i18n.T.
+func formErrorMsg(code string) string {
+	switch code {
+	case "no_urls", "no_targets", "no_target", "no_hosts", "no_domains":
+		return "No targets were submitted. Enter at least one target before launching the scan."
+	case "no_queries":
+		return "No search queries were submitted."
+	case "no_tokens":
+		return "No JWT tokens were submitted."
+	case "no_token":
+		return "A required API token is missing. Set it in Settings before launching this scan."
+	case "no_subdomains":
+		return "No subdomains were submitted."
+	case "no_seed", "no_seeds":
+		return "No seed URL was submitted."
+	case "no_login":
+		return "Login URL is required."
+	case "no_creds", "no_credentials":
+		return "Credentials are required (username/password or hash)."
+	case "no_users":
+		return "Username list is empty. Provide either a single username or a username list."
+	case "no_passes":
+		return "Password list is empty. Provide at least one candidate password."
+	case "bad_protocol":
+		return "Selected protocol is not supported. Choose SSH, FTP, RDP, SMB, MSSQL, MySQL, PostgreSQL, VNC, LDAP, or Telnet."
+	case "no_dc", "no_domain":
+		return "Domain Controller or domain name is required."
+	case "spray_needs_threshold":
+		return "Password Spray is enabled but no lockout threshold was provided. Enter a lockout threshold (or disable Password Spray) before launching."
+	case "no_probe_selected":
+		return "Select at least one probe type (cache poisoning and/or HTTP smuggling) before launching."
+	case "v3_missing_auth":
+		return "SNMPv3 auth level requires an Auth Password of at least 8 characters. Fill it in (or switch to noAuthNoPriv) before launching."
+	case "v3_missing_priv":
+		return "SNMPv3 authPriv requires a Priv Password of at least 8 characters. Fill it in (or drop to authNoPriv) before launching."
+	case "db_error":
+		return "The scan could not be saved to the database. Check the server logs."
+	case "invalid_url", "bad_url":
+		return "One or more URLs were malformed. Use the http(s):// prefix."
+	case "invalid_target", "bad_target", "unsafe_target":
+		return "One or more targets were rejected (contains shell or flag characters)."
+	case "invalid_method":
+		return "HTTP method value is not one of GET/POST/BOTH."
+	case "method_not_allowed":
+		return "Run endpoint requires POST."
+	case "tool_missing":
+		return "An external tool required by this module is not installed. Check the startup banner."
+	case "too_many_tasks":
+		return "Too many scan tasks (targets × ports) — reduce target count or port range."
+	case "too_many_urls":
+		return "Too many target URLs submitted. Limit is 500 per scan — split the list across multiple runs."
+	case "too_many_ports":
+		return "Port range too large — narrow the range (max 1024 ports per scan)."
+	case "too_many_targets":
+		return "Target list is too large — reduce the number of entries or narrow each CIDR (aggregate cap is 65 536 hosts and 256 lines)."
+	case "cidr_too_large":
+		return "One of the supplied CIDRs is wider than /16. Split it into /16-or-narrower blocks before launching."
+	case "bad_ports":
+		return "Custom / Range port spec is malformed — use comma-separated ports or a hyphen range (e.g. 80,443 or 1-1024)."
+	case "httpx_custom_ports_required":
+		return "Custom HTTPX port spec is required when HTTPX mode is set to Custom. Enter a comma-separated list (e.g. 80,443,8080-8090)."
+	case "httpx_custom_ports_invalid":
+		return "Custom HTTPX port spec could not be parsed — use comma-separated ports or ranges (e.g. 80,443,8080-8090)."
+	case "no_stages":
+		return "At least one suite stage must be enabled before launching the scan."
+	}
+	return ""
+}
+
 // New creates a new Handler
 func New(registry *modules.Registry, db *database.DB, templateDir string) (*Handler, error) {
-	funcMap := template.FuncMap{
-		"targetTypeLabel":   models.TargetTypeLabel,
-		"moduleDisplayName": models.ModuleDisplayName,
-		"isVulnEmitter":     modules.IsVulnEmitter,
-		// assetKey is the bare, scheme-stripped host used as the /assets/<key>
-		// path — linking with a raw "https://host" would put "://" in the URL
-		// path, which net/http path-cleans into a broken "/assets/https:/host".
-		"assetKey": normalizeAsset,
-		// vulnID computes the stable report ID for a finding so the same ID
-		// shows on the Vulnerabilities page and the per-asset findings.
-		"vulnID": vulnID,
-		// vulnReport resolves a vuln into the same fully-Turkish report the
-		// export produces (translated title/description, KB narrative, cleaned
-		// CVE, nmap/openssl PoC) for the Vulnerabilities-page detail drawer.
-		"vulnReport": func(v GlobalVuln) VulnReport { return buildVulnReport(v, "tr") },
-		// moduleIcon looks up the icon (emoji) from the registry so scans
-		// list / dashboards stay in sync as new modules are added. Falls
-		// back to "🧩" for unknown modules.
-		"moduleIcon": func(name string) string {
-			if m, ok := registry.Get(name); ok {
-				return m.Icon()
-			}
-			return "🧩"
-		},
-		"divf": func(a, b float64) float64 {
-			if b == 0 {
-				return 0
-			}
-			return a / b
-		},
-		"mulf": func(a, b float64) float64 { return a * b },
-		"intf": func(a int) float64 { return float64(a) },
-		"list": func(args ...interface{}) []interface{} { return args },
-		"add":  func(a, b int) int { return a + b },
-		// scanPct is the progress percentage clamped to [0,100] so a module
-		// that momentarily emits progress_done > progress_total (e.g. a chained
-		// second phase with its own counter) never renders a bar past 100%.
-		"scanVulnCounts": func(scanID string) VulnCountPair { return scanVulnCountsFrom(db, scanID) },
-		"scanPct": func(done, total int) int {
-			if total <= 0 {
-				return 0
-			}
-			if done > total {
-				done = total
-			}
-			if done < 0 {
-				done = 0
-			}
-			return done * 100 / total
-		},
-		// Severity macros need case-normalize before comparison so a
-		// module emitting "critical" matches one emitting "CRITICAL".
-		"upper": strings.ToUpper,
-		"lower": strings.ToLower,
-		"scanTargetCount": func(s models.Scan) int {
-			// ProgressTotal often conflates "targets × probes" or, in
-			// the suite's case, "stages" — neither is the same as
-			// "how many hosts the user asked to scan". Parse the
-			// per-module Config JSON for the canonical target fields
-			// (target / targets / urls / domains) and fall back to
-			// ProgressTotal only when nothing recognisable is there.
-			if s.Config == "" || s.Config == "{}" {
-				return s.ProgressTotal
-			}
-			var cfg struct {
-				Target  string   `json:"target"`
-				Targets []string `json:"targets"`
-				URLs    []string `json:"urls"`
-				Domains []string `json:"domains"`
-				Hosts   []string `json:"hosts"`
-				Hashes  []string `json:"hashes"` // hashcat: the count that matters is the hash lines
-			}
-			if err := json.Unmarshal([]byte(s.Config), &cfg); err != nil {
-				return s.ProgressTotal
-			}
-			// Plural slices take priority — when a handler writes
-			// BOTH (advancedweb sets cfg.Target = rawTargets[0] as a
-			// legacy alias for older JSON consumers) the multi-target
-			// count is the one the user cares about. The previous
-			// version short-circuited on a non-empty .Target and
-			// surfaced "1 target" for scans launched against a 396-
-			// entry target list — fixed by checking the slices first.
-			if n := len(cfg.Targets); n > 0 {
-				return n
-			}
-			if n := len(cfg.URLs); n > 0 {
-				return n
-			}
-			if n := len(cfg.Domains); n > 0 {
-				return n
-			}
-			if n := len(cfg.Hosts); n > 0 {
-				return n
-			}
-			// hashcat is host-less — its "targets" are the hash lines being
-			// cracked. (ProgressTotal stays 100 for the percent-based bar; this
-			// only fixes the Scans-list count.)
-			if n := len(cfg.Hashes); n > 0 {
-				return n
-			}
-			if cfg.Target != "" {
-				return 1
-			}
-			return s.ProgressTotal
-		},
-		"dict": func(values ...interface{}) (map[string]interface{}, error) {
-			// Build a map from alternating key/value args. Used by the
-			// advancedweb suite results template to pass synthetic data
-			// shapes into each module's `_results_inner` template.
-			if len(values)%2 != 0 {
-				return nil, fmt.Errorf("dict requires an even number of args")
-			}
-			m := make(map[string]interface{}, len(values)/2)
-			for i := 0; i < len(values); i += 2 {
-				k, ok := values[i].(string)
-				if !ok {
-					return nil, fmt.Errorf("dict key #%d is not a string", i/2)
+	// Translation catalogs live in web/i18n (sibling of the templates dir).
+	i18n.Load(filepath.Join(filepath.Dir(templateDir), "i18n"))
+	// buildFuncMap produces one FuncMap per language. Text-emitting funcs are
+	// bound to `lang`; language-neutral funcs are identical across languages.
+	buildFuncMap := func(lang string) template.FuncMap {
+		return template.FuncMap{
+			// T/Thtml/Tn are the translation entry points for templates. The
+			// msgid IS the English source string (gettext-style); English renders
+			// it verbatim, other languages look it up in web/i18n/<lang>.json.
+			"T":     func(msgid string, args ...interface{}) string { return i18n.T(lang, msgid, args...) },
+			"Thtml": func(msgid string, args ...interface{}) template.HTML { return i18n.Thtml(lang, msgid, args...) },
+			"Tn": func(n int, singular, plural string, args ...interface{}) string {
+				return i18n.Tn(lang, n, singular, plural, args...)
+			},
+			"targetTypeLabel":   func(t models.TargetType) string { return i18n.T(lang, models.TargetTypeLabel(t)) },
+			"moduleDisplayName": func(m string) string { return i18n.T(lang, models.ModuleDisplayName(m)) },
+			"isVulnEmitter":     modules.IsVulnEmitter,
+			// assetKey is the bare, scheme-stripped host used as the /assets/<key>
+			// path — linking with a raw "https://host" would put "://" in the URL
+			// path, which net/http path-cleans into a broken "/assets/https:/host".
+			"assetKey": normalizeAsset,
+			// vulnID computes the stable report ID for a finding so the same ID
+			// shows on the Vulnerabilities page and the per-asset findings.
+			"vulnID": vulnID,
+			// vulnReport resolves a vuln into the localized report the export also
+			// produces (translated title/description, KB narrative, cleaned CVE,
+			// nmap/openssl PoC) for the Vulnerabilities-page detail drawer. Bound to
+			// the active language so the drawer matches the rest of the UI.
+			"vulnReport": func(v GlobalVuln) VulnReport { return buildVulnReport(v, lang) },
+			// moduleIcon looks up the icon (emoji) from the registry so scans
+			// list / dashboards stay in sync as new modules are added. Falls
+			// back to "🧩" for unknown modules.
+			"moduleIcon": func(name string) string {
+				if m, ok := registry.Get(name); ok {
+					return m.Icon()
 				}
-				m[k] = values[i+1]
-			}
-			return m, nil
-		},
-		"subInt": func(a, b int) int { return a - b },
-		// httpStatusText returns the IANA-registered reason phrase
-		// for a numeric status code ("OK", "Not Found", ...). Used by
-		// the HTTPX result panel header to render "404 Not Found"
-		// next to the status pill. Falls back to "" for codes the
-		// stdlib doesn't know (custom server values), which the
-		// template handles by emitting just the number.
-		"httpStatusText": func(code int) string { return http.StatusText(code) },
-		// friendlyFormError maps a ?error=<code> query param to a
-		// user-readable explanation rendered by the form_error template
-		// partial. Codes are emitted by module run-handlers when a
-		// submission is rejected (no targets, db write failed, missing
-		// token, etc). Unknown codes pass through verbatim so the
-		// operator at least sees the raw token. Audit ER fix.
-		"friendlyFormError": func(code string) string {
-			switch code {
-			case "no_urls", "no_targets", "no_target", "no_hosts", "no_domains":
-				return "No targets were submitted. Enter at least one target before launching the scan."
-			case "no_queries":
-				return "No search queries were submitted."
-			case "no_tokens":
-				return "No JWT tokens were submitted."
-			case "no_token":
-				return "A required API token is missing. Set it in Settings before launching this scan."
-			case "no_subdomains":
-				return "No subdomains were submitted."
-			case "no_seed", "no_seeds":
-				return "No seed URL was submitted."
-			case "no_login":
-				return "Login URL is required."
-			case "no_creds", "no_credentials":
-				return "Credentials are required (username/password or hash)."
-			case "no_users":
-				return "Username list is empty. Provide either a single username or a username list."
-			case "no_passes":
-				return "Password list is empty. Provide at least one candidate password."
-			case "bad_protocol":
-				return "Selected protocol is not supported. Choose SSH, FTP, RDP, SMB, MSSQL, MySQL, PostgreSQL, VNC, LDAP, or Telnet."
-			case "no_dc", "no_domain":
-				return "Domain Controller or domain name is required."
-			case "spray_needs_threshold":
-				return "Password Spray is enabled but no lockout threshold was provided. Enter a lockout threshold (or disable Password Spray) before launching."
-			case "no_probe_selected":
-				return "Select at least one probe type (cache poisoning and/or HTTP smuggling) before launching."
-			case "v3_missing_auth":
-				return "SNMPv3 auth level requires an Auth Password of at least 8 characters. Fill it in (or switch to noAuthNoPriv) before launching."
-			case "v3_missing_priv":
-				return "SNMPv3 authPriv requires a Priv Password of at least 8 characters. Fill it in (or drop to authNoPriv) before launching."
-			case "db_error":
-				return "The scan could not be saved to the database. Check the server logs."
-			case "invalid_url", "bad_url":
-				return "One or more URLs were malformed. Use the http(s):// prefix."
-			case "invalid_target", "bad_target", "unsafe_target":
-				return "One or more targets were rejected (contains shell or flag characters)."
-			case "invalid_method":
-				return "HTTP method value is not one of GET/POST/BOTH."
-			case "method_not_allowed":
-				return "Run endpoint requires POST."
-			case "tool_missing":
-				return "An external tool required by this module is not installed. Check the startup banner."
-			case "too_many_tasks":
-				return "Too many scan tasks (targets × ports) — reduce target count or port range."
-			case "too_many_urls":
-				return "Too many target URLs submitted. Limit is 500 per scan — split the list across multiple runs."
-			case "too_many_ports":
-				return "Port range too large — narrow the range (max 1024 ports per scan)."
-			case "too_many_targets":
-				return "Target list is too large — reduce the number of entries or narrow each CIDR (aggregate cap is 65 536 hosts and 256 lines)."
-			case "cidr_too_large":
-				return "One of the supplied CIDRs is wider than /16. Split it into /16-or-narrower blocks before launching."
-			case "bad_ports":
-				return "Custom / Range port spec is malformed — use comma-separated ports or a hyphen range (e.g. 80,443 or 1-1024)."
-			case "httpx_custom_ports_required":
-				return "Custom HTTPX port spec is required when HTTPX mode is set to Custom. Enter a comma-separated list (e.g. 80,443,8080-8090)."
-			case "httpx_custom_ports_invalid":
-				return "Custom HTTPX port spec could not be parsed — use comma-separated ports or ranges (e.g. 80,443,8080-8090)."
-			case "no_stages":
-				return "At least one suite stage must be enabled before launching the scan."
-			case "":
-				return ""
-			default:
-				return "Submission rejected: " + code
-			}
-		},
-		"scanResultsURL": func(scan models.Scan) string {
-			switch scan.Module {
-			case "sslscan":
-				return "/modules/sslscan/results/" + scan.ID
-			case "httpxfind":
-				return "/modules/httpxfind/results/" + scan.ID
-			case "httpmethods":
-				return "/modules/httpmethods/results/" + scan.ID
-			case "wafdetect":
-				return "/modules/wafdetect/results/" + scan.ID
-			case "wpscan":
-				return "/modules/wpscan/results/" + scan.ID
-			case "dnsenum":
-				return "/modules/dnsenum/results/" + scan.ID
-			case "techdetect":
-				return "/modules/techdetect/results/" + scan.ID
-			case "spider":
-				return "/modules/spider/results/" + scan.ID
-			case "direnum":
-				return "/modules/direnum/results/" + scan.ID
-			case "secheaders":
-				return "/modules/secheaders/results/" + scan.ID
-			case "nuclei":
-				return "/modules/nuclei/results/" + scan.ID
-			case "hostdiscovery":
-				return "/modules/hostdiscovery/results/" + scan.ID
-			case "portservice":
-				return "/modules/portservice/results/" + scan.ID
-			case "smbenum":
-				return "/modules/smbenum/results/" + scan.ID
-			case "brutef":
-				return "/modules/brutef/results/" + scan.ID
-			case "hashcat":
-				return "/modules/hashcat/results/" + scan.ID
-			case "whoisinfo":
-				return "/modules/whoisinfo/results/" + scan.ID
-			case "emailharvest":
-				return "/modules/emailharvest/results/" + scan.ID
-			case "leakscan":
-				return "/modules/leakscan/results/" + scan.ID
-			case "snmpenum":
-				return "/modules/snmpenum/results/" + scan.ID
-			case "jwt":
-				return "/modules/jwt/results/" + scan.ID
-			case "paramdisc":
-				return "/modules/paramdisc/results/" + scan.ID
-			case "concurtest":
-				return "/modules/concurtest/results/" + scan.ID
-			case "advancedweb":
-				return "/modules/advanced-web/results/" + scan.ID
-			case "takeover":
-				return "/modules/takeover/results/" + scan.ID
-			case "corsscan":
-				return "/modules/corsscan/results/" + scan.ID
-			case "openredirect":
-				return "/modules/openredirect/results/" + scan.ID
-			case "cvematch":
-				return "/modules/cvematch/results/" + scan.ID
-			case "graphqlscan":
-				return "/modules/graphqlscan/results/" + scan.ID
-			case "authtest":
-				return "/modules/authtest/results/" + scan.ID
-			case "assetdisc":
-				return "/modules/assetdisc/results/" + scan.ID
-			case "oob":
-				return "/modules/oob/results/" + scan.ID
-			case "sstiscan":
-				return "/modules/sstiscan/results/" + scan.ID
-			case "cachepoison":
-				return "/modules/cachepoison/results/" + scan.ID
-			default:
-				return "/scans"
-			}
-		},
-		"deref": func(t *time.Time) time.Time {
-			if t == nil {
-				return time.Time{}
-			}
-			return *t
-		},
-		"pageHeading": func(page string) string {
-			// Drop the "_results" suffix for module result pages so the header
-			// reads "Host Discovery" instead of "hostdiscovery_results".
-			module := strings.TrimSuffix(page, "_results")
-			if name := models.ModuleDisplayName(module); name != module {
-				if module != page {
-					return name + " — Results"
-				}
-				return name
-			}
-			switch page {
-			case "dashboard":
-				return "Dashboard"
-			case "modules":
-				return "Modules"
-			case "scans":
-				return "Scans"
-			case "targets":
-				return "Targets"
-			case "assets":
-				return "Assets"
-			case "asset_detail":
-				return "Asset Detail"
-			case "settings":
-				return "Settings"
-			}
-			// Fallback: prettify "snake_case" → "Snake Case"
-			parts := strings.Split(page, "_")
-			for i, p := range parts {
-				if p == "" {
-					continue
-				}
-				parts[i] = strings.ToUpper(p[:1]) + p[1:]
-			}
-			return strings.Join(parts, " ")
-		},
-		"hasVulnHint": func(s string) bool {
-			ls := strings.ToLower(s)
-			return strings.Contains(ls, "vulnerable") || strings.Contains(ls, "cve-") ||
-				strings.Contains(ls, "state: vulnerable")
-		},
-		"ipToNum": func(ip string) int64 {
-			// Map an IPv4 string to a sortable 32-bit number. Returns 0 for
-			// non-IPv4 input so hostnames sort before any real IP.
-			parts := strings.Split(ip, ".")
-			if len(parts) != 4 {
-				return 0
-			}
-			var v int64
-			for _, p := range parts {
-				n := 0
-				if _, err := fmt.Sscanf(p, "%d", &n); err != nil || n < 0 || n > 255 {
+				return "🧩"
+			},
+			"divf": func(a, b float64) float64 {
+				if b == 0 {
 					return 0
 				}
-				v = v*256 + int64(n)
-			}
-			return v
-		},
-		"formatDuration": func(d time.Duration) string {
-			if d < time.Second {
-				return "< 1s"
-			}
-			s := int(d.Seconds())
-			if s < 60 {
-				return fmt.Sprintf("%ds", s)
-			}
-			m := s / 60
-			s = s % 60
-			return fmt.Sprintf("%dm %ds", m, s)
-		},
+				return a / b
+			},
+			"mulf": func(a, b float64) float64 { return a * b },
+			"intf": func(a int) float64 { return float64(a) },
+			"list": func(args ...interface{}) []interface{} { return args },
+			"add":  func(a, b int) int { return a + b },
+			// scanPct is the progress percentage clamped to [0,100] so a module
+			// that momentarily emits progress_done > progress_total (e.g. a chained
+			// second phase with its own counter) never renders a bar past 100%.
+			"scanVulnCounts": func(scanID string) VulnCountPair { return scanVulnCountsFrom(db, scanID) },
+			"scanPct": func(done, total int) int {
+				if total <= 0 {
+					return 0
+				}
+				if done > total {
+					done = total
+				}
+				if done < 0 {
+					done = 0
+				}
+				return done * 100 / total
+			},
+			// Severity macros need case-normalize before comparison so a
+			// module emitting "critical" matches one emitting "CRITICAL".
+			"upper": strings.ToUpper,
+			"lower": strings.ToLower,
+			"scanTargetCount": func(s models.Scan) int {
+				// ProgressTotal often conflates "targets × probes" or, in
+				// the suite's case, "stages" — neither is the same as
+				// "how many hosts the user asked to scan". Parse the
+				// per-module Config JSON for the canonical target fields
+				// (target / targets / urls / domains) and fall back to
+				// ProgressTotal only when nothing recognisable is there.
+				if s.Config == "" || s.Config == "{}" {
+					return s.ProgressTotal
+				}
+				var cfg struct {
+					Target  string   `json:"target"`
+					Targets []string `json:"targets"`
+					URLs    []string `json:"urls"`
+					Domains []string `json:"domains"`
+					Hosts   []string `json:"hosts"`
+					Hashes  []string `json:"hashes"` // hashcat: the count that matters is the hash lines
+				}
+				if err := json.Unmarshal([]byte(s.Config), &cfg); err != nil {
+					return s.ProgressTotal
+				}
+				// Plural slices take priority — when a handler writes
+				// BOTH (advancedweb sets cfg.Target = rawTargets[0] as a
+				// legacy alias for older JSON consumers) the multi-target
+				// count is the one the user cares about. The previous
+				// version short-circuited on a non-empty .Target and
+				// surfaced "1 target" for scans launched against a 396-
+				// entry target list — fixed by checking the slices first.
+				if n := len(cfg.Targets); n > 0 {
+					return n
+				}
+				if n := len(cfg.URLs); n > 0 {
+					return n
+				}
+				if n := len(cfg.Domains); n > 0 {
+					return n
+				}
+				if n := len(cfg.Hosts); n > 0 {
+					return n
+				}
+				// hashcat is host-less — its "targets" are the hash lines being
+				// cracked. (ProgressTotal stays 100 for the percent-based bar; this
+				// only fixes the Scans-list count.)
+				if n := len(cfg.Hashes); n > 0 {
+					return n
+				}
+				if cfg.Target != "" {
+					return 1
+				}
+				return s.ProgressTotal
+			},
+			"dict": func(values ...interface{}) (map[string]interface{}, error) {
+				// Build a map from alternating key/value args. Used by the
+				// advancedweb suite results template to pass synthetic data
+				// shapes into each module's `_results_inner` template.
+				if len(values)%2 != 0 {
+					return nil, fmt.Errorf("dict requires an even number of args")
+				}
+				m := make(map[string]interface{}, len(values)/2)
+				for i := 0; i < len(values); i += 2 {
+					k, ok := values[i].(string)
+					if !ok {
+						return nil, fmt.Errorf("dict key #%d is not a string", i/2)
+					}
+					m[k] = values[i+1]
+				}
+				return m, nil
+			},
+			"subInt": func(a, b int) int { return a - b },
+			// httpStatusText returns the IANA-registered reason phrase
+			// for a numeric status code ("OK", "Not Found", ...). Used by
+			// the HTTPX result panel header to render "404 Not Found"
+			// next to the status pill. Falls back to "" for codes the
+			// stdlib doesn't know (custom server values), which the
+			// template handles by emitting just the number.
+			"httpStatusText": func(code int) string { return http.StatusText(code) },
+			// friendlyFormError maps a ?error=<code> query param to a
+			// user-readable explanation rendered by the form_error template
+			// partial. Codes are emitted by module run-handlers when a
+			// submission is rejected (no targets, db write failed, missing
+			// token, etc). Unknown codes pass through verbatim so the
+			// operator at least sees the raw token. Audit ER fix.
+			"friendlyFormError": func(code string) string {
+				if code == "" {
+					return ""
+				}
+				if en := formErrorMsg(code); en != "" {
+					return i18n.T(lang, en)
+				}
+				return i18n.T(lang, "Submission rejected: %s", code)
+			},
+			"scanResultsURL": func(scan models.Scan) string {
+				switch scan.Module {
+				case "sslscan":
+					return "/modules/sslscan/results/" + scan.ID
+				case "httpxfind":
+					return "/modules/httpxfind/results/" + scan.ID
+				case "httpmethods":
+					return "/modules/httpmethods/results/" + scan.ID
+				case "wafdetect":
+					return "/modules/wafdetect/results/" + scan.ID
+				case "wpscan":
+					return "/modules/wpscan/results/" + scan.ID
+				case "dnsenum":
+					return "/modules/dnsenum/results/" + scan.ID
+				case "techdetect":
+					return "/modules/techdetect/results/" + scan.ID
+				case "spider":
+					return "/modules/spider/results/" + scan.ID
+				case "direnum":
+					return "/modules/direnum/results/" + scan.ID
+				case "secheaders":
+					return "/modules/secheaders/results/" + scan.ID
+				case "nuclei":
+					return "/modules/nuclei/results/" + scan.ID
+				case "hostdiscovery":
+					return "/modules/hostdiscovery/results/" + scan.ID
+				case "portservice":
+					return "/modules/portservice/results/" + scan.ID
+				case "smbenum":
+					return "/modules/smbenum/results/" + scan.ID
+				case "brutef":
+					return "/modules/brutef/results/" + scan.ID
+				case "hashcat":
+					return "/modules/hashcat/results/" + scan.ID
+				case "whoisinfo":
+					return "/modules/whoisinfo/results/" + scan.ID
+				case "emailharvest":
+					return "/modules/emailharvest/results/" + scan.ID
+				case "leakscan":
+					return "/modules/leakscan/results/" + scan.ID
+				case "snmpenum":
+					return "/modules/snmpenum/results/" + scan.ID
+				case "jwt":
+					return "/modules/jwt/results/" + scan.ID
+				case "paramdisc":
+					return "/modules/paramdisc/results/" + scan.ID
+				case "concurtest":
+					return "/modules/concurtest/results/" + scan.ID
+				case "advancedweb":
+					return "/modules/advanced-web/results/" + scan.ID
+				case "takeover":
+					return "/modules/takeover/results/" + scan.ID
+				case "corsscan":
+					return "/modules/corsscan/results/" + scan.ID
+				case "openredirect":
+					return "/modules/openredirect/results/" + scan.ID
+				case "cvematch":
+					return "/modules/cvematch/results/" + scan.ID
+				case "graphqlscan":
+					return "/modules/graphqlscan/results/" + scan.ID
+				case "authtest":
+					return "/modules/authtest/results/" + scan.ID
+				case "assetdisc":
+					return "/modules/assetdisc/results/" + scan.ID
+				case "oob":
+					return "/modules/oob/results/" + scan.ID
+				case "sstiscan":
+					return "/modules/sstiscan/results/" + scan.ID
+				case "cachepoison":
+					return "/modules/cachepoison/results/" + scan.ID
+				default:
+					return "/scans"
+				}
+			},
+			"deref": func(t *time.Time) time.Time {
+				if t == nil {
+					return time.Time{}
+				}
+				return *t
+			},
+			"pageHeading": func(page string) string {
+				// Drop the "_results" suffix for module result pages so the header
+				// reads "Host Discovery" instead of "hostdiscovery_results".
+				module := strings.TrimSuffix(page, "_results")
+				if name := models.ModuleDisplayName(module); name != module {
+					tn := i18n.T(lang, name)
+					if module != page {
+						return i18n.T(lang, "%s — Results", tn)
+					}
+					return tn
+				}
+				switch page {
+				case "dashboard":
+					return i18n.T(lang, "Dashboard")
+				case "modules":
+					return i18n.T(lang, "Modules")
+				case "scans":
+					return i18n.T(lang, "Scans")
+				case "targets":
+					return i18n.T(lang, "Targets")
+				case "assets":
+					return i18n.T(lang, "Assets")
+				case "asset_detail":
+					return i18n.T(lang, "Asset Detail")
+				case "settings":
+					return i18n.T(lang, "Settings")
+				}
+				// Fallback: prettify "snake_case" → "Snake Case"
+				parts := strings.Split(page, "_")
+				for i, p := range parts {
+					if p == "" {
+						continue
+					}
+					parts[i] = strings.ToUpper(p[:1]) + p[1:]
+				}
+				return strings.Join(parts, " ")
+			},
+			"hasVulnHint": func(s string) bool {
+				ls := strings.ToLower(s)
+				return strings.Contains(ls, "vulnerable") || strings.Contains(ls, "cve-") ||
+					strings.Contains(ls, "state: vulnerable")
+			},
+			"ipToNum": func(ip string) int64 {
+				// Map an IPv4 string to a sortable 32-bit number. Returns 0 for
+				// non-IPv4 input so hostnames sort before any real IP.
+				parts := strings.Split(ip, ".")
+				if len(parts) != 4 {
+					return 0
+				}
+				var v int64
+				for _, p := range parts {
+					n := 0
+					if _, err := fmt.Sscanf(p, "%d", &n); err != nil || n < 0 || n > 255 {
+						return 0
+					}
+					v = v*256 + int64(n)
+				}
+				return v
+			},
+			"formatDuration": func(d time.Duration) string {
+				if d < time.Second {
+					return "< 1s"
+				}
+				s := int(d.Seconds())
+				if s < 60 {
+					return fmt.Sprintf("%ds", s)
+				}
+				m := s / 60
+				s = s % 60
+				return fmt.Sprintf("%dm %ds", m, s)
+			},
+		}
 	}
-	tmpl, err := template.New("").Funcs(funcMap).ParseGlob(filepath.Join(templateDir, "*.html"))
-	if err != nil {
-		return nil, err
+	// Dual-parse: one template tree per language, each with its language-bound
+	// FuncMap. The trees are read-only after parse, so concurrent
+	// ExecuteTemplate across requests is safe.
+	templates := map[string]*template.Template{}
+	for _, lang := range i18n.Langs() {
+		t, err := template.New("").Funcs(buildFuncMap(lang)).ParseGlob(filepath.Join(templateDir, "*.html"))
+		if err != nil {
+			return nil, err
+		}
+		// Warm-up: run one no-data partial through each tree so contextual
+		// escaping is precomputed before serving traffic (and any escaping error
+		// in that partial surfaces at boot, not under a live request).
+		if err := t.ExecuteTemplate(io.Discard, "info_icon", ""); err != nil {
+			log.Printf("i18n: warm-up render for %q failed (non-fatal): %v", lang, err)
+		}
+		templates[lang] = t
 	}
 	h := &Handler{
 		registry:  registry,
 		db:        db,
-		templates: tmpl,
+		templates: templates,
 		scanMgr:   NewScanManager(),
 	}
 	// Periodic orphan reaper. MarkOrphanedScans only runs at startup;
@@ -488,6 +537,7 @@ func (h *Handler) baseData(r *http.Request, title, page string) map[string]inter
 		"KillswitchInterface": settings.NetworkInterface,
 		"CurrentUser":         user,
 		"IsAdmin":             user != nil && user.IsAdmin(),
+		"Lang":                h.lang(r),
 	}
 	// Audit ER fix: surface ?error=<code> query params to the form_error
 	// template partial so the user actually sees why their submit was
@@ -560,6 +610,47 @@ func (h *Handler) SwitchWorkspace(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	})
+	ref := r.Header.Get("Referer")
+	if ref == "" {
+		ref = "/"
+	}
+	http.Redirect(w, r, ref, http.StatusSeeOther)
+}
+
+// applyUserLanguageCookie syncs the language cookie to a user's stored
+// preference at login, so their choice follows them to a new browser/device.
+func (h *Handler) applyUserLanguageCookie(w http.ResponseWriter, user *models.User) {
+	if user == nil {
+		return
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     langCookie,
+		Value:    i18n.Normalize(user.Language),
+		Path:     "/",
+		MaxAge:   365 * 24 * 3600,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+// SwitchLanguage sets the UI language cookie ("en" | "tr") and, for a logged-in
+// user, persists the choice on the account so it follows them across devices.
+// Mirrors SwitchWorkspace: same-origin POST, redirect back to the referring page
+// so it reloads in the chosen language. Reachable pre-login (authExempt) so the
+// login page selector works.
+func (h *Handler) SwitchLanguage(w http.ResponseWriter, r *http.Request) {
+	lang := i18n.Normalize(r.FormValue("lang"))
+	http.SetCookie(w, &http.Cookie{
+		Name:     langCookie,
+		Value:    lang,
+		Path:     "/",
+		MaxAge:   365 * 24 * 3600,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+	if user := h.currentUser(r); user != nil {
+		h.db.SetUserLanguage(user.ID, lang)
+	}
 	ref := r.Header.Get("Referer")
 	if ref == "" {
 		ref = "/"
@@ -834,7 +925,6 @@ func buildDashboardCharts(scans []models.Scan, vulns []GlobalVuln) dashboardChar
 	}
 	return out
 }
-
 
 // TargetGroup buckets targets in a workspace by their TargetList. Used by
 // every module form's target picker so users can tick a list to select
@@ -1242,46 +1332,46 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s := models.AppSettings{
-		DefaultTimeout:       timeout,
-		MaxConcurrent:        conc,
-		RateLimit:            rateLimit,
+		DefaultTimeout:           timeout,
+		MaxConcurrent:            conc,
+		RateLimit:                rateLimit,
 		WebTimeout:               webTimeout,
 		WebMaxConcurrent:         webConc,
 		WebRateLimit:             webRate,
 		WebReachabilityPreflight: webPreflight,
 		WebPreflightTimeout:      webPreflightTimeout,
-		NetworkTimeout:       netTimeout,
-		NetworkMaxConcurrent: netConc,
-		NetworkRateLimit:     netRate,
-		BruteThreads:         bruteThreads,
-		MaxCPUPercent:        maxCPU,
-		ProxyURL:             proxyURL,
-		UseProxy:             useProxy,
-		BurpSuccessOnly:      burpSuccessOnly,
-		UserAgent:            userAgent,
-		DefaultExportFmt:     exportFmt,
-		WPScanAPIKey:         strings.TrimSpace(r.FormValue("wpscan_api_key")),
-		HIBPAPIKey:           strings.TrimSpace(r.FormValue("hibp_api_key")),
-		GitHubToken:          strings.TrimSpace(r.FormValue("github_token")),
-		ShodanAPIKey:         strings.TrimSpace(r.FormValue("shodan_api_key")),
-		CensysID:             strings.TrimSpace(r.FormValue("censys_id")),
-		CensysSecret:         strings.TrimSpace(r.FormValue("censys_secret")),
-		VirusTotalAPIKey:     strings.TrimSpace(r.FormValue("virustotal_api_key")),
-		NetworkInterface:     ifaceName,
-		NetworkInterfaceIP:   ifaceIP,
-		KillswitchScope:      killswitchScope,
-		VPNAutoReconnect:     vpnAutoReconnect,
-		VPNConnection:        vpnConnection,
-		VPNInterface:         vpnInterface,
-		VPNReconnectAfterSec: vpnReconnectAfter,
-		SMTPHost:             strings.TrimSpace(r.FormValue("smtp_host")),
-		SMTPPort:             pi("smtp_port", 0, 65535),
-		SMTPUser:             smtpUser,
-		SMTPFrom:             strings.TrimSpace(r.FormValue("smtp_from")),
-		SMTPTLSMode:          smtpTLSMode(r.FormValue("smtp_tls_mode")),
-		SMTPPassword:         smtpPass,
-		TwoFactorAvailable:   r.FormValue("two_factor_available") == "on",
-		NTPServer:            strings.TrimSpace(r.FormValue("ntp_server")),
+		NetworkTimeout:           netTimeout,
+		NetworkMaxConcurrent:     netConc,
+		NetworkRateLimit:         netRate,
+		BruteThreads:             bruteThreads,
+		MaxCPUPercent:            maxCPU,
+		ProxyURL:                 proxyURL,
+		UseProxy:                 useProxy,
+		BurpSuccessOnly:          burpSuccessOnly,
+		UserAgent:                userAgent,
+		DefaultExportFmt:         exportFmt,
+		WPScanAPIKey:             strings.TrimSpace(r.FormValue("wpscan_api_key")),
+		HIBPAPIKey:               strings.TrimSpace(r.FormValue("hibp_api_key")),
+		GitHubToken:              strings.TrimSpace(r.FormValue("github_token")),
+		ShodanAPIKey:             strings.TrimSpace(r.FormValue("shodan_api_key")),
+		CensysID:                 strings.TrimSpace(r.FormValue("censys_id")),
+		CensysSecret:             strings.TrimSpace(r.FormValue("censys_secret")),
+		VirusTotalAPIKey:         strings.TrimSpace(r.FormValue("virustotal_api_key")),
+		NetworkInterface:         ifaceName,
+		NetworkInterfaceIP:       ifaceIP,
+		KillswitchScope:          killswitchScope,
+		VPNAutoReconnect:         vpnAutoReconnect,
+		VPNConnection:            vpnConnection,
+		VPNInterface:             vpnInterface,
+		VPNReconnectAfterSec:     vpnReconnectAfter,
+		SMTPHost:                 strings.TrimSpace(r.FormValue("smtp_host")),
+		SMTPPort:                 pi("smtp_port", 0, 65535),
+		SMTPUser:                 smtpUser,
+		SMTPFrom:                 strings.TrimSpace(r.FormValue("smtp_from")),
+		SMTPTLSMode:              smtpTLSMode(r.FormValue("smtp_tls_mode")),
+		SMTPPassword:             smtpPass,
+		TwoFactorAvailable:       r.FormValue("two_factor_available") == "on",
+		NTPServer:                strings.TrimSpace(r.FormValue("ntp_server")),
 	}
 	h.db.SaveSettings(s)
 	// Re-measure the TOTP clock offset against the (possibly new) NTP server.
@@ -2160,9 +2250,44 @@ func validateTarget(value string, t models.TargetType) bool {
 	}
 }
 
+// lang returns the request's UI language ("en" | "tr"), read from the
+// scanner_lang cookie and normalized. Defaults to English.
+func (h *Handler) lang(r *http.Request) string {
+	if r != nil {
+		if c, err := r.Cookie(langCookie); err == nil {
+			return i18n.Normalize(c.Value)
+		}
+	}
+	return i18n.LangEN
+}
+
+// langFromData extracts a "Lang" value from a data map (set by baseData / the
+// auth pages), defaulting to English. Used by render() so the ~90 map-based call
+// sites need no signature change.
+func (h *Handler) langFromData(data interface{}) string {
+	if m, ok := data.(map[string]interface{}); ok {
+		if l, ok := m["Lang"].(string); ok {
+			return i18n.Normalize(l)
+		}
+	}
+	return i18n.LangEN
+}
+
+// render executes a template from the language tree indicated by data["Lang"].
 func (h *Handler) render(w http.ResponseWriter, name string, data interface{}) {
+	h.renderLang(w, h.langFromData(data), name, data)
+}
+
+// renderLang executes a template from a specific language tree. Use this when
+// the data is not a Lang-carrying map (e.g. the vuln detail drawer passes a
+// struct) — pass h.lang(r) explicitly.
+func (h *Handler) renderLang(w http.ResponseWriter, lang, name string, data interface{}) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := h.templates.ExecuteTemplate(w, name, data); err != nil {
+	tmpl := h.templates[i18n.Normalize(lang)]
+	if tmpl == nil {
+		tmpl = h.templates[i18n.LangEN]
+	}
+	if err := tmpl.ExecuteTemplate(w, name, data); err != nil {
 		http.Error(w, "Template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -2191,6 +2316,7 @@ func (h *Handler) renderResults(w http.ResponseWriter, r *http.Request, innerTem
 //     instead of "0% forever". The UI honors `indeterminate=true` even
 //     when done > 0 (e.g. a scanner emitting "queries sent" with no
 //     upfront count).
+//
 // markToolError marks a scan failed with a human-readable reason, translating
 // the raw tool error (stderr / exec error / result Error field) via
 // shared.ExplainToolError so the results-page error banner explains the

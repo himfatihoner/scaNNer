@@ -20,12 +20,12 @@
      which files existing targets into a category by ID). */}}
 {{$valueField := "value"}}
 {{if .WSPickerValueField}}{{$valueField = .WSPickerValueField}}{{end}}
-{{$label := "Targets from Workspace"}}
+{{$label := (T `Targets from Workspace`)}}
 {{if .WSPickerLabel}}{{$label = .WSPickerLabel}}{{end}}
 {{if .WSTargetGroups}}
 <div>
     <label class="block text-sm text-dark-300 mb-1.5">
-        {{$label}}{{template "info_icon" "Workspace targets grouped by list, split into https/http. Tick a list header to select every member, or a scheme header (https/http) to select just that scheme. Un-tick individual rows to exclude specific hosts."}}
+        {{$label}}{{template "info_icon" (T `Workspace targets grouped by list, split into https/http. Tick a list header to select every member, or a scheme header (https/http) to select just that scheme. Un-tick individual rows to exclude specific hosts.`)}}
     </label>
     <div class="max-h-64 overflow-y-auto bg-dark-850 border border-dark-700 rounded-lg p-2 space-y-2">
         {{range $gi, $g := .WSTargetGroups}}
@@ -37,7 +37,7 @@
                        class="rounded border-dark-600 bg-dark-800 text-accent-500">
                 <svg class="w-3 h-3 text-dark-500 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 <span class="text-xs font-medium text-dark-100 flex-1">{{$g.Name}}</span>
-                <span class="text-[10px] mono px-1.5 py-0.5 rounded bg-dark-800 text-dark-300 border border-dark-700">{{len $g.Targets}} hedef</span>
+                <span class="text-[10px] mono px-1.5 py-0.5 rounded bg-dark-800 text-dark-300 border border-dark-700">{{Tn (len $g.Targets) "%d target" "%d targets" (len $g.Targets)}}</span>
             </summary>
             <div class="pl-6 space-y-1 mt-1">
                 {{if $g.HTTPS}}
@@ -82,7 +82,7 @@
         </details>
         {{end}}
     </div>
-    <p class="text-[10px] text-dark-500 mt-1">Seçili: <span id="wstgSelectedCount" class="text-dark-300">0</span> hedef</p>
+    <p class="text-[10px] text-dark-500 mt-1">{{T "Selected:"}} <span id="wstgSelectedCount" class="text-dark-300">0</span> {{T "targets"}}</p>
 </div>
 <script>
 // Parent ↔ child checkbox sync across three levels: group header, per-scheme

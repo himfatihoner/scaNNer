@@ -482,6 +482,7 @@ func (d *DB) migrate() error {
 		failed_2fa_count     INTEGER NOT NULL DEFAULT 0,
 		twofa_locked_until   DATETIME,
 		last_login_at        DATETIME,
+		language             TEXT NOT NULL DEFAULT 'en',
 		created_at           DATETIME NOT NULL,
 		updated_at           DATETIME NOT NULL
 	)`); err != nil {
@@ -498,6 +499,12 @@ func (d *DB) migrate() error {
 	d.Get(&hasCanAdd, `SELECT COUNT(*) FROM pragma_table_info('users') WHERE name='can_add_targets'`)
 	if hasCanAdd == 0 {
 		d.Exec(`ALTER TABLE users ADD COLUMN can_add_targets INTEGER NOT NULL DEFAULT 1`)
+	}
+	// Forward-compat: per-user UI language ('en' | 'tr'), added with the i18n layer.
+	var hasLang int
+	d.Get(&hasLang, `SELECT COUNT(*) FROM pragma_table_info('users') WHERE name='language'`)
+	if hasLang == 0 {
+		d.Exec(`ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'en'`)
 	}
 
 	// user_domain_scopes: per-(user,workspace) allowed-domain allowlist. Each row

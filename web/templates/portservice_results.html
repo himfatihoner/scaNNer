@@ -1,10 +1,10 @@
 {{define "page_portservice_results"}}
 <div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
-    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <a href="/modules" class="hover:text-accent-400 transition-colors">{{T "Modules"}}</a>
     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-    <a href="/modules/portservice" class="hover:text-accent-400 transition-colors">Advanced Host Scanner</a>
+    <a href="/modules/portservice" class="hover:text-accent-400 transition-colors">{{T "Advanced Host Scanner"}}</a>
     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-    <span class="text-dark-200">Results</span>
+    <span class="text-dark-200">{{T "Results"}}</span>
 </div>
 {{template "scan_actions" .}}
 
@@ -20,23 +20,23 @@
 {{define "portservice_results_inner"}}
 <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
     <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
-        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">Hosts Up</p>
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">{{T "Hosts Up"}}</p>
         <p class="text-2xl font-bold {{if .UpHosts}}text-success{{else}}text-dark-600{{end}}">{{.UpHosts}}</p>
     </div>
     <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
-        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">Hosts Down</p>
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">{{T "Hosts Down"}}</p>
         <p class="text-2xl font-bold {{if .DownHosts}}text-danger{{else}}text-dark-600{{end}}">{{.DownHosts}}</p>
     </div>
     <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
-        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">ICMP Filtered</p>
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">{{T "ICMP Filtered"}}</p>
         <p class="text-2xl font-bold {{if .FilteredHosts}}text-warning{{else}}text-dark-600{{end}}">{{.FilteredHosts}}</p>
     </div>
     <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
-        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">Open Ports</p>
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">{{T "Open Ports"}}</p>
         <p class="text-2xl font-bold {{if .TotalPorts}}text-accent-400{{else}}text-dark-600{{end}}">{{.TotalPorts}}</p>
     </div>
     <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
-        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">Script Outputs</p>
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">{{T "Script Outputs"}}</p>
         <p class="text-2xl font-bold {{if .TotalScripts}}text-accent-400{{else}}text-dark-600{{end}}">{{.TotalScripts}}</p>
     </div>
 </div>
@@ -46,7 +46,7 @@
      amber note, not a failure state. */}}
 {{if .Warnings}}
 <div class="mb-5 rounded-xl border border-warning/30 bg-warning/5 px-4 py-3">
-    <div class="text-[10px] uppercase tracking-wider text-warning mb-1">Uyarılar / Warnings</div>
+    <div class="text-[10px] uppercase tracking-wider text-warning mb-1">{{T "Warnings"}}</div>
     <ul class="list-disc list-inside text-xs text-warning space-y-0.5">
         {{range .Warnings}}<li>{{.}}</li>{{end}}
     </ul>
@@ -66,15 +66,15 @@
     <div class="flex items-start gap-3">
         <svg class="w-5 h-5 text-warning mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         <div class="flex-1 text-[11px]">
-            <p class="font-semibold text-warning">{{$timeoutHosts}} of {{$totalUp}} up-hosts reported 0 open ports — likely a scan-timeout pattern, not real results.</p>
-            <p class="text-dark-300 mt-1">Çözüm: bu kombinasyon hatalı çalışıyor:</p>
+            <p class="font-semibold text-warning">{{T "%d of %d up-hosts reported 0 open ports — likely a scan-timeout pattern, not real results." $timeoutHosts $totalUp}}</p>
+            <p class="text-dark-300 mt-1">{{T "Solution: this combination is misbehaving:"}}</p>
             <ul class="text-dark-300 mt-1 ml-4 list-disc space-y-0.5">
-                <li><strong>Full scope</strong> (-p- = 65535 port) + <strong>--host-timeout 3m</strong>: nmap her host'a yetişmiyor, abort ediyor. Düzeltildi (Full = 30m, Range/Custom = 10m).</li>
-                <li><strong>Concurrency çok yüksek</strong> (özellikle 20+): network saturation → paket kaybı → 0 port. Concurrency'i 10'a indir.</li>
-                <li><strong>UDP + Deep + brute hepsi açık</strong>: ek nmap process'leri network'ü tıkıyor. Sadece TCP yapacaksan UDP'yi kapat.</li>
-                <li>Asıl problem network'tense: Common scope (top-1000 port) ile başla, sonuç gelirse genişlet.</li>
+                <li><strong>{{T "Full scope"}}</strong> (-p- = 65535 port) + <strong>--host-timeout 3m</strong>: {{T "nmap can't reach every host in time and aborts. Fixed (Full = 30m, Range/Custom = 10m)."}}</li>
+                <li><strong>{{T "Concurrency too high"}}</strong> {{T "(especially 20+): network saturation → packet loss → 0 ports. Drop concurrency to 10."}}</li>
+                <li><strong>{{T "UDP + Deep + brute all enabled"}}</strong>: {{T "extra nmap processes clog the network. If you only need TCP, turn UDP off."}}</li>
+                <li>{{T "If the real problem is the network: start with Common scope (top-1000 ports), then widen if results come in."}}</li>
             </ul>
-            <p class="text-dark-400 mt-1 text-[10px] mono">Commands run panelini açıp gerçek nmap satırlarını inceleyebilirsin.</p>
+            <p class="text-dark-400 mt-1 text-[10px] mono">{{T "Open the Commands run panel to inspect the actual nmap lines."}}</p>
         </div>
     </div>
 </div>
@@ -84,20 +84,20 @@
 <!-- Tabs: switch between row-per-host and row-per-port views. -->
 <div class="flex items-center gap-2 mb-3">
     <button type="button" id="psViewHosts" onclick="psSetView('hosts')"
-            class="ps-tab px-3 py-1.5 text-xs rounded-lg bg-accent-600 text-white transition-colors">By Host</button>
+            class="ps-tab px-3 py-1.5 text-xs rounded-lg bg-accent-600 text-white transition-colors">{{T "By Host"}}</button>
     <button type="button" id="psViewPorts" onclick="psSetView('ports')"
-            class="ps-tab px-3 py-1.5 text-xs rounded-lg bg-dark-850 border border-dark-700 text-dark-300 hover:text-white transition-colors">By Port</button>
-    <span class="text-[11px] text-dark-500 ml-2">Switch to "By Port" to find every host running e.g. 22</span>
+            class="ps-tab px-3 py-1.5 text-xs rounded-lg bg-dark-850 border border-dark-700 text-dark-300 hover:text-white transition-colors">{{T "By Port"}}</button>
+    <span class="text-[11px] text-dark-500 ml-2">{{T `Switch to "By Port" to find every host running e.g. 22`}}</span>
 </div>
 
 <div class="flex flex-wrap items-center gap-2 mb-3">
-    <input id="psSearch" type="search" placeholder="Search target / IP / hostname / service..."
+    <input id="psSearch" type="search" placeholder="{{T `Search target / IP / hostname / service...`}}"
            oninput="applyPSFilter()"
            class="w-72 mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"/>
-    <input id="psPortFilter" type="search" placeholder="Port (e.g. 22, 80, 443)"
+    <input id="psPortFilter" type="search" placeholder="{{T `Port (e.g. 22, 80, 443)`}}"
            oninput="applyPSFilter()"
            class="w-44 mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"/>
-    <input id="psServiceFilter" type="search" placeholder="Service (ssh, http, ...)"
+    <input id="psServiceFilter" type="search" placeholder="{{T `Service (ssh, http, ...)`}}"
            oninput="applyPSFilter()"
            class="w-44 mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"/>
     <span id="psResultCount" class="ml-auto text-[11px] text-dark-500"></span>
@@ -108,13 +108,13 @@
     <table id="psHostsTable" class="w-full text-sm">
         <thead class="bg-dark-850 border-b border-dark-800 text-left">
             <tr>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="target" data-sort-type="string">Target</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="target" data-sort-type="string">{{T "Target"}}</th>
                 <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="ip-num" data-sort-type="number">IP</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="host" data-sort-type="string">Hostname</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="state" data-sort-type="string">State</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="opencount" data-sort-type="number">Open</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="vulns" data-sort-type="number">Vulns</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">Services</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="host" data-sort-type="string">{{T "Hostname"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="state" data-sort-type="string">{{T "State"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="opencount" data-sort-type="number">{{T "Open"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="vulns" data-sort-type="number">{{T "Vulns"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">{{T "Services"}}</th>
                 <th class="px-4 py-3 w-8"></th>
             </tr>
         </thead>
@@ -139,15 +139,15 @@
                     <a href="/modules/portservice/results/{{$.Scan.ID}}/host/{{.IP}}"
                        onclick="event.stopPropagation()"
                        class="text-accent-400 hover:text-accent-300 hover:underline"
-                       title="Open dedicated detail page for this host">{{.IP}}</a>
+                       title="{{T `Open dedicated detail page for this host`}}">{{.IP}}</a>
                     {{else}}—{{end}}
                 </td>
                 <td class="px-4 py-2.5 mono text-[11px] text-dark-400 align-middle">{{if .Host}}{{.Host}}{{else}}—{{end}}</td>
                 <td class="px-4 py-2.5 align-middle">
-                    {{if .SuspectedFirewall}}<span class="text-[10px] uppercase tracking-wider text-warning bg-warning/10 px-2 py-0.5 rounded" title="nmap reported {{.FirewalledCount}}+ ports as 'open' but only {{.OpenCount}} returned a service banner — likely a firewall reflecting probes">Potential FW</span>
-                    {{else if not .HostUp}}<span class="text-[10px] uppercase tracking-wider text-danger bg-danger/10 px-2 py-0.5 rounded">Down</span>
-                    {{else if .IcmpFiltered}}<span class="text-[10px] uppercase tracking-wider text-warning bg-warning/10 px-2 py-0.5 rounded">ICMP Filt.</span>
-                    {{else}}<span class="text-[10px] uppercase tracking-wider text-success bg-success/10 px-2 py-0.5 rounded">Up</span>{{end}}
+                    {{if .SuspectedFirewall}}<span class="text-[10px] uppercase tracking-wider text-warning bg-warning/10 px-2 py-0.5 rounded" title="{{T `nmap reported %d+ ports as 'open' but only %d returned a service banner — likely a firewall reflecting probes` .FirewalledCount .OpenCount}}">{{T "Potential FW"}}</span>
+                    {{else if not .HostUp}}<span class="text-[10px] uppercase tracking-wider text-danger bg-danger/10 px-2 py-0.5 rounded">{{T "Down"}}</span>
+                    {{else if .IcmpFiltered}}<span class="text-[10px] uppercase tracking-wider text-warning bg-warning/10 px-2 py-0.5 rounded">{{T "ICMP Filt."}}</span>
+                    {{else}}<span class="text-[10px] uppercase tracking-wider text-success bg-success/10 px-2 py-0.5 rounded">{{T "Up"}}</span>{{end}}
                 </td>
                 <td class="px-4 py-2.5 mono text-xs text-dark-200 align-middle">{{.OpenCount}}</td>
                 <td class="px-4 py-2.5 align-middle">
@@ -172,8 +172,8 @@
                 <td class="px-4 py-2.5 align-middle">
                     {{if .SuspectedFirewall}}
                     <div class="flex items-center gap-2 mb-1">
-                        <span class="text-[11px] text-warning bg-warning/10 border border-warning/30 px-2 py-1 rounded">⚠ +{{.FirewalledCount}} ports filtered — potential firewall</span>
-                        <span class="text-[10px] text-dark-500">{{len .Ports}} verified service{{if ne (len .Ports) 1}}s{{end}} kept</span>
+                        <span class="text-[11px] text-warning bg-warning/10 border border-warning/30 px-2 py-1 rounded">⚠ +{{T "%d ports filtered — potential firewall" .FirewalledCount}}</span>
+                        <span class="text-[10px] text-dark-500">{{Tn (len .Ports) "%d verified service kept" "%d verified services kept" (len .Ports)}}</span>
                     </div>
                     {{end}}
                     {{/* Cap inline port chips at PS_INLINE_PORT_CAP. Firewalled or
@@ -196,7 +196,7 @@
                         <a href="/modules/portservice/results/{{$.Scan.ID}}/host/{{if .IP}}{{.IP}}{{else}}{{.Target}}{{end}}"
                            onclick="event.stopPropagation()"
                            class="mono text-[10px] px-1.5 py-0.5 rounded bg-accent-600/15 text-accent-300 border border-accent-500/30 hover:bg-accent-600/30"
-                           title="View all {{$openTotal}} open ports on the host detail page">+{{subInt $openTotal $cap}} more →</a>
+                           title="{{T `View all %d open ports on the host detail page` $openTotal}}">+{{T "%d more" (subInt $openTotal $cap)}} →</a>
                         {{end}}
                     </div>
                     {{else if not .SuspectedFirewall}}<span class="text-[11px] text-dark-600">—</span>{{end}}
@@ -213,7 +213,7 @@
                     <div class="flex items-start justify-between gap-4 flex-wrap">
                         <!-- Left: at-a-glance numbers -->
                         <div class="flex flex-wrap gap-4 items-center text-xs">
-                            <span class="text-dark-400"><span class="text-dark-200 font-semibold">{{.OpenCount}}</span> open</span>
+                            <span class="text-dark-400"><span class="text-dark-200 font-semibold">{{.OpenCount}}</span> {{T "open"}}</span>
                             {{$crit := 0}}{{$high := 0}}{{$med := 0}}{{$low := 0}}{{$info := 0}}{{$totalScripts := 0}}
                             {{range .NucleiFindings}}
                                 {{if eq .Severity "critical"}}{{$crit = add $crit 1}}
@@ -223,7 +223,7 @@
                                 {{else}}{{$info = add $info 1}}{{end}}
                             {{end}}
                             {{range .Ports}}{{$totalScripts = add $totalScripts (len .Scripts)}}{{end}}
-                            {{if gt $totalScripts 0}}<span class="text-dark-400"><span class="text-dark-200 font-semibold">{{$totalScripts}}</span> scripts</span>{{end}}
+                            {{if gt $totalScripts 0}}<span class="text-dark-400"><span class="text-dark-200 font-semibold">{{$totalScripts}}</span> {{T "scripts"}}</span>{{end}}
                             {{if .NucleiFindings}}
                                 <span class="flex items-center gap-1">
                                     {{if gt $crit 0}}<span class="mono text-[10px] text-red-400 bg-red-500/10 border border-red-500/30 px-1.5 py-0.5 rounded">C:{{$crit}}</span>{{end}}
@@ -233,13 +233,13 @@
                                     {{if gt $info 0}}<span class="mono text-[10px] text-dark-400 bg-dark-800 border border-dark-700 px-1.5 py-0.5 rounded">I:{{$info}}</span>{{end}}
                                 </span>
                             {{end}}
-                            {{if .SuspectedFirewall}}<span class="text-[11px] text-warning">⚠ +{{.FirewalledCount}} firewalled</span>{{end}}
+                            {{if .SuspectedFirewall}}<span class="text-[11px] text-warning">⚠ +{{T "%d firewalled" .FirewalledCount}}</span>{{end}}
                         </div>
                         <!-- Right: deep-link to the per-host page -->
                         <a href="/modules/portservice/results/{{$.Scan.ID}}/host/{{if .IP}}{{.IP}}{{else}}{{.Target}}{{end}}?tab=vulns"
                            onclick="event.stopPropagation()"
                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-md transition-colors">
-                            Full Details
+                            {{T "Full Details"}}
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5-5 5M6 12h12"/></svg>
                         </a>
                     </div>
@@ -260,7 +260,7 @@
                         </div>
                         {{end}}{{end}}
                         {{if gt (len .NucleiFindings) 3}}
-                        <p class="text-[10px] text-dark-500 italic">+{{subInt (len .NucleiFindings) 3}} more · open Full detail</p>
+                        <p class="text-[10px] text-dark-500 italic">+{{T "%d more · open Full detail" (subInt (len .NucleiFindings) 3)}}</p>
                         {{end}}
                     </div>
                     {{end}}
@@ -276,7 +276,7 @@
                     {{end}}
 
                     {{if and (not .Ports) (not .NucleiFindings)}}
-                    <p class="text-[11px] text-dark-500 italic mt-1">No ports or findings — host returned nothing scannable.</p>
+                    <p class="text-[11px] text-dark-500 italic mt-1">{{T "No ports or findings — host returned nothing scannable."}}</p>
                     {{end}}
                 </td>
             </tr>
@@ -291,13 +291,13 @@
     <table id="psPortsTable" class="w-full text-sm">
         <thead class="bg-dark-850 border-b border-dark-800 text-left">
             <tr>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="port" data-sort-type="number">Port</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="proto" data-sort-type="string">Proto</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="ip-num" data-sort-type="number">Host (IP)</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="hostname" data-sort-type="string">Hostname</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="service" data-sort-type="string">Service</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="product" data-sort-type="string">Product</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="version" data-sort-type="string">Version</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="port" data-sort-type="number">{{T "Port"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="proto" data-sort-type="string">{{T "Proto"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="ip-num" data-sort-type="number">{{T "Host (IP)"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="hostname" data-sort-type="string">{{T "Hostname"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="service" data-sort-type="string">{{T "Service"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="product" data-sort-type="string">{{T "Product"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="version" data-sort-type="string">{{T "Version"}}</th>
             </tr>
         </thead>
         <tbody id="psPortsTbody" class="divide-y divide-dark-800">
@@ -335,9 +335,9 @@
                 {{if gt $openHere $portCap}}
             <tr class="ps-port-row ps-port-truncate-row bg-warning/5">
                 <td colspan="7" class="px-4 py-2 text-[11px] text-warning">
-                    ⚠ <span class="mono">{{if $tr.IP}}{{$tr.IP}}{{else}}{{$tr.Target}}{{end}}</span> reported {{$openHere}} open ports — showing first {{$portCap}}.
+                    ⚠ <span class="mono">{{if $tr.IP}}{{$tr.IP}}{{else}}{{$tr.Target}}{{end}}</span> {{T "reported %d open ports — showing first %d." $openHere $portCap}}
                     <a href="/modules/portservice/results/{{$.Scan.ID}}/host/{{if $tr.IP}}{{$tr.IP}}{{else}}{{$tr.Target}}{{end}}"
-                       class="text-accent-300 hover:text-accent-200 underline ml-1">See all {{$openHere}} on host detail page →</a>
+                       class="text-accent-300 hover:text-accent-200 underline ml-1">{{T "See all %d on host detail page" $openHere}} →</a>
                 </td>
             </tr>
                 {{end}}
@@ -435,7 +435,7 @@ function applyPSFilter() {
 
 {{if not .Results}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
-    <p class="text-sm">{{if eq (print .Scan.Status) "running"}}Waiting for first results...{{else}}No results available{{end}}</p>
+    <p class="text-sm">{{if eq (print .Scan.Status) "running"}}{{T "Waiting for first results..."}}{{else}}{{T "No results available"}}{{end}}</p>
 </div>
 {{end}}
 {{end}}

@@ -1,6 +1,6 @@
 {{define "auth_head"}}
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="{{if eq .Lang "tr"}}tr{{else}}en{{end}}" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -38,6 +38,16 @@
 {{define "login_page"}}
 {{template "auth_head" .}}
 <body class="h-full bg-dark-950 text-dark-100 antialiased">
+    <!-- Language toggle (top-right) -->
+    <div class="absolute top-4 right-4 z-20 flex items-center gap-1 text-xs">
+        <form action="/lang" method="POST" class="contents"><input type="hidden" name="lang" value="en">
+            <button type="submit" class="px-2 py-1 rounded mono {{if ne .Lang "tr"}}text-accent-400 font-semibold{{else}}text-dark-400 hover:text-white{{end}}">EN</button>
+        </form>
+        <span class="text-dark-700">|</span>
+        <form action="/lang" method="POST" class="contents"><input type="hidden" name="lang" value="tr">
+            <button type="submit" class="px-2 py-1 rounded mono {{if eq .Lang "tr"}}text-accent-400 font-semibold{{else}}text-dark-400 hover:text-white{{end}}">TR</button>
+        </form>
+    </div>
     <div class="relative min-h-full flex items-center justify-center px-4 py-12 overflow-hidden">
         <!-- ambient background glows -->
         <div aria-hidden="true" class="pointer-events-none absolute inset-0">
@@ -50,14 +60,14 @@
             <div class="flex flex-col items-center text-center mb-8">
                 <img src="/static/favicon.svg" alt="scaNNer" width="56" height="56" class="w-14 h-14 mb-4 drop-shadow-lg">
                 <div class="text-3xl font-bold tracking-tight text-white">sca<span class="text-accent-400">NN</span>er</div>
-                <p class="text-[11px] text-dark-400 uppercase tracking-[0.25em] mt-1.5">Scan Toolkit</p>
+                <p class="text-[11px] text-dark-400 uppercase tracking-[0.25em] mt-1.5">{{T "Scan Toolkit"}}</p>
             </div>
 
             <!-- card -->
             <div class="rounded-2xl bg-dark-900/80 backdrop-blur border border-dark-800 shadow-2xl shadow-black/40 p-7">
                 <div class="mb-5">
-                    <h1 class="text-lg font-semibold text-white">Sign in</h1>
-                    <p class="text-sm text-dark-400 mt-0.5">Enter your credentials to continue.</p>
+                    <h1 class="text-lg font-semibold text-white">{{T "Sign in"}}</h1>
+                    <p class="text-sm text-dark-400 mt-0.5">{{T "Enter your credentials to continue."}}</p>
                 </div>
 
                 {{if .Error}}
@@ -72,7 +82,7 @@
                 <form method="POST" action="/login" class="space-y-4">
                     <input type="hidden" name="next" value="{{.Next}}">
                     <div>
-                        <label class="block text-xs font-medium text-dark-300 mb-1.5" for="username">Username</label>
+                        <label class="block text-xs font-medium text-dark-300 mb-1.5" for="username">{{T "Username"}}</label>
                         <div class="relative">
                             <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-dark-500">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -84,7 +94,7 @@
                         </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-dark-300 mb-1.5" for="password">Password</label>
+                        <label class="block text-xs font-medium text-dark-300 mb-1.5" for="password">{{T "Password"}}</label>
                         <div class="relative">
                             <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-dark-500">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -100,7 +110,7 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/>
                         </svg>
-                        Sign in
+                        {{T "Sign in"}}
                     </button>
                 </form>
             </div>
@@ -109,7 +119,7 @@
                 <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12.75 11.25 15 15 9.75m-3-7.04a11.96 11.96 0 01-8.4 3.29 12 12 0 00-.6 3.75c0 5.59 3.82 10.29 9 11.62 5.18-1.33 9-6.03 9-11.62 0-1.31-.21-2.57-.6-3.75a11.96 11.96 0 01-8.4-3.29z"/>
                 </svg>
-                Authorized use only · all access is logged
+                {{T "Authorized use only · all access is logged"}}
             </p>
         </div>
     </div>

@@ -4,12 +4,12 @@
 <div id="leakBanner" class="hidden bg-danger text-white px-6 py-2.5 flex items-center justify-between gap-4 text-sm">
     <div class="flex items-center gap-2 min-w-0">
         <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M4.93 19h14.14a2 2 0 001.74-2.99l-7.07-12a2 2 0 00-3.48 0l-7.07 12A2 2 0 004.93 19z"/></svg>
-        <span class="font-semibold shrink-0">⚠ DNS LEAK tespit edildi</span>
-        <span class="text-white/80 truncate">— çalışan taramalar durduruldu. Ayrıntı için Leak Report'a bak.</span>
+        <span class="font-semibold shrink-0">⚠ {{T "DNS LEAK detected"}}</span>
+        <span class="text-white/80 truncate">{{T "— running scans stopped. See the Leak Report for details."}}</span>
     </div>
     <div class="flex items-center gap-3 shrink-0">
-        <a href="/leak-report" class="underline text-white/90 hover:text-white whitespace-nowrap">Leak Report →</a>
-        {{if .IsAdmin}}<button type="button" onclick="leakDismiss()" class="px-2.5 py-0.5 rounded bg-white/20 hover:bg-white/30 text-xs">Kapat</button>{{end}}
+        <a href="/leak-report" class="underline text-white/90 hover:text-white whitespace-nowrap">{{T "Leak Report"}} →</a>
+        {{if .IsAdmin}}<button type="button" onclick="leakDismiss()" class="px-2.5 py-0.5 rounded bg-white/20 hover:bg-white/30 text-xs">{{T "Dismiss"}}</button>{{end}}
     </div>
 </div>
 <header class="relative z-40 h-16 bg-dark-900/80 backdrop-blur border-b border-dark-800 flex items-center justify-between px-6 shrink-0">
@@ -34,7 +34,7 @@
             <!-- Dropdown Menu -->
             <div id="wsMenu" class="hidden absolute right-0 top-full mt-1.5 w-72 bg-dark-900 border border-dark-800 rounded-xl shadow-2xl z-50 overflow-hidden">
                 <div class="px-4 py-3 border-b border-dark-800">
-                    <p class="text-[10px] font-semibold text-dark-500 uppercase tracking-widest">Switch Workspace</p>
+                    <p class="text-[10px] font-semibold text-dark-500 uppercase tracking-widest">{{T "Switch Workspace"}}</p>
                 </div>
                 <div class="max-h-64 overflow-y-auto py-1">
                     {{range .Workspaces}}
@@ -46,10 +46,10 @@
                                 <div class="flex items-center gap-2">
                                     <span class="text-sm {{if eq .ID $.ActiveWorkspace.ID}}text-accent-400 font-medium{{else}}text-dark-200{{end}} truncate">{{.Name}}</span>
                                     {{if .IsDefault}}
-                                    <span class="text-[9px] uppercase tracking-wider text-dark-500 bg-dark-800 px-1.5 py-0.5 rounded shrink-0">default</span>
+                                    <span class="text-[9px] uppercase tracking-wider text-dark-500 bg-dark-800 px-1.5 py-0.5 rounded shrink-0">{{T "default"}}</span>
                                     {{end}}
                                 </div>
-                                <span class="text-[11px] text-dark-500">{{.TargetCount}} targets</span>
+                                <span class="text-[11px] text-dark-500">{{Tn .TargetCount "%d target" "%d targets" .TargetCount}}</span>
                             </div>
                             {{if eq .ID $.ActiveWorkspace.ID}}
                             <svg class="w-4 h-4 text-accent-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -65,14 +65,43 @@
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                         </svg>
-                        Manage Workspaces
+                        {{T "Manage Workspaces"}}
                     </a>
                 </div>
             </div>
         </div>
 
+        <!-- Language Selector — instant EN/TR switch (cookie + account); reloads the page -->
+        <div class="relative" id="langDropdown">
+            <button type="button" onclick="document.getElementById('langMenu').classList.toggle('hidden')"
+                    title="Language / Dil"
+                    class="flex items-center gap-1.5 h-9 px-2.5 bg-dark-850 border border-dark-700 hover:border-accent-500/50 rounded-lg transition-colors text-xs text-dark-200">
+                <svg class="w-4 h-4 text-dark-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/>
+                </svg>
+                <span class="mono uppercase">{{if eq .Lang "tr"}}TR{{else}}EN{{end}}</span>
+                <svg class="w-3 h-3 text-dark-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+            <div id="langMenu" class="hidden absolute right-0 top-full mt-1.5 w-36 bg-dark-900 border border-dark-800 rounded-lg shadow-xl py-1 z-50">
+                <form action="/lang" method="POST" class="contents">
+                    <input type="hidden" name="lang" value="en">
+                    <button type="submit" class="w-full flex items-center gap-2 text-left px-3 py-2 text-xs hover:bg-dark-850 {{if ne .Lang "tr"}}text-accent-400{{else}}text-dark-200{{end}}">
+                        <span class="mono text-[10px] w-6">EN</span> English
+                    </button>
+                </form>
+                <form action="/lang" method="POST" class="contents">
+                    <input type="hidden" name="lang" value="tr">
+                    <button type="submit" class="w-full flex items-center gap-2 text-left px-3 py-2 text-xs hover:bg-dark-850 {{if eq .Lang "tr"}}text-accent-400{{else}}text-dark-200{{end}}">
+                        <span class="mono text-[10px] w-6">TR</span> Türkçe
+                    </button>
+                </form>
+            </div>
+        </div>
+
         <!-- Theme toggle -->
-        <button id="themeToggle" type="button" onclick="toggleTheme()" title="Toggle light / dark theme"
+        <button id="themeToggle" type="button" onclick="toggleTheme()" title="{{T `Toggle light / dark theme`}}"
                 class="flex items-center justify-center w-9 h-9 bg-dark-850 border border-dark-700 hover:border-accent-500/50 rounded-lg transition-colors">
             <svg id="themeIconMoon" class="w-4 h-4 text-dark-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
@@ -85,11 +114,11 @@
         <!-- Connectivity status indicator — polled from /api/health (the
              connectivity monitor probes every 5s). Green = reachable, amber =
              degraded/throttled, red = offline. -->
-        <div id="netStatus" class="flex items-center gap-2 text-sm text-success" title="Checking connectivity…">
+        <div id="netStatus" class="flex items-center gap-2 text-sm text-success" title="{{T `Checking connectivity…`}}">
             <svg id="netStatusIcon" class="w-4 h-4 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
             </svg>
-            <span id="netStatusText" class="mono text-xs text-success">Ready</span>
+            <span id="netStatusText" class="mono text-xs text-success">{{T "Ready"}}</span>
         </div>
     </div>
 </header>
@@ -165,6 +194,11 @@ document.addEventListener('click', function(e) {
     var menu = document.getElementById('wsMenu');
     if (dd && menu && !dd.contains(e.target)) {
         menu.classList.add('hidden');
+    }
+    var ld = document.getElementById('langDropdown');
+    var lm = document.getElementById('langMenu');
+    if (ld && lm && !ld.contains(e.target)) {
+        lm.classList.add('hidden');
     }
 });
 </script>

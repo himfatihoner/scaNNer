@@ -1,10 +1,10 @@
 {{define "page_nuclei_results"}}
 <div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
-    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <a href="/modules" class="hover:text-accent-400 transition-colors">{{T `Modules`}}</a>
     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
     <a href="/modules/nuclei" class="hover:text-accent-400 transition-colors">Nuclei</a>
     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-    <span class="text-dark-200">Results</span>
+    <span class="text-dark-200">{{T `Results`}}</span>
 </div>
 {{template "scan_actions" .}}
 
@@ -23,7 +23,7 @@
 <div class="mb-4 px-4 py-3 bg-danger/10 border border-danger/40 rounded-lg flex items-start gap-3">
     <svg class="w-5 h-5 text-danger flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.732-3L13.732 4a2 2 0 00-3.464 0L3.268 16A2 2 0 005 19z"/></svg>
     <div>
-        <p class="text-sm font-semibold text-danger">Scan INCOMPLETE — results may be partial</p>
+        <p class="text-sm font-semibold text-danger">{{T `Scan INCOMPLETE — results may be partial`}}</p>
         <p class="text-xs text-dark-300 mt-0.5">{{.TruncateReason}}</p>
     </div>
 </div>
@@ -43,7 +43,7 @@
      Group "aw-suite" so the suite master toggle can broadcast. */}}
 {{if .Results}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl mb-4 overflow-hidden">
-    {{template "empty_toggle" (dict "Scope" "nuclei-targets" "ContainerSel" "#nucleiTargetGroups" "Group" "aw-suite" "Label" "Hide URLs with no findings")}}
+    {{template "empty_toggle" (dict "Scope" "nuclei-targets" "ContainerSel" "#nucleiTargetGroups" "Group" "aw-suite" "Label" (T `Hide URLs with no findings`))}}
     <div id="nucleiTargetGroups" class="max-h-[600px] overflow-y-auto">
 {{end}}
 
@@ -59,10 +59,10 @@
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
                 <span class="mono text-sm font-semibold text-accent-400">{{.URL}}</span>
-                <button type="button" onclick="sendToBurp('{{.URL}}')" title="Send this request to the configured proxy (Burp Repeater)"
+                <button type="button" onclick="sendToBurp('{{.URL}}')" title="{{T `Send this request to the configured proxy (Burp Repeater)`}}"
                         class="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/30 hover:bg-orange-500/20">→ Burp</button>
             </div>
-            <span class="text-xs text-dark-400">{{len .Findings}} findings</span>
+            <span class="text-xs text-dark-400">{{Tn (len .Findings) `%d finding` `%d findings` (len .Findings)}}</span>
         </div>
         {{if .Error}}<p class="text-xs text-danger mt-1">{{.Error}}</p>{{end}}
         {{if .ExitInfo}}<p class="text-[11px] text-dark-500 mt-1">{{.ExitInfo}}</p>{{end}}
@@ -89,7 +89,7 @@
                     {{range .Tags}}<span class="text-[10px] text-dark-400 bg-dark-800 px-1.5 py-0.5 rounded">{{.}}</span>{{end}}
                 </div>
                 {{if .Extracted}}
-                <p class="text-[10px] text-dark-500 mt-1.5">Extracted: <span class="mono text-dark-300">{{range $i, $v := .Extracted}}{{if $i}}, {{end}}{{$v}}{{end}}</span></p>
+                <p class="text-[10px] text-dark-500 mt-1.5">{{T `Extracted:`}} <span class="mono text-dark-300">{{range $i, $v := .Extracted}}{{if $i}}, {{end}}{{$v}}{{end}}</span></p>
                 {{end}}
                 {{if .References}}
                 <div class="flex flex-wrap gap-1 mt-1">
@@ -105,7 +105,7 @@
         {{else}}
         <div class="flex items-center gap-3 px-4 py-3 bg-success/5 border border-success/20 rounded-lg">
             <svg class="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-            <p class="text-sm font-medium text-success">No vulnerabilities matched</p>
+            <p class="text-sm font-medium text-success">{{T `No vulnerabilities matched`}}</p>
         </div>
         {{end}}
     </div>
@@ -118,7 +118,7 @@
 
 {{if not .Results}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
-    <p class="text-sm">{{if eq (print .Scan.Status) "running"}}Waiting for first results...{{else}}No results available{{end}}</p>
+    <p class="text-sm">{{if eq (print .Scan.Status) "running"}}{{T `Waiting for first results...`}}{{else}}{{T `No results available`}}{{end}}</p>
 </div>
 {{end}}
 {{end}}

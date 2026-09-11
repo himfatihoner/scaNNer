@@ -1,68 +1,68 @@
 {{define "page_vulnerabilities"}}
 <span id="vulnState" data-ready="{{if .VulnReady}}1{{else}}0{{end}}" data-running="{{if .HasRunning}}1{{else}}0{{end}}" hidden></span>
 <div class="mb-4">
-    <h1 class="text-2xl font-bold text-white">Vulnerabilities</h1>
-    <p class="text-sm text-dark-400 mt-1">Every severity-bearing finding across every asset in this workspace, from all modules.</p>
+    <h1 class="text-2xl font-bold text-white">{{T "Vulnerabilities"}}</h1>
+    <p class="text-sm text-dark-400 mt-1">{{T "Every severity-bearing finding across every asset in this workspace, from all modules."}}</p>
 </div>
 
 <div class="flex items-center gap-1 border-b border-dark-800 mb-4">
-    <a href="/vulnerabilities" class="px-4 py-2 text-sm font-medium border-b-2 {{if eq .ActiveTab ""}}border-accent-500 text-white{{else}}border-transparent text-dark-400 hover:text-white{{end}}">Active</a>
-    <a href="/vulnerabilities?tab=fixed" class="px-4 py-2 text-sm font-medium border-b-2 {{if eq .ActiveTab "fixed"}}border-emerald-500 text-white{{else}}border-transparent text-dark-400 hover:text-white{{end}}">Fixed{{if .FixedCount}} <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">{{.FixedCount}}</span>{{end}}</a>
-    <a href="/vulnerabilities?tab=false_positive" class="px-4 py-2 text-sm font-medium border-b-2 {{if eq .ActiveTab "false_positive"}}border-yellow-500 text-white{{else}}border-transparent text-dark-400 hover:text-white{{end}}">False Positive{{if .FalsePositiveCount}} <span class="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300">{{.FalsePositiveCount}}</span>{{end}}</a>
-    <a href="/vulnerabilities?tab=archive" class="px-4 py-2 text-sm font-medium border-b-2 {{if eq .ActiveTab "archive"}}border-accent-500 text-white{{else}}border-transparent text-dark-400 hover:text-white{{end}}">Archive{{if .ArchivedCount}} <span class="text-[10px] px-1.5 py-0.5 rounded bg-dark-800 text-dark-300">{{.ArchivedCount}}</span>{{end}}</a>
+    <a href="/vulnerabilities" class="px-4 py-2 text-sm font-medium border-b-2 {{if eq .ActiveTab ""}}border-accent-500 text-white{{else}}border-transparent text-dark-400 hover:text-white{{end}}">{{T "Active"}}</a>
+    <a href="/vulnerabilities?tab=fixed" class="px-4 py-2 text-sm font-medium border-b-2 {{if eq .ActiveTab "fixed"}}border-emerald-500 text-white{{else}}border-transparent text-dark-400 hover:text-white{{end}}">{{T "Fixed"}}{{if .FixedCount}} <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">{{.FixedCount}}</span>{{end}}</a>
+    <a href="/vulnerabilities?tab=false_positive" class="px-4 py-2 text-sm font-medium border-b-2 {{if eq .ActiveTab "false_positive"}}border-yellow-500 text-white{{else}}border-transparent text-dark-400 hover:text-white{{end}}">{{T "False Positive"}}{{if .FalsePositiveCount}} <span class="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300">{{.FalsePositiveCount}}</span>{{end}}</a>
+    <a href="/vulnerabilities?tab=archive" class="px-4 py-2 text-sm font-medium border-b-2 {{if eq .ActiveTab "archive"}}border-accent-500 text-white{{else}}border-transparent text-dark-400 hover:text-white{{end}}">{{T "Archive"}}{{if .ArchivedCount}} <span class="text-[10px] px-1.5 py-0.5 rounded bg-dark-800 text-dark-300">{{.ArchivedCount}}</span>{{end}}</a>
 </div>
 
 {{if .RescanNotice}}
 <div class="mb-4 flex items-center gap-2 bg-emerald-600/10 border border-emerald-500/30 rounded-lg px-4 py-2.5 text-xs text-emerald-200">
     <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-    {{.RescanNotice}} rescan başlatıldı{{if and .RescanSkipped (ne .RescanSkipped "0")}} · {{.RescanSkipped}} atlandı (kaynak modül rescan hedefi taşımıyor){{end}}. Doğrulanamayan zafiyetler, rescan tamamlanınca otomatik olarak Archive sekmesine taşınır.
+    {{T "%s rescans started" .RescanNotice}}{{if and .RescanSkipped (ne .RescanSkipped "0")}} · {{T "%s skipped (source module carries no rescan target)" .RescanSkipped}}{{end}}. {{T "Unverifiable vulnerabilities are automatically moved to the Archive tab when the rescan completes."}}
 </div>
 {{end}}
 
 {{if eq .ActiveTab ""}}
 <div class="flex flex-wrap items-center gap-2 mb-4">
-    <button type="button" data-vsev="" onclick="setVulnSev(this)" class="vuln-sev-chip px-3 py-1.5 text-xs rounded-lg bg-accent-600 text-white">All</button>
+    <button type="button" data-vsev="" onclick="setVulnSev(this)" class="vuln-sev-chip px-3 py-1.5 text-xs rounded-lg bg-accent-600 text-white">{{T "All"}}</button>
     <button type="button" data-vsev="4" onclick="setVulnSev(this)" class="vuln-sev-chip px-3 py-1.5 text-xs rounded-lg bg-dark-850 border border-dark-700 text-red-300 hover:text-white">Critical {{.VCrit}}</button>
     <button type="button" data-vsev="3" onclick="setVulnSev(this)" class="vuln-sev-chip px-3 py-1.5 text-xs rounded-lg bg-dark-850 border border-dark-700 text-orange-300 hover:text-white">High {{.VHigh}}</button>
     <button type="button" data-vsev="2" onclick="setVulnSev(this)" class="vuln-sev-chip px-3 py-1.5 text-xs rounded-lg bg-dark-850 border border-dark-700 text-yellow-300 hover:text-white">Medium {{.VMed}}</button>
     <button type="button" data-vsev="1" onclick="setVulnSev(this)" class="vuln-sev-chip px-3 py-1.5 text-xs rounded-lg bg-dark-850 border border-dark-700 text-blue-300 hover:text-white">Low {{.VLow}}</button>
-    <input id="vulnSearch" type="search" placeholder="Search host, finding, CVE, module…" oninput="applyVulnFilter()"
+    <input id="vulnSearch" type="search" placeholder="{{T `Search host, finding, CVE, module…`}}" oninput="applyVulnFilter()"
            class="w-64 mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
     <select id="vulnModuleFilter" onchange="applyVulnFilter()" class="bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
-        <option value="">All modules</option>
+        <option value="">{{T "All modules"}}</option>
         {{range .VulnModules}}<option value="{{.}}">{{moduleDisplayName .}}</option>{{end}}
     </select>
     {{if .Vulns}}
-    <button type="button" id="rescanSelectedBtn" onclick="rescanSelected()" class="ml-auto opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white" title="Re-run the source scan of each selected finding, scoped to its asset, to re-verify it. Findings the rescan no longer detects are moved to Archive automatically.">⟳ Rescan Selected (<span id="rescanSelCount">0</span>)</button>
-    <button type="button" id="fixedSelectedBtn" onclick="statusSelectedActive('fixed')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white" title="Seçili bulguları Fixed sekmesine gönder (düzeltildi olarak işaretle).">✓ Fixed (<span id="fixedSelCount">0</span>)</button>
-    <button type="button" id="fpSelectedBtn" onclick="statusSelectedActive('false_positive')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-yellow-700 hover:bg-yellow-600 text-white" title="Seçili bulguları False Positive sekmesine gönder.">⚠ False Positive (<span id="fpSelCount">0</span>)</button>
-    <button type="button" id="archiveSelectedBtn" onclick="archiveSelected('archive')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-dark-700 hover:bg-dark-600 text-dark-200" title="Move the selected findings to the Archive tab.">🗄 Archive</button>
+    <button type="button" id="rescanSelectedBtn" onclick="rescanSelected()" class="ml-auto opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white" title="{{T `Re-run the source scan of each selected finding, scoped to its asset, to re-verify it. Findings the rescan no longer detects are moved to Archive automatically.`}}">⟳ {{T "Rescan Selected"}} (<span id="rescanSelCount">0</span>)</button>
+    <button type="button" id="fixedSelectedBtn" onclick="statusSelectedActive('fixed')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white" title="{{T `Send the selected findings to the Fixed tab (mark as fixed).`}}">✓ {{T "Fixed"}} (<span id="fixedSelCount">0</span>)</button>
+    <button type="button" id="fpSelectedBtn" onclick="statusSelectedActive('false_positive')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-yellow-700 hover:bg-yellow-600 text-white" title="{{T `Send the selected findings to the False Positive tab.`}}">⚠ {{T "False Positive"}} (<span id="fpSelCount">0</span>)</button>
+    <button type="button" id="archiveSelectedBtn" onclick="archiveSelected('archive')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-dark-700 hover:bg-dark-600 text-dark-200" title="{{T `Move the selected findings to the Archive tab.`}}">🗄 {{T "Archive"}}</button>
     <details id="exportSelectedMenu" class="vexport relative opacity-50 pointer-events-none">
-        <summary class="cursor-pointer list-none select-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white">☑ Export Selected (<span id="selCount">0</span>)</summary>
+        <summary class="cursor-pointer list-none select-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white">☑ {{T "Export Selected"}} (<span id="selCount">0</span>)</summary>
         <div class="absolute right-0 z-20 mt-1 w-52 bg-dark-850 border border-dark-700 rounded-lg shadow-xl p-1 text-[11px]">
-            <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-dark-500">Tek dosya (birleşik)</div>
-            <a href="javascript:void(0)" onclick="exportSelected('pdf','tr')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">PDF · Türkçe</a>
-            <a href="javascript:void(0)" onclick="exportSelected('pdf','en')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">PDF · English</a>
-            <a href="javascript:void(0)" onclick="exportSelected('docx','tr')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">DOCX · Türkçe</a>
-            <a href="javascript:void(0)" onclick="exportSelected('docx','en')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">DOCX · English</a>
+            <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-dark-500">{{T "Single file (combined)"}}</div>
+            <a href="javascript:void(0)" onclick="exportSelected('pdf','tr')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "PDF · Turkish"}}</a>
+            <a href="javascript:void(0)" onclick="exportSelected('pdf','en')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "PDF · English"}}</a>
+            <a href="javascript:void(0)" onclick="exportSelected('docx','tr')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "DOCX · Turkish"}}</a>
+            <a href="javascript:void(0)" onclick="exportSelected('docx','en')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "DOCX · English"}}</a>
             <div class="border-t border-dark-700 my-1"></div>
-            <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-dark-500">Ayrı dosyalar (.zip)</div>
-            <a href="javascript:void(0)" onclick="exportSelected('pdf','tr',1)" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">PDF · Türkçe (her biri ayrı)</a>
-            <a href="javascript:void(0)" onclick="exportSelected('docx','tr',1)" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">DOCX · Türkçe (her biri ayrı)</a>
+            <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-dark-500">{{T "Separate files (.zip)"}}</div>
+            <a href="javascript:void(0)" onclick="exportSelected('pdf','tr',1)" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "PDF · Turkish (each separate)"}}</a>
+            <a href="javascript:void(0)" onclick="exportSelected('docx','tr',1)" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "DOCX · Turkish (each separate)"}}</a>
         </div>
     </details>
     <details class="vexport relative">
-        <summary class="cursor-pointer list-none select-none text-xs px-3 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white">⤓ Export All</summary>
+        <summary class="cursor-pointer list-none select-none text-xs px-3 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white">⤓ {{T "Export All"}}</summary>
         <div class="absolute right-0 z-20 mt-1 w-52 bg-dark-850 border border-dark-700 rounded-lg shadow-xl p-1 text-[11px]">
-            <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-dark-500">Tek dosya (birleşik)</div>
-            <a href="javascript:void(0)" onclick="exportAllURL('pdf','tr')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">PDF · Türkçe</a>
-            <a href="javascript:void(0)" onclick="exportAllURL('pdf','en')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">PDF · English</a>
-            <a href="javascript:void(0)" onclick="exportAllURL('docx','tr')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">DOCX · Türkçe</a>
-            <a href="javascript:void(0)" onclick="exportAllURL('docx','en')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">DOCX · English</a>
+            <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-dark-500">{{T "Single file (combined)"}}</div>
+            <a href="javascript:void(0)" onclick="exportAllURL('pdf','tr')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "PDF · Turkish"}}</a>
+            <a href="javascript:void(0)" onclick="exportAllURL('pdf','en')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "PDF · English"}}</a>
+            <a href="javascript:void(0)" onclick="exportAllURL('docx','tr')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "DOCX · Turkish"}}</a>
+            <a href="javascript:void(0)" onclick="exportAllURL('docx','en')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "DOCX · English"}}</a>
             <div class="border-t border-dark-700 my-1"></div>
-            <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-dark-500">Ayrı dosyalar (.zip)</div>
-            <a href="javascript:void(0)" onclick="exportAllURL('pdf','tr',1)" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">PDF · Türkçe (her biri ayrı)</a>
-            <a href="javascript:void(0)" onclick="exportAllURL('docx','tr',1)" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">DOCX · Türkçe (her biri ayrı)</a>
+            <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-dark-500">{{T "Separate files (.zip)"}}</div>
+            <a href="javascript:void(0)" onclick="exportAllURL('pdf','tr',1)" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "PDF · Turkish (each separate)"}}</a>
+            <a href="javascript:void(0)" onclick="exportAllURL('docx','tr',1)" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "DOCX · Turkish (each separate)"}}</a>
         </div>
     </details>
     <span id="vulnResultCount" class="text-[11px] text-dark-500"></span>
@@ -74,7 +74,7 @@
 {{if not .VulnReady}}
 <div class="mb-4 flex items-center gap-2 bg-accent-600/10 border border-accent-500/30 rounded-lg px-4 py-2.5 text-xs text-accent-200">
     <span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span>
-    Building the vulnerability index from scan results… refresh in a moment for the full list.
+    {{T "Building the vulnerability index from scan results… refresh in a moment for the full list."}}
 </div>
 {{end}}
 
@@ -83,18 +83,18 @@
     <table id="vulnTable" class="w-full text-sm">
         <thead class="bg-dark-850 border-b border-dark-800 text-left">
             <tr>
-                <th class="px-3 py-3 w-8"><input type="checkbox" id="vulnSelectAll" onclick="toggleSelectAllVisible(this)" class="align-middle cursor-pointer accent-emerald-500" title="Select all visible"></th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="id" data-sort-type="string">ID</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="sev" data-sort-type="number">Severity</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="title" data-sort-type="string">Finding</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="host" data-sort-type="string">Asset</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="product" data-sort-type="string" title="Software the finding is about — e.g. the product a tech-detection CVE was matched against">Software</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="module" data-sort-type="string">Source</th>
+                <th class="px-3 py-3 w-8"><input type="checkbox" id="vulnSelectAll" onclick="toggleSelectAllVisible(this)" class="align-middle cursor-pointer accent-emerald-500" title="{{T `Select all visible`}}"></th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="id" data-sort-type="string">{{T "ID"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="sev" data-sort-type="number">{{T "Severity"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="title" data-sort-type="string">{{T "Finding"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="host" data-sort-type="string">{{T "Asset"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="product" data-sort-type="string" title="{{T `Software the finding is about — e.g. the product a tech-detection CVE was matched against`}}">{{T "Software"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="module" data-sort-type="string">{{T "Source"}}</th>
                 <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">CVEs</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">Scan</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="firstseen" data-sort-type="string" title="Earliest scan that reported this finding">First Seen</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="lastseen" data-sort-type="string" title="Most recent scan that reported this finding">Last Seen</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold text-right">Export</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">{{T "Scan"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="firstseen" data-sort-type="string" title="{{T `Earliest scan that reported this finding`}}">{{T "First Seen"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="lastseen" data-sort-type="string" title="{{T `Most recent scan that reported this finding`}}">{{T "Last Seen"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold text-right">{{T "Export"}}</th>
             </tr>
         </thead>
         <tbody id="vulnTbody" class="divide-y divide-dark-800">
@@ -116,33 +116,33 @@
                     {{else if eq .SevRank 2}}bg-yellow-500/20 text-yellow-300
                     {{else}}bg-blue-500/20 text-blue-300{{end}}">{{.Severity}}</span></td>
                 <td class="px-4 py-2.5"><span class="vuln-caret inline-block text-dark-500 mr-1 transition-transform select-none">▸</span><span class="text-[12px] text-white">{{.Title}}</span>{{if gt .Count 1}} <span class="text-[10px] text-dark-500">×{{.Count}}</span>{{end}}</td>
-                <td class="px-4 py-2.5" data-sort-val="{{.Host}}">{{if .Host}}<a href="/assets/{{assetKey .Host}}" onclick="event.stopPropagation()" class="mono text-[11px] text-accent-400 hover:text-accent-300 break-all" title="Bu varlığın sayfasına git">{{.Host}}</a>{{else}}<span class="text-dark-600 text-[11px]" title="No host/URL was associated with this finding (e.g. a manual product-version CVE lookup). The software is shown in the Software column.">—</span>{{end}}</td>
+                <td class="px-4 py-2.5" data-sort-val="{{.Host}}">{{if .Host}}<a href="/assets/{{assetKey .Host}}" onclick="event.stopPropagation()" class="mono text-[11px] text-accent-400 hover:text-accent-300 break-all" title="{{T `Go to this asset's page`}}">{{.Host}}</a>{{else}}<span class="text-dark-600 text-[11px]" title="{{T `No host/URL was associated with this finding (e.g. a manual product-version CVE lookup). The software is shown in the Software column.`}}">—</span>{{end}}</td>
                 <td class="px-4 py-2.5" data-sort-val="{{.Product}}">{{if .Product}}<span class="text-[11px] text-dark-200 break-all">{{.Product}}</span>{{else}}<span class="text-dark-600 text-[11px]">—</span>{{end}}</td>
-                <td class="px-4 py-2.5 whitespace-nowrap"><span class="text-[10px] text-dark-200 bg-dark-850 border border-dark-700 px-1.5 py-0.5 rounded">{{if .Tool}}{{moduleDisplayName .Tool}}{{else}}{{moduleDisplayName .Module}}{{end}}</span>{{if and .Tool (ne .Tool .Module)}} <span class="text-[9px] text-dark-500">via {{moduleDisplayName .Module}}</span>{{end}}</td>
+                <td class="px-4 py-2.5 whitespace-nowrap"><span class="text-[10px] text-dark-200 bg-dark-850 border border-dark-700 px-1.5 py-0.5 rounded">{{if .Tool}}{{moduleDisplayName .Tool}}{{else}}{{moduleDisplayName .Module}}{{end}}</span>{{if and .Tool (ne .Tool .Module)}} <span class="text-[9px] text-dark-500">{{T "via %s" (moduleDisplayName .Module)}}</span>{{end}}</td>
                 <td class="px-4 py-2.5">
                     {{if .CVEs}}<div class="flex flex-wrap gap-1">{{range .CVEs}}<a href="https://nvd.nist.gov/vuln/detail/{{.}}" target="_blank" rel="noopener" class="text-[10px] mono px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 hover:bg-red-500/25">{{.}}</a>{{end}}</div>{{else}}<span class="text-dark-600 text-[11px]">—</span>{{end}}
                 </td>
-                <td class="px-4 py-2.5 whitespace-nowrap"><a href="{{.ScanURL}}" class="text-[11px] text-accent-400 hover:text-accent-300">&rarr; scan</a></td>
+                <td class="px-4 py-2.5 whitespace-nowrap"><a href="{{.ScanURL}}" class="text-[11px] text-accent-400 hover:text-accent-300">&rarr; {{T "scan"}}</a></td>
                 <td class="px-4 py-2.5 whitespace-nowrap text-[11px] text-dark-400 mono" data-sort-val="{{if not .FirstSeen.IsZero}}{{.FirstSeen.Format "2006-01-02"}}{{end}}">{{if not .FirstSeen.IsZero}}{{.FirstSeen.Format "2006-01-02"}}{{else}}<span class="text-dark-600">—</span>{{end}}</td>
                 <td class="px-4 py-2.5 whitespace-nowrap text-[11px] text-dark-400 mono" data-sort-val="{{if not .LastSeen.IsZero}}{{.LastSeen.Format "2006-01-02"}}{{end}}">{{if not .LastSeen.IsZero}}{{.LastSeen.Format "2006-01-02"}}{{else}}<span class="text-dark-600">—</span>{{end}}</td>
                 <td class="px-4 py-2.5 whitespace-nowrap text-right">
-                    <button type="button" onclick="event.stopPropagation(); rescanVulns(['{{.ID}}'], this)" {{if .Rescanning}}disabled{{end}} class="rescan-btn mr-2 text-[11px] {{if .Rescanning}}text-emerald-400{{else}}text-accent-400 hover:text-accent-300{{end}}" title="{{if .Rescanning}}Rescan in progress — verifying this finding…{{else}}Rescan this finding's asset to re-verify it; if the rescan no longer detects it, it moves to Archive.{{end}}"><span class="rescan-spin inline-block {{if .Rescanning}}animate-spin{{end}}">⟳</span> {{if .Rescanning}}Rescanning…{{else}}Rescan{{end}}</button>
-                    <button type="button" onclick="event.stopPropagation(); statusVulns(['{{.ID}}'],'fixed','active')" class="mr-2 text-[11px] text-emerald-400 hover:text-emerald-300" title="Bu bulguyu Fixed (düzeltildi) sekmesine gönder.">✓ Fixed</button>
-                    <button type="button" onclick="event.stopPropagation(); statusVulns(['{{.ID}}'],'false_positive','active')" class="mr-2 text-[11px] text-yellow-400 hover:text-yellow-300" title="Bu bulguyu False Positive sekmesine gönder.">⚠ FP</button>
+                    <button type="button" onclick="event.stopPropagation(); rescanVulns(['{{.ID}}'], this)" {{if .Rescanning}}disabled{{end}} class="rescan-btn mr-2 text-[11px] {{if .Rescanning}}text-emerald-400{{else}}text-accent-400 hover:text-accent-300{{end}}" title="{{if .Rescanning}}{{T `Rescan in progress — verifying this finding…`}}{{else}}{{T `Rescan this finding's asset to re-verify it; if the rescan no longer detects it, it moves to Archive.`}}{{end}}"><span class="rescan-spin inline-block {{if .Rescanning}}animate-spin{{end}}">⟳</span> {{if .Rescanning}}{{T "Rescanning…"}}{{else}}{{T "Rescan"}}{{end}}</button>
+                    <button type="button" onclick="event.stopPropagation(); statusVulns(['{{.ID}}'],'fixed','active')" class="mr-2 text-[11px] text-emerald-400 hover:text-emerald-300" title="{{T `Send this finding to the Fixed tab.`}}">✓ {{T "Fixed"}}</button>
+                    <button type="button" onclick="event.stopPropagation(); statusVulns(['{{.ID}}'],'false_positive','active')" class="mr-2 text-[11px] text-yellow-400 hover:text-yellow-300" title="{{T `Send this finding to the False Positive tab.`}}">⚠ {{T "FP"}}</button>
                     <details class="vexport relative inline-block">
-                        <summary class="cursor-pointer list-none select-none text-[11px] text-accent-400 hover:text-accent-300">⤓ Export</summary>
+                        <summary class="cursor-pointer list-none select-none text-[11px] text-accent-400 hover:text-accent-300">⤓ {{T "Export"}}</summary>
                         <div class="absolute right-0 z-10 mt-1 w-36 bg-dark-850 border border-dark-700 rounded-lg shadow-xl p-1 text-[11px] text-left">
-                            <a href="/vulnerabilities/export?id={{.ID}}&format=pdf&lang=tr" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">PDF · Türkçe</a>
-                            <a href="/vulnerabilities/export?id={{.ID}}&format=pdf&lang=en" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">PDF · English</a>
-                            <a href="/vulnerabilities/export?id={{.ID}}&format=docx&lang=tr" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">DOCX · Türkçe</a>
-                            <a href="/vulnerabilities/export?id={{.ID}}&format=docx&lang=en" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">DOCX · English</a>
+                            <a href="/vulnerabilities/export?id={{.ID}}&format=pdf&lang=tr" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "PDF · Turkish"}}</a>
+                            <a href="/vulnerabilities/export?id={{.ID}}&format=pdf&lang=en" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "PDF · English"}}</a>
+                            <a href="/vulnerabilities/export?id={{.ID}}&format=docx&lang=tr" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "DOCX · Turkish"}}</a>
+                            <a href="/vulnerabilities/export?id={{.ID}}&format=docx&lang=en" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "DOCX · English"}}</a>
                         </div>
                     </details>
                 </td>
             </tr>
             <tr class="vuln-detail sortable-skip hidden" data-row-follow="{{.ID}}">
                 <td colspan="12" class="px-6 py-4 bg-dark-950/50 border-t border-dark-800">
-                    <div class="vuln-detail-body text-[12px] text-dark-500" data-id="{{.ID}}" data-loaded="0">Yükleniyor…</div>
+                    <div class="vuln-detail-body text-[12px] text-dark-500" data-id="{{.ID}}" data-loaded="0">{{T "Loading…"}}</div>
                 </td>
             </tr>
             {{end}}
@@ -151,7 +151,7 @@
 </div>
 {{else}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
-    <p class="text-sm">{{if .VulnReady}}No vulnerabilities found across this workspace's scans.{{else}}Indexing…{{end}}</p>
+    <p class="text-sm">{{if .VulnReady}}{{T "No vulnerabilities found across this workspace's scans."}}{{else}}{{T "Indexing…"}}{{end}}</p>
 </div>
 {{end}}
 {{end}}{{/* /active tab */}}
@@ -166,31 +166,31 @@
 {{if eq .ActiveTab "false_positive"}}{{$rows = .FalsePositiveVulns}}{{$isArch = false}}{{end}}
 {{if $rows}}
 <div class="flex flex-wrap items-center gap-2 mb-4">
-    <input id="archSearch" type="search" placeholder="Search host, finding, CVE…" oninput="applyArchiveFilter()"
+    <input id="archSearch" type="search" placeholder="{{T `Search host, finding, CVE…`}}" oninput="applyArchiveFilter()"
            class="w-64 mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
     <span class="text-[11px] text-dark-500">
-        {{if $isArch}}Findings a rescan could no longer confirm land here and are hidden from the Active tab.
-        {{else if eq .ActiveTab "fixed"}}Fixed olarak işaretlenen bulgular. Reopen ile Active sekmesine geri döner.
-        {{else}}False positive olarak işaretlenen bulgular. Reopen ile Active sekmesine geri döner.{{end}}
+        {{if $isArch}}{{T "Findings a rescan could no longer confirm land here and are hidden from the Active tab."}}
+        {{else if eq .ActiveTab "fixed"}}{{T "Findings marked as fixed. Reopen returns them to the Active tab."}}
+        {{else}}{{T "Findings marked as false positive. Reopen returns them to the Active tab."}}{{end}}
     </span>
     {{if $isArch}}
-    <button type="button" id="restoreSelectedBtn" onclick="archiveSelected('unarchive')" class="ml-auto opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white" title="Move the selected findings back to the Active tab.">↺ Restore (<span id="archSelCount">0</span>)</button>
+    <button type="button" id="restoreSelectedBtn" onclick="archiveSelected('unarchive')" class="ml-auto opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white" title="{{T `Move the selected findings back to the Active tab.`}}">↺ {{T "Restore"}} (<span id="archSelCount">0</span>)</button>
     {{else}}
-    <button type="button" id="restoreSelectedBtn" onclick="reopenSelectedTriage('{{.ActiveTab}}')" class="ml-auto opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white" title="Seçili bulguları yeniden aç — Active sekmesine döner.">↺ Reopen (<span id="archSelCount">0</span>)</button>
+    <button type="button" id="restoreSelectedBtn" onclick="reopenSelectedTriage('{{.ActiveTab}}')" class="ml-auto opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white" title="{{T `Reopen the selected findings — returns them to the Active tab.`}}">↺ {{T "Reopen"}} (<span id="archSelCount">0</span>)</button>
     {{end}}
-    <button type="button" id="deleteSelectedBtn" onclick="deleteArchivedSelected('{{.ActiveTab}}')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white" title="Permanently remove the selected findings from every view. Cannot be undone.">🗑 Delete (<span id="archDelCount">0</span>)</button>
+    <button type="button" id="deleteSelectedBtn" onclick="deleteArchivedSelected('{{.ActiveTab}}')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white" title="{{T `Permanently remove the selected findings from every view. Cannot be undone.`}}">🗑 {{T "Delete"}} (<span id="archDelCount">0</span>)</button>
 </div>
 <div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
     <table id="archTable" class="w-full text-sm">
         <thead class="bg-dark-850 border-b border-dark-800 text-left">
             <tr>
-                <th class="px-3 py-3 w-8"><input type="checkbox" onclick="toggleArchiveSelectAll(this)" class="align-middle cursor-pointer accent-emerald-500" title="Select all"></th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="sev" data-sort-type="number">Severity</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="title" data-sort-type="string">Finding</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="host" data-sort-type="string">Asset</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">Software</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">{{if $isArch}}Reason{{else}}Durum{{end}}</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold text-right">Actions</th>
+                <th class="px-3 py-3 w-8"><input type="checkbox" onclick="toggleArchiveSelectAll(this)" class="align-middle cursor-pointer accent-emerald-500" title="{{T `Select all`}}"></th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="sev" data-sort-type="number">{{T "Severity"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="title" data-sort-type="string">{{T "Finding"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="host" data-sort-type="string">{{T "Asset"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">{{T "Software"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">{{if $isArch}}{{T "Reason"}}{{else}}{{T "Status"}}{{end}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold text-right">{{T "Actions"}}</th>
             </tr>
         </thead>
         <tbody id="archTbody" class="divide-y divide-dark-800">
@@ -203,16 +203,16 @@
                     {{else if eq .SevRank 2}}bg-yellow-500/20 text-yellow-300
                     {{else}}bg-blue-500/20 text-blue-300{{end}}">{{.Severity}}</span></td>
                 <td class="px-4 py-2.5"><span class="text-[12px] text-dark-200">{{.Title}}</span></td>
-                <td class="px-4 py-2.5">{{if .Host}}<a href="/assets/{{assetKey .Host}}" class="mono text-[11px] text-accent-400 hover:text-accent-300 break-all" title="Bu varlığın sayfasına git">{{.Host}}</a>{{else}}<span class="text-dark-600 text-[11px]">—</span>{{end}}</td>
+                <td class="px-4 py-2.5">{{if .Host}}<a href="/assets/{{assetKey .Host}}" class="mono text-[11px] text-accent-400 hover:text-accent-300 break-all" title="{{T `Go to this asset's page`}}">{{.Host}}</a>{{else}}<span class="text-dark-600 text-[11px]">—</span>{{end}}</td>
                 <td class="px-4 py-2.5">{{if .Product}}<span class="text-[11px] text-dark-300 break-all">{{.Product}}</span>{{else}}<span class="text-dark-600 text-[11px]">—</span>{{end}}</td>
-                <td class="px-4 py-2.5">{{if $isArch}}<span class="text-[11px] text-dark-500 break-all">{{if .ArchiveReason}}{{.ArchiveReason}}{{else}}Archived{{end}}</span>{{else if eq $.ActiveTab "fixed"}}<span class="text-[11px] text-emerald-400">✓ Fixed</span>{{else}}<span class="text-[11px] text-yellow-400">⚠ False positive</span>{{end}}</td>
+                <td class="px-4 py-2.5">{{if $isArch}}<span class="text-[11px] text-dark-500 break-all">{{if .ArchiveReason}}{{.ArchiveReason}}{{else}}{{T "Archived"}}{{end}}</span>{{else if eq $.ActiveTab "fixed"}}<span class="text-[11px] text-emerald-400">✓ {{T "Fixed"}}</span>{{else}}<span class="text-[11px] text-yellow-400">⚠ {{T "False positive"}}</span>{{end}}</td>
                 <td class="px-4 py-2.5 whitespace-nowrap text-right">
                     {{if $isArch}}
-                    <button type="button" onclick="archiveVulns(['{{.ID}}'],'unarchive')" class="text-[11px] text-emerald-400 hover:text-emerald-300" title="Move this finding back to the Active tab.">↺ Restore</button>
+                    <button type="button" onclick="archiveVulns(['{{.ID}}'],'unarchive')" class="text-[11px] text-emerald-400 hover:text-emerald-300" title="{{T `Move this finding back to the Active tab.`}}">↺ {{T "Restore"}}</button>
                     {{else}}
-                    <button type="button" onclick="statusVulns(['{{.ID}}'],'open','{{$.ActiveTab}}')" class="text-[11px] text-emerald-400 hover:text-emerald-300" title="Yeniden aç — Active sekmesine döner.">↺ Reopen</button>
+                    <button type="button" onclick="statusVulns(['{{.ID}}'],'open','{{$.ActiveTab}}')" class="text-[11px] text-emerald-400 hover:text-emerald-300" title="{{T `Reopen — returns it to the Active tab.`}}">↺ {{T "Reopen"}}</button>
                     {{end}}
-                    <button type="button" onclick="deleteArchivedVulns(['{{.ID}}'],'{{$.ActiveTab}}')" class="ml-3 text-[11px] text-red-400 hover:text-red-300" title="Permanently remove this finding from every view. Cannot be undone.">🗑 Sil</button>
+                    <button type="button" onclick="deleteArchivedVulns(['{{.ID}}'],'{{$.ActiveTab}}')" class="ml-3 text-[11px] text-red-400 hover:text-red-300" title="{{T `Permanently remove this finding from every view. Cannot be undone.`}}">🗑 {{T "Delete"}}</button>
                 </td>
             </tr>
             {{end}}
@@ -222,9 +222,9 @@
 {{else}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
     <p class="text-sm">
-        {{if $isArch}}No archived vulnerabilities. Findings a rescan can no longer confirm are moved here automatically.
-        {{else if eq .ActiveTab "fixed"}}Fixed olarak işaretlenmiş bulgu yok. Active sekmesinde bulguları seçip “✓ Fixed” ile buraya gönder.
-        {{else}}False positive olarak işaretlenmiş bulgu yok. Active sekmesinde bulguları seçip “⚠ FP” ile buraya gönder.{{end}}
+        {{if $isArch}}{{T "No archived vulnerabilities. Findings a rescan can no longer confirm are moved here automatically."}}
+        {{else if eq .ActiveTab "fixed"}}{{T "No findings marked as fixed. Select findings on the Active tab and send them here with “✓ Fixed”."}}
+        {{else}}{{T "No findings marked as false positive. Select findings on the Active tab and send them here with “⚠ FP”."}}{{end}}
     </p>
 </div>
 {{end}}
@@ -317,8 +317,8 @@ function statusSelectedActive(status){ statusVulns(selectedVulnIds(), status, 'a
 function reopenSelectedTriage(from){ statusVulns(selectedArchiveIds(), 'open', from); }
 function deleteArchivedVulns(ids, from){
     if(!ids || !ids.length) return;
-    var msg = ids.length===1 ? 'Bu bulgu her görünümden kalıcı olarak silinecek. Bu işlem geri alınamaz.'
-                             : (ids.length+' bulgu her görünümden kalıcı olarak silinecek. Bu işlem geri alınamaz.');
+    var msg = ids.length===1 ? 'This finding will be permanently deleted from every view. This cannot be undone.'
+                             : (ids.length+' findings will be permanently deleted from every view. This cannot be undone.');
     if(!confirm(msg)) return;
     postIdsForm('/vulnerabilities/archive', ids, {action: 'delete', from: (from||'archive')});
 }
@@ -388,7 +388,7 @@ function showExportBusy(){
         el=document.createElement('div');
         el.id='exportBusy';
         el.className='fixed bottom-4 right-4 z-[60] bg-dark-850 border border-dark-700 rounded-lg px-4 py-2.5 text-xs text-accent-200 shadow-2xl flex items-center gap-2';
-        el.innerHTML='<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span> Rapor hazırlanıyor…';
+        el.innerHTML='<span class="w-2 h-2 rounded-full bg-accent-400 scan-pulse"></span> Preparing report…';
         document.body.appendChild(el);
     }
     el.style.display='flex';

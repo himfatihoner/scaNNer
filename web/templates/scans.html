@@ -9,19 +9,19 @@
 
 <div class="mb-6 flex items-center justify-between">
     <div>
-        <h2 class="text-xl font-bold text-white">{{if .IsArchive}}Archived Scans{{else}}Scan History{{end}}</h2>
-        <p class="text-sm text-dark-400 mt-1">{{if .IsArchive}}Scans you've moved out of the active list. They aren't deleted — restore any time.{{else}}View all active scans for this workspace{{end}}</p>
+        <h2 class="text-xl font-bold text-white">{{if .IsArchive}}{{T "Archived Scans"}}{{else}}{{T "Scan History"}}{{end}}</h2>
+        <p class="text-sm text-dark-400 mt-1">{{if .IsArchive}}{{T "Scans you've moved out of the active list. They aren't deleted — restore any time."}}{{else}}{{T "View all active scans for this workspace"}}{{end}}</p>
     </div>
     <div class="flex items-center gap-2">
         {{if .IsArchive}}
         <a href="/scans" class="flex items-center gap-2 px-3 py-2 text-xs font-medium text-dark-300 hover:text-white bg-dark-850 border border-dark-700 hover:border-accent-500/50 rounded-lg transition-colors">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-            Active Scans
+            {{T "Active Scans"}}
         </a>
         {{else}}
         <a href="/scans/archive" class="flex items-center gap-2 px-3 py-2 text-xs font-medium text-dark-300 hover:text-white bg-dark-850 border border-dark-700 hover:border-accent-500/50 rounded-lg transition-colors">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
-            Archive
+            {{T "Archive"}}
             {{if gt .ArchivedCount 0}}<span class="text-[10px] mono px-1.5 py-0.5 bg-dark-800 text-dark-400 rounded">{{.ArchivedCount}}</span>{{end}}
         </a>
         {{end}}
@@ -34,21 +34,21 @@
         <svg class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-dark-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
         </svg>
-        <input id="scanSearch" type="search" placeholder="Search scan ID or target..." oninput="applyScanFilter()"
+        <input id="scanSearch" type="search" placeholder="{{T `Search scan ID or target...`}}" oninput="applyScanFilter()"
                class="bg-dark-850 border border-dark-700 rounded-lg pl-7 pr-3 py-1.5 text-xs text-white placeholder-dark-500 focus:outline-none focus:border-accent-500 w-64">
     </div>
     <select id="scanModuleFilter" onchange="applyScanFilter()"
             class="bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
-        <option value="">All modules</option>
+        <option value="">{{T "All modules"}}</option>
     </select>
     <select id="scanStatusFilter" onchange="applyScanFilter()"
             class="bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
-        <option value="">All statuses</option>
-        <option value="done">Done</option>
-        <option value="running">Running</option>
-        <option value="pending">Pending</option>
-        <option value="error">Error</option>
-        <option value="cancelled">Cancelled</option>
+        <option value="">{{T "All statuses"}}</option>
+        <option value="done">{{T "Done"}}</option>
+        <option value="running">{{T "Running"}}</option>
+        <option value="pending">{{T "Pending"}}</option>
+        <option value="error">{{T "Error"}}</option>
+        <option value="cancelled">{{T "Cancelled"}}</option>
     </select>
     <span id="scanResultCount" class="ml-auto text-[11px] text-dark-500"></span>
 </div>
@@ -135,13 +135,13 @@ document.addEventListener('DOMContentLoaded', function() {
     <table class="w-full">
         <thead>
             <tr class="border-b border-dark-800">
-                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="id" data-sort-type="string">Scan ID</th>
-                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="module" data-sort-type="string">Module</th>
-                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="status" data-sort-type="string">Status</th>
-                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="targets" data-sort-type="number">Targets</th>
-                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="createdat" data-sort-type="number">Started</th>
-                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="duration" data-sort-type="number">Duration</th>
-                <th class="text-right px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider">Actions</th>
+                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="id" data-sort-type="string">{{T "Scan ID"}}</th>
+                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="module" data-sort-type="string">{{T "Module"}}</th>
+                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="status" data-sort-type="string">{{T "Status"}}</th>
+                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="targets" data-sort-type="number">{{T "Targets"}}</th>
+                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="createdat" data-sort-type="number">{{T "Started"}}</th>
+                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="duration" data-sort-type="number">{{T "Duration"}}</th>
+                <th class="text-right px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider">{{T "Actions"}}</th>
             </tr>
         </thead>
         <tbody>
@@ -171,7 +171,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     {{if eq (print .Status) "done"}}
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-success/10 text-success border border-success/20">
                         <span class="w-1.5 h-1.5 rounded-full bg-success"></span>
-                        Done
+                        {{T "Done"}}
                     </span>
                     {{else if eq (print .Status) "running"}}
                     <div class="flex items-center gap-2">
@@ -183,32 +183,32 @@ document.addEventListener('DOMContentLoaded', function() {
                     {{else if eq (print .Status) "error"}}
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-danger/10 text-danger border border-danger/20">
                         <span class="w-1.5 h-1.5 rounded-full bg-danger"></span>
-                        Error
+                        {{T "Error"}}
                     </span>
                     {{else if eq (print .Status) "cancelled"}}
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-warning/10 text-warning border border-warning/20">
                         <span class="w-1.5 h-1.5 rounded-full bg-warning"></span>
-                        Cancelled
+                        {{T "Cancelled"}}
                     </span>
                     {{else if eq (print .Status) "paused"}}
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-warning/10 text-warning border border-warning/20">
                         <span class="w-1.5 h-1.5 rounded-full bg-warning"></span>
-                        Paused
+                        {{T "Paused"}}
                     </span>
                     {{else if eq (print .Status) "queued"}}
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-accent-600/10 text-accent-300 border border-accent-500/20">
                         <span class="w-1.5 h-1.5 rounded-full bg-accent-400"></span>
-                        Queued
+                        {{T "Queued"}}
                     </span>
                     {{else}}
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-dark-700/50 text-dark-400 border border-dark-700">
                         <span class="w-1.5 h-1.5 rounded-full bg-dark-500"></span>
-                        Pending
+                        {{T "Pending"}}
                     </span>
                     {{end}}
                 </td>
                 <td class="px-5 py-3 text-xs text-dark-400">
-                    {{$tc := scanTargetCount .}}{{$tc}} target{{if ne $tc 1}}s{{end}}
+                    {{$tc := scanTargetCount .}}{{Tn $tc "%d target" "%d targets" $tc}}
                 </td>
                 <td class="px-5 py-3 text-xs text-dark-400">
                     {{if .StartedAt}}
@@ -221,7 +221,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     {{if and .StartedAt .FinishedAt}}
                     {{formatDuration (.FinishedAt.Sub (deref .StartedAt))}}
                     {{else if .StartedAt}}
-                    <span class="text-accent-400">In progress...</span>
+                    <span class="text-accent-400">{{T "In progress..."}}</span>
                     {{else}}
                     <span class="text-dark-600">-</span>
                     {{end}}
@@ -231,14 +231,14 @@ document.addEventListener('DOMContentLoaded', function() {
                         {{if or (eq (print .Status) "running") (eq (print .Status) "pending")}}
                         <form action="/scans/stop/" method="POST" class="inline">
                             <input type="hidden" name="id" value="{{.ID}}">
-                            <button type="submit" class="p-1.5 text-dark-500 hover:text-warning hover:bg-warning/10 rounded-md transition-colors" title="Stop">
+                            <button type="submit" class="p-1.5 text-dark-500 hover:text-warning hover:bg-warning/10 rounded-md transition-colors" title="{{T `Stop`}}">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><rect x="9" y="9" width="6" height="6" rx="1" fill="currentColor"/></svg>
                             </button>
                         </form>
                         {{else}}
                         <form action="/scans/restart/" method="POST" class="inline">
                             <input type="hidden" name="id" value="{{.ID}}">
-                            <button type="submit" class="p-1.5 text-dark-500 hover:text-accent-400 hover:bg-dark-800 rounded-md transition-colors" title="Restart">
+                            <button type="submit" class="p-1.5 text-dark-500 hover:text-accent-400 hover:bg-dark-800 rounded-md transition-colors" title="{{T `Restart`}}">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                             </button>
                         </form>
@@ -247,7 +247,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <form action="/scans/archive/" method="POST" class="inline">
                             <input type="hidden" name="id" value="{{.ID}}">
                             <input type="hidden" name="action" value="{{if .Archived}}unarchive{{else}}archive{{end}}">
-                            <button type="submit" class="p-1.5 text-dark-500 hover:text-accent-400 hover:bg-dark-800 rounded-md transition-colors" title="{{if .Archived}}Unarchive{{else}}Archive{{end}}">
+                            <button type="submit" class="p-1.5 text-dark-500 hover:text-accent-400 hover:bg-dark-800 rounded-md transition-colors" title="{{if .Archived}}{{T `Unarchive`}}{{else}}{{T `Archive`}}{{end}}">
                                 {{if .Archived}}
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2zm5 8l2-2m0 0l2-2m-2 2v6"/></svg>
                                 {{else}}
@@ -256,9 +256,9 @@ document.addEventListener('DOMContentLoaded', function() {
                             </button>
                         </form>
                         {{end}}
-                        <form action="/scans/delete/" method="POST" class="inline" onsubmit="return confirm('Delete this scan? Its findings are also removed from the Vulnerabilities page and assets. Export first if you need them.')">
+                        <form action="/scans/delete/" method="POST" class="inline" onsubmit="return confirm('{{T `Delete this scan? Its findings are also removed from the Vulnerabilities page and assets. Export first if you need them.`}}')">
                             <input type="hidden" name="id" value="{{.ID}}">
-                            <button type="submit" class="p-1.5 text-dark-500 hover:text-danger hover:bg-danger/10 rounded-md transition-colors" title="Delete">
+                            <button type="submit" class="p-1.5 text-dark-500 hover:text-danger hover:bg-danger/10 rounded-md transition-colors" title="{{T `Delete`}}">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                             </button>
                         </form>
@@ -273,8 +273,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         <svg class="w-10 h-10 mb-2 text-dark-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                         </svg>
-                        <p class="text-sm">No scans found</p>
-                        <p class="text-xs text-dark-600 mt-1">Run a scan from the <a href="/modules" class="text-accent-400 hover:underline">Modules</a> page</p>
+                        <p class="text-sm">{{T "No scans found"}}</p>
+                        <p class="text-xs text-dark-600 mt-1">{{T "Run a scan from the"}} <a href="/modules" class="text-accent-400 hover:underline">{{T "Modules"}}</a> {{T "page"}}</p>
                     </div>
                 </td>
             </tr>

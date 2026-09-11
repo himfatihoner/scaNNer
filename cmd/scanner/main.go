@@ -497,6 +497,7 @@ func main() {
 
 	// Workspace actions
 	http.HandleFunc("/workspace/switch", h.SwitchWorkspace)
+	http.HandleFunc("/lang", h.SwitchLanguage) // UI language toggle (en/tr); pre-login OK
 	http.HandleFunc("/workspace/create", h.WorkspaceCreate)
 	http.HandleFunc("/workspace/delete", h.WorkspaceDelete)
 	http.HandleFunc("/workspace/reset", h.WorkspaceReset)

@@ -1,55 +1,55 @@
 {{define "page_update"}}
 <div class="p-6 max-w-3xl mx-auto">
     <div class="mb-6">
-        <h1 class="text-xl font-bold">Software Update</h1>
-        <p class="text-sm text-dark-400">Pull the latest code from the project's git remote, rebuild, and restart into the new version — without leaving this page.</p>
+        <h1 class="text-xl font-bold">{{T `Software Update`}}</h1>
+        <p class="text-sm text-dark-400">{{T `Pull the latest code from the project's git remote, rebuild, and restart into the new version — without leaving this page.`}}</p>
     </div>
 
     {{$u := .Update}}
     {{if not $u.Available}}
     <div class="rounded-xl border border-warning/40 bg-warning/10 px-5 py-4 text-sm text-warning">
-        In-app updates aren't available here: {{$u.Reason}}
+        {{T `In-app updates aren't available here: %s` $u.Reason}}
     </div>
-    <p class="text-xs text-dark-500 mt-3">Updates require running from a git checkout of the project with an <span class="font-mono">origin</span> remote, plus <span class="font-mono">git</span> and the Go toolchain installed.</p>
+    <p class="text-xs text-dark-500 mt-3">{{T `Updates require running from a git checkout of the project with an`}} <span class="font-mono">origin</span> {{T `remote, plus`}} <span class="font-mono">git</span> {{T `and the Go toolchain installed.`}}</p>
     {{else}}
 
     <div class="bg-dark-900 border border-dark-800 rounded-xl p-5 mb-5">
         <div class="flex items-center justify-between">
             <div>
-                <div class="text-xs text-dark-400">Installed version</div>
+                <div class="text-xs text-dark-400">{{T `Installed version`}}</div>
                 <div class="font-mono text-sm text-white mt-0.5">{{$u.Current}} <span class="text-dark-500">· {{$u.Branch}}</span></div>
                 {{if $u.CurrentSubj}}<div class="text-xs text-dark-400 mt-1 truncate max-w-md">{{$u.CurrentSubj}}</div>{{end}}
             </div>
-            <button id="checkBtn" onclick="checkUpdate()" class="rounded-lg bg-dark-700 hover:bg-dark-600 text-white text-sm font-medium px-4 py-2.5">Check for updates</button>
+            <button id="checkBtn" onclick="checkUpdate()" class="rounded-lg bg-dark-700 hover:bg-dark-600 text-white text-sm font-medium px-4 py-2.5">{{T `Check for updates`}}</button>
         </div>
         {{if not $u.Clean}}
-        <div class="mt-4 rounded-lg border border-warning/40 bg-warning/10 px-4 py-2.5 text-xs text-warning">The working tree has local changes — updates are blocked until they're committed, stashed, or reset.</div>
+        <div class="mt-4 rounded-lg border border-warning/40 bg-warning/10 px-4 py-2.5 text-xs text-warning">{{T `The working tree has local changes — updates are blocked until they're committed, stashed, or reset.`}}</div>
         {{end}}
     </div>
 
     <div id="result" class="hidden bg-dark-900 border border-dark-800 rounded-xl p-5 mb-5"></div>
 
     <div id="applyWrap" class="hidden">
-        {{if $u.ScansRunning}}<div class="mb-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-2.5 text-xs text-warning">⚠ Scans are running. Applying an update stops them and restarts the app.</div>{{end}}
+        {{if $u.ScansRunning}}<div class="mb-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-2.5 text-xs text-warning">⚠ {{T `Scans are running. Applying an update stops them and restarts the app.`}}</div>{{end}}
 
         <div id="sudoWrap" class="hidden mb-3 rounded-lg border border-accent-500/40 bg-accent-600/5 px-4 py-3">
-            <p class="text-xs text-dark-200 font-medium mb-1">This update changes system integration (service · capabilities · installer).</p>
-            <p class="text-[11px] text-dark-400 mb-2">Enter your <span class="font-mono">sudo</span> password to apply it — it is used <span class="text-dark-200">once</span> to re-run the installer and is <span class="text-dark-200">never stored</span>, logged, or written anywhere.</p>
-            <input id="sudoPw" type="password" autocomplete="off" spellcheck="false" placeholder="sudo password"
+            <p class="text-xs text-dark-200 font-medium mb-1">{{T `This update changes system integration (service · capabilities · installer).`}}</p>
+            <p class="text-[11px] text-dark-400 mb-2">{{T `Enter your`}} <span class="font-mono">sudo</span> {{T `password to apply it — it is used`}} <span class="text-dark-200">{{T `once`}}</span> {{T `to re-run the installer and is`}} <span class="text-dark-200">{{T `never stored`}}</span>{{T `, logged, or written anywhere.`}}</p>
+            <input id="sudoPw" type="password" autocomplete="off" spellcheck="false" placeholder="{{T `sudo password`}}"
                    class="w-full bg-dark-950 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"/>
         </div>
 
         <div class="flex items-center gap-3">
-            <button id="applyBtn" onclick="applyUpdate()" class="rounded-lg bg-accent-600 hover:bg-accent-500 text-white text-sm font-medium px-5 py-2.5">Update &amp; restart</button>
-            <button type="button" id="advBtn" onclick="revealSudo()" class="text-[11px] text-dark-500 hover:text-dark-300 underline">needs system changes?</button>
+            <button id="applyBtn" onclick="applyUpdate()" class="rounded-lg bg-accent-600 hover:bg-accent-500 text-white text-sm font-medium px-5 py-2.5">{{T `Update & restart`}}</button>
+            <button type="button" id="advBtn" onclick="revealSudo()" class="text-[11px] text-dark-500 hover:text-dark-300 underline">{{T `needs system changes?`}}</button>
         </div>
     </div>
 
     <div id="applying" class="hidden fixed inset-0 z-50 bg-dark-950/90 backdrop-blur flex items-center justify-center">
         <div class="text-center">
             <svg class="w-10 h-10 text-accent-500 animate-spin mx-auto mb-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/></svg>
-            <div id="applyMsg" class="text-sm text-dark-200">Updating…</div>
-            <div class="text-xs text-dark-500 mt-2">The app will restart and this page will reload automatically.</div>
+            <div id="applyMsg" class="text-sm text-dark-200">{{T `Updating…`}}</div>
+            <div class="text-xs text-dark-500 mt-2">{{T `The app will restart and this page will reload automatically.`}}</div>
         </div>
     </div>
     {{end}}

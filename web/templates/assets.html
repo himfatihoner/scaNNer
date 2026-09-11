@@ -398,6 +398,24 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 </div>
 
+{{if .Related}}
+<!-- Resolution cross-reference: IP → its subdomains/hosts, or host → its resolved IPs. -->
+<div class="bg-dark-900 border border-dark-800 rounded-xl mb-6">
+    <div class="px-5 py-3 bg-dark-850 border-b border-dark-800 flex items-center gap-2">
+        <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+        </svg>
+        <h3 class="text-sm font-semibold text-white">{{T "Related (IP ↔ Host)"}}</h3>
+        <span class="text-[11px] text-dark-500">{{T "Hosts and IPs cross-referenced with this asset through DNS resolution."}}</span>
+    </div>
+    <div class="p-4 flex flex-wrap gap-2">
+        {{range .Related}}
+        <a href="/assets/{{assetKey .}}" class="inline-flex items-center gap-1.5 mono text-[11px] px-2.5 py-1 rounded-lg bg-dark-850 border border-dark-700 text-accent-400 hover:text-accent-300 hover:border-accent-500/50 transition-colors break-all">{{.}}</a>
+        {{end}}
+    </div>
+</div>
+{{end}}
+
 {{if .FindingSet.HasAny}}
 <!-- Findings: every distinct discovery for this target, with the scan date(s) it was seen. -->
 <div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden mb-6">

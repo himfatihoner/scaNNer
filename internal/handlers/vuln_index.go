@@ -878,6 +878,23 @@ func enrichVuln(gv *GlobalVuln, obj map[string]json.RawMessage, inhReq, inhResp,
 		gv.Port = inhPort // e.g. sslscan: the port lives on the enclosing host object
 	}
 	gv.Protocol = jsonStr(obj, "protocol", "proto")
+	// Fall back to any URL-bearing field for port/protocol when the finding
+	// carried neither an explicit port nor a scheme on its host. Catches
+	// findings whose asset is a bare host/IP but which still reference a source
+	// URL (cvematch/techdetect CVE hits, some nuclei rows) — so the report's
+	// Port / Protocol field fills in instead of showing blank.
+	if gv.Port == "" || gv.Protocol == "" {
+		if u := jsonStr(obj, "matched_at", "matched-at", "matched", "url", "endpoint", "uri", "source_url", "source-url", "location"); u != "" {
+			if p, pr := portProtoFromHost(u); p != "" {
+				if gv.Port == "" {
+					gv.Port = p
+				}
+				if gv.Protocol == "" {
+					gv.Protocol = pr
+				}
+			}
+		}
+	}
 
 	req := jsonStr(obj, "request", "http_request", "raw_request", "curl_command", "curl-command")
 	if req == "" {

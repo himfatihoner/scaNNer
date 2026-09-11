@@ -751,6 +751,7 @@
   "Hosts": "Hostlar",
   "Hosts Down": "Kapalı Hostlar",
   "Hosts Up": "Ayakta Hostlar",
+  "Hosts and IPs cross-referenced with this asset through DNS resolution.": "DNS çözümlemesi yoluyla bu varlıkla ilişkilendirilen host'lar ve IP'ler.",
   "Hosts that don't speak TLS at all are skipped silently — this is desired behaviour because port scanners that include 443 will throw many false positives otherwise": "TLS'i hiç konuşmayan hostlar sessizce atlanır — bu istenen davranıştır çünkü aksi halde 443'ü dahil eden port tarayıcıları birçok false-positive üretir",
   "Hosts with SNMP": "SNMP'li Ana Bilgisayarlar",
   "How it works": "Nasıl çalışır",

@@ -527,6 +527,15 @@ func (h *Handler) AssetDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Resolution cross-reference for this asset: an IP lists the subdomains/
+	// hostnames that resolve to it, a hostname lists its resolved IPs. Sourced
+	// from the background search index (same origin as the assets-list "Related"
+	// column), so an IP's detail page surfaces its related subdomains even though
+	// the dnsenum scan that resolved them targeted the domain, not the IP.
+	h.getAssetSearchBlob(ws.ID, liteScans) // ensure the index build is triggered
+	related := h.getAssetRelated(ws.ID)[asset]
+	sort.Strings(related)
+
 	data["Asset"] = AssetSummary{
 		Value:       asset,
 		Type:        classifyAsset(asset),
@@ -537,6 +546,7 @@ func (h *Handler) AssetDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	data["Groups"] = groups
 	data["WSTargetType"] = wsTargetType
+	data["Related"] = related
 	data["FindingSet"] = h.extractTargetFindings(asset, fullScans)
 	h.render(w, "layout", data)
 }

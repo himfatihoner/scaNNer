@@ -3,6 +3,7 @@ package httpxfind
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -337,11 +338,28 @@ func resolvableTargets(targets []string, opts *shared.HTTPOptions) ([]string, in
 			defer func() { <-sem }()
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			if addrs, err := res.LookupHost(ctx, host); err == nil && len(addrs) > 0 {
-				mu.Lock()
-				keep = append(keep, host)
-				mu.Unlock()
+			addrs, err := res.LookupHost(ctx, host)
+			// Fail OPEN: only DROP a host when the resolver is CONFIDENT it does
+			// not exist (NXDOMAIN). A misbehaving resolver — the killswitch-bound
+			// resolver with a stale/unreachable source IP after a VPN reconnect, a
+			// nameserver that times out, a transient SERVFAIL — returns errors
+			// that are NOT NXDOMAIN. Dropping on those silently nukes the whole
+			// scan ("1870 hosts unresolved — nothing to scan") even though httpx
+			// resolves the same names fine inside the netns. So keep the host on
+			// anything other than a definitive not-found.
+			drop := false
+			if err != nil {
+				var derr *net.DNSError
+				drop = errors.As(err, &derr) && derr.IsNotFound
+			} else {
+				drop = len(addrs) == 0
 			}
+			if drop {
+				return
+			}
+			mu.Lock()
+			keep = append(keep, host)
+			mu.Unlock()
 		}(t)
 	}
 	wg.Wait()

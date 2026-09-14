@@ -318,6 +318,17 @@ func (p *portPermuter) next() (int, bool) {
 // VPN egress path). Returns (kept, droppedCount). A host that never resolves
 // would otherwise burn one failed DNS lookup per port across the whole sweep.
 func resolvableTargets(targets []string, opts *shared.HTTPOptions) ([]string, int) {
+	// When outbound is pinned to the killswitch interface, the host process's
+	// resolver is source-bound to that interface and does NOT mirror the netns
+	// where httpx actually resolves + scans. A bound-resolver hiccup (a stale
+	// source IP after a VPN reconnect, an upstream reachable only from inside the
+	// netns) would then wrongly drop EVERY host — "nothing to scan" — while httpx
+	// would have resolved them fine inside the netns. Skip the host-side
+	// pre-filter entirely in that case and let httpx do the resolution through
+	// the VPN's DNS.
+	if shared.GlobalLocalAddr() != nil || (opts != nil && opts.LocalAddr != nil) {
+		return targets, 0
+	}
 	res := shared.SystemResolver()
 	sem := make(chan struct{}, 50)
 	var wg sync.WaitGroup
@@ -392,12 +403,19 @@ func runFullMode(result *ScanResult, mu *sync.Mutex, targets []string, directHTT
 	// re-fails the lookup). Literal IPs pass through untouched. This shrinks the
 	// denominator + ETA proportionally; the sentinel below corrects the total
 	// the handler seeded from the original (pre-filter) target count.
+	orig := targets
 	targets, dropped := resolvableTargets(targets, opts)
-	if len(targets) == 0 {
+	// Safety net: the pre-filter must never reduce a non-empty target list to
+	// zero. Resolving NOTHING out of a real list means the resolver is unreliable
+	// (killswitch/VPN DNS mismatch, a captive resolver NXDOMAIN-ing everything) —
+	// not that every host is genuinely dead. Scan the full list and let httpx
+	// (resolving inside the netns) find the live hosts.
+	if len(targets) == 0 && len(orig) > 0 {
+		targets = orig
+		dropped = 0
 		if progress != nil {
-			progress(0, fmt.Sprintf("No resolvable targets (%d hosts unresolved) — nothing to scan", dropped))
+			progress(0, fmt.Sprintf("Resolvability pre-check dropped all %d hosts — resolver looks unreliable (killswitch/VPN DNS); scanning the full list", len(orig)))
 		}
-		return result
 	}
 	discTotal := len(targets) * maxPort // phase-1 units: one per port probed
 

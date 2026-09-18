@@ -34,7 +34,10 @@ type Config struct {
 	Attack        int      // 0 = dictionary+rules, 3 = mask/brute-force
 	Wordlist      string   // path (attack 0)
 	Rules         []string // rule file paths (attack 0; hashcat stacks -r)
-	Mask          string   // hashcat mask (attack 3)
+	Mask          string   // hashcat mask, may contain ?1..?4 slots (attack 3)
+	MaskCharsets  []string // custom charset defs, index 0 → -1, … (attack 3)
+	MaskIncMin    int      // --increment-min (0 = no increment)
+	MaskIncMax    int      // --increment-max (0 = off)
 	Workload      int      // -w 1..4
 	CPUOnly       bool     // -D 1
 	AffinityCores int      // pin to this many cores via --cpu-affinity (0 = all)
@@ -338,7 +341,20 @@ func exitCode(err error) int {
 func buildArgs(cfg Config, modeID int, rule, hashFile, outFile string) []string {
 	args := []string{"-m", strconv.Itoa(modeID), hashFile}
 	if cfg.Attack == 3 {
+		// Custom charset defs (-1..-4) MUST precede the mask positional; each -N
+		// carries its own value arg, so the mask stays the only bare positional.
+		for i, def := range cfg.MaskCharsets {
+			if i > 3 || def == "" {
+				continue
+			}
+			args = append(args, "-"+strconv.Itoa(i+1), def)
+		}
 		args = append(args, cfg.Mask, "-a", "3")
+		if cfg.MaskIncMax > 0 {
+			args = append(args, "--increment",
+				"--increment-min", strconv.Itoa(cfg.MaskIncMin),
+				"--increment-max", strconv.Itoa(cfg.MaskIncMax))
+		}
 	} else {
 		args = append(args, cfg.Wordlist, "-a", "0")
 		// One rule per pass — never chain multiple -r (hashcat rejects/crashes on
@@ -544,7 +560,7 @@ func buildPasses(cfg Config) []pass {
 // units as hashcat's status-json progress[] so aggregate ETA stays consistent.
 func passKeyspace(cfg Config, rule string, words int64) int64 {
 	if cfg.Attack == 3 {
-		return maskKeyspaceGo(cfg.Mask)
+		return maskKeyspaceGo(cfg.Mask, cfg.MaskCharsets, cfg.MaskIncMin, cfg.MaskIncMax)
 	}
 	rc := int64(1)
 	if strings.TrimSpace(rule) != "" {
@@ -555,20 +571,55 @@ func passKeyspace(cfg Config, rule string, words int64) int64 {
 	return words * rc
 }
 
-func maskKeyspaceGo(mask string) int64 {
-	sizes := map[byte]int64{'d': 10, 'l': 26, 'u': 26, 's': 33, 'a': 95, 'b': 256, 'h': 16, 'H': 16}
-	var total int64 = 1
+// maskKeyspaceGo computes the candidate count for a mask, resolving custom slots
+// (?1..?4) via their charset defs and, when increment is active, summing the
+// prefix-products across lengths incMin..incMax (mirrors hashcat's --increment).
+func maskKeyspaceGo(mask string, charsets []string, incMin, incMax int) int64 {
+	slot := map[byte]int64{} // '1'..'4' → cardinality of that custom charset
+	for i, def := range charsets {
+		if i > 3 {
+			break
+		}
+		slot[byte('1'+i)] = charsetDefSize(def)
+	}
+	// Per-token multiplier for each mask position.
+	var mult []int64
 	for i := 0; i < len(mask); {
 		if mask[i] == '?' && i+1 < len(mask) {
-			if s, ok := sizes[mask[i+1]]; ok {
-				total *= s
+			c := mask[i+1]
+			if s, ok := maskBaseSizes[c]; ok {
+				mult = append(mult, s)
+			} else if s, ok := slot[c]; ok {
+				mult = append(mult, s)
+			} else {
+				mult = append(mult, 1)
 			}
 			i += 2
 		} else {
+			mult = append(mult, 1) // literal char = one fixed possibility
 			i++
 		}
 	}
-	return total
+	if incMax <= 0 { // no increment: full product across all positions
+		var total int64 = 1
+		for _, m := range mult {
+			total *= m
+		}
+		return total
+	}
+	// increment: Σ over length k of the product of the first k position sizes.
+	var sum int64
+	for k := incMin; k <= incMax && k <= len(mult); k++ {
+		var p int64 = 1
+		for j := 0; j < k; j++ {
+			p *= mult[j]
+		}
+		sum += p
+	}
+	if sum < 1 {
+		sum = 1
+	}
+	return sum
 }
 
 func lastLines(s string, n int) string {

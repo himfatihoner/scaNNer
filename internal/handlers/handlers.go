@@ -120,6 +120,12 @@ func formErrorMsg(code string) string {
 		return "Custom HTTPX port spec could not be parsed — use comma-separated ports or ranges (e.g. 80,443,8080-8090)."
 	case "no_stages":
 		return "At least one suite stage must be enabled before launching the scan."
+	case "no_mask":
+		return "Select at least one character class for every mask position before launching."
+	case "too_many_charsets":
+		return "This mask needs more than 4 distinct multi-class/custom character sets, which hashcat can't support (it has only -1..-4). Simplify so at most 4 positions use a multi-class or custom set — single-class and all-four (?a) positions are free."
+	case "bad_mask_len":
+		return "Mask length must be between 1 and 16 (and min ≤ max for a range)."
 	}
 	return ""
 }

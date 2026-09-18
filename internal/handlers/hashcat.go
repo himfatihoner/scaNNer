@@ -28,6 +28,10 @@ type hashcatConfig struct {
 	Wordlist      string   `json:"wordlist,omitempty"`
 	Rules         []string `json:"rules,omitempty"`
 	Mask          string   `json:"mask,omitempty"`
+	MaskCharsets  []string `json:"mask_charsets,omitempty"` // custom charset defs (-1..-4)
+	MaskIncMin    int      `json:"mask_inc_min,omitempty"`
+	MaskIncMax    int      `json:"mask_inc_max,omitempty"`
+	maskErr       string   `json:"-"` // assembly error code, checked in HashcatRun
 	Workload      int      `json:"workload"`
 	CPUOnly       bool     `json:"cpu_only"`
 	MaxCPUPct     int      `json:"max_cpu_pct"`     // operator's slider value
@@ -106,7 +110,32 @@ func (h *Handler) parseHashcatForm(r *http.Request) hashcatConfig {
 
 	if r.FormValue("attack") == "3" {
 		cfg.Attack = 3
-		cfg.Mask = strings.TrimSpace(r.FormValue("mask"))
+		// The form submits a structured mask selection; assemble it (with custom
+		// charsets / increment) server-side so the 4-slot cap etc. is enforced.
+		in := hashcat.MaskInput{Mode: r.FormValue("mask_mode")}
+		if in.Mode == "range" {
+			in.Min, _ = strconv.Atoi(r.FormValue("mask_min"))
+			in.Max, _ = strconv.Atoi(r.FormValue("mask_max"))
+			in.Range = readMaskPos(r, "range_class", "range_custom")
+		} else {
+			in.Mode = "fixed"
+			n, _ := strconv.Atoi(r.FormValue("mask_len"))
+			if n > 64 {
+				n = 64 // hard clamp before AssembleMask (which enforces maskMaxLen=16)
+			}
+			for i := 0; i < n; i++ {
+				k := "pos" + strconv.Itoa(i)
+				in.Positions = append(in.Positions, readMaskPos(r, k, k+"_custom"))
+			}
+		}
+		if plan, err := hashcat.AssembleMask(in); err != nil {
+			cfg.maskErr = err.Error() // "no_mask" | "too_many_charsets" | "bad_mask_len"
+		} else {
+			cfg.Mask = plan.Mask
+			cfg.MaskCharsets = plan.Charsets
+			cfg.MaskIncMin = plan.IncMin
+			cfg.MaskIncMax = plan.IncMax
+		}
 	} else {
 		cfg.Attack = 0
 		// Wordlist: uploaded file → temp path; else custom path; else dropdown.
@@ -151,6 +180,22 @@ func (h *Handler) parseHashcatForm(r *http.Request) hashcatConfig {
 	return cfg
 }
 
+// readMaskPos reads one position's class checkboxes (values l/u/d/s in cbField)
+// and its custom-characters text (customField) into a hashcat.MaskPos.
+func readMaskPos(r *http.Request, cbField, customField string) hashcat.MaskPos {
+	set := map[string]bool{}
+	for _, v := range r.Form[cbField] {
+		set[v] = true
+	}
+	return hashcat.MaskPos{
+		Lower:  set["l"],
+		Upper:  set["u"],
+		Digit:  set["d"],
+		Symbol: set["s"],
+		Custom: r.FormValue(customField),
+	}
+}
+
 // resolveAffinityCores maps a "max CPU %" to a core count for --cpu-affinity.
 // 100% (or unset) → 0 = no cap (all cores).
 func resolveAffinityCores(pct int) int {
@@ -182,6 +227,10 @@ func (h *Handler) HashcatRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if cfg.Attack == 3 {
+		if cfg.maskErr != "" {
+			http.Redirect(w, r, "/modules/hashcat?error="+cfg.maskErr, http.StatusSeeOther)
+			return
+		}
 		if cfg.Mask == "" {
 			http.Redirect(w, r, "/modules/hashcat?error=no_mask", http.StatusSeeOther)
 			return
@@ -251,6 +300,9 @@ func (h *Handler) runHashcat(scanID string, cfg hashcatConfig) {
 		Wordlist:      cfg.Wordlist,
 		Rules:         cfg.Rules,
 		Mask:          cfg.Mask,
+		MaskCharsets:  cfg.MaskCharsets,
+		MaskIncMin:    cfg.MaskIncMin,
+		MaskIncMax:    cfg.MaskIncMax,
 		Workload:      cfg.Workload,
 		CPUOnly:       cfg.CPUOnly,
 		AffinityCores: cfg.AffinityCores,

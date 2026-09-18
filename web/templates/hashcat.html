@@ -123,16 +123,47 @@
                     </div>
 
                     <!-- Mask options -->
-                    <div id="maskOpts" class="hidden space-y-2 border-l-2 border-dark-800 pl-3">
-                        <label class="block text-sm text-dark-300 mb-1.5">Mask{{template "info_icon" "Charset pattern for brute-force. ?d digit ?l lower ?u upper ?s symbol ?a all. Example: ?d?d?d?d?d?d = all 6-digit PINs."}}</label>
-                        <input type="text" name="mask" oninput="hcCalc()" placeholder="?d?d?d?d?d?d"
-                               class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"/>
-                        <div class="flex flex-wrap gap-1.5">
-                            {{range $m := (list "?d?d?d?d" "?d?d?d?d?d?d" "?l?l?l?l?l?l" "?u?l?l?l?l?d?d" "?a?a?a?a?a?a?a?a")}}
-                            <button type="button" onclick="document.getElementsByName('mask')[0].value='{{$m}}'" class="px-2 py-0.5 text-[10px] mono bg-dark-800 border border-dark-700 rounded text-dark-300 hover:text-white hover:border-accent-500/40">{{$m}}</button>
-                            {{end}}
+                    <div id="maskOpts" class="hidden space-y-3 border-l-2 border-dark-800 pl-3">
+                        <label class="block text-sm text-dark-300">{{T "Brute-force mask"}}{{template "info_icon" (T `Build the character pattern visually — no raw ?d?l typing. Fixed length: choose how many characters, then tick which classes each position may be. Range: one class set tried across a length range.`)}}</label>
+
+                        <!-- Fixed length vs range -->
+                        <div class="grid grid-cols-2 gap-2">
+                            <label class="flex items-center gap-2 px-3 py-2 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer hover:border-accent-500/40">
+                                <input type="radio" name="mask_mode" value="fixed" checked onchange="hcMaskModeToggle()" class="text-accent-500"/>
+                                <span class="text-xs text-dark-200">{{T "Fixed length"}}</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-3 py-2 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer hover:border-accent-500/40">
+                                <input type="radio" name="mask_mode" value="range" onchange="hcMaskModeToggle()" class="text-accent-500"/>
+                                <span class="text-xs text-dark-200">{{T "Length range"}}</span>
+                            </label>
                         </div>
-                        <p class="text-[10px] text-dark-500 mono">?l lower · ?u upper · ?d digit · ?s symbol · ?a all · ?b 0x00-0xff</p>
+
+                        <!-- FIXED: per-position class selection -->
+                        <div id="maskFixed" class="space-y-2">
+                            <div class="flex items-center gap-2">
+                                <label class="text-[11px] text-dark-400">{{T "Character count"}}</label>
+                                <input type="number" name="mask_len" id="maskLen" min="1" max="16" value="4"
+                                       oninput="hcRenderPositions()" class="w-20 bg-dark-850 border border-dark-700 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-accent-500"/>
+                            </div>
+                            <div id="maskPositions" class="space-y-1.5"></div>
+                        </div>
+
+                        <!-- RANGE: single class set + length bounds -->
+                        <div id="maskRange" class="hidden space-y-2">
+                            <div class="flex items-end gap-3">
+                                <div>
+                                    <label class="block text-[11px] text-dark-400 mb-1">{{T "Min length"}}</label>
+                                    <input type="number" name="mask_min" id="maskMin" min="1" max="16" value="4" oninput="hcCalc()" class="w-20 bg-dark-850 border border-dark-700 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-accent-500"/>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] text-dark-400 mb-1">{{T "Max length"}}</label>
+                                    <input type="number" name="mask_max" id="maskMax" min="1" max="16" value="8" oninput="hcCalc()" class="w-20 bg-dark-850 border border-dark-700 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-accent-500"/>
+                                </div>
+                            </div>
+                            <div id="maskRangeRow"></div>
+                        </div>
+
+                        <p class="text-[10px] text-dark-500">{{T `Alphanumeric = tick lowercase + uppercase + digits. Ticking all four classes = ?a (all 95 printable).`}}</p>
                     </div>
 
                     <!-- CPU controls -->
@@ -203,6 +234,12 @@
 <script>
 const HC_MODES = {{.ModesJSON}};
 const HC_CORES = {{.Cores}};
+// i18n bridge for JS-rendered mask-builder rows.
+const HC_MSG = {
+    position: "{{T `Position`}}", lower: "{{T `lowercase`}}", upper: "{{T `uppercase`}}",
+    digit: "{{T `digits`}}", symbol: "{{T `symbols`}}", custom: "{{T `custom chars`}}",
+    alnum: "{{T `alnum`}}", all: "{{T `all`}}", clear: "{{T `clear`}}", charset: "{{T `Charset`}}"
+};
 
 function hcWordStart(name, q) {
     let i = name.indexOf(q);
@@ -263,7 +300,102 @@ function hcToggleAttack() {
     const mask = document.querySelector('input[name=attack]:checked').value === '3';
     document.getElementById('dictOpts').classList.toggle('hidden', mask);
     document.getElementById('maskOpts').classList.toggle('hidden', !mask);
+    if (mask) hcMaskInit();
     hcCalc();
+}
+
+// ---- Visual mask builder ----
+const HC_CLASS_SIZE = { l: 26, u: 26, d: 10, s: 33 };
+function hcMaskInit() {
+    // Render position rows + the range row once (idempotent — only if empty).
+    if (!document.getElementById('maskPositions').children.length) hcRenderPositions();
+    const rr = document.getElementById('maskRangeRow');
+    if (rr && !rr.children.length) rr.appendChild(hcClassRow('range_class', 'range_custom', HC_MSG.charset));
+    hcMaskModeToggle();
+}
+function hcMaskModeToggle() {
+    const range = document.querySelector('input[name=mask_mode]:checked').value === 'range';
+    document.getElementById('maskFixed').classList.toggle('hidden', range);
+    document.getElementById('maskRange').classList.toggle('hidden', !range);
+    hcCalc();
+}
+// Build one class-selection row: 4 checkboxes + custom-chars input + quick buttons.
+function hcClassRow(cbName, customName, labelText) {
+    const wrap = document.createElement('div');
+    wrap.className = 'flex flex-wrap items-center gap-2 bg-dark-850/50 border border-dark-800 rounded-lg px-2 py-1.5';
+    if (labelText) {
+        const lab = document.createElement('span');
+        lab.className = 'text-[11px] text-dark-400 w-16 shrink-0';
+        lab.textContent = labelText;
+        wrap.appendChild(lab);
+    }
+    const mk = (val, txt) => {
+        const l = document.createElement('label');
+        l.className = 'flex items-center gap-1 cursor-pointer';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox'; cb.name = cbName; cb.value = val;
+        cb.className = 'rounded border-dark-600 bg-dark-800 text-accent-500';
+        cb.addEventListener('change', hcCalc);
+        const sp = document.createElement('span');
+        sp.className = 'text-[11px] text-dark-300'; sp.textContent = txt;
+        l.appendChild(cb); l.appendChild(sp);
+        return l;
+    };
+    wrap.appendChild(mk('l', HC_MSG.lower));
+    wrap.appendChild(mk('u', HC_MSG.upper));
+    wrap.appendChild(mk('d', HC_MSG.digit));
+    wrap.appendChild(mk('s', HC_MSG.symbol));
+    const ci = document.createElement('input');
+    ci.type = 'text'; ci.name = customName; ci.placeholder = HC_MSG.custom;
+    ci.className = 'w-28 mono bg-dark-800 border border-dark-700 rounded px-2 py-0.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500';
+    ci.addEventListener('input', hcCalc);
+    wrap.appendChild(ci);
+    // quick buttons
+    const set = (vals) => { wrap.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = vals.indexOf(cb.value) !== -1; }); hcCalc(); };
+    const btn = (txt, fn) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.textContent = txt;
+        b.className = 'px-1.5 py-0.5 text-[10px] bg-dark-800 border border-dark-700 rounded text-dark-300 hover:text-white hover:border-accent-500/40';
+        b.addEventListener('click', fn);
+        return b;
+    };
+    wrap.appendChild(btn(HC_MSG.alnum, () => set(['l','u','d'])));
+    wrap.appendChild(btn(HC_MSG.all, () => set(['l','u','d','s'])));
+    wrap.appendChild(btn(HC_MSG.clear, () => set([])));
+    return wrap;
+}
+function hcRenderPositions() {
+    const box = document.getElementById('maskPositions');
+    let n = parseInt(document.getElementById('maskLen').value, 10) || 1;
+    if (n < 1) n = 1; if (n > 16) n = 16;
+    // Preserve existing checkbox/custom state across a re-render (count change).
+    const state = [];
+    box.querySelectorAll('[data-pos]').forEach(row => {
+        const i = row.getAttribute('data-pos');
+        state[i] = {
+            cls: Array.from(row.querySelectorAll('input[type=checkbox]:checked')).map(c => c.value),
+            custom: (row.querySelector('input[type=text]') || {}).value || ''
+        };
+    });
+    box.innerHTML = '';
+    for (let i = 0; i < n; i++) {
+        const row = hcClassRow('pos' + i, 'pos' + i + '_custom', HC_MSG.position + ' ' + (i + 1));
+        row.setAttribute('data-pos', i);
+        if (state[i]) {
+            row.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = state[i].cls.indexOf(cb.value) !== -1; });
+            const ci = row.querySelector('input[type=text]'); if (ci) ci.value = state[i].custom;
+        }
+        box.appendChild(row);
+    }
+    hcCalc();
+}
+// Cardinality of one class-row selection (union of class sizes + custom length).
+function hcRowSize(row) {
+    let sz = 0;
+    row.querySelectorAll('input[type=checkbox]:checked').forEach(cb => { sz += HC_CLASS_SIZE[cb.value] || 0; });
+    const ci = row.querySelector('input[type=text]');
+    if (ci && ci.value) sz += ci.value.length;
+    return sz;
 }
 function hcFilterRules() {
     const q = document.getElementById('ruleSearch').value.trim().toLowerCase();
@@ -299,22 +431,35 @@ function hcHuman(n) {
     if (n >= 1e3)  return (n/1e3).toFixed(1)+'k';
     return String(Math.round(n));
 }
-function hcMaskKeyspace(mask) {
-    const S = {d:10,l:26,u:26,s:33,a:95,b:256,h:16,H:16};
-    let total = 1, i = 0;
-    while (i < mask.length) {
-        if (mask[i] === '?' && i+1 < mask.length) { total *= (S[mask[i+1]]||1); i += 2; }
-        else { i += 1; } // literal char = ×1
+// Keyspace estimate from the structured builder state (mirrors the Go keyspace).
+function hcMaskEstimate() {
+    const range = document.querySelector('input[name=mask_mode]:checked').value === 'range';
+    if (range) {
+        const rr = document.getElementById('maskRangeRow').firstElementChild;
+        const t = rr ? hcRowSize(rr) : 0;
+        let mn = parseInt(document.getElementById('maskMin').value,10)||0;
+        let mx = parseInt(document.getElementById('maskMax').value,10)||0;
+        if (t < 1 || mn < 1 || mx < mn) return { n: 0, note: '' };
+        let sum = 0;
+        for (let k = mn; k <= mx; k++) sum += Math.pow(t, k);
+        return { n: sum, note: ' (' + mn + '–' + mx + ')' };
     }
-    return total;
+    let total = 1, any = false;
+    const rows = document.querySelectorAll('#maskPositions [data-pos]');
+    for (const row of rows) {
+        const sz = hcRowSize(row);
+        if (sz < 1) return { n: 0, note: '' }; // an empty position → invalid
+        total *= sz; any = true;
+    }
+    return any ? { n: total, note: '' } : { n: 0, note: '' };
 }
 function hcCalc() {
     const out = document.getElementById('attemptVal');
     if (!out) return;
     const isMask = document.querySelector('input[name=attack]:checked').value === '3';
     if (isMask) {
-        const m = (document.getElementsByName('mask')[0].value||'').trim();
-        out.textContent = m ? ('≈ ' + hcHuman(hcMaskKeyspace(m)) + ' candidates') : '—';
+        const e = hcMaskEstimate();
+        out.textContent = e.n ? ('≈ ' + hcHuman(e.n) + ' candidates' + e.note) : '—';
         return;
     }
     // dictionary — each selected rule runs as a SEPARATE pass, so the candidate
@@ -343,7 +488,7 @@ function hcUpdateCpu() {
     const txt = pct >= 100 ? ('all ' + HC_CORES + ' cores') : ('≈' + pct + '% — ' + k + ' of ' + HC_CORES + ' cores');
     document.getElementById('cpuReadout').textContent = txt;
 }
-document.addEventListener('DOMContentLoaded', function(){ hcUpdateCpu(); hcCalc(); });
+document.addEventListener('DOMContentLoaded', function(){ hcUpdateCpu(); hcMaskInit(); hcCalc(); });
 hcUpdateCpu();
 </script>
 {{end}}

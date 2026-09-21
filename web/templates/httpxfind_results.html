@@ -21,6 +21,12 @@
 
 {{define "httpxfind_results_inner"}}
 <p class="text-sm text-dark-400 mb-4">{{Tn .ServiceCount "%d HTTP service discovered" "%d HTTP services discovered" .ServiceCount}}</p>
+{{if .Truncated}}
+<div class="mb-4 flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-[11px] text-yellow-200">
+    <span>⚠</span>
+    <span>{{T "Results were capped to protect server memory — some services and/or response bodies were dropped. Narrow the scope (fewer hosts or a smaller port range) for a complete scan."}}</span>
+</div>
+{{end}}
 {{if .Services}}
 {{/* Bulk-copy button: copies every Service URL (one per line) to the
      clipboard so the user can paste into another tool / spreadsheet. */}}

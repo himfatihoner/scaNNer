@@ -59,6 +59,9 @@ func (h *Handler) StartScanQueue() {
 // freshly-claimed row counts as active on the next pass, holding FIFO order
 // within a workspace.
 func (h *Handler) dispatchQueuedScans() {
+	if MemoryPressure() {
+		return // memory governor is holding new scans until pressure clears
+	}
 	queued, err := h.db.ListQueuedScans()
 	if err != nil || len(queued) == 0 {
 		return

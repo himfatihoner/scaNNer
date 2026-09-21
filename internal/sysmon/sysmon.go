@@ -57,6 +57,69 @@ type Snapshot struct {
 	ConntrackUsed int          // nf_conntrack_count (0 if the module is absent)
 }
 
+// MemStat is one instantaneous memory reading: machine-wide total/available
+// (from /proc/meminfo) plus this scanner process's resident set (VmRSS). The
+// memory governor samples this to abort scans before the kernel OOM-killer
+// fires. All values are bytes; 0 means unreadable (e.g. non-Linux).
+type MemStat struct {
+	TotalBytes     int64 // MemTotal — physical RAM
+	AvailableBytes int64 // MemAvailable — kernel's estimate of allocatable-without-swapping memory
+	RSSBytes       int64 // VmRSS — this process's resident set
+}
+
+// AvailFrac is available/total in 0..1 (1 when unreadable, so a bad read never
+// looks like memory pressure).
+func (m MemStat) AvailFrac() float64 {
+	if m.TotalBytes <= 0 {
+		return 1
+	}
+	return float64(m.AvailableBytes) / float64(m.TotalBytes)
+}
+
+// RSSFrac is this process's RSS / total RAM in 0..1 (0 when unreadable).
+func (m MemStat) RSSFrac() float64 {
+	if m.TotalBytes <= 0 {
+		return 0
+	}
+	return float64(m.RSSBytes) / float64(m.TotalBytes)
+}
+
+// ReadMemory samples current memory (OS glue in collect_linux.go / collect_other.go).
+func ReadMemory() MemStat { return readMemory() }
+
+// parseMeminfoBytes pulls MemTotal + MemAvailable (both reported in kB) from
+// /proc/meminfo contents and returns them as bytes.
+func parseMeminfoBytes(content string) (total, avail int64) {
+	for _, line := range strings.Split(content, "\n") {
+		if strings.HasPrefix(line, "MemTotal:") {
+			total = parseFirstInt64(strings.TrimPrefix(line, "MemTotal:")) * 1024
+		} else if strings.HasPrefix(line, "MemAvailable:") {
+			avail = parseFirstInt64(strings.TrimPrefix(line, "MemAvailable:")) * 1024
+		}
+	}
+	return total, avail
+}
+
+// parseVmRSSBytes pulls VmRSS (reported in kB) from /proc/self/status contents.
+func parseVmRSSBytes(status string) int64 {
+	for _, line := range strings.Split(status, "\n") {
+		if strings.HasPrefix(line, "VmRSS:") {
+			return parseFirstInt64(strings.TrimPrefix(line, "VmRSS:")) * 1024
+		}
+	}
+	return 0
+}
+
+// parseFirstInt64 is the int64 sibling of parseFirstInt (first integer token).
+func parseFirstInt64(s string) int64 {
+	for _, f := range strings.Fields(s) {
+		if n, err := strconv.ParseInt(f, 10, 64); err == nil {
+			return n
+		}
+	}
+	return 0
+}
+
 // Limits are the system network/resource ceilings — the capacity formula's L1.
 type Limits struct {
 	PortRangeLo  int    // net.ipv4.ip_local_port_range low

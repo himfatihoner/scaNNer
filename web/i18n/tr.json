@@ -1312,6 +1312,7 @@
   "Restore": "Geri Yükle",
   "Result size": "Sonuç boyutu",
   "Results": "Sonuçlar",
+  "Results were capped to protect server memory — some services and/or response bodies were dropped. Narrow the scope (fewer hosts or a smaller port range) for a complete scan.": "Sunucu belleğini korumak için sonuçlar sınırlandırıldı — bazı servisler ve/veya yanıt gövdeleri atıldı. Tam bir tarama için kapsamı daralt (daha az host veya daha küçük port aralığı).",
   "Resume": "Devam Et",
   "Resume this scan from where it left off (continues the remaining work)": "Bu taramayı kaldığı yerden sürdür (kalan işe devam eder)",
   "Reveals mail provider + spoofing posture.": "Posta sağlayıcısını ve sahtecilik durumunu ortaya çıkarır.",

@@ -144,6 +144,7 @@ func (h *Handler) HTTPXFindResults(w http.ResponseWriter, r *http.Request) {
 	data["Scan"] = scan
 	data["Services"] = result.Services
 	data["ServiceCount"] = len(result.Services)
+	data["Truncated"] = result.Truncated
 	h.renderResults(w, r, "httpxfind_results_inner", data)
 }
 
@@ -187,8 +188,28 @@ func (h *Handler) runHTTPXFind(scanID string, targets []string, mode httpxfind.S
 		}
 	}()
 
+	// The module fires onPartial on EVERY discovered service. Marshalling the
+	// whole (body-carrying) result per hit was the memory storm: it churned a
+	// full-size JSON buffer per service and kept a second full copy in
+	// latestResult. Coalesce to ≤ once / 2s AND persist a BODY-FREE snapshot for
+	// the live view — the final UpdateScanResult below carries the full bodies.
+	livePartial := shared.NewPartialThrottler(2 * time.Second)
 	onPartial := func(partial *httpxfind.ScanResult) {
-		b, err := json.Marshal(partial)
+		if !livePartial.ShouldFire() {
+			return
+		}
+		lite := &httpxfind.ScanResult{
+			Services:  make([]httpxfind.ServiceResult, len(partial.Services)),
+			Truncated: partial.Truncated,
+		}
+		for i, s := range partial.Services {
+			s.ResponseBody = ""
+			s.ResponseHeaders = ""
+			s.RawRequest = ""
+			s.RawResponse = ""
+			lite.Services[i] = s
+		}
+		b, err := json.Marshal(lite)
 		if err == nil {
 			resultMu.Lock()
 			latestResult = b

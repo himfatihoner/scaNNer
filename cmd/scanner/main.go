@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"syscall"
 	"time"
@@ -21,9 +22,6 @@ import (
 	"scanner/internal/database"
 	"scanner/internal/handlers"
 	"scanner/internal/modules"
-	"scanner/internal/modules/shared"
-	scannet "scanner/internal/network"
-	"scanner/internal/sysmon"
 	"scanner/internal/modules/adpentest"
 	"scanner/internal/modules/advancedweb"
 	"scanner/internal/modules/assetdisc"
@@ -37,6 +35,7 @@ import (
 	"scanner/internal/modules/dnsenum"
 	"scanner/internal/modules/emailharvest"
 	"scanner/internal/modules/graphqlscan"
+	"scanner/internal/modules/hashcat"
 	"scanner/internal/modules/hostdiscovery"
 	"scanner/internal/modules/httpmethods"
 	"scanner/internal/modules/httpxfind"
@@ -48,7 +47,7 @@ import (
 	"scanner/internal/modules/paramdisc"
 	"scanner/internal/modules/portservice"
 	"scanner/internal/modules/secheaders"
-	"scanner/internal/modules/hashcat"
+	"scanner/internal/modules/shared"
 	"scanner/internal/modules/smbenum"
 	"scanner/internal/modules/snmpenum"
 	"scanner/internal/modules/spider"
@@ -59,6 +58,8 @@ import (
 	"scanner/internal/modules/wafdetect"
 	"scanner/internal/modules/whoisinfo"
 	"scanner/internal/modules/wpscan"
+	scannet "scanner/internal/network"
+	"scanner/internal/sysmon"
 )
 
 // augmentToolPath appends the user's go-bin, local-bin and the repo-local
@@ -138,7 +139,7 @@ func main() {
 		"subfinder", "amass", "puredns", "masscan", "gobuster",
 		"enum4linux", "onesixtyone", "whois",
 		"sslscan", "openssl", // SSL/TLS Scanner's tool-driven engine
-		"hashcat", "hashid",  // Hashcat cracking module (+ hashid for hash-type auto-detect)
+		"hashcat", "hashid", // Hashcat cracking module (+ hashid for hash-type auto-detect)
 	}
 	missing := []string{}
 	for _, t := range tools {
@@ -319,11 +320,23 @@ func main() {
 	// Apply the operator's CPU budget (% of cores) to the capacity governor so
 	// CPU-bound modules (techdetect/whatweb) are sized to it.
 	capacity.SetCPUBudget(float64(db.GetSettings().EffectiveMaxCPUPercent()) / 100)
+	// Soft-cap the Go heap so the GC works to return memory to the OS instead of
+	// letting a wide scan's result set balloon unchecked toward the OOM point.
+	// Set to ~80% of physical RAM (headroom for subprocess/off-heap use); the
+	// memory governor below is the machine-wide backstop for what this can't see.
+	if mt := sysmon.ReadMemory().TotalBytes; mt > 0 {
+		debug.SetMemoryLimit(int64(float64(mt) * 0.80))
+	}
 
 	// Live performance monitor: samples OS resource pressure (ephemeral ports,
 	// socket states, load, CPU) correlated with scan throughput into a ring
 	// buffer the dashboard polls. Powers the "Live Network & Performance" panel.
 	h.StartPerfMonitor()
+	// Memory governor: samples system MemAvailable every second; reclaims + holds
+	// new scans under pressure, and aborts running scans with a clear memory
+	// reason before the kernel OOM-killer fires (which would otherwise leave the
+	// misleading "server restarted" message on the scan).
+	h.StartMemoryGovernor()
 	// DNS-leak monitor: tails data/leakwatch.log; on a new LEAK line it trips
 	// the header banner AND cancels running scans. No-ops if leakwatch isn't
 	// installed. See scripts/LEAKWATCH.md.

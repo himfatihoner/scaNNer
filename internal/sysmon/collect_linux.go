@@ -52,6 +52,17 @@ func collect() (Snapshot, uint64, uint64) {
 	return snap, idle, total
 }
 
+// readMemory reads machine-wide memory (/proc/meminfo) + this process's RSS
+// (/proc/self/status VmRSS). Cheap enough to sample every second.
+func readMemory() MemStat {
+	total, avail := parseMeminfoBytes(readFileStr("/proc/meminfo"))
+	return MemStat{
+		TotalBytes:     total,
+		AvailableBytes: avail,
+		RSSBytes:       parseVmRSSBytes(readFileStr("/proc/self/status")),
+	}
+}
+
 func parseThreads(status string) int {
 	for _, line := range strings.Split(status, "\n") {
 		if strings.HasPrefix(line, "Threads:") {

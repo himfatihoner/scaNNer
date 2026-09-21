@@ -78,7 +78,43 @@ type ServiceResult struct {
 
 // ScanResult is the full output of a scan
 type ScanResult struct {
-	Services []ServiceResult `json:"services"`
+	Services  []ServiceResult `json:"services"`
+	Truncated bool            `json:"truncated,omitempty"` // resident-memory cap hit; heavy fields dropped / services capped
+	bodyBytes int64           // running estimate of retained body/raw bytes (not serialized)
+}
+
+const (
+	// maxServices hard-caps how many services are RETAINED in memory. An all-port
+	// sweep against a catch-all/tarpit host that answers HTTP on every port would
+	// otherwise grow result.Services toward hosts×65535 entries and OOM the box.
+	maxServices = 20000
+	// maxResultBodyBytes caps the total RETAINED response-body/raw bytes. Past it,
+	// services are still recorded (host/port/status/title) but the heavy body/raw
+	// fields are dropped, so the resident set stays bounded regardless of how many
+	// large pages answer.
+	maxResultBodyBytes = 128 * 1024 * 1024 // 128 MB
+)
+
+// addService appends svc under the caller's lock, enforcing the resident-memory
+// bounds: past maxResultBodyBytes it keeps the metadata but strips the heavy
+// body/raw fields; past maxServices it stops retaining new services entirely.
+// Sets Truncated when either bound bites. Returns whether svc was retained.
+func (r *ScanResult) addService(svc ServiceResult) bool {
+	if len(r.Services) >= maxServices {
+		r.Truncated = true
+		return false
+	}
+	if r.bodyBytes > maxResultBodyBytes {
+		svc.ResponseBody = ""
+		svc.ResponseHeaders = ""
+		svc.RawRequest = ""
+		svc.RawResponse = ""
+		r.Truncated = true
+	} else {
+		r.bodyBytes += int64(len(svc.ResponseBody) + len(svc.ResponseHeaders) + len(svc.RawRequest) + len(svc.RawResponse))
+	}
+	r.Services = append(r.Services, svc)
+	return true
 }
 
 // ProgressFunc is called to report scan progress
@@ -244,13 +280,12 @@ func scanCore(targets []string, mode ScanMode, customPorts []int, concurrency, t
 			done++
 			added := false
 			if svc != nil {
-				result.Services = append(result.Services, *svc)
-				added = true
+				added = result.addService(*svc)
 			}
 			doneSnap := done
 			var snap *ScanResult
 			if added && onPartial != nil {
-				snap = &ScanResult{Services: append([]ServiceResult(nil), result.Services...)}
+				snap = &ScanResult{Services: append([]ServiceResult(nil), result.Services...), Truncated: result.Truncated}
 			}
 			mu.Unlock()
 
@@ -570,10 +605,10 @@ func runFullMode(result *ScanResult, mu *sync.Mutex, targets []string, directHTT
 					}
 					atomic.AddInt32(&found, 1)
 					mu.Lock()
-					result.Services = append(result.Services, *svc)
+					added := result.addService(*svc)
 					var snap *ScanResult
-					if onPartial != nil {
-						snap = &ScanResult{Services: append([]ServiceResult(nil), result.Services...)}
+					if added && onPartial != nil {
+						snap = &ScanResult{Services: append([]ServiceResult(nil), result.Services...), Truncated: result.Truncated}
 					}
 					mu.Unlock()
 					if progress != nil && hitLog.ShouldFire() {
@@ -667,10 +702,10 @@ func runFullMode(result *ScanResult, mu *sync.Mutex, targets []string, directHTT
 			}
 			atomic.AddInt32(&plive, 1)
 			mu.Lock()
-			result.Services = append(result.Services, *svc)
+			added := result.addService(*svc)
 			var snap *ScanResult
-			if onPartial != nil {
-				snap = &ScanResult{Services: append([]ServiceResult(nil), result.Services...)}
+			if added && onPartial != nil {
+				snap = &ScanResult{Services: append([]ServiceResult(nil), result.Services...), Truncated: result.Truncated}
 			}
 			mu.Unlock()
 			if snap != nil {

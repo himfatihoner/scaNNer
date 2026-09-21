@@ -93,6 +93,11 @@
                         <div>
                             <label class="block text-sm text-dark-300 mb-1.5">Rules{{template "info_icon" "Rules mutate each wordlist word (append digits, leetspeak, case toggles…) — massively expands coverage. ×N = how many variants each word becomes. Stack several: each runs as its OWN pass (never chained) and the candidate counts add up. Bigger = slower."}}</label>
                             {{if .Rules}}
+                            <div class="flex items-center gap-1.5 mb-1.5">
+                                <button type="button" onclick="hcRulesSelectAll(true)" class="text-[10px] px-2 py-0.5 rounded bg-dark-800 border border-dark-700 text-dark-300 hover:text-white hover:border-accent-500/40">{{T "Select all"}}</button>
+                                <button type="button" onclick="hcRulesSelectAll(false)" class="text-[10px] px-2 py-0.5 rounded bg-dark-800 border border-dark-700 text-dark-300 hover:text-white hover:border-accent-500/40">{{T "Clear"}}</button>
+                                <span class="text-[10px] text-dark-500 ml-auto"><span id="hcRuleSelCount">0</span> {{T "selected"}}</span>
+                            </div>
                             <input id="ruleSearch" type="search" oninput="hcFilterRules()" placeholder="filter…"
                                    class="w-full bg-dark-900/60 border border-dark-800 rounded px-2 py-1 text-[11px] text-dark-300 placeholder-dark-600 focus:outline-none focus:border-dark-600 mb-1.5"/>
                             {{end}}
@@ -403,6 +408,20 @@ function hcFilterRules() {
         row.classList.toggle('hidden', q && (row.dataset.label||'').toLowerCase().indexOf(q) === -1);
     });
 }
+// Bulk-toggle rule checkboxes. Select applies only to what's currently VISIBLE
+// (filter-visible + inside an expanded section — so a collapsed "All rules on
+// host" isn't silently selected); Clear unchecks every rule.
+function hcRulesSelectAll(on) {
+    document.querySelectorAll('.rule-row input[type=checkbox]').forEach(function(cb){
+        if (on && cb.offsetParent === null) return; // skip hidden/collapsed on select
+        cb.checked = on;
+    });
+    hcCalc();
+}
+function hcUpdateRuleSel() {
+    const el = document.getElementById('hcRuleSelCount');
+    if (el) el.textContent = document.querySelectorAll('input[name=rules]:checked').length;
+}
 function hcFilterWordlists() {
     const q = document.getElementById('wlSearch').value.trim().toLowerCase();
     const sel = document.getElementById('wlSelect');
@@ -454,6 +473,7 @@ function hcMaskEstimate() {
     return any ? { n: total, note: '' } : { n: 0, note: '' };
 }
 function hcCalc() {
+    hcUpdateRuleSel();
     const out = document.getElementById('attemptVal');
     if (!out) return;
     const isMask = document.querySelector('input[name=attack]:checked').value === '3';

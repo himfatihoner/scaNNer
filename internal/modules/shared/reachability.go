@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	scannet "scanner/internal/network"
 )
 
 const (
@@ -115,6 +117,23 @@ func FilterReachable(ctx context.Context, opts *HTTPOptions, urls []string, time
 	dead := map[string]string{}
 	if len(urls) == 0 {
 		return nil, dead
+	}
+	// Killswitch armed: scan subprocesses run inside the netns, but Probe dials
+	// the HOST source-bound path — a divergent egress that can falsely mark a
+	// netns-reachable target dead (e.g. a stale bound source IP after a VPN
+	// reconnect, or the host OUTPUT rules). Don't gate: return every target live
+	// (deduped, input order) and let the real fetch/subprocess decide. Mirrors
+	// httpxfind's skip-when-bound guard.
+	if scannet.IsActive() {
+		live := make([]string, 0, len(urls))
+		seen := make(map[string]bool, len(urls))
+		for _, u := range urls {
+			if !seen[u] {
+				seen[u] = true
+				live = append(live, u)
+			}
+		}
+		return live, dead
 	}
 	if conc <= 0 {
 		conc = defaultReachConc

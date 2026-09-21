@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"scanner/internal/modules/shared"
+	scannet "scanner/internal/network"
 	"strconv"
 	"strings"
 	"sync"
@@ -234,25 +235,36 @@ func scanHost(ctx context.Context, host string, port int, timeout time.Duration,
 	// TCP reachability check — uses the shared bounded dialer so the killswitch's
 	// source-IP binding applies. Retried a few times so a transient blip never
 	// falsely drops a live host as "Connection failed".
-	var dialErr error
-	for attempt := 0; attempt < 3 && !result.Reachable; attempt++ {
-		if attempt > 0 {
-			select {
-			case <-time.After(300 * time.Millisecond):
-			case <-ctx.Done():
+	//
+	// BUT when the killswitch is ARMED the sslscan/nmap tools run INSIDE the
+	// network namespace (shared.Command → ip netns exec), while this probe is a
+	// HOST-process source-bound dial on a DIFFERENT egress path. A host-path
+	// hiccup (a stale bound source IP mid-VPN-reconnect, the host OUTPUT rules)
+	// must not drop a target the netns subprocess can reach. So skip the host
+	// gate when armed and let the tool be the authority.
+	if scannet.IsActive() {
+		result.Reachable = true
+	} else {
+		var dialErr error
+		for attempt := 0; attempt < 3 && !result.Reachable; attempt++ {
+			if attempt > 0 {
+				select {
+				case <-time.After(300 * time.Millisecond):
+				case <-ctx.Done():
+				}
+			}
+			conn, err := shared.BoundDialer(nil, timeout).DialContext(ctx, "tcp", addr)
+			if err == nil {
+				conn.Close()
+				result.Reachable = true
+			} else {
+				dialErr = err
 			}
 		}
-		conn, err := shared.BoundDialer(nil, timeout).DialContext(ctx, "tcp", addr)
-		if err == nil {
-			conn.Close()
-			result.Reachable = true
-		} else {
-			dialErr = err
+		if !result.Reachable {
+			result.Error = fmt.Sprintf("Connection failed: %v", dialErr)
+			return result
 		}
-	}
-	if !result.Reachable {
-		result.Error = fmt.Sprintf("Connection failed: %v", dialErr)
-		return result
 	}
 
 	if ctx.Err() != nil {

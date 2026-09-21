@@ -1500,7 +1500,17 @@ func (h *Handler) BuildHTTPOptions(r *http.Request) *shared.HTTPOptions {
 	// path. This way a settings change propagates to every dialer
 	// without each module needing a signature update.
 	if settings.NetworkInterface != "" && settings.NetworkInterfaceIP != "" {
-		if ip := net.ParseIP(settings.NetworkInterfaceIP); ip != nil {
+		// Re-resolve the pinned interface's CURRENT primary IPv4 at every scan
+		// launch. A VPN reconnect hands out a NEW lease, so the IP saved in
+		// Settings goes stale; binding host-process dials (BoundDialer) to a
+		// dead source IP makes every reachability probe fail "Unreachable" while
+		// the netns subprocess path still works. Prefer the live IP; fall back to
+		// the saved one only if the interface can't be resolved right now.
+		ipStr := settings.NetworkInterfaceIP
+		if live, err := scannet.ResolvePrimaryIPv4(settings.NetworkInterface); err == nil && live != "" {
+			ipStr = live
+		}
+		if ip := net.ParseIP(ipStr); ip != nil {
 			opts.NetworkInterface = settings.NetworkInterface
 			opts.LocalAddr = &net.TCPAddr{IP: ip}
 			shared.SetGlobalLocalAddr(opts.LocalAddr)

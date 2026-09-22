@@ -149,7 +149,7 @@
            title="{{if .KillswitchActive}}{{T `Scan traffic is forced through %s via scanner-ns. Click to manage.` .KillswitchInterface}}{{else if .KillswitchInterface}}{{T `%s is pinned in Settings but the network namespace is not active — check CAP_NET_ADMIN. Click to fix.` .KillswitchInterface}}{{else}}{{T `No interface pinned — scans use the system default route and will leak if your VPN drops. Click to pin one.`}}{{end}}">
             {{if .KillswitchActive}}
             <span class="w-2 h-2 rounded-full bg-success shrink-0"></span>
-            <span class="sidebar-label text-success">🛡 Killswitch: <span class="mono">{{.KillswitchInterface}}</span></span>
+            <span class="sidebar-label text-success">Killswitch: <span class="mono">{{.KillswitchInterface}}</span></span>
             {{else if .KillswitchInterface}}
             <span class="w-2 h-2 rounded-full bg-warning shrink-0 sidebar-pulse"></span>
             <span class="sidebar-label text-warning">⚠ {{T "Killswitch off"}} — <span class="mono">{{.KillswitchInterface}}</span> {{T "pinned"}}</span>
@@ -185,7 +185,11 @@
 #sidebar.sidebar-collapsed .p-5 { padding: 0.75rem 0.5rem; flex-direction: column; gap: 0.5rem; }
 #sidebar.sidebar-collapsed .p-5 > a { justify-content: center; }
 #sidebar.sidebar-collapsed .p-4 { padding: 0.75rem 0.5rem; }
-#sidebar.sidebar-collapsed .p-4 > div { justify-content: center; }
+/* Center every footer row when collapsed so the status dots (System Online,
+   Killswitch — an <a>, not a <div> — and the account avatar) line up on the
+   same vertical axis instead of the killswitch dot sitting flush-left. */
+#sidebar.sidebar-collapsed .p-4 > div,
+#sidebar.sidebar-collapsed .p-4 > a { justify-content: center; }
 </style>
 <script>
 (function() {

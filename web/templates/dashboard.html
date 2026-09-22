@@ -109,10 +109,15 @@ html.light {
             <span title="{{T `Scans running right now.`}}">{{T "scans"}} <b id="perfActive" class="text-white">—</b></span>
             <span title="{{T `Combined live scan throughput — results/requests processed per second.`}}">{{T "tput"}} <b id="perfTput" class="text-white">—</b>/s</span>
             <span title="{{T `System 1-minute load average over the CPU core count — above 1.0 per core means work is queueing.`}}">{{T "load"}} <b id="perfLoad" class="text-white">—</b></span>
+            <span title="{{T `Physical RAM in use across the machine, and how much the scanner process itself holds. The memory governor aborts scans before an out-of-memory crash.`}}">{{T "mem"}} <b id="perfMem" class="text-white">—</b></span>
         </div>
     </div>
     <p class="text-xs text-dark-400 mb-4">{{T "Outbound-port & connection pressure vs live scan throughput"}} · <span id="perfMeta" class="text-dark-500">…</span></p>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-4">
+        <div>
+            <div class="flex justify-between text-xs text-dark-400 mb-1"><span title="{{T `Physical RAM in use across the whole machine. The memory governor reclaims and holds new scans as it climbs, and aborts running scans before the kernel out-of-memory killer would fire.`}}">{{T "Memory Usage (%)"}}</span><span class="text-danger/80" title="{{T `Above this the memory governor aborts running scans to avoid an out-of-memory crash.`}}">{{T "abort > 90%"}}</span></div>
+            <div id="perfMemChart" class="w-full h-40 relative"></div>
+        </div>
         <div>
             <div class="flex justify-between text-xs text-dark-400 mb-1"><span title="{{T `Percentage of the usable outbound (ephemeral) source-port range currently consumed by scan connections.`}}">{{T "Outbound Port Usage (%)"}}</span><span class="text-danger/80" title="{{T `Above ~75% the machine is close to running out of source ports and new connections may fail.`}}">{{T "exhaustion > 75%"}}</span></div>
             <div id="perfPortChart" class="w-full h-40 relative"></div>
@@ -243,6 +248,7 @@ html.light {
         if (!last || !last.samples || !last.samples.length) return;
         var s = last.samples, L = last.limits || {};
         var col = function(k) { return s.map(function(x) { return x[k]; }); };
+        lc(document.getElementById('perfMemChart'), [{ color: COL.red, values: col('mem_used_pct'), name: 'RAM used %' }], { fixedMax: 100, ref: 90 });
         lc(el0, [{ color: COL.blue, values: col('port_pct'), name: 'in use %' }], { fixedMax: 100, ref: 75 });
         lc(document.getElementById('perfSockChart'), [
             { color: COL.green, values: col('estab'), name: 'active' },
@@ -266,6 +272,7 @@ html.light {
         document.getElementById('perfActive').textContent = ls.active_scans;
         document.getElementById('perfTput').textContent = ls.throughput.toFixed(1);
         document.getElementById('perfLoad').textContent = ls.load1.toFixed(1) + '/' + (L.cores || '?');
+        document.getElementById('perfMem').textContent = (ls.mem_used_pct || 0).toFixed(0) + '% (' + (ls.mem_rss_mb || 0) + ' MB' + (L.mem_total_mb ? ' / ' + Math.round(L.mem_total_mb / 1024) + ' GB' : '') + ')';
         var hb = document.getElementById('perfHealth');
         hb.textContent = ls.health;
         var cls = 'text-[10px] uppercase px-2 py-0.5 rounded ml-1 ';

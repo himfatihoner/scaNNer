@@ -30,6 +30,11 @@ const (
 	perfPortThrottleOff  = 0.55
 	perfThrottleInterval = 50 * time.Millisecond // ~20 new connects/sec while engaged
 	perfThrottleDelay    = 40 * time.Millisecond
+	// Memory health thresholds (% of RAM used) for the dashboard badge. These
+	// track the memory governor (memgov.go): DEGRADED ≈ its soft mark (avail<18%
+	// = used>82%), SATURATED just below its hard abort (avail<9% = used>91%).
+	perfMemDegrade  = 80.0
+	perfMemSaturate = 90.0
 )
 
 // perfSample is one ring-buffer row (JSON-tagged for the dashboard poll).
@@ -47,6 +52,8 @@ type perfSample struct {
 	Throughput  float64 `json:"throughput"`   // scan progress units/sec across active scans
 	ErrRate     float64 `json:"err_rate"`     // errors/sec across active scans
 	ActiveScans int     `json:"active_scans"`
+	MemUsedPct  float64 `json:"mem_used_pct"` // 0..100 of physical RAM in use (machine-wide)
+	MemRSSMB    int64   `json:"mem_rss_mb"`   // this scanner process's resident set (MB)
 	Health      string  `json:"health"`       // HEALTHY | DEGRADED | SATURATED
 }
 
@@ -120,11 +127,16 @@ func (h *Handler) StartPerfMonitor() {
 			prevDone, prevErr, prevT = done, errs, now
 
 			portFrac := snap.PortUsage(limits)
+			mem := sysmon.ReadMemory()
+			memUsedPct := 0.0
+			if mem.TotalBytes > 0 {
+				memUsedPct = (1 - mem.AvailFrac()) * 100
+			}
 			health := "HEALTHY"
 			switch {
-			case portFrac >= perfPortSaturate || (limits.Cores > 0 && snap.Load1 > float64(limits.Cores)*1.5):
+			case portFrac >= perfPortSaturate || (limits.Cores > 0 && snap.Load1 > float64(limits.Cores)*1.5) || memUsedPct >= perfMemSaturate:
 				health = "SATURATED"
-			case portFrac >= perfPortDegrade || (limits.Cores > 0 && snap.Load1 > float64(limits.Cores)):
+			case portFrac >= perfPortDegrade || (limits.Cores > 0 && snap.Load1 > float64(limits.Cores)) || memUsedPct >= perfMemDegrade:
 				health = "DEGRADED"
 			}
 
@@ -152,6 +164,8 @@ func (h *Handler) StartPerfMonitor() {
 				Throughput:  tput,
 				ErrRate:     erate,
 				ActiveScans: active,
+				MemUsedPct:  memUsedPct,
+				MemRSSMB:    mem.RSSBytes >> 20,
 				Health:      health,
 			}, limits)
 		}
@@ -172,6 +186,7 @@ func (h *Handler) MonitorMetrics(w http.ResponseWriter, r *http.Request) {
 			"conntrack_max": limits.ConntrackMax,
 			"nofile":        limits.NoFile,
 			"cores":         limits.Cores,
+			"mem_total_mb":  sysmon.ReadMemory().TotalBytes >> 20,
 		},
 		"samples": samples,
 	})

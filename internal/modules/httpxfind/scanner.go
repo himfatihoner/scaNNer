@@ -136,6 +136,15 @@ func ScanWithConcurrency(targets []string, mode ScanMode, concurrency int, opts 
 	return scanCore(targets, mode, nil, concurrency, 0, 0, false, opts, onPartial, progress)
 }
 
+// ScanCommon runs a fixed-port (Common) scan honouring BOTH per-scan overrides:
+// concurrency = parallel HTTP probes (<=0 → module default probeConcLimit=20) and
+// rate = a requests/sec cap on the probe (<=0 → unlimited). This is what wires the
+// form's "Max concurrent" and "Rate limit (req/s)" fields into Common mode, which
+// previously ignored them and always ran at the fixed default.
+func ScanCommon(targets []string, concurrency, rate int, opts *shared.HTTPOptions, onPartial PartialFunc, progress ProgressFunc) *ScanResult {
+	return scanCore(targets, ModeCommon, nil, concurrency, 0, rate, false, opts, onPartial, progress)
+}
+
 // ScanFull runs Full-mode discovery with explicit TCP-scan tuning (Task 6
 // per-module override). tcpConc = concurrent connect()s during discovery
 // (0 = default 150); tcpRate = max NEW connections/sec (0 = default 500,
@@ -182,9 +191,10 @@ func scanCore(targets []string, mode ScanMode, customPorts []int, concurrency, t
 	}
 	if tcpRate < 0 {
 		tcpRate = 0 // negative would break the ticker; treat as unlimited
-	} else if tcpRate == 0 {
-		tcpRate = fullScanRate
 	}
+	// NB: tcpRate==0 stays "unlimited" here. Full mode re-applies the fullScanRate
+	// default inside runFullMode; the fixed-port (Common) path below honours 0 as
+	// genuinely unlimited so a blank rate_limit doesn't silently cap Common scans.
 
 	// Build ONE shared http.Transport for the whole scan (audit perf fix).
 	// Previously tryScheme allocated a fresh Transport per scheme/port/host
@@ -253,12 +263,56 @@ func scanCore(targets []string, mode ScanMode, customPorts []int, concurrency, t
 	total := len(tasks)
 	done := 0
 	probeBase := 0
+
+	// Optional token-bucket rate limiter (req/s) on the HTTP probe — mirrors the
+	// Full-mode connect limiter. 0 = unlimited. This is what makes the form's
+	// "Rate limit (req/s)" actually throttle Common-mode requests (e.g. to go
+	// easy on fragile / unresolvable hosts). Effective floor ~tickHz req/s.
+	var tokens chan struct{}
+	rlDone := make(chan struct{})
+	defer close(rlDone)
+	if tcpRate > 0 {
+		const tickHz = 20
+		per := tcpRate / tickHz
+		if per < 1 {
+			per = 1
+		}
+		depth := tcpRate
+		if depth < per {
+			depth = per
+		}
+		tokens = make(chan struct{}, depth)
+		go func() {
+			ticker := time.NewTicker(time.Second / tickHz)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-rlDone:
+					return
+				case <-ticker.C:
+					for i := 0; i < per; i++ {
+						select {
+						case tokens <- struct{}{}:
+						default:
+						}
+					}
+				}
+			}
+		}()
+	}
+
 	sem := make(chan struct{}, concurrency)
 	var wg sync.WaitGroup
 
 	for _, t := range tasks {
 		if opts.Done() {
 			break
+		}
+		if tokens != nil {
+			<-tokens // pace new probes to the requested req/s
+			if opts.Done() {
+				break
+			}
 		}
 		wg.Add(1)
 		sem <- struct{}{}

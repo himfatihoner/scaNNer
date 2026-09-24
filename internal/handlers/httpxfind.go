@@ -240,9 +240,13 @@ func (h *Handler) runHTTPXFind(scanID string, targets []string, mode httpxfind.S
 	// probe defaults.
 	var result *httpxfind.ScanResult
 	if mode == httpxfind.ModeFull {
-		result = httpxfind.ScanFull(targets, 0, tcpConc, tcpRate, directHTTP, opts, onPartial, onProgress)
+		// probeConc = tcpConc so the HTTP-probe phase honours "Max concurrent"
+		// too (it was hardcoded to the default 20 before).
+		result = httpxfind.ScanFull(targets, tcpConc, tcpConc, tcpRate, directHTTP, opts, onPartial, onProgress)
 	} else {
-		result = httpxfind.Scan(targets, mode, opts, onPartial, onProgress)
+		// Common mode previously ignored both overrides; ScanCommon wires the
+		// per-scan "Max concurrent" + "Rate limit (req/s)" into the probe.
+		result = httpxfind.ScanCommon(targets, tcpConc, tcpRate, opts, onPartial, onProgress)
 	}
 
 	resultJSON, _ := json.Marshal(result)

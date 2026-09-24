@@ -402,27 +402,27 @@ func (p *portPermuter) next() (int, bool) {
 	return 0, false
 }
 
-// resolvableTargets keeps literal-IP targets as-is and hostname targets only
-// when DNS actually resolves (via the killswitch-bound resolver, so it obeys the
-// VPN egress path). Returns (kept, droppedCount). A host that never resolves
-// would otherwise burn one failed DNS lookup per port across the whole sweep.
-func resolvableTargets(targets []string, opts *shared.HTTPOptions) ([]string, int) {
-	// When outbound is pinned to the killswitch interface, the host process's
-	// resolver is source-bound to that interface and does NOT mirror the netns
-	// where httpx actually resolves + scans. A bound-resolver hiccup (a stale
-	// source IP after a VPN reconnect, an upstream reachable only from inside the
-	// netns) would then wrongly drop EVERY host — "nothing to scan" — while httpx
-	// would have resolved them fine inside the netns. Skip the host-side
-	// pre-filter entirely in that case and let httpx do the resolution through
-	// the VPN's DNS.
-	if shared.GlobalLocalAddr() != nil || (opts != nil && opts.LocalAddr != nil) {
-		return targets, 0
-	}
+// resolveTargets resolves each hostname target ONCE up front and returns the
+// hosts worth sweeping plus a host→IP cache. Two wins for a wide Full sweep:
+//   - a host whose DNS does NOT resolve is DROPPED — we don't burn 65535 failed
+//     probes (and 65535 failed DNS lookups) on it. Literal IPs pass through.
+//   - resolvable hosts are resolved once here; the caller dials every port by the
+//     cached IP, so DNS isn't re-hit per port (was a per-probe allocation source).
+//
+// Fail OPEN: a host is dropped ONLY when the resolver is CONFIDENT it does not
+// exist (NXDOMAIN). A flaky resolver — the killswitch-bound resolver with a
+// stale source IP after a VPN reconnect, a timing-out or SERVFAILing nameserver
+// — returns errors that are NOT NXDOMAIN; those hosts are KEPT (with no cached
+// IP, so the dial resolves them normally). This is safe even under the killswitch
+// (a bound-resolver hiccup can't false-drop a host), while still honoring "drop
+// the ones that genuinely don't resolve".
+func resolveTargets(targets []string, opts *shared.HTTPOptions) (keep []string, ipCache map[string]string, dropped int) {
 	res := shared.SystemResolver()
+	ipCache = make(map[string]string, len(targets))
 	sem := make(chan struct{}, 50)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	keep := make([]string, 0, len(targets))
+	keep = make([]string, 0, len(targets))
 	for _, t := range targets {
 		if opts != nil && opts.Done() {
 			break
@@ -439,31 +439,25 @@ func resolvableTargets(targets []string, opts *shared.HTTPOptions) ([]string, in
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			addrs, err := res.LookupHost(ctx, host)
-			// Fail OPEN: only DROP a host when the resolver is CONFIDENT it does
-			// not exist (NXDOMAIN). A misbehaving resolver — the killswitch-bound
-			// resolver with a stale/unreachable source IP after a VPN reconnect, a
-			// nameserver that times out, a transient SERVFAIL — returns errors
-			// that are NOT NXDOMAIN. Dropping on those silently nukes the whole
-			// scan ("1870 hosts unresolved — nothing to scan") even though httpx
-			// resolves the same names fine inside the netns. So keep the host on
-			// anything other than a definitive not-found.
-			drop := false
 			if err != nil {
 				var derr *net.DNSError
-				drop = errors.As(err, &derr) && derr.IsNotFound
-			} else {
-				drop = len(addrs) == 0
-			}
-			if drop {
+				if errors.As(err, &derr) && derr.IsNotFound {
+					return // NXDOMAIN — genuinely unresolvable, drop it
+				}
+				// any other error → fail open, keep (dial will resolve it)
+			} else if len(addrs) == 0 {
 				return
 			}
 			mu.Lock()
 			keep = append(keep, host)
+			if len(addrs) > 0 {
+				ipCache[host] = addrs[0] // resolve once, reuse for every port
+			}
 			mu.Unlock()
 		}(t)
 	}
 	wg.Wait()
-	return keep, len(targets) - len(keep)
+	return keep, ipCache, len(targets) - len(keep)
 }
 
 // runFullMode executes a Full-mode sweep: an interleaved round-robin across
@@ -492,18 +486,31 @@ func runFullMode(result *ScanResult, mu *sync.Mutex, targets []string, directHTT
 	// re-fails the lookup). Literal IPs pass through untouched. This shrinks the
 	// denominator + ETA proportionally; the sentinel below corrects the total
 	// the handler seeded from the original (pre-filter) target count.
-	orig := targets
-	targets, dropped := resolvableTargets(targets, opts)
-	// Safety net: the pre-filter must never reduce a non-empty target list to
-	// zero. Resolving NOTHING out of a real list means the resolver is unreliable
-	// (killswitch/VPN DNS mismatch, a captive resolver NXDOMAIN-ing everything) —
-	// not that every host is genuinely dead. Scan the full list and let httpx
-	// (resolving inside the netns) find the live hosts.
-	if len(targets) == 0 && len(orig) > 0 {
-		targets = orig
-		dropped = 0
+	targets, ipCache, dropped := resolveTargets(targets, opts)
+	if dropped > 0 && progress != nil {
+		progress(0, fmt.Sprintf("%d unresolvable host(s) skipped — not probing their ports (fail-open: only definitively non-existent names are dropped)", dropped))
+	}
+	if len(targets) == 0 {
 		if progress != nil {
-			progress(0, fmt.Sprintf("Resolvability pre-check dropped all %d hosts — resolver looks unreliable (killswitch/VPN DNS); scanning the full list", len(orig)))
+			progress(0, fmt.Sprintf("No resolvable targets (%d host(s) unresolved) — nothing to scan", dropped))
+		}
+		return result
+	}
+	// Resolution cache: dial every port of a resolvable host by its ONE cached IP
+	// so DNS isn't re-hit on each of its 65535 probes. Set before any probe fires
+	// (transport is idle here), so the reassignment is race-free. Hosts kept via
+	// fail-open (no cached IP) simply fall through to a normal dial.
+	if len(ipCache) > 0 {
+		if tr, ok := sharedClient.Transport.(*http.Transport); ok {
+			base := tr.DialContext
+			tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+				if h, p, err := net.SplitHostPort(addr); err == nil {
+					if ip := ipCache[h]; ip != "" {
+						addr = net.JoinHostPort(ip, p)
+					}
+				}
+				return base(ctx, network, addr)
+			}
 		}
 	}
 	discTotal := len(targets) * maxPort // phase-1 units: one per port probed
@@ -674,8 +681,13 @@ func runFullMode(result *ScanResult, mu *sync.Mutex, targets []string, directHTT
 					return
 				}
 				// connect probe — killswitch-bound dialer so L2 source-IP
-				// pinning applies to the port-sweep traffic too.
-				conn, err := shared.BoundDialer(nil, tcpTimeout).Dial("tcp", net.JoinHostPort(host, strconv.Itoa(port)))
+				// pinning applies to the port-sweep traffic too. Dial the cached
+				// IP so DNS isn't re-resolved on every one of the host's ports.
+				dialHost := host
+				if ip := ipCache[host]; ip != "" {
+					dialHost = ip
+				}
+				conn, err := shared.BoundDialer(nil, tcpTimeout).Dial("tcp", net.JoinHostPort(dialHost, strconv.Itoa(port)))
 				if err != nil {
 					return
 				}

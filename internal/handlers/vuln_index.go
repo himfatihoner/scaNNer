@@ -18,12 +18,23 @@ import (
 )
 
 // vulnID is the stable, deterministic identifier for a vulnerability, derived
-// from its identity tuple (module | normalized host | title). It is identical
-// wherever the same finding surfaces — the global Vulnerabilities page and the
-// per-asset findings on /assets/<host> — so a report ID cross-references
-// cleanly. Not persisted; recomputed on every index build (stable because the
-// inputs are stable). Caveat: a tool renaming a title forks the ID.
-func vulnID(module, host, title string) string {
+// from its identity tuple (normalized host | title) — deliberately MODULE-
+// INDEPENDENT so the SAME finding stays one identity no matter which scan or
+// module surfaces it. That is what keeps an operator's false-positive / archive
+// triage stuck to the finding across future scans (a mark set once is never
+// pulled back to Active just because a different module re-detects it). It is
+// identical wherever the same finding surfaces — the global Vulnerabilities page
+// and the per-asset findings on /assets/<host>. Not persisted; recomputed on
+// every index build. Caveat: a tool renaming a title still forks the ID.
+func vulnID(host, title string) string {
+	sum := sha1.Sum([]byte(normalizeAsset(host) + "|" + strings.TrimSpace(title)))
+	return "SCN-" + strings.ToUpper(hex.EncodeToString(sum[:])[:6])
+}
+
+// vulnIDLegacy reproduces the pre-module-independent ID (module | host | title).
+// Used ONLY by the one-time override re-key migration in buildVulnIndex, which
+// carries an operator's existing triage marks onto the new module-independent ID.
+func vulnIDLegacy(module, host, title string) string {
 	sum := sha1.Sum([]byte(module + "|" + normalizeAsset(host) + "|" + strings.TrimSpace(title)))
 	return "SCN-" + strings.ToUpper(hex.EncodeToString(sum[:])[:6])
 }
@@ -316,7 +327,7 @@ const (
 // whenever extractVulnsGeneric/enrichVuln/extractScanVulns changes what it pulls
 // out, so persisted per-scan vuln caches from an older extractor are treated as
 // stale and re-extracted on the next build.
-const vulnExtractVersion = "v5"
+const vulnExtractVersion = "v6"
 
 type wsVulnIndex struct {
 	fingerprint string
@@ -456,6 +467,15 @@ func scanVulnFingerprint(s models.Scan) string {
 func (h *Handler) buildVulnIndex(workspaceID, fp string, refs []scanRef) {
 	agg := map[string]*GlobalVuln{}
 	order := []string{}
+	// One-time re-key: carry any triage marks (fixed/false_positive/archived/
+	// deleted) that were stored under the OLD module-scoped id onto the new
+	// module-independent id, so upgrading doesn't lose the operator's triage.
+	// Runs once per workspace (flagged), collecting legacy→new pairs as we walk.
+	migrated := h.db.GetSetting("vuln_remap_nomod:"+workspaceID) == "1"
+	var remap map[string]string
+	if !migrated {
+		remap = map[string]string{}
+	}
 	for _, ref := range refs {
 		seen := ref.seenAt() // for FirstSeen/LastSeen folding (assembly-time, not cached)
 		// scanVulns serves this scan's vulns from the per-scan cache when the
@@ -466,11 +486,16 @@ func (h *Handler) buildVulnIndex(workspaceID, fp string, refs []scanRef) {
 			// ASSEMBLY, not in the cached extraction, so a CVE-DB refresh is
 			// always reflected and the per-scan cache stays CVE-DB-independent.
 			finalizeVulnEnrichment(h, &v)
-			// Dedup key MUST use the same normalized host the ID hashes, or two
-			// rows differing only by scheme/port (http:// vs https://ex.com)
-			// would stay separate yet share one SCN ID — making single-export
-			// by id ambiguous. Merging them into one row keeps IDs unique.
-			key := ref.Module + "|" + normalizeAsset(v.Host) + "|" + v.Title
+			if remap != nil {
+				if lid := vulnIDLegacy(v.Module, v.Host, v.Title); lid != v.ID {
+					remap[lid] = v.ID
+				}
+			}
+			// Dedup key is the SAME identity the ID hashes (normalized host |
+			// title) — module-independent — so the same finding from different
+			// scans/modules collapses to ONE row with ONE stable SCN id, keeping
+			// triage (and single-export by id) unambiguous.
+			key := normalizeAsset(v.Host) + "|" + v.Title
 			if e := agg[key]; e != nil {
 				e.Count++
 				backfillVuln(e, &v)
@@ -490,6 +515,12 @@ func (h *Handler) buildVulnIndex(workspaceID, fp string, refs []scanRef) {
 			agg[key] = &vv
 			order = append(order, key)
 		}
+	}
+	if remap != nil {
+		for oldID, newID := range remap {
+			h.db.MigrateVulnOverrideKey(oldID, newID)
+		}
+		h.db.SetSetting("vuln_remap_nomod:"+workspaceID, "1")
 	}
 	out := make([]GlobalVuln, 0, len(order))
 	for _, k := range order {
@@ -643,7 +674,7 @@ func extractScanVulns(result, module, scanID string) []GlobalVuln {
 					v.Tool = stage
 					v.ScanID = scanID
 					v.ScanURL = scanURL
-					v.ID = vulnID(module, v.Host, v.Title)
+					v.ID = vulnID(v.Host, v.Title)
 					out = append(out, v)
 				}
 			}
@@ -659,7 +690,7 @@ func extractScanVulns(result, module, scanID string) []GlobalVuln {
 		v.Tool = module
 		v.ScanID = scanID
 		v.ScanURL = scanURL
-		v.ID = vulnID(module, v.Host, v.Title)
+		v.ID = vulnID(v.Host, v.Title)
 		out = append(out, v)
 	}
 	return out

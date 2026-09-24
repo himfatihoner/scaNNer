@@ -874,6 +874,21 @@ func (d *DB) SetVulnStatus(vulnID, workspaceID, status string) error {
 	return err
 }
 
+// MigrateVulnOverrideKey copies a SUPPRESSING override row (fixed/false_positive/
+// archived/deleted) from an old vuln_id to a new one, preserving workspace + all
+// triage columns. Used by the one-time module-independent vuln-id re-key so an
+// operator's existing triage marks survive the ID change. No-op when the source
+// isn't actually suppressing or the destination already has a row.
+func (d *DB) MigrateVulnOverrideKey(oldID, newID string) {
+	if oldID == "" || newID == "" || oldID == newID {
+		return
+	}
+	d.Exec(`INSERT INTO vuln_overrides (vuln_id, workspace_id, archived, reason, status, deleted, updated_at)
+		SELECT ?, workspace_id, archived, reason, status, deleted, updated_at FROM vuln_overrides
+		WHERE vuln_id = ? AND (status IN ('fixed','false_positive') OR archived = 1 OR deleted = 1)
+		ON CONFLICT(vuln_id) DO NOTHING`, newID, oldID)
+}
+
 // VulnStatusMap returns vuln_id -> triage status for the non-'open' findings in
 // a workspace ('fixed' / 'false_positive'). Used to partition the vuln index
 // into the Fixed / False Positive tabs.

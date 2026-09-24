@@ -52,6 +52,7 @@ type HTTPOptions struct {
 	errMu          sync.Mutex
 	errCount       int
 	errSources     map[string]int
+	lastWarn       time.Time // throttles OnWarning so a 100M-probe sweep doesn't fire it per error
 
 	// transports holds every http.Transport built via NewHTTPClient /
 	// ApplyTransport for the lifetime of this scan, so FinishScan / Cancel
@@ -120,22 +121,28 @@ func (o *HTTPOptions) RecordError(source string) {
 		o.errSources = map[string]int{}
 	}
 	o.errCount++
-	o.errSources[source]++
+	o.errSources[source]++ // key is an interned ClassifyError constant — no alloc
 	threshold := o.ErrorThreshold
 	if threshold <= 0 {
 		threshold = 3
 	}
-	over := o.errCount > threshold
-	count := o.errCount
+	// Coalesce the warning: fire OnWarning at most once per second. On a wide
+	// sweep against dead hosts RecordError runs 100M+ times; rebuilding the
+	// breakdown + invoking OnWarning/SetWarning on EVERY call was a ~1e9-alloc
+	// + lock-contention storm that pinned RSS at the memory limit. The hot path
+	// is now just an int + map increment; the string work happens ≤1×/sec.
 	cb := o.OnWarning
+	if o.errCount <= threshold || cb == nil || time.Since(o.lastWarn) < time.Second {
+		o.errMu.Unlock()
+		return
+	}
+	o.lastWarn = time.Now()
+	count := o.errCount
 	srcs := make([]string, 0, len(o.errSources))
 	for k, v := range o.errSources {
 		srcs = append(srcs, fmt.Sprintf("%s×%d", k, v))
 	}
 	o.errMu.Unlock()
-	if !over || cb == nil {
-		return
-	}
 	sort.Strings(srcs)
 	cb(fmt.Sprintf("%d errors so far — %s", count, strings.Join(srcs, ", ")))
 }

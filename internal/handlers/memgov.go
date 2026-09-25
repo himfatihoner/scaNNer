@@ -13,6 +13,7 @@ import (
 	"log"
 	"runtime"
 	"runtime/debug"
+	"runtime/pprof"
 	"sync/atomic"
 	"time"
 
@@ -20,9 +21,18 @@ import (
 )
 
 const (
-	memGovInterval   = 1 * time.Second
+	// 500ms (was 1s): a wide sweep can grow the resident set by GBs/sec, so a
+	// 1s tick sometimes read "still OK" and the kernel OOM-killer fired before
+	// the next sample — leaving the misleading orphan "server restarted" instead
+	// of a clean governed abort. Sampling twice as often gives the governor a
+	// real chance to abort BEFORE the kernel does.
+	memGovInterval   = 500 * time.Millisecond
 	memGovSoftAvail  = 0.18 // MemAvailable below this fraction → reclaim + hold new scans
-	memGovHardAvail  = 0.09 // below this → abort running scans before the OOM-killer
+	// 0.12 (was 0.09): abort with more headroom below the kernel OOM point. On a
+	// 32 GB box 0.09 leaves only ~2.9 GB when we start aborting — a fast sweep can
+	// cross that to zero within a tick or two. 0.12 (~3.8 GB) buys the abort +
+	// FreeOSMemory time to actually release before the kernel steps in.
+	memGovHardAvail  = 0.12 // below this → abort running scans before the OOM-killer
 	memGovClearAvail = 0.28 // recover above this to clear the pressure state (hysteresis)
 )
 
@@ -61,10 +71,23 @@ func (h *Handler) StartMemoryGovernor() {
 			switch {
 			case avail < memGovHardAvail:
 				// Critical — abort running scans before the kernel does it for us.
-				reason := fmt.Sprintf("Scan aborted — the server was almost out of memory (%d%% RAM free; scanner using %d MB). Narrow the scope: scan fewer hosts or a smaller port range at once.",
-					pct, m.RSSBytes>>20)
+				// Attach a self-diagnosing breakdown so a repeat failure tells us
+				// WHAT ballooned without needing a profiler or logs on the box:
+				//   - high Go-heap MB  → in-process buffers/results (GOMEMLIMIT's job)
+				//   - RSS ≫ heap       → off-heap: goroutine stacks, cgo/DNS OS threads,
+				//                         socket buffers — which GOMEMLIMIT can't bound
+				//   - huge goroutine/thread counts → a concurrency/leak problem
+				// runFullMode's terminal "done" progress is guarded by !opts.Done(),
+				// so this reason survives in progress_msg instead of being overwritten.
+				var ms runtime.MemStats
+				runtime.ReadMemStats(&ms)
+				ngo := runtime.NumGoroutine()
+				nthr := pprof.Lookup("threadcreate").Count()
+				reason := fmt.Sprintf("Scan aborted — the server was almost out of memory (%d%% RAM free; RSS %d MB, Go heap %d MB, %d goroutines, %d OS threads). Narrow the scope: fewer hosts, a smaller port range, or a lower \"Max concurrent\". [If RSS ≫ Go heap the growth is off-heap: sockets / DNS threads / goroutine stacks.]",
+					pct, m.RSSBytes>>20, ms.HeapInuse>>20, ngo, nthr)
 				if ids := h.scanMgr.CancelAll(reason); len(ids) > 0 {
-					log.Printf("⚠ MEMORY CRITICAL: %d%% RAM free — aborted %d scan(s) before OOM", pct, len(ids))
+					log.Printf("⚠ MEMORY CRITICAL: %d%% free — aborted %d scan(s); RSS %dMB heap %dMB goroutines %d threads %d",
+						pct, len(ids), m.RSSBytes>>20, ms.HeapInuse>>20, ngo, nthr)
 					for _, id := range ids {
 						h.db.MarkScanError(id, reason)
 					}

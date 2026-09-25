@@ -321,11 +321,19 @@ func main() {
 	// CPU-bound modules (techdetect/whatweb) are sized to it.
 	capacity.SetCPUBudget(float64(db.GetSettings().EffectiveMaxCPUPercent()) / 100)
 	// Soft-cap the Go heap so the GC works to return memory to the OS instead of
-	// letting a wide scan's result set balloon unchecked toward the OOM point.
-	// Set to ~80% of physical RAM (headroom for subprocess/off-heap use); the
-	// memory governor below is the machine-wide backstop for what this can't see.
+	// letting a wide scan's allocation churn balloon unchecked toward the OOM point.
+	// Set to ~65% of physical RAM. This MUST sit below the memory governor's SOFT
+	// line (StartMemoryGovernor: reclaim at <18% free ⇒ >82% used) with margin:
+	// GOMEMLIMIT only forces the GC to work harder as the heap APPROACHES it, so if
+	// it were at ~80% the runtime would happily let a high-churn sweep (e.g. an
+	// all-port directHTTP scan firing 100M+ short-lived request buffers) grow the
+	// heap right into the governor's abort zone before GC caught up — which is
+	// exactly how a 0-live sweep got aborted for "low memory". At 65% the GC keeps
+	// the resident set well under the governor thresholds, so churn self-corrects
+	// via collection instead of tripping an abort; the governor stays the true
+	// last-resort backstop for off-heap/subprocess growth GOMEMLIMIT can't see.
 	if mt := sysmon.ReadMemory().TotalBytes; mt > 0 {
-		debug.SetMemoryLimit(int64(float64(mt) * 0.80))
+		debug.SetMemoryLimit(int64(float64(mt) * 0.65))
 	}
 
 	// Live performance monitor: samples OS resource pressure (ephemeral ports,

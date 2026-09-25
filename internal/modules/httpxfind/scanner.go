@@ -704,7 +704,13 @@ func runFullMode(result *ScanResult, mu *sync.Mutex, targets []string, directHTT
 	close(rlDone)
 
 	if directHTTP {
-		if progress != nil {
+		// Only stamp "done" if we finished on our own. If opts.Done() is set the
+		// run was cancelled out-of-band (memory governor / killswitch / user Stop)
+		// and that path already wrote the real terminal reason into progress_msg
+		// (e.g. "Scan aborted — the server was almost out of memory"). Overwriting
+		// it with "sweep done" here is what hid the true cause behind a bare
+		// "Scan failed".
+		if progress != nil && !opts.Done() {
 			progress(discTotal, fmt.Sprintf("Direct HTTP sweep done — %d live service(s)", atomic.LoadInt32(&found)))
 		}
 		return result
@@ -713,7 +719,7 @@ func runFullMode(result *ScanResult, mu *sync.Mutex, targets []string, directHTT
 	// ---- Phase 2 (connect mode): HTTP-probe the discovered open ports. ----
 	p := len(open)
 	if p == 0 {
-		if progress != nil {
+		if progress != nil && !opts.Done() {
 			progress(discTotal+reserve, "Port sweep done — 0 open ports")
 		}
 		return result
@@ -781,7 +787,7 @@ func runFullMode(result *ScanResult, mu *sync.Mutex, targets []string, directHTT
 	}
 	pwg.Wait()
 	close(p2Done)
-	if progress != nil {
+	if progress != nil && !opts.Done() {
 		progress(discTotal+reserve, fmt.Sprintf("Full scan done — %d live HTTP service(s)", len(result.Services)))
 	}
 	return result
@@ -837,11 +843,18 @@ func etaSuffix(start time.Time, done, total int) string {
 // consumed two slots of the per-scan ErrorThreshold and tripped the abort
 // logic twice as fast as intended (with the default threshold of 3, two
 // dead ports could abort the entire scan).
+// Scheme probe orders, hoisted to package scope so probeHTTP doesn't allocate a
+// fresh 2-string slice on every one of a wide sweep's 100M+ calls. Read-only.
+var (
+	schemesHTTPSFirst = []string{"https", "http"}
+	schemesHTTPFirst  = []string{"http", "https"}
+)
+
 func probeHTTP(host string, port int, client *http.Client, opts *shared.HTTPOptions) *ServiceResult {
 	// Try HTTPS first for 443-like ports, HTTP first for 80-like ports
-	schemes := []string{"https", "http"}
+	schemes := schemesHTTPSFirst
 	if port == 80 || port == 8080 {
-		schemes = []string{"http", "https"}
+		schemes = schemesHTTPFirst
 	}
 
 	var firstErr error
@@ -880,14 +893,22 @@ func tryScheme(host string, port int, scheme string, client *http.Client, opts *
 	}
 	req = opts.BindContext(req)
 
-	rawReq := shared.CaptureRequest(req)
-
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
+	// Capture the raw request/response ONLY now that the port answered — i.e.
+	// for a service we're actually going to keep. tryScheme runs once per
+	// (host,port,scheme); a wide Full/directHTTP sweep is 100M+ probes, virtually
+	// all dead. Dumping the request (httputil.DumpRequest + secret-redaction
+	// regex + truncate) BEFORE client.Do meant a full request serialization per
+	// DEAD port, every byte of it discarded on the error return above — the
+	// dominant allocation churn that drove a 0-live sweep's RSS up into the
+	// memory governor's abort threshold. A GET carries no body, so capturing
+	// after Do produces the same dump.
+	rawReq := shared.CaptureRequest(req)
 	rawResp := shared.CaptureResponse(resp)
 
 	// Read body (limited) — CaptureResponse already buffered + restored.

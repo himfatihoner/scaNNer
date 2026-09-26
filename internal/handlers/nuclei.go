@@ -75,6 +75,9 @@ type nucleiConfig struct {
 	UpdateTemplates    bool     `json:"update_templates"`
 	DAST               bool     `json:"dast,omitempty"`
 	AutomaticScan      bool     `json:"automatic_scan,omitempty"`
+	// ParallelHosts (opt-in checkbox): scan hosts in parallel (N at a time) with
+	// the network budget divided across the workers. Persisted so Restart replays it.
+	ParallelHosts bool `json:"parallel_hosts,omitempty"`
 	// HTTP auth knobs — wired from the run form + global Settings via
 	// BuildHTTPOptions. Persisted on the scan row so Restart replays
 	// the same auth setup.
@@ -135,6 +138,7 @@ func parseNucleiForm(r *http.Request) nucleiConfig {
 	cfg.UpdateTemplates = r.FormValue("update_templates") == "on"
 	cfg.DAST = r.FormValue("dast") == "on"
 	cfg.AutomaticScan = r.FormValue("automatic_scan") == "on"
+	cfg.ParallelHosts = r.FormValue("parallel_hosts") == "on"
 	cfg.FollowRedirects = r.FormValue("follow_redirects") == "on"
 	cfg.SNIHost = strings.TrimSpace(r.FormValue("sni_host"))
 	// Audit Q8 fix: allow per-scan rate limit + concurrency override.
@@ -370,6 +374,7 @@ func buildNucleiScanConfig(cfg nucleiConfig, settings models.AppSettings, opts *
 		UpdateTemplates:  cfg.UpdateTemplates,
 		DAST:             cfg.DAST,
 		AutomaticScan:    cfg.AutomaticScan,
+		ParallelHosts:    cfg.ParallelHosts,
 		FollowRedirects:  cfg.FollowRedirects,
 		SNIHost:          cfg.SNIHost,
 		Opts:             opts,

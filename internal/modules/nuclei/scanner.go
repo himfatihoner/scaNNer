@@ -110,6 +110,17 @@ const (
 	defaultNucleiPerBatchCap = 45 * time.Minute // safety cap for a SINGLE stuck chunk (skips just that chunk)
 )
 
+// parallelHostWorkers is how many hosts the opt-in parallel-host mode scans at
+// once (one nuclei process each). The configured network budget (rate-limit /
+// concurrency / bulk-size) is split across the ACTIVE workers so the aggregate
+// footprint matches a single normal scan — e.g. a 150 req/s budget over 50
+// workers is ~3 req/s each, 50×3 = 150 total. Fixed at 50 per the design; the
+// division is by the real worker count (min(50, hosts)) so the budget is
+// preserved even with fewer hosts. NB: 50 concurrent nuclei processes each load
+// the template set independently, so this trades CPU/RAM for wall-clock — the
+// memory governor remains the backstop.
+const parallelHostWorkers = 50
+
 type ProgressFunc func(done int, msg string)
 type PartialFunc func(*ScanResult)
 
@@ -127,6 +138,13 @@ type ScanConfig struct {
 	UpdateTemplates  bool     // run `nuclei -ut` once before scanning
 	DAST             bool     // -dast — enables the fuzz/DAST template set
 	AutomaticScan    bool     // -as — auto-select templates from wappalyzer stack detection
+	// ParallelHosts (opt-in) switches from the default sequential-batch sweep to
+	// a worker pool that scans up to parallelHostWorkers hosts CONCURRENTLY, each
+	// its own nuclei process. To keep total network load at the SAME level the
+	// operator configured for a single scan, the rate-limit / concurrency /
+	// bulk-size budget is DIVIDED across the active workers (see scanParallelHosts).
+	// Off = the exact original behaviour.
+	ParallelHosts bool
 	// Opts carries the scan's HTTPOptions (killswitch binding + reachability
 	// preflight settings). nuclei shells out and doesn't use opts for its own
 	// requests, but the reachability preflight needs a dialer; nil is safe
@@ -207,6 +225,13 @@ func Scan(ctx context.Context, urls []string, cfg ScanConfig, progress ProgressF
 	}
 	if len(urls) == 0 {
 		return &ScanResult{Results: deadRows}
+	}
+
+	// Opt-in parallel-host mode: scan hosts concurrently with a divided budget.
+	// Everything below (the sequential-batch path) is untouched and is what runs
+	// when the checkbox is off — the original behaviour is fully preserved.
+	if cfg.ParallelHosts {
+		return scanParallelHosts(ctx, urls, cfg, progress, partial, deadRows)
 	}
 
 	batchSize := cfg.BatchSize
@@ -327,6 +352,197 @@ func Scan(ctx context.Context, urls []string, cfg ScanConfig, progress ProgressF
 	}
 	merged.Results = append(deadRows, merged.Results...)
 	return merged
+}
+
+// scanParallelHosts runs the opt-in parallel-host sweep: a fixed pool of
+// parallelHostWorkers (capped at the host count) processes the URL list, one
+// host per nuclei process, so up to N hosts scan at once instead of the default
+// sequential batches. The configured network budget is DIVIDED across the
+// active workers (rate/conc/bulk ÷ workers, floored at 1) so the aggregate
+// throughput equals a single normal scan — the operator's chosen "network usage
+// level" is spread over the parallel hosts, not multiplied by them.
+//
+// deadRows (unreachable targets from Scan's preflight) are carried through and
+// prepended to the final result exactly as the sequential path does. Live
+// partials stream the finished hosts + every worker's in-flight host so the UI
+// updates continuously.
+func scanParallelHosts(ctx context.Context, urls []string, cfg ScanConfig, progress ProgressFunc, partial PartialFunc, deadRows []TargetResult) *ScanResult {
+	total := len(urls)
+	workers := parallelHostWorkers
+	if workers > total {
+		workers = total
+	}
+	if workers < 1 {
+		workers = 1
+	}
+
+	// Resolve nuclei's own defaults first (a 0 means "nuclei default"), THEN
+	// divide by the worker count so the split is against a real number rather
+	// than leaving each worker at the full default (which would multiply load
+	// by the worker count — the opposite of the intent).
+	totalRate, totalConc, totalBulk := cfg.RateLimit, cfg.Concurrency, cfg.BulkSize
+	if totalRate <= 0 {
+		totalRate = 150 // nuclei -rl default
+	}
+	if totalConc <= 0 {
+		totalConc = 25 // nuclei -c default
+	}
+	if totalBulk <= 0 {
+		totalBulk = 25 // nuclei -bulk-size default
+	}
+	div := func(v int) int {
+		if v/workers < 1 {
+			return 1
+		}
+		return v / workers
+	}
+	base := cfg
+	base.ParallelHosts = false     // workers run the ordinary single-chunk path
+	base.UpdateTemplates = false   // done once below, not per worker
+	base.RateLimit = div(totalRate)
+	base.Concurrency = div(totalConc)
+	base.BulkSize = div(totalBulk)
+	// Each worker scans a single host, so a low per-host per-chunk cap is fine;
+	// keep the module default (a stuck host is skipped, the pool continues).
+	base.MaxDuration = defaultNucleiPerBatchCap
+
+	// Update templates ONCE up front — 50 concurrent `-update-templates` would
+	// hammer disk and race the shared template dir.
+	if cfg.UpdateTemplates && ctx.Err() == nil {
+		if progress != nil {
+			progress(0, "Updating Nuclei templates...")
+		}
+		if err := shared.Command(ctx, "nuclei", "-update-templates", "-silent").Run(); err != nil && ctx.Err() == nil && progress != nil {
+			progress(0, "Nuclei template update failed (continuing with cached templates): "+err.Error())
+		}
+	}
+
+	merged := &ScanResult{}
+	inflight := make([]*ScanResult, workers)
+	var mu sync.Mutex
+	var completed, findings int
+	throttle := shared.NewPartialThrottler(2 * time.Second)
+	var crumbOnce sync.Once
+
+	// snapshot builds the full live view: preflight dead rows + finished hosts +
+	// each worker's currently-scanning host. Caller must hold mu.
+	snapshot := func() *ScanResult {
+		s := &ScanResult{Truncated: merged.Truncated, TruncateReason: merged.TruncateReason}
+		s.Results = append(s.Results, deadRows...)
+		s.Results = append(s.Results, merged.Results...)
+		for _, in := range inflight {
+			if in != nil {
+				s.Results = append(s.Results, in.Results...)
+			}
+		}
+		return s
+	}
+
+	if progress != nil {
+		progress(0, fmt.Sprintf("nuclei · parallel host mode — up to %d hosts at once, budget split ÷%d (-rl %d -c %d -bulk-size %d each)",
+			workers, workers, base.RateLimit, base.Concurrency, base.BulkSize))
+	}
+
+	urlCh := make(chan string)
+	var wg sync.WaitGroup
+	for wi := 0; wi < workers; wi++ {
+		wg.Add(1)
+		go func(wi int) {
+			defer wg.Done()
+			for u := range urlCh {
+				if ctx.Err() != nil {
+					return
+				}
+				// Per-worker partial: publish this host's in-flight snapshot, then
+				// stream a throttled global view.
+				wp := func(chunkSnap *ScanResult) {
+					mu.Lock()
+					inflight[wi] = chunkSnap
+					var snap *ScanResult
+					if partial != nil && throttle.ShouldFire() {
+						snap = snapshot()
+					}
+					mu.Unlock()
+					if snap != nil {
+						partial(snap)
+					}
+				}
+				// Per-worker progress: only let the command crumb through (once),
+				// and drop the per-host fine-grained bar (the global bar is driven
+				// off completed-host count below).
+				wprog := func(_ int, msg string) {
+					if progress == nil {
+						return
+					}
+					if strings.HasPrefix(msg, "$ ") {
+						crumbOnce.Do(func() { progress(0, msg) })
+					}
+				}
+
+				cr := scanChunk(ctx, []string{u}, base, wprog, wp, 0, 1)
+
+				crFindings := 0
+				for _, tr := range cr.Results {
+					crFindings += len(tr.Findings)
+				}
+				mu.Lock()
+				merged.Results = append(merged.Results, cr.Results...)
+				if cr.Truncated {
+					merged.Truncated = true
+					if cr.TruncateReason != "" && merged.TruncateReason == "" {
+						merged.TruncateReason = cr.TruncateReason
+					}
+				}
+				inflight[wi] = nil
+				completed++
+				findings += crFindings
+				doneN, findN := completed, findings
+				mu.Unlock()
+
+				if progress != nil {
+					progress(doneN, fmt.Sprintf("nuclei · parallel · %d/%d host(s) done · %d finding(s)", doneN, total, findN))
+				}
+			}
+		}(wi)
+	}
+
+	// Feed the pool; stop early if the scan is cancelled.
+	go func() {
+		defer close(urlCh)
+		for _, u := range urls {
+			if ctx.Err() != nil {
+				return
+			}
+			urlCh <- u
+		}
+	}()
+	wg.Wait()
+
+	// Final flush.
+	if partial != nil {
+		mu.Lock()
+		snap := snapshot()
+		mu.Unlock()
+		partial(snap)
+	}
+
+	// Assemble the final result: dead rows first (mirrors the sequential path).
+	out := &ScanResult{Truncated: merged.Truncated, TruncateReason: merged.TruncateReason}
+	out.Results = append(out.Results, deadRows...)
+	out.Results = append(out.Results, merged.Results...)
+	if out.Truncated && out.TruncateReason == "" {
+		out.TruncateReason = fmt.Sprintf(
+			"nuclei parallel-host scan: one or more hosts hit the %s per-host time cap and are INCOMPLETE; the rest finished. %d finding(s) across %d host(s).",
+			defaultNucleiPerBatchCap.Round(time.Minute), countFindings(out), total)
+	}
+	if progress != nil {
+		if out.Truncated {
+			progress(total, fmt.Sprintf("⚠ nuclei · parallel · %d/%d host(s) fully scanned · %d finding(s)", completed, total, countFindings(out)))
+		} else {
+			progress(total, fmt.Sprintf("nuclei · parallel · done · %d finding(s) across %d host(s) (%d at a time)", countFindings(out), total, workers))
+		}
+	}
+	return out
 }
 
 // countFindings totals findings across all result rows.

@@ -749,6 +749,8 @@
   "Fixed length": "Sabit uzunluk",
   "Follow links across the whole registered domain (last two dotted labels of the seed host), not just the exact seed host.": "Yalnızca tam tohum ana bilgisayarı değil, tüm kayıtlı alan adı boyunca bağlantıları takip et (tohum ana bilgisayarının son iki noktalı etiketi).",
   "Follow redirects": "Yönlendirmeleri takip et",
+  "Parallel host scanning": "Paralel host taraması",
+  "Scan up to 50 hosts at once instead of one batch at a time. The rate limit & concurrency above are split across the parallel hosts, so total network load stays the same — it just finishes many-host scans faster. Costs more CPU/RAM (one nuclei process per parallel host).": "Tek seferde bir grup yerine aynı anda 50 host'a kadar tara. Yukarıdaki hız limiti ve eşzamanlılık paralel host'lara bölünür, böylece toplam ağ yükü aynı kalır — sadece çok host'lu taramaları daha hızlı bitirir. Daha fazla CPU/RAM kullanır (paralel host başına bir nuclei süreci).",
   "Follow-up for": "Takip:",
   "For 200 OK responses, read up to 64 KiB of the body and scan for meta-refresh (<meta http-equiv=refresh>) and client-side JS location redirects (window.location / document.location) that point at the evil host": "200 OK yanıtlarında gövdenin en fazla 64 KiB'ını oku ve evil host'a işaret eden meta-refresh (<meta http-equiv=refresh>) ve istemci tarafı JS location yönlendirmelerini (window.location / document.location) tara",
   "For broader coverage, the planned successor will pull from NVD's JSON feed (~250k CVEs) — present implementation favors precision over recall": "Daha geniş kapsam için, planlanan halef sürüm NVD'nin JSON feed'inden (~250 bin CVE) veri çekecek — mevcut uygulama recall yerine kesinliği (precision) tercih eder",

@@ -130,7 +130,9 @@ func buildWPScanHTTPParams(r *http.Request, opts *shared.HTTPOptions) wpscan.HTT
 	hp := wpscan.HTTPParams{}
 	if opts != nil {
 		hp.Proxy = opts.ProxyURL
-		hp.UserAgent = opts.UserAgent
+		// PickUserAgent so rotate mode picks a pool UA for this run; wpscan then
+		// uses --user-agent instead of --random-user-agent.
+		hp.UserAgent = opts.PickUserAgent()
 		// Headers map → "Name: Value" entries; one --headers flag each.
 		for name, value := range opts.Headers {
 			name = strings.TrimSpace(name)

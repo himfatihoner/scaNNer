@@ -162,6 +162,44 @@ func RunNmap(ctx context.Context, args []string) (*NmapXML, []byte, error) {
 	return RunNmapProgress(ctx, args, nil)
 }
 
+// injectNmapUserAgent sets the http.useragent NSE script-arg to the process-wide
+// configured User-Agent (SetGlobalUserAgent) so nmap's http scripts don't leak
+// the default "Mozilla/5.0 (compatible; Nmap Scripting Engine; ...)" fingerprint.
+// It only acts when NSE scripts are actually selected (-sC / -A / --script), and
+// merges into an existing --script-args rather than adding a second one. The
+// value is double-quoted so commas inside a UA (e.g. "(KHTML, like Gecko)")
+// don't split the comma-separated script-args list. No-op when no UA is set.
+func injectNmapUserAgent(args []string) []string {
+	ua := GlobalUserAgent()
+	if ua == "" {
+		return args
+	}
+	hasScript := false
+	for _, a := range args {
+		if a == "-sC" || a == "-A" || a == "--script" || strings.HasPrefix(a, "--script=") {
+			hasScript = true
+			break
+		}
+	}
+	if !hasScript {
+		return args
+	}
+	esc := strings.ReplaceAll(ua, `\`, `\\`)
+	esc = strings.ReplaceAll(esc, `"`, `\"`)
+	kv := `http.useragent="` + esc + `"`
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--script-args" && i+1 < len(args) {
+			args[i+1] = args[i+1] + "," + kv
+			return args
+		}
+		if strings.HasPrefix(args[i], "--script-args=") {
+			args[i] = args[i] + "," + kv
+			return args
+		}
+	}
+	return append(args, "--script-args", kv)
+}
+
 // RunNmapProgress is RunNmap with a live-progress callback. When onProgress is
 // non-nil it adds `--stats-every 2s` and streams nmap's stderr, invoking
 // onProgress(pct, line) on every "About X% done" timing line — so a long
@@ -175,6 +213,7 @@ func RunNmapProgress(ctx context.Context, args []string, onProgress func(pct flo
 	if onProgress != nil {
 		full = append([]string{"-oX", "-", "--stats-every", "2s"}, args...)
 	}
+	full = injectNmapUserAgent(full)
 	cmd := Command(ctx, "nmap", full...)
 
 	stdoutPipe, err := cmd.StdoutPipe()

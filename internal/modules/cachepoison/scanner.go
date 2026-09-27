@@ -451,7 +451,7 @@ func buildCLTE(path, host string) string {
 		// block waiting for bytes that never come.
 		fmt.Sprintf("Content-Length: %d", len(body)),
 		"Transfer-Encoding: chunked",
-		"User-Agent: scaNNer/Smuggle",
+		"User-Agent: " + shared.EffectiveGlobalUserAgent(),
 		"", "",
 	}, "\r\n")
 	return headers + body
@@ -471,7 +471,7 @@ func buildTECL(path, host string) string {
 		"Content-Type: text/plain",
 		"Content-Length: 4", // small value to fool back-end
 		"Transfer-Encoding: chunked",
-		"User-Agent: scaNNer/Smuggle",
+		"User-Agent: " + shared.EffectiveGlobalUserAgent(),
 		"", "",
 	}, "\r\n")
 	return headers + bodyTrue
@@ -487,7 +487,7 @@ func buildTETE(path, host string) string {
 		fmt.Sprintf("Content-Length: %d", len(body)),
 		"Transfer-Encoding: chunked",
 		"Transfer-encoding: x", // obfuscation: extra header, mixed case
-		"User-Agent: scaNNer/Smuggle",
+		"User-Agent: " + shared.EffectiveGlobalUserAgent(),
 		"", "",
 	}, "\r\n")
 	return headers + body

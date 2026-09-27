@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -20,6 +21,12 @@ type HTTPOptions struct {
 	Cookies         map[string]string `json:"cookies,omitempty"`
 	ProxyURL        string            `json:"proxy_url,omitempty"`
 	UserAgent       string            `json:"user_agent,omitempty"`
+	// UserAgents is the configured UA pool; RotateUA true = PickUserAgent returns
+	// a random pool entry on each call (per-request rotation for in-process
+	// modules), false = always UserAgent (or the first pool entry). Both are set
+	// by handlers.BuildHTTPOptions from Settings.
+	UserAgents      []string          `json:"user_agents,omitempty"`
+	RotateUA        bool              `json:"rotate_ua,omitempty"`
 	BurpSuccessOnly bool              `json:"burp_success_only,omitempty"` // when true, probe traffic skips the proxy — confirmed hits are replayed via ReplayHit
 	Timeout         time.Duration     `json:"-"`
 	Ctx             context.Context   `json:"-"` // cancellation context for all requests
@@ -190,13 +197,33 @@ func (o *HTTPOptions) BindContext(req *http.Request) *http.Request {
 	return req.WithContext(o.Ctx)
 }
 
+// PickUserAgent returns the User-Agent to present for a single request or tool
+// invocation. Rotate mode → a random entry from the configured pool (so each
+// in-process request can differ); otherwise the fixed UserAgent, falling back to
+// the first pool entry. nil/empty-safe.
+func (o *HTTPOptions) PickUserAgent() string {
+	if o == nil {
+		return ""
+	}
+	if o.RotateUA && len(o.UserAgents) > 0 {
+		return o.UserAgents[rand.Intn(len(o.UserAgents))]
+	}
+	if o.UserAgent != "" {
+		return o.UserAgent
+	}
+	if len(o.UserAgents) > 0 {
+		return o.UserAgents[0]
+	}
+	return ""
+}
+
 // ApplyTo injects custom headers, cookies, and user-agent into an http.Request
 func (o *HTTPOptions) ApplyTo(req *http.Request) {
 	if o == nil {
 		return
 	}
-	if o.UserAgent != "" {
-		req.Header.Set("User-Agent", o.UserAgent)
+	if ua := o.PickUserAgent(); ua != "" {
+		req.Header.Set("User-Agent", ua)
 	}
 	for k, v := range o.Headers {
 		if k != "" && v != "" {
@@ -404,6 +431,42 @@ func SetGlobalLocalAddr(addr *net.TCPAddr) {
 // Exposed for the runtime iface monitor's killswitch check.
 func GlobalLocalAddr() *net.TCPAddr {
 	return globalLocalAddr.Load()
+}
+
+// globalUserAgent mirrors globalLocalAddr for the User-Agent: a process-wide
+// value the handler sets on each scan launch (a concrete UA already picked from
+// the configured pool) so paths that don't thread opts through still present it
+// instead of a tool fingerprint. Its main consumer is shared.RunNmap, which
+// injects it as the http.useragent NSE script-arg (nmap otherwise leaks
+// "Mozilla/5.0 (compatible; Nmap Scripting Engine; ...)").
+var globalUserAgent atomic.Pointer[string]
+
+// SetGlobalUserAgent installs the process-wide User-Agent fallback. Called by
+// handlers.BuildHTTPOptions each scan launch. Empty clears it.
+func SetGlobalUserAgent(ua string) {
+	if ua == "" {
+		globalUserAgent.Store(nil)
+		return
+	}
+	globalUserAgent.Store(&ua)
+}
+
+// GlobalUserAgent returns the current process-wide User-Agent (or "").
+func GlobalUserAgent() string {
+	if p := globalUserAgent.Load(); p != nil {
+		return *p
+	}
+	return ""
+}
+
+// EffectiveGlobalUserAgent returns the process-wide configured User-Agent, or a
+// real browser fallback when none is set. For opts-less code paths (raw request
+// builders, the banner probe) that must not emit a scaNNer fingerprint.
+func EffectiveGlobalUserAgent() string {
+	if ua := GlobalUserAgent(); ua != "" {
+		return ua
+	}
+	return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 }
 
 // BoundDialer builds a net.Dialer whose source IP is pinned to the

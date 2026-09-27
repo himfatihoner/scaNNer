@@ -383,7 +383,9 @@ func buildNucleiScanConfig(cfg nucleiConfig, settings models.AppSettings, opts *
 		scanCfg.CustomHeaders = opts.Headers
 		scanCfg.Cookies = opts.Cookies
 		scanCfg.ProxyURL = opts.ProxyURL
-		scanCfg.UserAgent = opts.UserAgent
+		// PickUserAgent so rotate mode selects a pool UA for this run (nuclei
+		// takes one -H User-Agent per invocation); fixed mode returns the set UA.
+		scanCfg.UserAgent = opts.PickUserAgent()
 	}
 	return scanCfg
 }

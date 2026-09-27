@@ -42,6 +42,14 @@ type AppSettings struct {
 	UseProxy        bool   `db:"use_proxy"             json:"use_proxy"`
 	BurpSuccessOnly bool   `db:"burp_success_only"     json:"burp_success_only"` // route only confirmed hits to proxy
 	UserAgent       string `db:"user_agent"            json:"user_agent"`
+	// UserAgents is the pool of real, valid browser user-agents scans present to
+	// targets — replacing the single scaNNer/1.0 fingerprint. Stored as a JSON
+	// list in the settings KV (no column), so db:"-".
+	UserAgents []string `db:"-" json:"user_agents"`
+	// UAMode decides how a UA is chosen from the pool: "rotate" (a random pool
+	// entry per request / tool invocation — the default) or "fixed" (always the
+	// first pool entry / UserAgent). Empty is treated as "rotate".
+	UAMode string `db:"-" json:"ua_mode"`
 
 	// Data
 	DefaultExportFmt string `db:"default_export_fmt" json:"default_export_fmt"` // csv, json, pdf
@@ -245,7 +253,9 @@ func DefaultSettings() AppSettings {
 		MaxCPUPercent:        75,
 		ProxyURL:             "",
 		UseProxy:             false,
-		UserAgent:            "scaNNer/1.0",
+		UserAgent:            DefaultUserAgents[0],
+		UserAgents:           append([]string(nil), DefaultUserAgents...),
+		UAMode:               "rotate",
 		DefaultExportFmt:     "csv",
 		VPNAutoReconnect:         true,        // watchdog on by default
 		KillswitchScope:          "scan_only", // safe default: management stays on the normal route
@@ -263,4 +273,39 @@ func (s AppSettings) EffectiveWebPreflightTimeout() int {
 		return s.WebPreflightTimeout
 	}
 	return 4
+}
+
+// DefaultUserAgents is the seeded pool of real, valid, current-ish browser
+// user-agents. It replaces the old single "scaNNer/1.0" fingerprint so scans
+// look like ordinary browser traffic by default. The operator can edit this
+// list (add/remove) in Settings; these are only the seed values.
+var DefaultUserAgents = []string{
+	// Chrome — Windows / macOS / Linux
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+	// Firefox — Windows / macOS / Linux
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0",
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0",
+	"Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0",
+	// Safari — macOS
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15",
+	// Edge — Windows
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0",
+	// Mobile — Android Chrome / iOS Safari
+	"Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
+	"Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1",
+	// A couple of one-version-back desktops for extra spread
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:132.0) Gecko/20100101 Firefox/132.0",
+}
+
+// EffectiveUserAgents returns the configured UA pool, falling back to the seeded
+// defaults when the operator has cleared the list. Never returns empty unless
+// DefaultUserAgents itself is empty.
+func (s AppSettings) EffectiveUserAgents() []string {
+	if len(s.UserAgents) > 0 {
+		return s.UserAgents
+	}
+	return DefaultUserAgents
 }

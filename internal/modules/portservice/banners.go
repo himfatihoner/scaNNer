@@ -189,6 +189,15 @@ func isHTTPPort(p *Port) bool {
 
 var titleRe = regexp.MustCompile(`(?is)<title[^>]*>(.*?)</title>`)
 
+// bannerUA is the User-Agent the banner-enrichment HTTP probe presents. It uses
+// the scan's configured UA (published process-wide by BuildHTTPOptions via
+// shared.SetGlobalUserAgent) so this stage no longer leaks the old fixed
+// "scaNNer/1.0 (Advanced Host Scanner)" fingerprint; it falls back to a real
+// browser string when no scan UA is set (e.g. a direct call outside a scan).
+func bannerUA() string {
+	return shared.EffectiveGlobalUserAgent()
+}
+
 func grabHTTP(ctx context.Context, client *http.Client, ip string, p *Port, log func(string)) {
 	scheme := "http"
 	if strings.ToLower(p.Tunnel) == "ssl" || strings.Contains(strings.ToLower(p.Service), "https") {
@@ -205,7 +214,7 @@ func grabHTTP(ctx context.Context, client *http.Client, ip string, p *Port, log 
 		p.HTTPResp = resp
 		return
 	}
-	req.Header.Set("User-Agent", "scaNNer/1.0 (Advanced Host Scanner)")
+	req.Header.Set("User-Agent", bannerUA())
 	r, err := client.Do(req)
 	if err != nil {
 		// On HTTPS failure, retry over HTTP — services that say "http" but
@@ -213,7 +222,7 @@ func grabHTTP(ctx context.Context, client *http.Client, ip string, p *Port, log 
 		if scheme == "https" {
 			rawURL = strings.Replace(rawURL, "https://", "http://", 1)
 			req2, _ := http.NewRequestWithContext(rctx, http.MethodGet, rawURL, nil)
-			req2.Header.Set("User-Agent", "scaNNer/1.0 (Advanced Host Scanner)")
+			req2.Header.Set("User-Agent", bannerUA())
 			r, err = client.Do(req2)
 			resp.URL = rawURL
 		}

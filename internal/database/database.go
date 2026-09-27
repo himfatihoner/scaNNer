@@ -2443,8 +2443,30 @@ func (d *DB) GetSettings() models.AppSettings {
 	s.ProxyURL = d.GetSetting("proxy_url")
 	s.UseProxy = d.GetSetting("use_proxy") == "1"
 	s.BurpSuccessOnly = d.GetSetting("burp_success_only") == "1"
-	if ua := d.GetSetting("user_agent"); ua != "" {
+	// Legacy single UA. Ignore the retired "scaNNer/1.0" default so an upgraded
+	// DB doesn't keep advertising the fingerprint; a custom legacy value is kept
+	// (and also migrated into the pool below).
+	if ua := d.GetSetting("user_agent"); ua != "" && ua != "scaNNer/1.0" {
 		s.UserAgent = ua
+	}
+	// User-agent pool + mode. Stored newline-joined (mirrors the Settings
+	// textarea). Empty pool KV = not yet written: keep the seeded defaults, and
+	// migrate a custom legacy single UA to the front of the pool.
+	if raw := d.GetSetting("user_agents"); raw != "" {
+		var list []string
+		for _, ln := range strings.Split(raw, "\n") {
+			if t := strings.TrimSpace(ln); t != "" {
+				list = append(list, t)
+			}
+		}
+		if len(list) > 0 {
+			s.UserAgents = list
+		}
+	} else if legacy := strings.TrimSpace(d.GetSetting("user_agent")); legacy != "" && legacy != "scaNNer/1.0" {
+		s.UserAgents = append([]string{legacy}, s.UserAgents...)
+	}
+	if m := strings.TrimSpace(d.GetSetting("ua_mode")); m != "" {
+		s.UAMode = m
 	}
 	if ef := d.GetSetting("default_export_fmt"); ef != "" {
 		s.DefaultExportFmt = ef
@@ -2521,6 +2543,8 @@ func (d *DB) SaveSettings(s models.AppSettings) {
 	}
 	d.SetSetting("burp_success_only", burpSuccessOnly)
 	d.SetSetting("user_agent", s.UserAgent)
+	d.SetSetting("user_agents", strings.Join(s.UserAgents, "\n"))
+	d.SetSetting("ua_mode", s.UAMode)
 	d.SetSetting("default_export_fmt", s.DefaultExportFmt)
 	d.SetSetting("wpscan_api_key", s.WPScanAPIKey)
 	d.SetSetting("hibp_api_key", s.HIBPAPIKey)

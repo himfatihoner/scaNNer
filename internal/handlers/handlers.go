@@ -1282,10 +1282,27 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 		burpSuccessOnly = false
 	}
 
-	userAgent := strings.TrimSpace(r.FormValue("user_agent"))
-	if userAgent == "" {
-		userAgent = "scaNNer/1.0"
+	// User-agent pool (textarea, one per line) — this IS the list + manual-add
+	// UI. Trim, drop blanks, dedupe preserving order. Empty falls back to the
+	// seeded real-browser defaults (never the retired scaNNer/1.0 fingerprint).
+	var userAgents []string
+	seenUA := map[string]bool{}
+	for _, line := range strings.Split(r.FormValue("user_agents"), "\n") {
+		ua := strings.TrimSpace(line)
+		if ua == "" || seenUA[ua] {
+			continue
+		}
+		seenUA[ua] = true
+		userAgents = append(userAgents, ua)
 	}
+	if len(userAgents) == 0 {
+		userAgents = append([]string(nil), models.DefaultUserAgents...)
+	}
+	uaMode := "rotate"
+	if r.FormValue("ua_mode") == "fixed" {
+		uaMode = "fixed"
+	}
+	userAgent := userAgents[0] // fixed-mode / tool-flag active UA = first entry
 
 	exportFmt := r.FormValue("default_export_fmt")
 
@@ -1355,6 +1372,8 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 		UseProxy:                 useProxy,
 		BurpSuccessOnly:          burpSuccessOnly,
 		UserAgent:                userAgent,
+		UserAgents:               userAgents,
+		UAMode:                   uaMode,
 		DefaultExportFmt:         exportFmt,
 		WPScanAPIKey:             strings.TrimSpace(r.FormValue("wpscan_api_key")),
 		HIBPAPIKey:               strings.TrimSpace(r.FormValue("hibp_api_key")),
@@ -1476,9 +1495,20 @@ func (h *Handler) BuildHTTPOptions(r *http.Request) *shared.HTTPOptions {
 	if opts == nil {
 		opts = &shared.HTTPOptions{}
 	}
-	if settings.UserAgent != "" && opts.UserAgent == "" {
+	// User-agent pool + selection mode from Settings (replaces the single
+	// scaNNer/1.0 fingerprint). A per-scan UA from the run form wins as a fixed
+	// override; otherwise the pool + UAMode drive selection (rotate = random per
+	// request/invocation, fixed = the first/selected UA).
+	opts.UserAgents = settings.EffectiveUserAgents()
+	if opts.UserAgent != "" {
+		opts.RotateUA = false // explicit per-scan UA: present exactly it
+	} else {
+		opts.RotateUA = settings.UAMode != "fixed"
 		opts.UserAgent = settings.UserAgent
 	}
+	// Publish a concrete picked UA process-wide for paths that don't thread opts
+	// through — most importantly nmap NSE (shared.RunNmap injects http.useragent).
+	shared.SetGlobalUserAgent(opts.PickUserAgent())
 	if settings.UseProxy && settings.ProxyURL != "" {
 		opts.ProxyURL = settings.ProxyURL
 		opts.BurpSuccessOnly = settings.BurpSuccessOnly

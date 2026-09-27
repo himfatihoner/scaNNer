@@ -221,11 +221,24 @@
                     </script>
                 </div>
 
-                <!-- User-Agent -->
+                <!-- User-Agents pool -->
                 <div>
-                    <label class="block text-xs text-dark-400 mb-1.5">{{T "Default User-Agent"}}</label>
-                    <input type="text" name="user_agent" value="{{.Settings.UserAgent}}"
-                           class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-accent-500">
+                    <label class="block text-xs text-dark-400 mb-1.5">{{T "User-Agents (one per line)"}}{{template "info_icon" (T "Real, valid browser user-agents that scans present to targets — this pool replaces the old scaNNer fingerprint. Add a line to add a UA, delete a line to remove it.")}}</label>
+                    <textarea name="user_agents" rows="6" placeholder="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+                              class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-y">{{range .Settings.UserAgents}}{{.}}
+{{end}}</textarea>
+                    <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-dark-300">
+                        <span class="text-dark-400">{{T "Selection"}}:</span>
+                        <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                            <input type="radio" name="ua_mode" value="rotate" {{if ne .Settings.UAMode "fixed"}}checked{{end}} class="border-dark-600 bg-dark-800 text-accent-500">
+                            {{T "Rotate (random per request)"}}
+                        </label>
+                        <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                            <input type="radio" name="ua_mode" value="fixed" {{if eq .Settings.UAMode "fixed"}}checked{{end}} class="border-dark-600 bg-dark-800 text-accent-500">
+                            {{T "Fixed (use the first line)"}}
+                        </label>
+                    </div>
+                    <p class="text-[11px] text-dark-500 mt-1.5">{{T "Rotate spreads requests across the whole list so no single fingerprint stands out; Fixed uses the first line everywhere. Applies to in-process web modules and the nuclei / whatweb / wpscan / nmap engines."}}</p>
                 </div>
             </div>
         </div>

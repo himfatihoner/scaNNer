@@ -260,7 +260,7 @@ func synthPrefetchedRequest(rawURL string) string {
 	var b strings.Builder
 	b.WriteString("GET " + path + " HTTP/1.1\r\n")
 	b.WriteString("Host: " + u.Host + "\r\n")
-	b.WriteString("User-Agent: Mozilla/5.0 (compatible; scaNNer/httpx)\r\n")
+	b.WriteString("User-Agent: " + shared.EffectiveGlobalUserAgent() + "\r\n")
 	b.WriteString("Accept: */*\r\n\r\n")
 	return b.String()
 }
@@ -1049,8 +1049,10 @@ func runWhatWeb(target string, opts *shared.HTTPOptions, aggressive bool, logf f
 	defer cancel()
 	args := []string{"--color=never", "--log-json=-", "-q", "-a", aLevel, "--no-errors"}
 	if opts != nil {
-		if opts.UserAgent != "" {
-			args = append(args, "--user-agent="+opts.UserAgent)
+		// PickUserAgent → rotate mode gives whatweb a random pool UA per run;
+		// fixed mode the selected UA. Non-empty since the pool is always seeded.
+		if ua := opts.PickUserAgent(); ua != "" {
+			args = append(args, "--user-agent="+ua)
 		}
 		// whatweb's --proxy takes host[:port]; --proxy-user takes user:pass.
 		// Strip the scheme and embedded creds out of opts.ProxyURL.

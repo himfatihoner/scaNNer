@@ -160,13 +160,27 @@ func (h *Handler) Vulnerabilities(w http.ResponseWriter, r *http.Request) {
 	deletedSet := h.db.DeletedVulnIDs(ws.ID)
 	statusMap := h.db.VulnStatusMap(ws.ID) // vuln_id -> "fixed"|"false_positive"
 	rescanningSet := h.db.RescanningVulnIDs(ws.ID)
+	recentResults := h.db.RecentRescanResults(ws.ID, 2*time.Minute)
 	vulns := make([]GlobalVuln, 0, len(allVulns))
 	var archivedVulns, fixedVulns, fpVulns []GlobalVuln
+	var rescanActive []GlobalVuln
+	var rescanResults []RescanResultRow
 	for _, v := range allVulns {
 		if deletedSet[v.ID] {
 			continue // permanently deleted — hidden from every tab
 		}
-		v.Rescanning = rescanningSet[v.ID] // spin the rescan icon while in flight
+		// In-flight rescan → pin to the top "scanning" strip and OUT of the main
+		// table, so it reads as in-progress rather than a stale active row.
+		if rescanningSet[v.ID] {
+			v.Rescanning = true
+			rescanActive = append(rescanActive, v)
+			continue
+		}
+		// Recently-completed rescan → surface its outcome transiently in the strip
+		// (on top of the finding's normal placement below).
+		if res, ok := recentResults[v.ID]; ok {
+			rescanResults = append(rescanResults, RescanResultRow{Vuln: v, Outcome: res.Outcome, Detail: res.Detail})
+		}
 		// Operator triage status takes precedence over the rescan-archive state.
 		switch statusMap[v.ID] {
 		case "fixed":
@@ -185,6 +199,8 @@ func (h *Handler) Vulnerabilities(w http.ResponseWriter, r *http.Request) {
 	}
 	tab := r.URL.Query().Get("tab")
 	data["ActiveTab"] = tab // "archive" | "fixed" | "false_positive" | "" (active)
+	data["RescanActive"] = rescanActive   // in-flight rescans → top "scanning" strip
+	data["RescanResults"] = rescanResults // just-completed rescans → transient result strip
 	data["Vulns"] = vulns
 	data["ArchivedVulns"] = archivedVulns
 	data["ArchivedCount"] = len(archivedVulns)
@@ -240,6 +256,15 @@ func (h *Handler) Vulnerabilities(w http.ResponseWriter, r *http.Request) {
 // pulling severity-bearing findings out with a generic JSON walk that works for
 // any module shape ({results:[{findings}]}, {matches}, top-level arrays, and
 // advancedweb's nested per-stage results) without a per-module extractor.
+
+// RescanResultRow pairs a finding with the outcome of its just-completed rescan,
+// for the transient result strip at the top of the vulnerabilities page.
+// Outcome is "present" (still detected) or "gone" (no longer detected → archived).
+type RescanResultRow struct {
+	Vuln    GlobalVuln
+	Outcome string
+	Detail  string
+}
 
 // GlobalVuln is one deduped vulnerability row for the /vulnerabilities page.
 // The base fields (Host/Severity/Title/Module/CVEs/Scan*) drive the table; the

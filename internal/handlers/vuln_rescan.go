@@ -396,9 +396,13 @@ func (h *Handler) reconcileRescan(scanID string) {
 	for _, id := range verifyIDs {
 		if found[id] {
 			h.db.SetVulnArchived(id, src.WorkspaceID, false, "") // still present → keep active
+			h.db.SetRescanResult(id, src.WorkspaceID, "present",
+				fmt.Sprintf("Rescan (scan %s) re-confirmed this finding", short))
 		} else {
 			h.db.SetVulnArchived(id, src.WorkspaceID, true,
 				fmt.Sprintf("Rescan no longer detected this finding (scan %s)", short))
+			h.db.SetRescanResult(id, src.WorkspaceID, "gone",
+				fmt.Sprintf("Rescan (scan %s) no longer detected this finding — moved to Archive", short))
 		}
 	}
 	h.db.ClearRescanVerify(scanID)

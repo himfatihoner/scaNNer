@@ -78,6 +78,29 @@
 </div>
 {{end}}
 
+<!-- Rescan strip: in-flight rescans (pinned "scanning") + just-completed results
+     (transient). Always present so the live poll can swap it; hidden when empty. -->
+<div id="rescanStrip" class="{{if or .RescanActive .RescanResults}}mb-4 space-y-1.5{{else}}hidden{{end}}">
+    {{range .RescanActive}}
+    <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[12px]">
+        <span class="inline-block animate-spin text-emerald-300">⟳</span>
+        <span class="text-emerald-200 font-medium">{{T "Rescanning"}}</span>
+        <span class="text-white truncate">{{.Title}}</span>
+        {{if .Host}}<a href="/assets/{{assetKey .Host}}" class="mono text-[11px] text-accent-400 hover:text-accent-300">{{.Host}}</a>{{end}}
+        <span class="ml-auto mono text-[10px] text-dark-500">{{.ID}}</span>
+    </div>
+    {{end}}
+    {{range .RescanResults}}
+    <div class="rescan-result-row flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] transition-opacity duration-700 {{if eq .Outcome "gone"}}bg-amber-500/10 border border-amber-500/30{{else}}bg-emerald-500/10 border border-emerald-500/30{{end}}">
+        <span class="{{if eq .Outcome "gone"}}text-amber-300{{else}}text-emerald-300{{end}}">{{if eq .Outcome "gone"}}🗄{{else}}✓{{end}}</span>
+        <span class="text-white truncate">{{.Vuln.Title}}</span>
+        {{if .Vuln.Host}}<a href="/assets/{{assetKey .Vuln.Host}}" class="mono text-[11px] text-accent-400 hover:text-accent-300">{{.Vuln.Host}}</a>{{end}}
+        <span class="{{if eq .Outcome "gone"}}text-amber-200{{else}}text-emerald-200{{end}}">— {{if eq .Outcome "gone"}}{{T "Rescan: no longer detected → moved to Archive"}}{{else}}{{T "Rescan: re-confirmed (still present)"}}{{end}}</span>
+        <span class="ml-auto mono text-[10px] text-dark-500">{{.Vuln.ID}}</span>
+    </div>
+    {{end}}
+</div>
+
 {{if .Vulns}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
     <table id="vulnTable" class="w-full text-sm">
@@ -460,6 +483,23 @@ document.addEventListener('DOMContentLoaded', function(){
     // Restore scroll after a full reload (used only for the empty→table
     // structural transition below) so the table doesn't jump to the top.
     try { var _y = sessionStorage.getItem('vulnScrollY'); if (_y !== null) { window.scrollTo(0, parseInt(_y, 10) || 0); sessionStorage.removeItem('vulnScrollY'); } } catch(e){}
+    // Rescan result rows are transient: fade + remove them a few seconds after
+    // they appear so the strip doesn't accumulate stale outcomes (the server also
+    // drops them from the set after a couple of minutes). Runs on load and after
+    // each strip swap; a per-element guard means an already-scheduled row's timer
+    // isn't reset by an unrelated swap.
+    window._fadeRescanResults = function(){
+        document.querySelectorAll('#rescanStrip .rescan-result-row').forEach(function(el){
+            if(el._fadeScheduled) return;
+            el._fadeScheduled = true;
+            setTimeout(function(){
+                el.style.opacity = '0';
+                setTimeout(function(){ el.remove(); }, 750);
+            }, 15000);
+        });
+    };
+    window._fadeRescanResults();
+
     // Live auto-refresh while the index is still building, OR while any scan is
     // running (its findings are extracted from partial results live).
     //
@@ -490,6 +530,15 @@ document.addEventListener('DOMContentLoaded', function(){
                         try { sessionStorage.setItem('vulnScrollY', String(window.scrollY)); } catch(e){}
                         location.reload();
                         return;
+                    }
+                    // Swap the rescan strip independently of the table body: it can
+                    // change (a rescan starts/finishes) even when no table row did.
+                    var freshStrip = doc.getElementById('rescanStrip');
+                    var curStrip   = document.getElementById('rescanStrip');
+                    if(freshStrip && curStrip && freshStrip.innerHTML !== curStrip.innerHTML){
+                        curStrip.innerHTML = freshStrip.innerHTML;
+                        curStrip.className = freshStrip.className;
+                        window._fadeRescanResults();
                     }
                     var freshHTML = freshTb.innerHTML;
                     // First poll only records the baseline — never swaps on load.

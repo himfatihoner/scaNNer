@@ -411,6 +411,19 @@ func (d *DB) migrate() error {
 		vuln_id TEXT NOT NULL,
 		PRIMARY KEY (scan_id, vuln_id)
 	)`)
+	// rescan_result — the outcome of the LAST completed rescan of a finding
+	// ('present' = still detected, 'gone' = no longer detected → archived).
+	// The /vulnerabilities page surfaces recent rows transiently (a short window)
+	// so the operator sees how a rescan resolved, then it fades. Upserted per
+	// vuln by reconcileRescan.
+	d.Exec(`CREATE TABLE IF NOT EXISTS rescan_result (
+		vuln_id      TEXT NOT NULL,
+		workspace_id TEXT NOT NULL,
+		outcome      TEXT NOT NULL,
+		detail       TEXT NOT NULL DEFAULT '',
+		finished_at  DATETIME NOT NULL,
+		PRIMARY KEY (vuln_id, workspace_id)
+	)`)
 	// Backfill `fixed_in` + `remediation` columns when upgrading.
 	var hasFixedIn int
 	d.Get(&hasFixedIn, `SELECT COUNT(*) FROM pragma_table_info('cve_records') WHERE name='fixed_in'`)
@@ -1015,6 +1028,54 @@ func (d *DB) RescanVerifyIDs(scanID string) []string {
 func (d *DB) ClearRescanVerify(scanID string) error {
 	_, err := d.Exec(`DELETE FROM rescan_verify WHERE scan_id = ?`, scanID)
 	return err
+}
+
+// RescanResult is one finding's most recent rescan outcome. Outcome is
+// "present" (still detected) or "gone" (no longer detected → archived).
+type RescanResult struct {
+	Outcome    string
+	Detail     string
+	FinishedAt time.Time
+}
+
+// SetRescanResult records/updates a finding's latest rescan outcome so the
+// vulnerabilities page can show it transiently. Also prunes rows older than 24h
+// so the table can't grow unbounded.
+func (d *DB) SetRescanResult(vulnID, workspaceID, outcome, detail string) {
+	now := time.Now()
+	if _, err := d.Exec(`
+		INSERT INTO rescan_result (vuln_id, workspace_id, outcome, detail, finished_at)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(vuln_id, workspace_id) DO UPDATE SET
+			outcome = excluded.outcome, detail = excluded.detail, finished_at = excluded.finished_at`,
+		vulnID, workspaceID, outcome, detail, now); err != nil {
+		log.Printf("SetRescanResult(%s) failed: %v", vulnID, err)
+		return
+	}
+	d.Exec(`DELETE FROM rescan_result WHERE finished_at < ?`, now.Add(-24*time.Hour))
+}
+
+// RecentRescanResults returns finding-id → outcome for rescans that completed
+// within the given window (the transient-display set for the vulnerabilities
+// page). Rows outside the window are ignored (and eventually pruned on write).
+func (d *DB) RecentRescanResults(workspaceID string, window time.Duration) map[string]RescanResult {
+	out := map[string]RescanResult{}
+	rows, err := d.Query(
+		`SELECT vuln_id, outcome, detail, finished_at FROM rescan_result WHERE workspace_id = ? AND finished_at >= ?`,
+		workspaceID, time.Now().Add(-window))
+	if err != nil {
+		return out
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, outcome, detail string
+		var fin time.Time
+		if err := rows.Scan(&id, &outcome, &detail, &fin); err != nil {
+			continue
+		}
+		out[id] = RescanResult{Outcome: outcome, Detail: detail, FinishedAt: fin}
+	}
+	return out
 }
 
 // LoadVulnIndexCache returns the persisted index for a workspace (its

@@ -338,6 +338,25 @@ var vulnKB = map[string]kbEntry{
 			CWE:           "CWE-200",
 		},
 	},
+	"debug-mode": {
+		Name: "Application Debug Mode Enabled",
+		TR: kbText{
+			Preconditions: "Uygulamanın üretim ortamında hata ayıklama (debug) modu açık şekilde çalışması ve etkilenen uç noktalara/hata sayfalarına ağ erişimi.",
+			Impact:        "Ayrıntılı hata ve yığın izleri, iç dosya yolları, yapılandırma değerleri, kaynak kodu parçaları ve sürüm bilgileri ifşa olur; ASP.NET'te uzaktan hata ayıklama açık kalırsa istek manipülasyonu ve tanılama (trace.axd) verisi de erişilebilir hale gelir. Bu bilgiler saldırı yüzeyini genişletir ve sonraki saldırıları kolaylaştırır.",
+			Remediation:   "Üretimde hata ayıklama modunu kapatın. ASP.NET için web.config içinde <compilation debug=\"false\"> yapın ve mümkünse machine.config'te <deployment retail=\"true\"/> ile makine genelinde zorlayın; trace.axd'yi kapatın (<trace enabled=\"false\"/>) ve özel (custom) hata sayfaları tanımlayarak ayrıntılı hatayı gizleyin. Diğer çerçevelerde eşdeğerini uygulayın (Django DEBUG=False, Flask/PHP display_errors=Off, Rails production ortamı). Değişiklikten sonra yeniden dağıtıp doğrulayın.",
+			Description:   "Uygulama üretim ortamında hata ayıklama modu etkin çalışıyor; bu yapılandırma, ayrıntılı hata mesajlarını ve iç yapılandırma/uygulama detaylarını yetkisiz taraflara ifşa eder.",
+			CVSSVector:    "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+			CWE:           "CWE-11",
+		},
+		EN: kbText{
+			Preconditions: "The application runs with debug mode enabled in production, and its error pages / affected endpoints are reachable over the network.",
+			Impact:        "Detailed errors and stack traces, internal file paths, configuration values, source snippets and version info are disclosed; on ASP.NET, leaving remote debugging on also exposes request manipulation and diagnostic (trace.axd) data. This widens the attack surface and eases follow-on attacks.",
+			Remediation:   "Disable debug mode in production. For ASP.NET set <compilation debug=\"false\"> in web.config and, where possible, enforce it machine-wide with <deployment retail=\"true\"/> in machine.config; disable trace.axd (<trace enabled=\"false\"/>) and configure custom error pages to hide verbose errors. Apply the equivalent for other stacks (Django DEBUG=False, Flask/PHP display_errors=Off, Rails production). Redeploy and retest afterwards.",
+			Description:   "The application runs with debug mode enabled in production; this misconfiguration discloses verbose error messages and internal configuration/application detail to unauthorized parties.",
+			CVSSVector:    "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+			CWE:           "CWE-11",
+		},
+	},
 	"cve-generic": {
 		Name: "Known Component Vulnerability (CVE)",
 		TR: kbText{
@@ -399,6 +418,7 @@ var classMatchers = []struct {
 	{"missing-security-header", []string{"security header", "missing header", "hsts", "content-security-policy", "csp", "x-frame", "clickjack", "strict-transport"}},
 	{"default-credential", []string{"default credential", "default password", "weak password", "default login", "weak credential"}},
 	{"auth-bypass", []string{"auth bypass", "authentication bypass", "authorization", "idor", "access control", "privilege"}},
+	{"debug-mode", []string{"debug mode", "debugging enabled", "debug enabled", "debug is enabled", "asp.net debug", "aspx debug", "trace.axd", "debug=\"true\"", "debug=true"}},
 	{"info-disclosure", []string{"disclosure", "exposed", "directory listing", "index of", "information leak", ".git", "backup file"}},
 }
 

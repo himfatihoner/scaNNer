@@ -13,6 +13,10 @@ import (
 
 type docxBuilder struct {
 	body strings.Builder
+	// pageLabel is the footer page-number format ("Sayfa {cur} / {tot}" /
+	// "Page {cur} of {tot}"); {cur}→PAGE field, {tot}→NUMPAGES field. Empty = no
+	// footer.
+	pageLabel string
 }
 
 var docxXMLEscaper = strings.NewReplacer(
@@ -161,25 +165,75 @@ func (d *docxBuilder) kvTable(rows [][2]string) {
 	d.body.WriteString("</w:tbl>")
 }
 
+// docxFooterXML builds a centered footer part with the page-number label. {cur}
+// becomes a PAGE field and {tot} a NUMPAGES field (Word/LibreOffice compute the
+// live values; the cached "1" shows if a viewer doesn't). Assumes {cur} precedes
+// {tot}, as both localized labels do.
+func docxFooterXML(label string) string {
+	const rpr = `<w:rPr><w:color w:val="9CA3AF"/><w:sz w:val="16"/></w:rPr>`
+	txtRun := func(s string) string {
+		if s == "" {
+			return ""
+		}
+		return `<w:r>` + rpr + `<w:t xml:space="preserve">` + docxEscape(s) + `</w:t></w:r>`
+	}
+	field := func(instr string) string {
+		return `<w:fldSimple w:instr="` + instr + `"><w:r>` + rpr + `<w:t>1</w:t></w:r></w:fldSimple>`
+	}
+	var runs strings.Builder
+	rest := label
+	if i := strings.Index(rest, "{cur}"); i >= 0 {
+		runs.WriteString(txtRun(rest[:i]))
+		runs.WriteString(field(" PAGE "))
+		rest = rest[i+len("{cur}"):]
+	}
+	if i := strings.Index(rest, "{tot}"); i >= 0 {
+		runs.WriteString(txtRun(rest[:i]))
+		runs.WriteString(field(" NUMPAGES "))
+		rest = rest[i+len("{tot}"):]
+	}
+	runs.WriteString(txtRun(rest))
+	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+		`<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">` +
+		`<w:p><w:pPr><w:jc w:val="center"/></w:pPr>` + runs.String() + `</w:p></w:ftr>`
+}
+
 // bytes assembles the .docx zip and returns it.
 func (d *docxBuilder) bytesOut() ([]byte, error) {
-	const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+	footer := strings.TrimSpace(d.pageLabel) != ""
+
+	contentTypes := `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
 <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
 <Default Extension="xml" ContentType="application/xml"/>
-<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
-</Types>`
+<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>`
+	if footer {
+		contentTypes += "\n" + `<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>`
+	}
+	contentTypes += "\n</Types>"
+
 	const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
 <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
 </Relationships>`
-	const docRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`
 
+	docRels := `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`
+	if footer {
+		docRels += `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>`
+	}
+	docRels += `</Relationships>`
+
+	// footerReference (when present) must precede pgSz/pgMar inside sectPr; the
+	// r: namespace on <w:document> is what its r:id resolves through.
+	sectInner := ""
+	if footer {
+		sectInner = `<w:footerReference w:type="default" r:id="rId1"/>`
+	}
 	document := `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>` +
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>` +
 		d.body.String() +
-		`<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr>` +
+		`<w:sectPr>` + sectInner + `<w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr>` +
 		`</w:body></w:document>`
 
 	var buf bytes.Buffer
@@ -189,6 +243,9 @@ func (d *docxBuilder) bytesOut() ([]byte, error) {
 		{"_rels/.rels", rootRels},
 		{"word/_rels/document.xml.rels", docRels},
 		{"word/document.xml", document},
+	}
+	if footer {
+		files = append(files, struct{ name, body string }{"word/footer1.xml", docxFooterXML(d.pageLabel)})
 	}
 	for _, f := range files {
 		w, err := zw.Create(f.name)

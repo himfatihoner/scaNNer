@@ -267,7 +267,7 @@ var vulnKB = map[string]kbEntry{
 		TR: kbText{
 			Preconditions: "İçe bakış (introspection) açık veya derinlik/karmaşıklık sınırı olmayan bir GraphQL uç noktası.",
 			Impact:        "Şema keşfi ile saldırı yüzeyi açığa çıkar; iç içe sorgularla hizmet aksatma ve yetkisiz veri erişimi mümkün olabilir.",
-			Remediation:   "Üretimde introspection'ı kapatın; sorgu derinliği/karmaşıklığı ve oran sınırı uygulayın; alan bazında yetkilendirme yapın.",
+			Remediation:   "Canlı ortamda introspection'ı kapatın; sorgu derinliği/karmaşıklığı ve oran sınırı uygulayın; alan bazında yetkilendirme yapın.",
 			Description:   "GraphQL uç noktası güvenli yapılandırılmadığından şema açığa çıkar ve kaynak tüketimi/veri erişimi kötüye kullanılabilir.",
 			CVSSVector:    "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:L",
 			CWE:           "CWE-200",
@@ -341,10 +341,10 @@ var vulnKB = map[string]kbEntry{
 	"debug-mode": {
 		Name: "Application Debug Mode Enabled",
 		TR: kbText{
-			Preconditions: "Uygulamanın üretim ortamında hata ayıklama (debug) modu açık şekilde çalışması ve etkilenen uç noktalara/hata sayfalarına ağ erişimi.",
+			Preconditions: "Uygulamanın canlı ortamda hata ayıklama (debug) modu açık şekilde çalışması ve etkilenen uç noktalara/hata sayfalarına ağ erişimi.",
 			Impact:        "Ayrıntılı hata ve yığın izleri, iç dosya yolları, yapılandırma değerleri, kaynak kodu parçaları ve sürüm bilgileri ifşa olur; ASP.NET'te uzaktan hata ayıklama açık kalırsa istek manipülasyonu ve tanılama (trace.axd) verisi de erişilebilir hale gelir. Bu bilgiler saldırı yüzeyini genişletir ve sonraki saldırıları kolaylaştırır.",
-			Remediation:   "Üretimde hata ayıklama modunu kapatın. ASP.NET için web.config içinde <compilation debug=\"false\"> yapın ve mümkünse machine.config'te <deployment retail=\"true\"/> ile makine genelinde zorlayın; trace.axd'yi kapatın (<trace enabled=\"false\"/>) ve özel (custom) hata sayfaları tanımlayarak ayrıntılı hatayı gizleyin. Diğer çerçevelerde eşdeğerini uygulayın (Django DEBUG=False, Flask/PHP display_errors=Off, Rails production ortamı). Değişiklikten sonra yeniden dağıtıp doğrulayın.",
-			Description:   "Uygulama üretim ortamında hata ayıklama modu etkin çalışıyor; bu yapılandırma, ayrıntılı hata mesajlarını ve iç yapılandırma/uygulama detaylarını yetkisiz taraflara ifşa eder.",
+			Remediation:   "Canlı ortamda hata ayıklama modunu kapatın. ASP.NET için web.config içinde <compilation debug=\"false\"> yapın ve mümkünse machine.config'te <deployment retail=\"true\"/> ile makine genelinde zorlayın; trace.axd'yi kapatın (<trace enabled=\"false\"/>) ve özel (custom) hata sayfaları tanımlayarak ayrıntılı hatayı gizleyin. Diğer çerçevelerde eşdeğerini uygulayın (Django DEBUG=False, Flask/PHP display_errors=Off, Rails production ortamı). Değişiklikten sonra yeniden dağıtıp doğrulayın.",
+			Description:   "Uygulama canlı ortamda hata ayıklama modu etkin çalışıyor; bu yapılandırma, ayrıntılı hata mesajlarını ve iç yapılandırma/uygulama detaylarını yetkisiz taraflara ifşa eder.",
 			CVSSVector:    "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
 			CWE:           "CWE-11",
 		},

@@ -15,17 +15,17 @@
 {{if .RescanNotice}}
 <div class="mb-4 flex items-center gap-2 bg-emerald-600/10 border border-emerald-500/30 rounded-lg px-4 py-2.5 text-xs text-emerald-200">
     <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-    {{T "%s rescans started" .RescanNotice}}{{if and .RescanSkipped (ne .RescanSkipped "0")}} · {{T "%s skipped (source module carries no rescan target)" .RescanSkipped}}{{end}}. {{T "Unverifiable vulnerabilities are automatically moved to the Archive tab when the rescan completes."}}
+    {{T "Re-checking %s finding(s)" .RescanNotice}}{{if and .RescanScans (ne .RescanScans "0")}} {{T "in %s rescan(s)" .RescanScans}}{{end}}{{if and .RescanSkipped (ne .RescanSkipped "0")}} · {{T "%s skipped (source module carries no rescan target)" .RescanSkipped}}{{end}}. {{T "Each result appears at the top as it finishes; only findings the rescan can no longer confirm are moved to Archive."}}
 </div>
 {{end}}
 
 {{if eq .ActiveTab ""}}
 <div class="flex flex-wrap items-center gap-2 mb-4">
     <button type="button" data-vsev="" onclick="setVulnSev(this)" class="vuln-sev-chip px-3 py-1.5 text-xs rounded-lg bg-accent-600 text-white">{{T "All"}}</button>
-    <button type="button" data-vsev="4" onclick="setVulnSev(this)" class="vuln-sev-chip px-3 py-1.5 text-xs rounded-lg bg-dark-850 border border-dark-700 text-red-300 hover:text-white">Critical {{.VCrit}}</button>
-    <button type="button" data-vsev="3" onclick="setVulnSev(this)" class="vuln-sev-chip px-3 py-1.5 text-xs rounded-lg bg-dark-850 border border-dark-700 text-orange-300 hover:text-white">High {{.VHigh}}</button>
-    <button type="button" data-vsev="2" onclick="setVulnSev(this)" class="vuln-sev-chip px-3 py-1.5 text-xs rounded-lg bg-dark-850 border border-dark-700 text-yellow-300 hover:text-white">Medium {{.VMed}}</button>
-    <button type="button" data-vsev="1" onclick="setVulnSev(this)" class="vuln-sev-chip px-3 py-1.5 text-xs rounded-lg bg-dark-850 border border-dark-700 text-blue-300 hover:text-white">Low {{.VLow}}</button>
+    <button type="button" data-vsev="4" onclick="setVulnSev(this)" class="vuln-sev-chip px-3 py-1.5 text-xs rounded-lg bg-dark-850 border border-dark-700 text-red-300 hover:text-white">Critical <span class="sev-count">{{.VCrit}}</span></button>
+    <button type="button" data-vsev="3" onclick="setVulnSev(this)" class="vuln-sev-chip px-3 py-1.5 text-xs rounded-lg bg-dark-850 border border-dark-700 text-orange-300 hover:text-white">High <span class="sev-count">{{.VHigh}}</span></button>
+    <button type="button" data-vsev="2" onclick="setVulnSev(this)" class="vuln-sev-chip px-3 py-1.5 text-xs rounded-lg bg-dark-850 border border-dark-700 text-yellow-300 hover:text-white">Medium <span class="sev-count">{{.VMed}}</span></button>
+    <button type="button" data-vsev="1" onclick="setVulnSev(this)" class="vuln-sev-chip px-3 py-1.5 text-xs rounded-lg bg-dark-850 border border-dark-700 text-blue-300 hover:text-white">Low <span class="sev-count">{{.VLow}}</span></button>
     <input id="vulnSearch" type="search" placeholder="{{T `Search host, finding, CVE, module…`}}" oninput="applyVulnFilter()"
            class="w-64 mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
     <select id="vulnModuleFilter" onchange="applyVulnFilter()" class="bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
@@ -37,7 +37,7 @@
     <button type="button" id="fixedSelectedBtn" onclick="statusSelectedActive('fixed')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white" title="{{T `Send the selected findings to the Fixed tab (mark as fixed).`}}">✓ {{T "Fixed"}} (<span id="fixedSelCount">0</span>)</button>
     <button type="button" id="fpSelectedBtn" onclick="statusSelectedActive('false_positive')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-yellow-700 hover:bg-yellow-600 text-white" title="{{T `Send the selected findings to the False Positive tab.`}}">⚠ {{T "False Positive"}} (<span id="fpSelCount">0</span>)</button>
     <button type="button" id="archiveSelectedBtn" onclick="archiveSelected('archive')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-dark-700 hover:bg-dark-600 text-dark-200" title="{{T `Move the selected findings to the Archive tab.`}}">🗄 {{T "Archive"}}</button>
-    <details id="exportSelectedMenu" class="vexport relative opacity-50 pointer-events-none">
+    <details id="exportSelectedMenu" class="vexport vexport-top relative opacity-50 pointer-events-none">
         <summary class="cursor-pointer list-none select-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white">☑ {{T "Export Selected"}} (<span id="selCount">0</span>)</summary>
         <div class="absolute right-0 z-20 mt-1 w-52 bg-dark-850 border border-dark-700 rounded-lg shadow-xl p-1 text-[11px]">
             <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-dark-500">{{T "Single file (combined)"}}</div>
@@ -51,7 +51,7 @@
             <a href="javascript:void(0)" onclick="exportSelected('docx','tr',1)" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "DOCX · Turkish (each separate)"}}</a>
         </div>
     </details>
-    <details class="vexport relative">
+    <details class="vexport vexport-top relative">
         <summary class="cursor-pointer list-none select-none text-xs px-3 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white">⤓ {{T "Export All"}}</summary>
         <div class="absolute right-0 z-20 mt-1 w-52 bg-dark-850 border border-dark-700 rounded-lg shadow-xl p-1 text-[11px]">
             <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-dark-500">{{T "Single file (combined)"}}</div>
@@ -454,11 +454,18 @@ function applyVulnFilter() {
     var tbody=document.getElementById('vulnTbody'); if(!tbody) return;
     var rows=Array.prototype.slice.call(tbody.querySelectorAll('.vuln-row'));
     var vis=0;
+    // Severity-chip counts reflect the current MODULE + SEARCH filter (but NOT
+    // the severity selection itself — so switching severity doesn't zero the
+    // others). This is what makes "Critical N / High N / …" track the selected
+    // module instead of staying at the workspace-wide totals.
+    var counts={'4':0,'3':0,'2':0,'1':0};
     rows.forEach(function(row){
         var s=(row.getAttribute('data-search')||'').toLowerCase();
         var matchQ=!q||s.indexOf(q)!==-1;
         var matchMod=!mod||row.getAttribute('data-module')===mod;
-        var matchSev=sevs.length===0||sevs.indexOf(row.getAttribute('data-sev'))!==-1;
+        var sv=row.getAttribute('data-sev');
+        if(matchQ&&matchMod&&counts[sv]!==undefined) counts[sv]++;
+        var matchSev=sevs.length===0||sevs.indexOf(sv)!==-1;
         var show=matchQ&&matchMod&&matchSev;
         row.style.display=show?'':'none'; if(show)vis++;
         // Keep the detail row in sync: force-hide when the parent is filtered
@@ -468,6 +475,13 @@ function applyVulnFilter() {
             var d=document.querySelector('tr.vuln-detail[data-row-follow="'+(window.CSS&&CSS.escape?CSS.escape(pair):pair)+'"]');
             if(d) d.style.display=show?'':'none';
         }
+    });
+    document.querySelectorAll('.vuln-sev-chip').forEach(function(chip){
+        var sv=chip.getAttribute('data-vsev');
+        var span=chip.querySelector('.sev-count');
+        if(!span) return;
+        if(sv===''){ span.textContent=counts['4']+counts['3']+counts['2']+counts['1']; }
+        else if(counts[sv]!==undefined){ span.textContent=counts[sv]; }
     });
     var c=document.getElementById('vulnResultCount'); if(c) c.textContent=vis+' / '+rows.length+' shown';
 }
@@ -480,6 +494,28 @@ document.addEventListener('DOMContentLoaded', function(){
     if(window.bindSortableTable) bindSortableTable('#vulnTable',{defaultKey:'sev',defaultDir:'desc'});
     applyVulnFilter();
     refreshSelCount();
+    // The toolbar export dropdowns live inside <main> (overflow-y-auto) and the
+    // content column (overflow-hidden); when the toolbar wraps, a right-aligned
+    // panel can extend past the left edge and be clipped — reading as "hidden
+    // behind the sidebar". On open, lift the panel to position:fixed (viewport-
+    // anchored, high z-index) so it escapes the clip; on close, restore it.
+    document.querySelectorAll('details.vexport-top').forEach(function(d){
+        d.addEventListener('toggle', function(){
+            var panel=d.querySelector(':scope > div');
+            var sum=d.querySelector(':scope > summary');
+            if(!panel||!sum) return;
+            if(d.open){
+                var r=sum.getBoundingClientRect();
+                panel.style.position='fixed';
+                panel.style.top=(r.bottom+4)+'px';
+                panel.style.right=Math.max(8,(window.innerWidth-r.right))+'px';
+                panel.style.left='auto';
+                panel.style.zIndex='1000';
+            } else {
+                panel.style.position=''; panel.style.top=''; panel.style.right=''; panel.style.left=''; panel.style.zIndex='';
+            }
+        });
+    });
     // Restore scroll after a full reload (used only for the empty→table
     // structural transition below) so the table doesn't jump to the top.
     try { var _y = sessionStorage.getItem('vulnScrollY'); if (_y !== null) { window.scrollTo(0, parseInt(_y, 10) || 0); sessionStorage.removeItem('vulnScrollY'); } } catch(e){}

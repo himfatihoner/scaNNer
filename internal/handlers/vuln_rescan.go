@@ -235,37 +235,42 @@ func (h *Handler) VulnRescan(w http.ResponseWriter, r *http.Request) {
 		g.vulnIDs = append(g.vulnIDs, id)
 	}
 
-	launched, skipped := 0, 0
+	// Count in FINDINGS, not groups: N selected findings collapse into fewer
+	// rescan SCANS when they share (host, tool, check), but the operator selected
+	// findings and expects the numbers to be about findings. launchedScans is
+	// reported alongside so "17 findings · 9 rescans" reads honestly.
+	launchedFindings, launchedScans, skipped := 0, 0, 0
 	for _, key := range order {
 		g := groups[key]
 		src, err := h.db.GetScan(g.scanID)
 		if err != nil || src == nil {
-			skipped++
+			skipped += len(g.vulnIDs)
 			continue
 		}
 		// A rescan re-executes the source scan's module, so it must be gated by
 		// the SAME per-(user,workspace,module) grant as running it — otherwise a
 		// user could re-run a module they were never granted via the vuln list.
 		if !h.canAccessScan(h.currentUser(r), src) {
-			skipped++
+			skipped += len(g.vulnIDs)
 			continue
 		}
 		newCfg, ok := retargetConfig(src.Config, []string{g.host})
 		if !ok {
-			skipped++ // module config has no recognised target field — don't fake-archive
+			skipped += len(g.vulnIDs) // module config has no recognised target field — don't fake-archive
 			continue
 		}
 		newCfg = narrowRescanConfig(newCfg, src.Module, g.tool, g.checkID)
 		ns, err := h.db.CreateScan(ws.ID, src.Module, newCfg, 1)
 		if err != nil {
-			skipped++
+			skipped += len(g.vulnIDs)
 			continue
 		}
 		h.db.AddRescanVerify(ns.ID, g.vulnIDs)
 		h.dispatchRestart(ns.ID, src.Module, newCfg)
-		launched++
+		launchedFindings += len(g.vulnIDs)
+		launchedScans++
 	}
-	http.Redirect(w, r, fmt.Sprintf("/vulnerabilities?rescan=%d&skipped=%d", launched, skipped), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/vulnerabilities?rescan=%d&scans=%d&skipped=%d", launchedFindings, launchedScans, skipped), http.StatusSeeOther)
 }
 
 // VulnArchiveToggle manually archives, restores, or permanently deletes

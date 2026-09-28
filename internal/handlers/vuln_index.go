@@ -210,7 +210,8 @@ func (h *Handler) Vulnerabilities(w http.ResponseWriter, r *http.Request) {
 	data["FalsePositiveCount"] = len(fpVulns)
 	data["VulnReady"] = ready
 	if n := r.URL.Query().Get("rescan"); n != "" && n != "0" {
-		data["RescanNotice"] = n
+		data["RescanNotice"] = n // number of FINDINGS being re-checked
+		data["RescanScans"] = r.URL.Query().Get("scans")
 		data["RescanSkipped"] = r.URL.Query().Get("skipped")
 	}
 	// Any running/pending scan → the page keeps auto-refreshing so findings the

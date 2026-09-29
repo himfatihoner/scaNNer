@@ -307,6 +307,8 @@ func (h *Handler) VulnArchiveToggle(w http.ResponseWriter, r *http.Request) {
 		dest = "/vulnerabilities?tab=fixed"
 	case "false_positive":
 		dest = "/vulnerabilities?tab=false_positive"
+	case "assigned":
+		dest = "/vulnerabilities?tab=assigned"
 	}
 	if action == "delete" {
 		for _, id := range ids {
@@ -359,6 +361,8 @@ func (h *Handler) VulnStatusSet(w http.ResponseWriter, r *http.Request) {
 		dest = "/vulnerabilities?tab=fixed"
 	case "false_positive":
 		dest = "/vulnerabilities?tab=false_positive"
+	case "assigned":
+		dest = "/vulnerabilities?tab=assigned"
 	case "archive":
 		dest = "/vulnerabilities?tab=archive"
 	}

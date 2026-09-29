@@ -877,7 +877,7 @@ func (d *DB) SetVulnArchived(vulnID, workspaceID string, archived bool, reason s
 // 'false_positive'). 'open' returns it to the active list; 'fixed' /
 // 'false_positive' move it to the matching tab. Independent of archived/deleted.
 func (d *DB) SetVulnStatus(vulnID, workspaceID, status string) error {
-	if status != "fixed" && status != "false_positive" {
+	if status != "fixed" && status != "false_positive" && status != "assigned" {
 		status = "open"
 	}
 	_, err := d.Exec(`INSERT INTO vuln_overrides (vuln_id, workspace_id, status, updated_at)
@@ -898,7 +898,7 @@ func (d *DB) MigrateVulnOverrideKey(oldID, newID string) {
 	}
 	d.Exec(`INSERT INTO vuln_overrides (vuln_id, workspace_id, archived, reason, status, deleted, updated_at)
 		SELECT ?, workspace_id, archived, reason, status, deleted, updated_at FROM vuln_overrides
-		WHERE vuln_id = ? AND (status IN ('fixed','false_positive') OR archived = 1 OR deleted = 1)
+		WHERE vuln_id = ? AND (status IN ('fixed','false_positive','assigned') OR archived = 1 OR deleted = 1)
 		ON CONFLICT(vuln_id) DO NOTHING`, newID, oldID)
 }
 
@@ -908,7 +908,7 @@ func (d *DB) MigrateVulnOverrideKey(oldID, newID string) {
 func (d *DB) VulnStatusMap(workspaceID string) map[string]string {
 	out := map[string]string{}
 	rows, err := d.Query(`SELECT vuln_id, status FROM vuln_overrides
-		WHERE workspace_id = ? AND status IN ('fixed','false_positive')`, workspaceID)
+		WHERE workspace_id = ? AND status IN ('fixed','false_positive','assigned')`, workspaceID)
 	if err != nil {
 		return out
 	}

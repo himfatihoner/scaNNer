@@ -162,7 +162,7 @@ func (h *Handler) Vulnerabilities(w http.ResponseWriter, r *http.Request) {
 	rescanningSet := h.db.RescanningVulnIDs(ws.ID)
 	recentResults := h.db.RecentRescanResults(ws.ID, 2*time.Minute)
 	vulns := make([]GlobalVuln, 0, len(allVulns))
-	var archivedVulns, fixedVulns, fpVulns []GlobalVuln
+	var archivedVulns, fixedVulns, fpVulns, assignedVulns []GlobalVuln
 	var rescanActive []GlobalVuln
 	var rescanResults []RescanResultRow
 	for _, v := range allVulns {
@@ -189,6 +189,9 @@ func (h *Handler) Vulnerabilities(w http.ResponseWriter, r *http.Request) {
 		case "false_positive":
 			fpVulns = append(fpVulns, v)
 			continue
+		case "assigned":
+			assignedVulns = append(assignedVulns, v)
+			continue
 		}
 		if reason, ok := archivedMap[v.ID]; ok {
 			v.ArchiveReason = reason
@@ -208,6 +211,8 @@ func (h *Handler) Vulnerabilities(w http.ResponseWriter, r *http.Request) {
 	data["FixedCount"] = len(fixedVulns)
 	data["FalsePositiveVulns"] = fpVulns
 	data["FalsePositiveCount"] = len(fpVulns)
+	data["AssignedVulns"] = assignedVulns
+	data["AssignedCount"] = len(assignedVulns)
 	data["VulnReady"] = ready
 	if n := r.URL.Query().Get("rescan"); n != "" && n != "0" {
 		data["RescanNotice"] = n // number of FINDINGS being re-checked

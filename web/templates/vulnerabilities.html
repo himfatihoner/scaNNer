@@ -9,6 +9,7 @@
     <a href="/vulnerabilities" class="px-4 py-2 text-sm font-medium border-b-2 {{if eq .ActiveTab ""}}border-accent-500 text-white{{else}}border-transparent text-dark-400 hover:text-white{{end}}">{{T "Active"}}</a>
     <a href="/vulnerabilities?tab=fixed" class="px-4 py-2 text-sm font-medium border-b-2 {{if eq .ActiveTab "fixed"}}border-emerald-500 text-white{{else}}border-transparent text-dark-400 hover:text-white{{end}}">{{T "Fixed"}}{{if .FixedCount}} <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">{{.FixedCount}}</span>{{end}}</a>
     <a href="/vulnerabilities?tab=false_positive" class="px-4 py-2 text-sm font-medium border-b-2 {{if eq .ActiveTab "false_positive"}}border-yellow-500 text-white{{else}}border-transparent text-dark-400 hover:text-white{{end}}">{{T "False Positive"}}{{if .FalsePositiveCount}} <span class="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300">{{.FalsePositiveCount}}</span>{{end}}</a>
+    <a href="/vulnerabilities?tab=assigned" class="px-4 py-2 text-sm font-medium border-b-2 {{if eq .ActiveTab "assigned"}}border-sky-500 text-white{{else}}border-transparent text-dark-400 hover:text-white{{end}}">{{T "Assigned"}}{{if .AssignedCount}} <span class="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300">{{.AssignedCount}}</span>{{end}}</a>
     <a href="/vulnerabilities?tab=archive" class="px-4 py-2 text-sm font-medium border-b-2 {{if eq .ActiveTab "archive"}}border-accent-500 text-white{{else}}border-transparent text-dark-400 hover:text-white{{end}}">{{T "Archive"}}{{if .ArchivedCount}} <span class="text-[10px] px-1.5 py-0.5 rounded bg-dark-800 text-dark-300">{{.ArchivedCount}}</span>{{end}}</a>
 </div>
 
@@ -36,6 +37,7 @@
     <button type="button" id="rescanSelectedBtn" onclick="rescanSelected()" class="ml-auto opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white" title="{{T `Re-run the source scan of each selected finding, scoped to its asset, to re-verify it. Findings the rescan no longer detects are moved to Archive automatically.`}}">⟳ {{T "Rescan Selected"}} (<span id="rescanSelCount">0</span>)</button>
     <button type="button" id="fixedSelectedBtn" onclick="statusSelectedActive('fixed')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white" title="{{T `Send the selected findings to the Fixed tab (mark as fixed).`}}">✓ {{T "Fixed"}} (<span id="fixedSelCount">0</span>)</button>
     <button type="button" id="fpSelectedBtn" onclick="statusSelectedActive('false_positive')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-yellow-700 hover:bg-yellow-600 text-white" title="{{T `Send the selected findings to the False Positive tab.`}}">⚠ {{T "False Positive"}} (<span id="fpSelCount">0</span>)</button>
+    <button type="button" id="assignSelectedBtn" onclick="statusSelectedActive('assigned')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-sky-700 hover:bg-sky-600 text-white" title="{{T `Mark the selected findings as forwarded/assigned and send them to the Assigned tab.`}}">➤ {{T "Assigned"}} (<span id="assignSelCount">0</span>)</button>
     <button type="button" id="archiveSelectedBtn" onclick="archiveSelected('archive')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-dark-700 hover:bg-dark-600 text-dark-200" title="{{T `Move the selected findings to the Archive tab.`}}">🗄 {{T "Archive"}}</button>
     <details id="exportSelectedMenu" class="vexport vexport-top relative opacity-50 pointer-events-none">
         <summary class="cursor-pointer list-none select-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white">☑ {{T "Export Selected"}} (<span id="selCount">0</span>)</summary>
@@ -156,6 +158,7 @@
                                 <button type="button" onclick="event.stopPropagation(); rescanVulns(['{{.ID}}'], this)" {{if .Rescanning}}disabled{{end}} class="rescan-btn w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-dark-800 transition-colors {{if .Rescanning}}text-emerald-300{{else}}text-accent-300{{end}}" title="{{if .Rescanning}}{{T `Rescan in progress — verifying this finding…`}}{{else}}{{T `Rescan this finding's asset to re-verify it; if the rescan no longer detects it, it moves to Archive.`}}{{end}}"><span class="rescan-spin inline-block {{if .Rescanning}}animate-spin{{end}}">⟳</span> {{if .Rescanning}}{{T "Rescanning…"}}{{else}}{{T "Rescan"}}{{end}}</button>
                                 <button type="button" onclick="event.stopPropagation(); statusVulns(['{{.ID}}'],'fixed','active')" class="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-dark-800 text-emerald-300 transition-colors" title="{{T `Send this finding to the Fixed tab.`}}">✓ {{T "Fixed"}}</button>
                                 <button type="button" onclick="event.stopPropagation(); statusVulns(['{{.ID}}'],'false_positive','active')" class="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-dark-800 text-yellow-300 transition-colors" title="{{T `Send this finding to the False Positive tab.`}}">⚠ {{T "False Positive"}}</button>
+                                <button type="button" onclick="event.stopPropagation(); statusVulns(['{{.ID}}'],'assigned','active')" class="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-dark-800 text-sky-300 transition-colors" title="{{T `Mark this finding as forwarded/assigned and send it to the Assigned tab.`}}">➤ {{T "Assigned"}}</button>
                                 <button type="button" onclick="event.stopPropagation(); archiveVulns(['{{.ID}}'],'archive')" class="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-dark-800 text-dark-200 transition-colors" title="{{T `Move this finding to the Archive tab.`}}">🗄 {{T "Archive"}}</button>
                             </div>
                         </details>
@@ -195,6 +198,7 @@
 {{$isArch := true}}
 {{if eq .ActiveTab "fixed"}}{{$rows = .FixedVulns}}{{$isArch = false}}{{end}}
 {{if eq .ActiveTab "false_positive"}}{{$rows = .FalsePositiveVulns}}{{$isArch = false}}{{end}}
+{{if eq .ActiveTab "assigned"}}{{$rows = .AssignedVulns}}{{$isArch = false}}{{end}}
 {{if $rows}}
 <div class="flex flex-wrap items-center gap-2 mb-4">
     <input id="archSearch" type="search" placeholder="{{T `Search host, finding, CVE…`}}" oninput="applyArchiveFilter()"
@@ -202,6 +206,7 @@
     <span class="text-[11px] text-dark-500">
         {{if $isArch}}{{T "Findings a rescan could no longer confirm land here and are hidden from the Active tab."}}
         {{else if eq .ActiveTab "fixed"}}{{T "Findings marked as fixed. Reopen returns them to the Active tab."}}
+        {{else if eq .ActiveTab "assigned"}}{{T "Findings forwarded/assigned for follow-up. Reopen returns them to the Active tab."}}
         {{else}}{{T "Findings marked as false positive. Reopen returns them to the Active tab."}}{{end}}
     </span>
     {{if $isArch}}
@@ -236,7 +241,7 @@
                 <td class="px-4 py-2.5"><span class="text-[12px] text-dark-200">{{.Title}}</span></td>
                 <td class="px-4 py-2.5">{{if .Host}}<a href="/assets/{{assetKey .Host}}" class="mono text-[11px] text-accent-400 hover:text-accent-300 break-all" title="{{T `Go to this asset's page`}}">{{.Host}}</a>{{else}}<span class="text-dark-600 text-[11px]">—</span>{{end}}</td>
                 <td class="px-4 py-2.5">{{if .Product}}<span class="text-[11px] text-dark-300 break-all">{{.Product}}</span>{{else}}<span class="text-dark-600 text-[11px]">—</span>{{end}}</td>
-                <td class="px-4 py-2.5">{{if $isArch}}<span class="text-[11px] text-dark-500 break-all">{{if .ArchiveReason}}{{.ArchiveReason}}{{else}}{{T "Archived"}}{{end}}</span>{{else if eq $.ActiveTab "fixed"}}<span class="text-[11px] text-emerald-400">✓ {{T "Fixed"}}</span>{{else}}<span class="text-[11px] text-yellow-400">⚠ {{T "False positive"}}</span>{{end}}</td>
+                <td class="px-4 py-2.5">{{if $isArch}}<span class="text-[11px] text-dark-500 break-all">{{if .ArchiveReason}}{{.ArchiveReason}}{{else}}{{T "Archived"}}{{end}}</span>{{else if eq $.ActiveTab "fixed"}}<span class="text-[11px] text-emerald-400">✓ {{T "Fixed"}}</span>{{else if eq $.ActiveTab "assigned"}}<span class="text-[11px] text-sky-400">➤ {{T "Assigned"}}</span>{{else}}<span class="text-[11px] text-yellow-400">⚠ {{T "False positive"}}</span>{{end}}</td>
                 <td class="px-4 py-2.5 whitespace-nowrap text-right">
                     {{if $isArch}}
                     <button type="button" onclick="archiveVulns(['{{.ID}}'],'unarchive')" class="text-[11px] text-emerald-400 hover:text-emerald-300" title="{{T `Move this finding back to the Active tab.`}}">↺ {{T "Restore"}}</button>
@@ -255,6 +260,7 @@
     <p class="text-sm">
         {{if $isArch}}{{T "No archived vulnerabilities. Findings a rescan can no longer confirm are moved here automatically."}}
         {{else if eq .ActiveTab "fixed"}}{{T "No findings marked as fixed. Select findings on the Active tab and send them here with “✓ Fixed”."}}
+        {{else if eq .ActiveTab "assigned"}}{{T "No forwarded/assigned findings. Select findings on the Active tab and send them here with “➤ Assign”."}}
         {{else}}{{T "No findings marked as false positive. Select findings on the Active tab and send them here with “⚠ FP”."}}{{end}}
     </p>
 </div>
@@ -313,8 +319,9 @@ function refreshSelCount(){
     var rc=document.getElementById('rescanSelCount'); if(rc) rc.textContent=ids.length;
     var fx=document.getElementById('fixedSelCount'); if(fx) fx.textContent=ids.length;
     var fp=document.getElementById('fpSelCount'); if(fp) fp.textContent=ids.length;
+    var asg=document.getElementById('assignSelCount'); if(asg) asg.textContent=ids.length;
     var on=ids.length>0;
-    ['exportSelectedMenu','rescanSelectedBtn','archiveSelectedBtn','fixedSelectedBtn','fpSelectedBtn'].forEach(function(bid){
+    ['exportSelectedMenu','rescanSelectedBtn','archiveSelectedBtn','fixedSelectedBtn','fpSelectedBtn','assignSelectedBtn'].forEach(function(bid){
         var el=document.getElementById(bid); if(!el) return;
         if(on){ el.classList.remove('opacity-50','pointer-events-none'); }
         else { el.classList.add('opacity-50','pointer-events-none'); if(el.removeAttribute) el.removeAttribute('open'); }

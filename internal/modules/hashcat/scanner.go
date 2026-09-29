@@ -59,6 +59,12 @@ type Summary struct {
 	Attack        string `json:"attack"` // "dictionary" | "mask"
 	Status        string `json:"status"` // running|exhausted|cracked|aborted|error
 	ProgressPct   int    `json:"progress_pct"`
+	// Candidate keyspace across the WHOLE job (all rule/mask passes): how many
+	// password candidates have been tried vs. the total to try. CandHuman is the
+	// pre-humanized "tried / total" for direct display (e.g. "1.2B / 2.9B").
+	CandTried     int64  `json:"cand_tried"`
+	CandTotal     int64  `json:"cand_total"`
+	CandHuman     string `json:"cand_human,omitempty"`
 	HashrateHs    int64  `json:"hashrate_hs"`
 	HashrateHuman string `json:"hashrate_h,omitempty"`
 	ETA           string `json:"eta,omitempty"`
@@ -320,9 +326,9 @@ func crackPassAgg(ctx context.Context, cfg Config, modeID int, rule, hashFile, o
 		}
 		mu.Lock()
 		applyStatusAgg(sum, st, doneKS, totalKS)
-		pct, rate, cracked, util, eta, total := sum.ProgressPct, sum.HashrateHuman, sum.Cracked, sum.LiveUtilPct, sum.ETA, sum.Total
+		pct, rate, cracked, util, eta, total, cand := sum.ProgressPct, sum.HashrateHuman, sum.Cracked, sum.LiveUtilPct, sum.ETA, sum.Total, sum.CandHuman
 		mu.Unlock()
-		prog(pct, fmt.Sprintf("%d%% · %s · %d/%d cracked · CPU %d%%%s", pct, rate, cracked, total, util, etaSuffix(eta)))
+		prog(pct, fmt.Sprintf("%d%% · %s tried · %s · %d/%d cracked · CPU %d%%%s", pct, cand, rate, cracked, total, util, etaSuffix(eta)))
 		pushPartial(false)
 	}
 	return exitCode(cmd.Wait()), lastLines(stderr.String(), 3)
@@ -433,6 +439,11 @@ func applyStatusAgg(s *Summary, st hcStatus, doneKS, totalKS int64) {
 	if totalKS > 0 {
 		s.ProgressPct = int(aggDone * 100 / totalKS)
 	}
+	// Candidate progress (tried / total) — what the operator wants to see for a
+	// mask or dictionary run: how many candidates will be tried and how many so far.
+	s.CandTried = aggDone
+	s.CandTotal = totalKS
+	s.CandHuman = humanCand(aggDone) + " / " + humanCand(totalKS)
 	if remaining := totalKS - aggDone; remaining > 0 && rate > 0 {
 		s.ETA = humanDuration(remaining / rate)
 	} else {
@@ -509,6 +520,30 @@ func humanCount(n int) string {
 		return fmt.Sprintf("%.0fk", float64(n)/1e3)
 	default:
 		return strconv.Itoa(n)
+	}
+}
+
+// humanCand humanizes a candidate-keyspace count (int64, can reach quadrillions
+// for wide masks): 2 900 000 000 → "2.9B". Distinct from humanCount (hash counts,
+// int, tops out at M).
+func humanCand(n int64) string {
+	if n < 0 {
+		return "?"
+	}
+	f := float64(n)
+	switch {
+	case n >= 1e15:
+		return fmt.Sprintf("%.1fP", f/1e15)
+	case n >= 1e12:
+		return fmt.Sprintf("%.1fT", f/1e12)
+	case n >= 1e9:
+		return fmt.Sprintf("%.1fB", f/1e9)
+	case n >= 1e6:
+		return fmt.Sprintf("%.1fM", f/1e6)
+	case n >= 1e3:
+		return fmt.Sprintf("%.1fK", f/1e3)
+	default:
+		return strconv.FormatInt(n, 10)
 	}
 }
 

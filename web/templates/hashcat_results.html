@@ -11,10 +11,15 @@
 {{define "hashcat_results_inner"}}
 {{$s := .Summary}}
 <!-- Stats strip -->
-<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
     <div class="bg-dark-900 border border-dark-800 rounded-xl p-4">
         <p class="text-[11px] uppercase tracking-wide text-dark-500">Cracked</p>
         <p class="text-2xl font-bold {{if gt $s.Cracked 0}}text-success{{else}}text-white{{end}}">{{$s.Cracked}}<span class="text-sm text-dark-500 font-normal"> / {{$s.Total}}</span></p>
+    </div>
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4" title="Password candidates tried vs. the total to try (the whole keyspace across all rule/mask passes)">
+        <p class="text-[11px] uppercase tracking-wide text-dark-500">Candidates tried</p>
+        <p class="text-lg font-bold text-white mono">{{if $s.CandHuman}}{{$s.CandHuman}}{{else}}—{{end}}</p>
+        <p class="text-[10px] text-dark-500">{{$s.ProgressPct}}% of keyspace</p>
     </div>
     <div class="bg-dark-900 border border-dark-800 rounded-xl p-4">
         <p class="text-[11px] uppercase tracking-wide text-dark-500">Status</p>

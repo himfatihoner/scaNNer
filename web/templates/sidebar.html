@@ -71,6 +71,13 @@
             <span class="sidebar-label">{{T "Vulnerabilities"}}</span>
         </a>
 
+        <a href="/info" title="{{T `Info`}}" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm border-l-2 border-transparent transition-all duration-200 {{if eq .Page "info"}}active{{else}}text-dark-300{{end}}">
+            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="sidebar-label">{{T "Info"}}</span>
+        </a>
+
         <a href="/modules" title="{{T `Modules`}}" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm border-l-2 border-transparent transition-all duration-200 {{if eq .Page "modules"}}active{{else}}text-dark-300{{end}}">
             <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>

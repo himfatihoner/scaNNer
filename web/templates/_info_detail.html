@@ -1,0 +1,30 @@
+{{define "info_detail_inner"}}
+<div class="space-y-3">
+    {{if .Description}}
+    <div>
+        <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-1">{{T "Description"}}</p>
+        <p class="text-[12px] text-dark-300 whitespace-pre-wrap">{{.Description}}</p>
+    </div>
+    {{end}}
+    <div>
+        <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-1">{{T "Affected targets"}} ({{len .Hosts}})</p>
+        <div class="flex flex-wrap gap-1.5">
+            {{range .Hosts}}<a href="/assets/{{assetKey .}}" onclick="event.stopPropagation()" class="mono text-[11px] text-accent-400 hover:text-accent-300 bg-dark-850 border border-dark-700 px-1.5 py-0.5 rounded break-all" title="{{T `Go to this asset's page`}}">{{.}}</a>{{else}}<span class="text-dark-600 text-[11px]">—</span>{{end}}
+        </div>
+    </div>
+    <div class="flex flex-wrap gap-x-6 gap-y-1 text-[11px] text-dark-400">
+        {{if .CheckID}}<span>{{T "Check"}}: <span class="mono text-dark-300">{{.CheckID}}</span></span>{{end}}
+        <span>{{T "Source"}}: <span class="text-dark-300">{{if .Tool}}{{moduleDisplayName .Tool}}{{else}}{{moduleDisplayName .Module}}{{end}}</span></span>
+        <span>{{T "Sightings"}}: <span class="text-dark-300">{{.Count}}</span></span>
+    </div>
+    {{if .CVEs}}<div class="flex flex-wrap gap-1">{{range .CVEs}}<a href="https://nvd.nist.gov/vuln/detail/{{.}}" target="_blank" rel="noopener" class="text-[10px] mono px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 hover:bg-red-500/25">{{.}}</a>{{end}}</div>{{end}}
+    {{if .References}}
+    <div>
+        <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-1">{{T "References"}}</p>
+        <div class="flex flex-col gap-0.5">
+            {{range .References}}<a href="{{.}}" target="_blank" rel="noopener" class="text-[11px] text-accent-400 hover:text-accent-300 break-all">{{.}}</a>{{end}}
+        </div>
+    </div>
+    {{end}}
+</div>
+{{end}}

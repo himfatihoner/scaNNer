@@ -358,7 +358,7 @@ const (
 // whenever extractVulnsGeneric/enrichVuln/extractScanVulns changes what it pulls
 // out, so persisted per-scan vuln caches from an older extractor are treated as
 // stale and re-extracted on the next build.
-const vulnExtractVersion = "v6"
+const vulnExtractVersion = "v7"
 
 type wsVulnIndex struct {
 	fingerprint string
@@ -513,6 +513,9 @@ func (h *Handler) buildVulnIndex(workspaceID, fp string, refs []scanRef) {
 		// fingerprint matches — walking the (possibly hundreds-of-MB) result blob
 		// at most once ever, not on every rebuild.
 		for _, v := range h.scanVulns(ref) {
+			if v.SevRank < 1 {
+				continue // info (SevRank 0) belongs to the /info page, not the Vulnerabilities index
+			}
 			// finalizeVulnEnrichment (CVE-DB join + port/proto) runs here at
 			// ASSEMBLY, not in the cached extraction, so a CVE-DB refresh is
 			// always reflected and the per-scan cache stays CVE-DB-independent.
@@ -698,7 +701,7 @@ func extractScanVulns(result, module, scanID string) []GlobalVuln {
 					continue
 				}
 				for _, v := range extractVulnsGeneric(st.Result, vulnInherit{}) {
-					if v.Title == "" || v.SevRank < 1 {
+					if v.Title == "" {
 						continue
 					}
 					v.Module = module
@@ -714,7 +717,7 @@ func extractScanVulns(result, module, scanID string) []GlobalVuln {
 	}
 	var out []GlobalVuln
 	for _, v := range extractVulnsGeneric(json.RawMessage(result), vulnInherit{}) {
-		if v.Title == "" || v.SevRank < 1 { // skip info/recon (SevRank 0/-1)
+		if v.Title == "" { // info (SevRank 0) kept: buildVulnIndex drops it, buildInfoIndex uses it
 			continue
 		}
 		v.Module = module
@@ -761,9 +764,24 @@ func (h *Handler) invalidateWorkspaceIndexes(workspaceID string) {
 	vulnIndexMu.Unlock()
 	_ = h.db.DeleteVulnIndexCache(workspaceID)
 
+	infoIndexMu.Lock()
+	delete(infoIndexCache, workspaceID)
+	infoIndexMu.Unlock()
+
 	assetSearchMu.Lock()
 	delete(assetSearchCache, workspaceID)
 	assetSearchMu.Unlock()
+}
+
+// isInfoSev reports whether a severity string is the genuine "info" class
+// (not unknown/none/empty recon noise). The /info page keys off this; the
+// extractor keeps these findings (SevRank 0) so the info index can aggregate them.
+func isInfoSev(sev string) bool {
+	switch strings.ToUpper(strings.TrimSpace(sev)) {
+	case "INFO", "INFORMATIONAL":
+		return true
+	}
+	return false
 }
 
 // sevRankOf maps a severity string to the engine's rank (4=crit … 1=low).
@@ -860,7 +878,7 @@ func extractVulnsGeneric(raw json.RawMessage, inh vulnInherit) []GlobalVuln {
 		if rv, ok := obj["severity"]; ok {
 			_ = json.Unmarshal(rv, &sev)
 		}
-		if r := sevRankOf(sev); sev != "" && r >= 1 {
+		if r := sevRankOf(sev); sev != "" && (r >= 1 || isInfoSev(sev)) {
 			title := jsonStr(obj, "title", "name", "template_id")
 			var cves []string
 			if rv, ok := obj["cves"]; ok {

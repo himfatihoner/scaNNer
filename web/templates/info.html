@@ -1,0 +1,98 @@
+{{define "page_info"}}
+<div class="mb-5">
+    <h1 class="text-xl font-semibold text-white">{{T "Info"}}</h1>
+    <p class="text-sm text-dark-400 mt-1">{{T "Informational findings (technology/version disclosures, benign exposures, panels) from Nuclei and other tools — one row per distinct finding. Click a row to see which targets have it and the details."}}</p>
+</div>
+
+<span id="infoState" data-ready="{{if .InfoReady}}1{{else}}0{{end}}" data-running="{{if .HasRunning}}1{{else}}0{{end}}" hidden></span>
+
+{{if not .InfoReady}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-4 mb-4 text-sm text-dark-400">{{T "Building the info index from scan results… refresh in a moment for the full list."}}</div>
+{{end}}
+
+<div class="flex items-center gap-2 mb-4">
+    <input id="infoSearch" type="search" placeholder="{{T `Search finding, source, host…`}}" oninput="applyInfoFilter()"
+           class="w-72 mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+    <span class="text-[11px] text-dark-500"><span id="infoResultCount">{{.InfoCount}}</span> {{T "distinct findings"}}</span>
+</div>
+
+{{if .InfoFindings}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+    <table class="w-full text-sm">
+        <thead class="bg-dark-850 border-b border-dark-800 text-left">
+            <tr>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">{{T "Finding"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">{{T "Source"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">{{T "Check"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold text-right">{{T "Hosts"}}</th>
+            </tr>
+        </thead>
+        <tbody id="infoTbody" class="divide-y divide-dark-800">
+            {{range .InfoFindings}}
+            <tr class="info-row hover:bg-dark-850/60 cursor-pointer" data-id="{{.ID}}" data-row-pair="{{.ID}}"
+                data-search="{{.Title}} {{.Module}} {{.Tool}} {{.CheckID}} {{range .Hosts}}{{.}} {{end}}"
+                onclick="toggleInfoDetail(event, this)">
+                <td class="px-4 py-2.5"><span class="info-caret inline-block text-dark-500 mr-1 transition-transform select-none">▸</span><span class="text-[12px] text-white">{{.Title}}</span></td>
+                <td class="px-4 py-2.5 whitespace-nowrap"><span class="text-[10px] text-dark-200 bg-dark-850 border border-dark-700 px-1.5 py-0.5 rounded">{{if .Tool}}{{moduleDisplayName .Tool}}{{else}}{{moduleDisplayName .Module}}{{end}}</span></td>
+                <td class="px-4 py-2.5"><span class="mono text-[10px] text-dark-400 break-all">{{if .CheckID}}{{.CheckID}}{{else}}—{{end}}</span></td>
+                <td class="px-4 py-2.5 whitespace-nowrap text-right"><span class="text-[11px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300">{{len .Hosts}}</span></td>
+            </tr>
+            <tr class="info-detail hidden" data-row-follow="{{.ID}}">
+                <td colspan="4" class="px-6 py-4 bg-dark-950/50 border-t border-dark-800">
+                    <div class="info-detail-body text-[12px] text-dark-500" data-id="{{.ID}}" data-loaded="0">{{T "Loading…"}}</div>
+                </td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{else}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
+    <p class="text-sm">{{if .InfoReady}}{{T "No informational findings yet. Run a scan that reports info-severity findings (e.g. Nuclei with 'info' severity enabled)."}}{{else}}{{T "Indexing…"}}{{end}}</p>
+</div>
+{{end}}
+
+<script>
+function toggleInfoDetail(e, row){
+    if(e && e.target && e.target.closest('a,input,button,summary,details,label')) return;
+    var id = row.getAttribute('data-row-pair');
+    var esc = (window.CSS && CSS.escape) ? CSS.escape(id) : id;
+    var detail = document.querySelector('tr.info-detail[data-row-follow="'+esc+'"]');
+    if(!detail) return;
+    detail.classList.toggle('hidden');
+    var caret = row.querySelector('.info-caret');
+    if(caret) caret.style.transform = detail.classList.contains('hidden') ? '' : 'rotate(90deg)';
+    var body = detail.querySelector('.info-detail-body');
+    if(body && body.getAttribute('data-loaded') === '0' && !detail.classList.contains('hidden')){
+        body.setAttribute('data-loaded','1');
+        fetch('/info/detail?id='+encodeURIComponent(id), {credentials:'same-origin'})
+            .then(function(r){ return r.ok ? r.text() : Promise.reject(r.status); })
+            .then(function(html){ body.innerHTML = html; })
+            .catch(function(){ body.setAttribute('data-loaded','0'); body.textContent = '—'; });
+    }
+}
+function applyInfoFilter(){
+    var q=(document.getElementById('infoSearch').value||'').toLowerCase().trim();
+    var tb=document.getElementById('infoTbody'); if(!tb) return;
+    var rows=Array.prototype.slice.call(tb.querySelectorAll('.info-row'));
+    var vis=0;
+    rows.forEach(function(row){
+        var s=(row.getAttribute('data-search')||'').toLowerCase();
+        var show=!q||s.indexOf(q)!==-1;
+        row.style.display=show?'':'none'; if(show)vis++;
+        var pair=row.getAttribute('data-row-pair');
+        var d=document.querySelector('tr.info-detail[data-row-follow="'+((window.CSS&&CSS.escape)?CSS.escape(pair):pair)+'"]');
+        if(d) d.style.display=show?'':'none';
+    });
+    var c=document.getElementById('infoResultCount'); if(c) c.textContent=vis;
+}
+// Reload only while the index is still BUILDING (not ready) — once built it stays;
+// a running scan's new info surfaces on the next manual refresh.
+document.addEventListener('DOMContentLoaded', function(){
+    var st=document.getElementById('infoState');
+    if(st && st.getAttribute('data-ready')!=='1'){
+        setTimeout(function(){ location.reload(); }, 5000);
+    }
+});
+</script>
+{{end}}

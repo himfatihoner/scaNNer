@@ -340,6 +340,8 @@
                     {{template "page_assets" .}}
                 {{else if eq .Page "vulnerabilities"}}
                     {{template "page_vulnerabilities" .}}
+                {{else if eq .Page "info"}}
+                    {{template "page_info" .}}
                 {{else if eq .Page "asset_detail"}}
                     {{template "page_asset_detail" .}}
                 {{else if eq .Page "modules"}}

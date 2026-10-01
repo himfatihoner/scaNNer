@@ -1074,6 +1074,31 @@ func Scan(cfg Config, opts *shared.HTTPOptions, concurrency int, cveLookup CVELo
 			}
 			nucleiCfg.Concurrency = nucleiConc
 		}
+		// Technology-targeted templates (opt-in): the asset DB isn't updated with
+		// techs until the suite ends, so use the in-suite techdetect output
+		// (techResult — stage 6, already complete here) to tag each host with its
+		// detected stack's nuclei tags (+ a generic baseline) so nuclei runs the
+		// relevant templates per host instead of every template.
+		if cfg.NucleiTechTargeted && techResult != nil {
+			tbt := map[string][]string{}
+			for _, tr := range techResult.Results {
+				names := make([]string, 0, len(tr.Technologies))
+				for _, tech := range tr.Technologies {
+					names = append(names, tech.Name)
+				}
+				tags := nuclei.TechTags(names)
+				if len(tags) == 0 {
+					continue
+				}
+				tbt[tr.URL] = tags
+				if pu, err := url.Parse(tr.URL); err == nil && pu.Hostname() != "" {
+					tbt[strings.ToLower(pu.Hostname())] = tags
+				}
+			}
+			if len(tbt) > 0 {
+				nucleiCfg.TagsByTarget = tbt
+			}
+		}
 		nucleiRes := nuclei.Scan(ctx, nucleiSeeds, nucleiCfg, stageProgress(sr, len(nucleiSeeds)), nil)
 		findingCount := 0
 		for _, t := range nucleiRes.Results {

@@ -145,6 +145,13 @@ type ScanConfig struct {
 	// bulk-size budget is DIVIDED across the active workers (see scanParallelHosts).
 	// Off = the exact original behaviour.
 	ParallelHosts bool
+	// TagsByTarget (opt-in, technology-aware tagging) maps a target — keyed by
+	// its full URL AND by its bare host — to the nuclei tags that select its
+	// detected stack's templates (e.g. "iis", "wordpress"; see techtags.go). When
+	// non-empty, Scan() groups targets by their effective tag-set and runs one
+	// nuclei process per stack group so each host gets the RIGHT templates (plus a
+	// generic baseline) instead of every template. Empty = normal behaviour.
+	TagsByTarget map[string][]string
 	// Opts carries the scan's HTTPOptions (killswitch binding + reachability
 	// preflight settings). nuclei shells out and doesn't use opts for its own
 	// requests, but the reachability preflight needs a dialer; nil is safe
@@ -227,13 +234,29 @@ func Scan(ctx context.Context, urls []string, cfg ScanConfig, progress ProgressF
 		return &ScanResult{Results: deadRows}
 	}
 
+	// Opt-in technology-aware tagging: group targets by their detected stack and
+	// run one nuclei process per group with that stack's tags (+ a generic
+	// baseline). Takes precedence over parallel-host mode (grouping already spawns
+	// multiple processes). Off (empty map) = unchanged behaviour.
+	if len(cfg.TagsByTarget) > 0 {
+		return scanByTechTags(ctx, urls, cfg, progress, partial, deadRows)
+	}
+
 	// Opt-in parallel-host mode: scan hosts concurrently with a divided budget.
-	// Everything below (the sequential-batch path) is untouched and is what runs
-	// when the checkbox is off — the original behaviour is fully preserved.
 	if cfg.ParallelHosts {
 		return scanParallelHosts(ctx, urls, cfg, progress, partial, deadRows)
 	}
 
+	return scanBatched(ctx, urls, cfg, progress, partial, deadRows)
+}
+
+// scanBatched runs the default sequential-batch sweep: small sets as one nuclei
+// process, larger sets split into chunks (one process per chunk) so finished
+// chunks yield complete results and no single chunk can hang the whole run.
+// deadRows (unreachable preflight targets) are prepended to the result. This is
+// the original Scan() batch body, extracted so the tech-tagging grouping path can
+// reuse it per stack group.
+func scanBatched(ctx context.Context, urls []string, cfg ScanConfig, progress ProgressFunc, partial PartialFunc, deadRows []TargetResult) *ScanResult {
 	batchSize := cfg.BatchSize
 	if batchSize <= 0 {
 		batchSize = defaultNucleiBatchSize
@@ -352,6 +375,98 @@ func Scan(ctx context.Context, urls []string, cfg ScanConfig, progress ProgressF
 	}
 	merged.Results = append(deadRows, merged.Results...)
 	return merged
+}
+
+// scanByTechTags runs the technology-aware path: group targets by their effective
+// tag-set (user tags ∪ the target's detected-stack tags ∪ a generic baseline) and
+// run one nuclei process group per distinct set via scanBatched — so each host
+// gets the right templates for its stack instead of every template. Hosts with no
+// detected stack fall into a group carrying just the user's tags (a full scan when
+// none). Progress + partials aggregate across groups; deadRows prepend once.
+func scanByTechTags(ctx context.Context, urls []string, cfg ScanConfig, progress ProgressFunc, partial PartialFunc, deadRows []TargetResult) *ScanResult {
+	total := len(urls)
+	type grp struct {
+		tags []string
+		urls []string
+	}
+	groups := map[string]*grp{}
+	var order []string
+	for _, u := range urls {
+		ts := effectiveTagSet(cfg, u)
+		key := strings.Join(ts, "\x00")
+		g := groups[key]
+		if g == nil {
+			g = &grp{tags: ts}
+			groups[key] = g
+			order = append(order, key)
+		}
+		g.urls = append(g.urls, u)
+	}
+	if progress != nil {
+		progress(0, fmt.Sprintf("nuclei · tech-targeted: %d host(s) in %d stack group(s)", total, len(order)))
+	}
+
+	merged := &ScanResult{}
+	var mu sync.Mutex
+	groupBase := 0
+	for gi, key := range order {
+		if ctx.Err() != nil {
+			break
+		}
+		g := groups[key]
+		gcfg := cfg
+		gcfg.Tags = g.tags
+		gcfg.TagsByTarget = nil // group cfg runs the plain batched path
+		if gi > 0 {
+			gcfg.UpdateTemplates = false // refresh templates once, on the first group
+		}
+		base := groupBase
+		wprog := func(done int, msg string) {
+			if progress == nil {
+				return
+			}
+			d := base + done
+			if d > total {
+				d = total
+			}
+			progress(d, msg)
+		}
+		wpart := func(snap *ScanResult) {
+			if partial == nil {
+				return
+			}
+			mu.Lock()
+			out := &ScanResult{}
+			out.Results = append(out.Results, deadRows...)
+			out.Results = append(out.Results, merged.Results...)
+			out.Results = append(out.Results, snap.Results...)
+			mu.Unlock()
+			partial(out)
+		}
+		cr := scanBatched(ctx, g.urls, gcfg, wprog, wpart, nil)
+		mu.Lock()
+		merged.Results = append(merged.Results, cr.Results...)
+		if cr.Truncated {
+			merged.Truncated = true
+			if cr.TruncateReason != "" && merged.TruncateReason == "" {
+				merged.TruncateReason = cr.TruncateReason
+			}
+		}
+		mu.Unlock()
+		groupBase += len(g.urls)
+	}
+
+	out := &ScanResult{Truncated: merged.Truncated, TruncateReason: merged.TruncateReason}
+	out.Results = append(out.Results, deadRows...)
+	out.Results = append(out.Results, merged.Results...)
+	if progress != nil {
+		if out.Truncated {
+			progress(total, fmt.Sprintf("⚠ nuclei · tech-targeted · %d finding(s) across %d host(s) in %d group(s) (some incomplete)", countFindings(out), total, len(order)))
+		} else {
+			progress(total, fmt.Sprintf("nuclei · tech-targeted done · %d finding(s) across %d host(s) in %d group(s)", countFindings(out), total, len(order)))
+		}
+	}
+	return out
 }
 
 // scanParallelHosts runs the opt-in parallel-host sweep: a fixed pool of

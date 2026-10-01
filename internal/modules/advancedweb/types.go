@@ -164,6 +164,7 @@ type Config struct {
 	NucleiSeverities   []string `json:"nuclei_severities"`
 	NucleiLevel        string   `json:"nuclei_level"`                   // aggressiveness: polite|normal|aggressive (rate/concurrency/bulk preset)
 	NucleiTemplateIDs  []string `json:"nuclei_template_ids,omitempty"`   // when set, run ONLY these templates (-t) — used by a single-finding rescan
+	NucleiTechTargeted bool     `json:"nuclei_tech_targeted,omitempty"` // tag each host with its detected-stack nuclei tags (from the in-suite techdetect output) + a generic baseline, so nuclei runs relevant templates per host
 	TechDetectAggressive bool   `json:"techdetect_aggressive"` // run whatweb -a 3 on every live service (deeper, slower) instead of the fast prefetched path
 	WPScanSpeed        string   `json:"wpscan_speed"` // fast | normal | aggressive
 	SecHeadersMethods  []string `json:"secheaders_methods"`

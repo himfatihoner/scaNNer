@@ -203,6 +203,7 @@ func (h *Handler) AdvancedWebRun(w http.ResponseWriter, r *http.Request) {
 		DirEnumRecursive:   r.FormValue("direnum_recursive") == "on",
 		NucleiSeverities:   r.Form["nuclei_severities"],
 		NucleiLevel:        r.FormValue("nuclei_level"),
+		NucleiTechTargeted: r.FormValue("nuclei_tech_targeted") == "on",
 		TechDetectAggressive: r.FormValue("techdetect_aggressive") == "on",
 		WPScanSpeed:        r.FormValue("wpscan_speed"),
 		SecHeadersMethods:  r.Form["secheaders_methods"],

@@ -389,6 +389,10 @@
                                             {{end}}
                                         </div>
                                         <p class="text-[10px] text-dark-500 mt-1">{{T "Sets nuclei rate-limit · concurrency · bulk-size together (polite 25/10/10 · normal 150/25/25 · aggressive 500/50/50)."}}</p>
+                                        <label class="flex items-start gap-2 cursor-pointer mt-3">
+                                            <input type="checkbox" name="nuclei_tech_targeted" class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500" onclick="event.stopPropagation()">
+                                            <span class="text-[11px] text-dark-300">{{T "Technology-targeted templates"}}<span class="block text-[10px] text-dark-500">{{T "Tag each host with its detected stack (from this suite's Tech Detection stage) so nuclei runs the relevant templates per host (e.g. -tags iis / wordpress) plus a generic baseline. Faster and less noisy. Needs the Tech Detection stage enabled."}}</span></span>
+                                        </label>
                                     </div>
                                 </div>
                             </details>

@@ -78,6 +78,11 @@ type nucleiConfig struct {
 	// ParallelHosts (opt-in checkbox): scan hosts in parallel (N at a time) with
 	// the network budget divided across the workers. Persisted so Restart replays it.
 	ParallelHosts bool `json:"parallel_hosts,omitempty"`
+	// TechTargeted (opt-in checkbox): tag each target with nuclei tags for its
+	// detected technology stack (from this workspace's already-detected techs) so
+	// nuclei runs the relevant templates per host (+ a generic baseline) instead of
+	// every template. Persisted so Restart replays it (techs are re-derived at run).
+	TechTargeted bool `json:"tech_targeted,omitempty"`
 	// HTTP auth knobs — wired from the run form + global Settings via
 	// BuildHTTPOptions. Persisted on the scan row so Restart replays
 	// the same auth setup.
@@ -139,6 +144,7 @@ func parseNucleiForm(r *http.Request) nucleiConfig {
 	cfg.DAST = r.FormValue("dast") == "on"
 	cfg.AutomaticScan = r.FormValue("automatic_scan") == "on"
 	cfg.ParallelHosts = r.FormValue("parallel_hosts") == "on"
+	cfg.TechTargeted = r.FormValue("tech_targeted") == "on"
 	cfg.FollowRedirects = r.FormValue("follow_redirects") == "on"
 	cfg.SNIHost = strings.TrimSpace(r.FormValue("sni_host"))
 	// Audit Q8 fix: allow per-scan rate limit + concurrency override.
@@ -312,6 +318,16 @@ func (h *Handler) runNuclei(scanID string, cfg nucleiConfig, opts *shared.HTTPOp
 	// otherwise leave nuclei at its own (much faster) default.
 	scanCfg := buildNucleiScanConfig(cfg, settings, opts)
 
+	// Technology-aware tagging (opt-in): derive per-target nuclei tags from this
+	// workspace's detected technologies so nuclei runs each host's stack templates
+	// (+ a generic baseline). Re-derived at run time (not stored) so Restart stays
+	// fresh. Empty/stale tech data → nil map → a normal scan.
+	if cfg.TechTargeted {
+		if scan, err := h.db.GetScan(scanID); err == nil && scan != nil {
+			scanCfg.TagsByTarget = h.techTagsByTarget(scan.WorkspaceID, cfg.URLs)
+		}
+	}
+
 	result := nuclei.Scan(ctx, cfg.URLs, scanCfg,
 		func(done int, msg string) {
 			h.db.UpdateScanProgress(scanID, done, msg)
@@ -388,4 +404,52 @@ func buildNucleiScanConfig(cfg nucleiConfig, settings models.AppSettings, opts *
 		scanCfg.UserAgent = opts.PickUserAgent()
 	}
 	return scanCfg
+}
+
+// techTagsByTarget derives per-target nuclei tags from the workspace's detected
+// technologies (reusing the asset-search tech index). Keyed by full URL AND by
+// normalized host so the module's effectiveTagSet matches either. Returns nil
+// when nothing is known — a safe fallthrough to a normal (full) scan.
+func (h *Handler) techTagsByTarget(workspaceID string, urls []string) map[string][]string {
+	techByAsset := h.ensureAssetTech(workspaceID)
+	if len(techByAsset) == 0 {
+		return nil
+	}
+	tbt := map[string][]string{}
+	for _, u := range urls {
+		key := normalizeAsset(u) // → bare host, matches the tech index keys
+		tags := nuclei.TechTags(techByAsset[key])
+		if len(tags) == 0 {
+			continue
+		}
+		tbt[u] = tags
+		tbt[key] = tags
+	}
+	if len(tbt) == 0 {
+		return nil
+	}
+	return tbt
+}
+
+// ensureAssetTech returns the workspace's per-asset technology names, building the
+// asset-search index SYNCHRONOUSLY if it isn't current. (The normal build runs
+// async and only on an assets-page load — a scan launch can't wait for that.)
+// Reuses the cache when its fingerprint already matches the current scan set.
+func (h *Handler) ensureAssetTech(workspaceID string) map[string][]string {
+	liteScans, _ := h.db.ListScansLite(workspaceID, "")
+	fp := assetSearchFingerprint(liteScans)
+	assetSearchMu.Lock()
+	idx := assetSearchCache[workspaceID]
+	ready := idx != nil && idx.fingerprint == fp && idx.tech != nil
+	assetSearchMu.Unlock()
+	if !ready {
+		ids := make([][2]string, 0, len(liteScans))
+		for _, s := range liteScans {
+			if s.Status == models.ScanDone || s.Status == models.ScanCancelled || s.Status == models.ScanRunning {
+				ids = append(ids, [2]string{s.ID, s.Module})
+			}
+		}
+		h.buildAssetSearchIndex(workspaceID, fp, ids)
+	}
+	return h.getAssetTechnologies(workspaceID)
 }

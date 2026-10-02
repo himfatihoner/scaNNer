@@ -420,7 +420,7 @@ func Scan(cfg Config, opts *shared.HTTPOptions, concurrency int, cveLookup CVELo
 		bumpStage(2, "DNS Enumeration", fmt.Sprintf("%d subdomains", count))
 	}
 
-	// ---------------- Stage 3: HTTPX Finder ----------------
+	// ---------------- Stage 3: HTTP Service Finder ----------------
 	var httpxResult *httpxfind.ScanResult
 	if raw, ok := cfg.ResumeStages[StageHTTPXFind]; ok {
 		// Resumed: reconstruct httpxResult (the live-service map every later
@@ -533,7 +533,7 @@ func Scan(cfg Config, opts *shared.HTTPOptions, concurrency int, cveLookup CVELo
 				resultMu.Unlock()
 			}
 			finishStage(sr, StatusDone, msg, httpxResult)
-			bumpStage(3, "HTTPX Finder", "0 live services (targets unreachable)")
+			bumpStage(3, "HTTP Service Finder", "0 live services (targets unreachable)")
 		} else {
 			// Store a body-free copy: the per-service 256 KB response bodies/headers
 			// would persist as ~250 MB over 1600 live hosts and hit the 50 MB cap the
@@ -541,7 +541,7 @@ func Scan(cfg Config, opts *shared.HTTPOptions, concurrency int, cveLookup CVELo
 			// from the LIVE httpxResult) even runs. The live result keeps them.
 			finishStage(sr, StatusDone,
 				fmt.Sprintf("%d live services", len(httpxResult.Services)), httpxLite(httpxResult))
-			bumpStage(3, "HTTPX Finder", fmt.Sprintf("%d live services", len(httpxResult.Services)))
+			bumpStage(3, "HTTP Service Finder", fmt.Sprintf("%d live services", len(httpxResult.Services)))
 		}
 	}
 

@@ -47,7 +47,7 @@ var StageOrder = []Stage{
 var StageDisplayNames = map[Stage]string{
 	StageWhois:       "WHOIS / ASN",
 	StageDNSEnum:     "DNS Enumeration",
-	StageHTTPXFind:   "HTTPX Finder",
+	StageHTTPXFind:   "HTTP Service Finder",
 	StageSSLScan:     "SSL/TLS Scanner",
 	StageWAFDetect:   "WAF / Firewall",
 	StageTechDetect:  "Tech Detection",

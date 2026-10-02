@@ -103,7 +103,7 @@ func ModuleDisplayName(module string) string {
 	case "sslscan":
 		return "SSL/TLS Scanner"
 	case "httpxfind":
-		return "HTTPX Finder"
+		return "HTTP Service Finder"
 	case "httpmethods":
 		return "HTTP Method Tester"
 	case "wafdetect":

@@ -17,11 +17,15 @@ import (
 type HTTPXFindConfig struct {
 	Targets []string           `json:"targets"`
 	Mode    httpxfind.ScanMode `json:"mode"`
-	// DirectHTTP (Full mode only): skip the TCP connect port-scan and probe
-	// HTTP/HTTPS directly on every port — only ports that actually answer HTTP
-	// are recorded, so a firewall that accepts/tarpits all connects can't
-	// inflate the result. Persisted for Restart replay.
+	// DirectHTTP: skip the TCP connect port-scan and probe HTTP/HTTPS directly
+	// on every port — only ports that actually answer HTTP are recorded, so a
+	// firewall that accepts/tarpits all connects can't inflate the result.
+	// Honoured in Full and Custom-ports modes (Common always probes directly).
+	// Persisted for Restart replay.
 	DirectHTTP bool `json:"direct_http,omitempty"`
+	// Ports is the raw operator port spec ("80,443,8000-8100") for the custom
+	// (ModePorts) mode. Persisted so Restart can replay the same port list.
+	Ports string `json:"ports,omitempty"`
 }
 
 func (h *Handler) HTTPXFindPage(w http.ResponseWriter, r *http.Request) {
@@ -65,12 +69,30 @@ func (h *Handler) HTTPXFindRun(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mode := httpxfind.ScanMode(r.FormValue("mode"))
-	if mode != httpxfind.ModeFull {
+	switch mode {
+	case httpxfind.ModeFull, httpxfind.ModePorts:
+		// keep
+	default:
 		mode = httpxfind.ModeCommon
 	}
-	// Full-mode-only knob: probe HTTP/HTTPS directly instead of a TCP
-	// connect port-scan first (firewall can't fool the port detection).
-	directHTTP := mode == httpxfind.ModeFull && r.FormValue("direct_http") == "on"
+	// Custom-ports mode: parse the operator's port spec ("80,443,8000-8100").
+	// An empty / invalid spec is a user error — bounce back instead of silently
+	// falling through to the 4 Common ports.
+	var portsSpec string
+	var customPorts []int
+	if mode == httpxfind.ModePorts {
+		portsSpec = strings.TrimSpace(r.FormValue("ports"))
+		customPorts = shared.ExpandPortSpec(portsSpec)
+		if len(customPorts) == 0 {
+			http.Redirect(w, r, "/modules/httpxfind?error=no_ports", http.StatusSeeOther)
+			return
+		}
+	}
+	// Probe HTTP/HTTPS directly instead of a TCP connect port-scan first (so a
+	// firewall that accepts/tarpits connects can't fool the port detection).
+	// Honoured in Full and Custom modes; Common always probes directly, so the
+	// checkbox is a no-op there (the engine ignores it for Common).
+	directHTTP := r.FormValue("direct_http") == "on"
 
 	// No artificial target cap: the operator must be able to run large sweeps
 	// (e.g. 500 IPs × all 65 535 ports in Full mode). The only bound is the
@@ -97,11 +119,15 @@ func (h *Handler) HTTPXFindRun(w http.ResponseWriter, r *http.Request) {
 		total = len(targets) * len(httpxfind.CommonPorts)
 	case httpxfind.ModeFull:
 		total = len(targets) * 65535
+	case httpxfind.ModePorts:
+		// Custom: targets × listed ports. The module re-seeds the real total
+		// (via the __TOTAL__ sentinel) after dropping unresolvable hosts.
+		total = len(targets) * len(customPorts)
 	}
 
 	opts := h.BuildHTTPOptions(r)
 
-	cfgJSON, _ := json.Marshal(HTTPXFindConfig{Targets: targets, Mode: mode, DirectHTTP: directHTTP})
+	cfgJSON, _ := json.Marshal(HTTPXFindConfig{Targets: targets, Mode: mode, DirectHTTP: directHTTP, Ports: portsSpec})
 	scan, err := h.db.CreateScan(ws.ID, "httpxfind", string(cfgJSON), total)
 	if err != nil {
 		http.Redirect(w, r, "/modules/httpxfind?error=db_error", http.StatusSeeOther)
@@ -121,7 +147,7 @@ func (h *Handler) HTTPXFindRun(w http.ResponseWriter, r *http.Request) {
 	if t := parseHTTPTuning(r); t.RateSet && t.RateLimit == 0 {
 		rate = -1
 	}
-	go h.runHTTPXFind(scan.ID, targets, mode, directHTTP, opts, conc, rate)
+	go h.runHTTPXFind(scan.ID, targets, mode, directHTTP, customPorts, opts, conc, rate)
 	http.Redirect(w, r, "/modules/httpxfind/results/"+scan.ID, http.StatusSeeOther)
 }
 
@@ -158,7 +184,7 @@ func (h *Handler) HTTPXFindStatus(w http.ResponseWriter, r *http.Request) {
 	h.writeScanStatus(w, scan)
 }
 
-func (h *Handler) runHTTPXFind(scanID string, targets []string, mode httpxfind.ScanMode, directHTTP bool, opts *shared.HTTPOptions, tcpConc, tcpRate int) {
+func (h *Handler) runHTTPXFind(scanID string, targets []string, mode httpxfind.ScanMode, directHTTP bool, customPorts []int, opts *shared.HTTPOptions, tcpConc, tcpRate int) {
 	if !h.db.MarkRunning(scanID) {
 		return
 	}
@@ -239,11 +265,16 @@ func (h *Handler) runHTTPXFind(scanID string, targets []string, mode httpxfind.S
 	// tied to the Task 0a home-connection safety knobs); other modes use the
 	// probe defaults.
 	var result *httpxfind.ScanResult
-	if mode == httpxfind.ModeFull {
+	switch {
+	case mode == httpxfind.ModePorts && len(customPorts) > 0:
+		// Custom port list/range. Honours directHTTP (single-phase probe) vs the
+		// connect-first two-phase sweep, plus "Max concurrent" + "Rate limit".
+		result = httpxfind.ScanWithPorts(targets, customPorts, tcpConc, tcpRate, directHTTP, opts, onPartial, onProgress)
+	case mode == httpxfind.ModeFull:
 		// probeConc = tcpConc so the HTTP-probe phase honours "Max concurrent"
 		// too (it was hardcoded to the default 20 before).
 		result = httpxfind.ScanFull(targets, tcpConc, tcpConc, tcpRate, directHTTP, opts, onPartial, onProgress)
-	} else {
+	default:
 		// Common mode previously ignored both overrides; ScanCommon wires the
 		// per-scan "Max concurrent" + "Rate limit (req/s)" into the probe.
 		result = httpxfind.ScanCommon(targets, tcpConc, tcpRate, opts, onPartial, onProgress)

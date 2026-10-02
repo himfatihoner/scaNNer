@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"regexp"
 	"scanner/internal/modules/shared"
+	"scanner/internal/sysmon"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,6 +25,7 @@ type ScanMode string
 const (
 	ModeCommon ScanMode = "common" // 80, 443, 8080, 8443
 	ModeFull   ScanMode = "full"   // all 65535 ports
+	ModePorts  ScanMode = "ports"  // an operator-supplied custom port list/range
 )
 
 // CommonPorts are the default HTTP/HTTPS ports
@@ -46,6 +48,15 @@ const (
 	// tens of thousands of new flows/sec. 0 = unlimited. Overridable per-scan.
 	fullScanRate   = 500
 	probeConcLimit = 20 // concurrency for HTTP probing
+	// fullMaxPort is the top of the full-sweep port range.
+	fullMaxPort = 65535
+	// memBackpressureFrac: the feeder PAUSES streaming new probe tasks while
+	// MemAvailable/MemTotal drops below this fraction, so a wide sweep self-
+	// limits BEFORE it trips the memory governor's hard abort (~0.12). This is
+	// insurance on top of the result caps (addService) — the task channel is
+	// already bounded, but a burst of large pages can still grow RSS between
+	// GC cycles; backing off feeding lets GC catch up instead of OOMing.
+	memBackpressureFrac = 0.20
 )
 
 // TotalUpdatePrefix is a sentinel prefix on progress messages used to
@@ -53,7 +64,7 @@ const (
 // The handler intercepts messages starting with this prefix and translates
 // them into db.UpdateScanProgressFull, then suppresses the message from
 // the UI. Audit fix for the full-mode "100% after first host" bar bug —
-// the denominator isn't known until tcpScanAll finishes, so the scan
+// the denominator isn't known until the resolve pass finishes, so the scan
 // starts in indeterminate (total=0) mode and switches once we have the
 // real number.
 const TotalUpdatePrefix = "__TOTAL__:"
@@ -156,56 +167,57 @@ func ScanFull(targets []string, probeConc, tcpConc, tcpRate int, directHTTP bool
 	return scanCore(targets, ModeFull, nil, probeConc, tcpConc, tcpRate, directHTTP, opts, onPartial, progress)
 }
 
-// ScanWithPorts is the explicit-port-list variant. The caller supplies
-// the exact ports to probe per host (e.g. parsed from a "80,443,8000-8100"
-// user input via shared.ExpandPortSpec). An empty list falls back to
-// the same default as ModeCommon.
+// ScanWithPorts is the explicit-port-list variant. The caller supplies the exact
+// ports to probe per host (e.g. parsed from a "80,443,8000-8100" user input via
+// shared.ExpandPortSpec). An empty list falls back to the same default as
+// ModeCommon.
 //
-// This bypasses tcpScanAll entirely — we trust the operator's list, no
-// pre-discovery, so a 1000-port custom list = 1000 probes per host
-// (concurrency-bounded). For "do an open-port discovery first" use
-// ScanWithConcurrency(..., ModeFull, ...) instead.
-func ScanWithPorts(targets []string, customPorts []int, concurrency int, opts *shared.HTTPOptions, onPartial PartialFunc, progress ProgressFunc) *ScanResult {
-	return scanCore(targets, ModeCommon, customPorts, concurrency, 0, 0, false, opts, onPartial, progress)
+// It honours the same two shapes as Full mode via the directHTTP flag:
+//   - directHTTP = true  → single-phase HTTP/HTTPS probe of every listed port
+//     (only ports that actually answer HTTP are recorded — the classic behaviour).
+//   - directHTTP = false → a TCP connect pre-scan of the listed ports first, then
+//     an HTTP probe of only the OPEN ones ("classic TCP → HTTP").
+//
+// rate caps NEW connections/probes per second (0 = module default, <0 =
+// unlimited); concurrency bounds in-flight probes/connects.
+func ScanWithPorts(targets []string, customPorts []int, concurrency, rate int, directHTTP bool, opts *shared.HTTPOptions, onPartial PartialFunc, progress ProgressFunc) *ScanResult {
+	// connect + probe share the operator's "Max concurrent" for a custom list.
+	return scanCore(targets, ModePorts, customPorts, concurrency, concurrency, rate, directHTTP, opts, onPartial, progress)
 }
 
-// scanCore is the shared body. When customPorts is non-empty it
-// overrides both ModeCommon (CommonPorts) and ModeFull (tcp discovery);
-// the mode argument is only consulted to choose between common and
-// full when no explicit list was supplied.
+// scanCore builds the shared HTTP client/transport and dispatches to the single
+// bounded worker-pool engine (runEngine). The port plan is derived from
+// (mode, customPorts): a non-empty customPorts list = custom mode (overrides the
+// mode arg); mode == ModeFull with no list = the 65535-port sweep; otherwise the
+// fixed Common ports.
 func scanCore(targets []string, mode ScanMode, customPorts []int, concurrency, tcpConc, tcpRate int, directHTTP bool, opts *shared.HTTPOptions, onPartial PartialFunc, progress ProgressFunc) *ScanResult {
 	result := &ScanResult{}
 	var mu sync.Mutex
 
+	// HTTP-probe concurrency.
 	if concurrency <= 0 {
 		concurrency = probeConcLimit
 	}
 	if concurrency > 1000 {
-		// Hard cap — past ~500 the FD limit + per-target rate-limit
-		// pushback makes higher numbers slower, not faster.
+		// Hard cap — past ~500 the FD limit + per-target rate-limit pushback
+		// makes higher numbers slower, not faster.
 		concurrency = 1000
 	}
-	// Full-mode TCP-discovery tuning (Task 0a safety). 0 = module default.
+	// Connect-phase concurrency (full / custom connect mode). 0 = module default.
 	if tcpConc <= 0 {
 		tcpConc = fullScanConc
 	}
-	if tcpRate < 0 {
-		tcpRate = 0 // negative would break the ticker; treat as unlimited
-	}
-	// NB: tcpRate==0 stays "unlimited" here. Full mode re-applies the fullScanRate
-	// default inside runFullMode; the fixed-port (Common) path below honours 0 as
-	// genuinely unlimited so a blank rate_limit doesn't silently cap Common scans.
 
 	// Build ONE shared http.Transport for the whole scan (audit perf fix).
-	// Previously tryScheme allocated a fresh Transport per scheme/port/host
-	// — for a ModeFull scan with thousands of open ports that meant
-	// thousands of TLS session caches + idle conn pools allocated and
-	// leaked for the scan's lifetime. opts.ApplyTransport registers the
-	// transport so ScanManager.Cancel can flush its idle pool.
+	// Previously tryScheme allocated a fresh Transport per scheme/port/host — for
+	// a ModeFull scan with thousands of open ports that meant thousands of TLS
+	// session caches + idle conn pools allocated and leaked for the scan's
+	// lifetime. opts.ApplyTransport registers the transport so
+	// ScanManager.Cancel can flush its idle pool.
 	sharedTransport := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		// audit K05/K06: shared.BoundDialer enforces L2 source-IP pinning
-		// even when opts is nil (falls back to SetGlobalLocalAddr).
+		// audit K05/K06: shared.BoundDialer enforces L2 source-IP pinning even
+		// when opts is nil (falls back to SetGlobalLocalAddr).
 		DialContext:         shared.BoundDialer(opts, tcpTimeout).DialContext,
 		MaxIdleConns:        100,
 		MaxIdleConnsPerHost: 50,
@@ -229,121 +241,298 @@ func scanCore(targets []string, mode ScanMode, customPorts []int, concurrency, t
 		},
 	}
 
-	// Full mode is a different shape from the fixed-port modes: an
-	// interleaved, per-host-randomized sweep of all 65535 ports (round-robin
-	// across hosts, random port order per host — IDS/firewall-evasion), with
-	// its own two-phase (or single-phase, when directHTTP) progress model.
-	// It owns its whole run and returns here.
-	if mode == ModeFull && len(customPorts) == 0 {
-		return runFullMode(result, &mu, targets, directHTTP, tcpConc, tcpRate, concurrency, sharedClient, opts, onPartial, progress)
+	full := mode == ModeFull && len(customPorts) == 0
+	custom := len(customPorts) > 0
+
+	ec := engineConfig{
+		result:     result,
+		mu:         &mu,
+		targets:    targets,
+		full:       full,
+		directHTTP: directHTTP,
+		probeConc:  concurrency,
+		connConc:   tcpConc,
+		rate:       tcpRate,
+		client:     sharedClient,
+		opts:       opts,
+		onPartial:  onPartial,
+		progress:   progress,
 	}
-
-	type probeTask struct {
-		host string
-		port int
-	}
-
-	var tasks []probeTask
-
 	switch {
-	case len(customPorts) > 0:
-		for _, host := range targets {
-			for _, p := range customPorts {
-				tasks = append(tasks, probeTask{host: host, port: p})
-			}
-		}
+	case full:
+		// Full + custom resolve their targets up front and own the % denominator
+		// (sentinel). Common does not (handler-seeded, fixed 4 ports).
+		ec.resolve = true
+		ec.label = "Full scan"
+	case custom:
+		ec.resolve = true
+		ec.ports = customPorts
+		ec.label = "Custom scan"
 	default:
-		for _, host := range targets {
-			for _, p := range CommonPorts {
-				tasks = append(tasks, probeTask{host: host, port: p})
+		ec.ports = CommonPorts
+		ec.perTask = true // Common keeps its familiar per-task "[done/total] ✓ URL" lines.
+		ec.label = "Common scan"
+	}
+	return runEngine(ec)
+}
+
+// probeTask is one (host, port) unit of work streamed through the worker pool.
+type probeTask struct {
+	host string
+	port int
+}
+
+// engineConfig parameterises the single bounded engine.
+type engineConfig struct {
+	result     *ScanResult
+	mu         *sync.Mutex
+	targets    []string
+	full       bool     // port source = portPermuter (1..65535); else `ports`
+	ports      []int    // explicit ports (Common or custom) when !full
+	directHTTP bool     // skip the TCP connect pre-scan; probe HTTP/HTTPS directly
+	resolve    bool     // resolve targets up front + own the % denominator (full/custom)
+	perTask    bool     // emit per-task progress lines (Common mode only)
+	probeConc  int      // HTTP-probe worker count
+	connConc   int      // connect-phase worker count (two-phase)
+	rate       int      // NEW connections/probes per sec (0 = default/unlimited, see runEngine)
+	label      string   // "Full scan" / "Custom scan" / "Common scan" for messages
+	client     *http.Client
+	opts       *shared.HTTPOptions
+	onPartial  PartialFunc
+	progress   ProgressFunc
+}
+
+// runEngine is the one bounded, fixed-worker-pool HTTP(S) discovery engine. It
+// replaces the previous goroutine-per-probe loops: a single feeder goroutine
+// streams (host,port) tasks into a BOUNDED channel (checking cancellation,
+// draining a rate token, and applying memory back-pressure), and a fixed set of
+// N long-lived workers drains it. Goroutine count is ~N + feeder + heartbeat,
+// not ~hosts×ports, so a 3000×65535 sweep no longer churns ~196M goroutines
+// (the GC-thrash / CPU-pin / RSS-growth that sank the old engine).
+//
+// Two shapes, selected by directHTTP:
+//   - directHTTP (or Common) → single phase: HTTP/HTTPS-probe every (host,port);
+//     only HTTP responders are recorded.
+//   - connect (full/custom, directHTTP off) → two phase: a cheap TCP connect
+//     sweep, then HTTP-probe only the OPEN ports.
+func runEngine(ec engineConfig) *ScanResult {
+	result, mu, opts := ec.result, ec.mu, ec.opts
+	targets := ec.targets
+
+	// ---- Resolve pass (full/custom only) ---------------------------------
+	// Drop definitively-unresolvable hosts BEFORE the sweep (fail-open: only
+	// NXDOMAIN is dropped) and dial each resolvable host by its ONE cached IP so
+	// DNS isn't re-hit per port.
+	var ipCache map[string]string
+	if ec.resolve {
+		var dropped int
+		targets, ipCache, dropped = resolveTargets(targets, opts)
+		if dropped > 0 && ec.progress != nil {
+			ec.progress(0, fmt.Sprintf("%d unresolvable host(s) skipped — not probing their ports (fail-open: only definitively non-existent names are dropped)", dropped))
+		}
+		if len(targets) == 0 {
+			if ec.progress != nil {
+				ec.progress(0, fmt.Sprintf("No resolvable targets (%d host(s) unresolved) — nothing to scan", dropped))
+			}
+			return result
+		}
+		if len(ipCache) > 0 {
+			if tr, ok := ec.client.Transport.(*http.Transport); ok {
+				base := tr.DialContext
+				tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+					if h, p, err := net.SplitHostPort(addr); err == nil {
+						if ip := ipCache[h]; ip != "" {
+							addr = net.JoinHostPort(ip, p)
+						}
+					}
+					return base(ctx, network, addr)
+				}
 			}
 		}
 	}
 
-	total := len(tasks)
-	done := 0
-	probeBase := 0
+	portsPerHost := fullMaxPort
+	if !ec.full {
+		portsPerHost = len(ec.ports)
+	}
+	discTotal := len(targets) * portsPerHost
 
-	// Optional token-bucket rate limiter (req/s) on the HTTP probe — mirrors the
-	// Full-mode connect limiter. 0 = unlimited. This is what makes the form's
-	// "Rate limit (req/s)" actually throttle Common-mode requests (e.g. to go
-	// easy on fragile / unresolvable hosts). Effective floor ~tickHz req/s.
+	// ---- Rate normalisation ----------------------------------------------
+	// After this: rate == 0 → unlimited (no token bucket); rate > 0 → capped.
+	//   full/custom (resolve): a blank rate (0) → the safe fullScanRate default,
+	//     an explicit unlimited (<0) stays unlimited.
+	//   Common (no resolve): 0 stays unlimited so a blank rate_limit doesn't
+	//     silently cap a small Common scan.
+	rate := ec.rate
+	switch {
+	case rate < 0:
+		rate = 0
+	case rate == 0:
+		if ec.resolve {
+			rate = fullScanRate
+		}
+	}
+
+	// Two-phase connect only when directHTTP is off AND this mode resolves
+	// (full/custom). Common never pre-scans — a connect sweep of 4 ports is
+	// pointless, so Common ignores directHTTP and always HTTP-probes directly.
+	twoPhase := !ec.directHTTP && ec.resolve
+
+	// Reserve the bar's tail for phase 2 (connect mode) so HTTP-probing the open
+	// ports actually moves the %. The denominator is bumped up front so the bar
+	// never jumps backwards when phase 2 begins.
+	reserve := 0
+	total := discTotal
+	if twoPhase {
+		reserve = discTotal / 6 // ~14% of the bar
+		if reserve < 1 {
+			reserve = 1
+		}
+		total = discTotal + reserve
+	}
+	if ec.resolve && ec.progress != nil {
+		// Correct the handler-seeded total (accounts for dropped hosts + the
+		// phase-2 reserve) so the % + ETA reflect the real remaining work.
+		ec.progress(0, TotalUpdatePrefix+strconv.Itoa(total))
+		shape := ec.label
+		if ec.directHTTP {
+			shape += " (direct HTTP/HTTPS)"
+		}
+		suffix := ""
+		if ec.full {
+			suffix = ", random order"
+		}
+		ec.progress(0, fmt.Sprintf("%s: %d hosts × %d ports%s", shape, len(targets), portsPerHost, suffix))
+	}
+
+	// ---- Rate limiter (shared token bucket) ------------------------------
 	var tokens chan struct{}
 	rlDone := make(chan struct{})
 	defer close(rlDone)
-	if tcpRate > 0 {
-		const tickHz = 20
-		per := tcpRate / tickHz
-		if per < 1 {
-			per = 1
+	if rate > 0 {
+		tokens = startRateLimiter(rate, rlDone)
+	}
+
+	// ---- Shared result sink ----------------------------------------------
+	partialThrottle := shared.NewPartialThrottler(2 * time.Second)
+	addAndPartial := func(svc *ServiceResult) {
+		mu.Lock()
+		added := result.addService(*svc)
+		var snap *ScanResult
+		// Gate the O(n) slice copy behind the throttler: without it a wide sweep
+		// with many live services copies the whole retained slice on every hit.
+		if added && ec.onPartial != nil && partialThrottle.ShouldFire() {
+			snap = &ScanResult{Services: append([]ServiceResult(nil), result.Services...), Truncated: result.Truncated}
 		}
-		depth := tcpRate
-		if depth < per {
-			depth = per
+		mu.Unlock()
+		if snap != nil {
+			ec.onPartial(snap)
 		}
-		tokens = make(chan struct{}, depth)
-		go func() {
-			ticker := time.NewTicker(time.Second / tickHz)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-rlDone:
+	}
+
+	var scanned int32 // tasks probed (phase 1 for connect; all for single-phase)
+	var found int32   // live services (single-phase) or open ports (connect phase 1)
+
+	// feedProbes streams every (host,port) task, bounded by cancellation, the
+	// rate token, and memory back-pressure. It round-robins across hosts (full:
+	// one random port per host per round via portPermuter; fixed: host-outer,
+	// port-inner to match the historical Common ordering).
+	feedProbes := func(tasks chan<- probeTask) {
+		defer close(tasks)
+		var lastMem time.Time
+		memWait := func() {
+			// Sample ~1×/sec; pause feeding while available memory is low so a
+			// wide sweep self-limits before the governor's hard abort.
+			now := time.Now()
+			if now.Sub(lastMem) < time.Second {
+				return
+			}
+			lastMem = now
+			for sysmon.ReadMemory().AvailFrac() < memBackpressureFrac {
+				if opts.Done() {
 					return
-				case <-ticker.C:
-					for i := 0; i < per; i++ {
-						select {
-						case tokens <- struct{}{}:
-						default:
-						}
+				}
+				time.Sleep(200 * time.Millisecond)
+			}
+		}
+		emit := func(host string, port int) bool {
+			if opts.Done() {
+				return false
+			}
+			if tokens != nil {
+				select {
+				case <-tokens:
+				case <-rlDone:
+					return false
+				}
+				if opts.Done() {
+					return false
+				}
+			}
+			memWait()
+			if opts.Done() {
+				return false
+			}
+			// Safe to block here: workers always keep receiving until the channel
+			// is closed (they drain-and-skip after cancellation), so this never
+			// deadlocks — it is the intended back-pressure that bounds in-flight.
+			tasks <- probeTask{host: host, port: port}
+			return true
+		}
+		if ec.full {
+			perms := make([]*portPermuter, len(targets))
+			for i := range perms {
+				perms[i] = newPortPermuter()
+			}
+			for round := 0; round < fullMaxPort; round++ {
+				if opts.Done() {
+					return
+				}
+				for hi, host := range targets {
+					port, ok := perms[hi].next()
+					if !ok {
+						continue
+					}
+					if !emit(host, port) {
+						return
 					}
 				}
 			}
-		}()
+		} else {
+			for _, host := range targets {
+				if opts.Done() {
+					return
+				}
+				for _, port := range ec.ports {
+					if !emit(host, port) {
+						return
+					}
+				}
+			}
+		}
 	}
 
-	sem := make(chan struct{}, concurrency)
-	var wg sync.WaitGroup
+	hitLog := shared.NewPartialThrottler(750 * time.Millisecond)
 
-	for _, t := range tasks {
-		if opts.Done() {
-			break
+	// ======================================================================
+	// Single phase: HTTP-probe every task (Common; full/custom directHTTP).
+	// ======================================================================
+	if !twoPhase {
+		var hb chan struct{}
+		if !ec.perTask && ec.progress != nil {
+			hb = startHeartbeat(ec.progress, "Direct HTTP sweep", &scanned, &found, discTotal, "live")
 		}
-		if tokens != nil {
-			<-tokens // pace new probes to the requested req/s
-			if opts.Done() {
-				break
+		probeWork := func(t probeTask) {
+			svc := probeHTTP(t.host, t.port, ec.client, opts)
+			done := atomic.AddInt32(&scanned, 1)
+			if svc != nil {
+				atomic.AddInt32(&found, 1)
+				addAndPartial(svc)
 			}
-		}
-		wg.Add(1)
-		sem <- struct{}{}
-		go func(host string, port int) {
-			defer wg.Done()
-			defer func() { <-sem }()
-
-			if opts.Done() {
+			if ec.progress == nil {
 				return
 			}
-
-			svc := probeHTTP(host, port, sharedClient, opts)
-
-			// Snapshot state under the lock, then call progress() OUTSIDE
-			// the lock (audit perf fix). progress() funnels into a
-			// synchronous SQLite UPDATE; holding mu across that DB write
-			// serialized every probe completion through DB latency.
-			mu.Lock()
-			done++
-			added := false
-			if svc != nil {
-				added = result.addService(*svc)
-			}
-			doneSnap := done
-			var snap *ScanResult
-			if added && onPartial != nil {
-				snap = &ScanResult{Services: append([]ServiceResult(nil), result.Services...), Truncated: result.Truncated}
-			}
-			mu.Unlock()
-
-			if progress != nil {
+			if ec.perTask {
 				if svc != nil {
 					extras := []string{fmt.Sprintf("HTTP %d", svc.StatusCode)}
 					if svc.Server != "" {
@@ -356,20 +545,197 @@ func scanCore(targets []string, mode ScanMode, customPorts []int, concurrency, t
 						}
 						extras = append(extras, "\""+ttl+"\"")
 					}
-					progress(probeBase+doneSnap, fmt.Sprintf("[%d/%d] ✓ %s (%s)", doneSnap, total, svc.URL, strings.Join(extras, " · ")))
+					ec.progress(int(done), fmt.Sprintf("[%d/%d] ✓ %s (%s)", done, discTotal, svc.URL, strings.Join(extras, " · ")))
 				} else {
-					progress(probeBase+doneSnap, fmt.Sprintf("[%d/%d] · no HTTP on %s:%d", doneSnap, total, host, port))
+					ec.progress(int(done), fmt.Sprintf("[%d/%d] · no HTTP on %s:%d", done, discTotal, t.host, t.port))
 				}
+			} else if svc != nil && hitLog.ShouldFire() {
+				ec.progress(int(atomic.LoadInt32(&scanned)), fmt.Sprintf("✓ %s (HTTP %d)", svc.URL, svc.StatusCode))
 			}
-
-			if snap != nil {
-				onPartial(snap)
-			}
-		}(t.host, t.port)
+		}
+		runPool(ec.probeConc, ec.probeConc, opts, feedProbes, probeWork)
+		if hb != nil {
+			close(hb)
+		}
+		// Terminal line (full/custom only — Common relies on the handler's done
+		// clamp). Only when we finished on our own: a cancel (governor /
+		// killswitch / Stop) already wrote the real terminal reason.
+		if ec.resolve && ec.progress != nil && !opts.Done() {
+			ec.progress(discTotal, fmt.Sprintf("Direct HTTP sweep done — %d live service(s)", atomic.LoadInt32(&found)))
+		}
+		return result
 	}
 
-	wg.Wait()
+	// ======================================================================
+	// Two phase (connect): TCP connect sweep → HTTP-probe the open ports.
+	// ======================================================================
+	connectDialer := shared.BoundDialer(opts, tcpTimeout) // hoisted once (was per-connect)
+	var openMu sync.Mutex
+	open := make([]probeTask, 0, 1024)
+	connectWork := func(t probeTask) {
+		atomic.AddInt32(&scanned, 1)
+		dialHost := t.host
+		if ip := ipCache[t.host]; ip != "" {
+			dialHost = ip
+		}
+		conn, err := connectDialer.Dial("tcp", net.JoinHostPort(dialHost, strconv.Itoa(t.port)))
+		if err != nil {
+			return
+		}
+		conn.Close()
+		atomic.AddInt32(&found, 1)
+		openMu.Lock()
+		open = append(open, t)
+		openMu.Unlock()
+	}
+	var hb chan struct{}
+	if ec.progress != nil {
+		hb = startHeartbeat(ec.progress, "Port sweep", &scanned, &found, discTotal, "open")
+	}
+	runPool(ec.connConc, ec.connConc, opts, feedProbes, connectWork)
+	if hb != nil {
+		close(hb)
+	}
+
+	// ---- Phase 2: HTTP-probe the discovered open ports -------------------
+	p := len(open)
+	if p == 0 {
+		if ec.progress != nil && !opts.Done() {
+			ec.progress(discTotal+reserve, fmt.Sprintf("%s done — 0 open ports", ec.label))
+		}
+		return result
+	}
+	if ec.progress != nil {
+		ec.progress(discTotal, fmt.Sprintf("%d open port(s) — probing for HTTP services", p))
+	}
+	var pdone int32
+	var plive int32
+	p2start := time.Now()
+	p2Done := make(chan struct{})
+	if ec.progress != nil {
+		go func() {
+			ticker := time.NewTicker(2 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-p2Done:
+					return
+				case <-ticker.C:
+					d := atomic.LoadInt32(&pdone)
+					done := discTotal + int(int64(d)*int64(reserve)/int64(p))
+					ec.progress(done, fmt.Sprintf("HTTP probe — %d/%d open ports, %d live%s", d, p, atomic.LoadInt32(&plive), etaSuffix(p2start, int(d), p)))
+				}
+			}
+		}()
+	}
+	probe2Work := func(t probeTask) {
+		svc := probeHTTP(t.host, t.port, ec.client, opts)
+		atomic.AddInt32(&pdone, 1)
+		if svc == nil {
+			return
+		}
+		atomic.AddInt32(&plive, 1)
+		addAndPartial(svc)
+	}
+	runPool(ec.probeConc, ec.probeConc, opts, func(tasks chan<- probeTask) {
+		defer close(tasks)
+		for _, hp := range open {
+			if opts.Done() {
+				return
+			}
+			tasks <- hp
+		}
+	}, probe2Work)
+	close(p2Done)
+	if ec.progress != nil && !opts.Done() {
+		ec.progress(discTotal+reserve, fmt.Sprintf("%s done — %d live HTTP service(s)", ec.label, len(result.Services)))
+	}
 	return result
+}
+
+// runPool spawns `workers` long-lived goroutines draining a bounded task channel
+// fed by `feed` (which runs in its own goroutine and MUST close the channel when
+// done). work is called per task; after cancellation workers drain-and-skip so
+// the feeder's send never deadlocks. Goroutine count is fixed at workers + 1.
+func runPool(workers, buffer int, opts *shared.HTTPOptions, feed func(chan<- probeTask), work func(probeTask)) {
+	if workers < 1 {
+		workers = 1
+	}
+	if buffer < 1 {
+		buffer = 1
+	}
+	tasks := make(chan probeTask, buffer)
+	go feed(tasks)
+	var wg sync.WaitGroup
+	wg.Add(workers)
+	for i := 0; i < workers; i++ {
+		go func() {
+			defer wg.Done()
+			for t := range tasks {
+				if opts.Done() {
+					continue // drain-and-skip after cancel (keeps the feeder unblocked)
+				}
+				work(t)
+			}
+		}()
+	}
+	wg.Wait()
+}
+
+// startRateLimiter returns a token channel refilled at `rate` tokens/sec (via a
+// 20 Hz ticker), closed-safe via the `done` channel. Mirrors the previous
+// per-path token bucket, hoisted to one helper.
+func startRateLimiter(rate int, done <-chan struct{}) chan struct{} {
+	const tickHz = 20
+	per := rate / tickHz
+	if per < 1 {
+		per = 1
+	}
+	depth := rate
+	if depth < per {
+		depth = per
+	}
+	tokens := make(chan struct{}, depth)
+	go func() {
+		ticker := time.NewTicker(time.Second / tickHz)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				for i := 0; i < per; i++ {
+					select {
+					case tokens <- struct{}{}:
+					default:
+					}
+				}
+			}
+		}
+	}()
+	return tokens
+}
+
+// startHeartbeat reports a phase's climb ("<label> — done/total probed, N <word>")
+// every 2s off the shared atomic counters, so the bar advances without a DB write
+// per probe. Returns a channel the caller closes to stop it.
+func startHeartbeat(progress ProgressFunc, label string, counter, foundCounter *int32, denom int, word string) chan struct{} {
+	hb := make(chan struct{})
+	start := time.Now()
+	go func() {
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-hb:
+				return
+			case <-ticker.C:
+				s := atomic.LoadInt32(counter)
+				progress(int(s), fmt.Sprintf("%s — %d/%d probed, %d %s%s", label, s, denom, atomic.LoadInt32(foundCounter), word, etaSuffix(start, int(s), denom)))
+			}
+		}
+	}()
+	return hb
 }
 
 // portPermuter yields a per-host pseudo-random full permutation of ports
@@ -458,339 +824,6 @@ func resolveTargets(targets []string, opts *shared.HTTPOptions) (keep []string, 
 	}
 	wg.Wait()
 	return keep, ipCache, len(targets) - len(keep)
-}
-
-// runFullMode executes a Full-mode sweep: an interleaved round-robin across
-// hosts, each host's 65535 ports visited in a per-host-random order
-// (portPermuter). Two shapes:
-//
-//   - connect (default): each (host,port) is a TCP connect probe; the open
-//     ports are then HTTP-probed in a second phase.
-//   - directHTTP: each (host,port) is an HTTP/HTTPS probe directly — no connect
-//     pre-scan — so only ports that actually answer HTTP are recorded, and a
-//     firewall that accepts/tarpits every connect can't inflate the result.
-//
-// Progress (Task 1 — the HTTP-probe phase is now visible in the %):
-//   - directHTTP: single phase, denominator = hosts×65535, done = ports probed.
-//   - connect: phase 1 (the connect sweep) fills ~86% of the bar; the last ~14%
-//     is reserved for phase 2 (HTTP-probing the discovered open ports) so that
-//     phase is a visible band instead of a sub-1% sliver stuck at 100%.
-func runFullMode(result *ScanResult, mu *sync.Mutex, targets []string, directHTTP bool,
-	tcpConc, tcpRate, probeConc int, sharedClient *http.Client, opts *shared.HTTPOptions,
-	onPartial PartialFunc, progress ProgressFunc) *ScanResult {
-
-	const maxPort = 65535
-
-	// Drop hostname targets that don't resolve BEFORE the sweep — probing all
-	// 65535 ports of a host whose DNS never resolves is pure waste (every dial
-	// re-fails the lookup). Literal IPs pass through untouched. This shrinks the
-	// denominator + ETA proportionally; the sentinel below corrects the total
-	// the handler seeded from the original (pre-filter) target count.
-	targets, ipCache, dropped := resolveTargets(targets, opts)
-	if dropped > 0 && progress != nil {
-		progress(0, fmt.Sprintf("%d unresolvable host(s) skipped — not probing their ports (fail-open: only definitively non-existent names are dropped)", dropped))
-	}
-	if len(targets) == 0 {
-		if progress != nil {
-			progress(0, fmt.Sprintf("No resolvable targets (%d host(s) unresolved) — nothing to scan", dropped))
-		}
-		return result
-	}
-	// Resolution cache: dial every port of a resolvable host by its ONE cached IP
-	// so DNS isn't re-hit on each of its 65535 probes. Set before any probe fires
-	// (transport is idle here), so the reassignment is race-free. Hosts kept via
-	// fail-open (no cached IP) simply fall through to a normal dial.
-	if len(ipCache) > 0 {
-		if tr, ok := sharedClient.Transport.(*http.Transport); ok {
-			base := tr.DialContext
-			tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-				if h, p, err := net.SplitHostPort(addr); err == nil {
-					if ip := ipCache[h]; ip != "" {
-						addr = net.JoinHostPort(ip, p)
-					}
-				}
-				return base(ctx, network, addr)
-			}
-		}
-	}
-	discTotal := len(targets) * maxPort // phase-1 units: one per port probed
-
-	conc := tcpConc
-	if conc <= 0 {
-		conc = fullScanConc
-	}
-	rate := tcpRate
-	if rate < 0 {
-		rate = 0 // unlimited
-	} else if rate == 0 {
-		rate = fullScanRate
-	}
-
-	// Reserve the bar's tail for phase 2 (connect mode only) so HTTP-probing
-	// the open ports actually moves the %. The denominator is bumped up front
-	// so the bar never jumps backwards when phase 2 begins.
-	reserve := 0
-	total := discTotal
-	if !directHTTP {
-		reserve = discTotal / 6 // ~14% of the bar
-		if reserve < 1 {
-			reserve = 1
-		}
-		total = discTotal + reserve
-	}
-	if progress != nil {
-		// Correct the seeded total (both modes) — accounts for any dropped
-		// unresolvable hosts so the % + ETA reflect the real remaining work.
-		progress(0, fmt.Sprintf("%s%d", TotalUpdatePrefix, total))
-		mode := "Full scan"
-		if directHTTP {
-			mode = "Full scan (direct HTTP/HTTPS)"
-		}
-		if dropped > 0 {
-			progress(0, fmt.Sprintf("%s: %d hosts × 65535 ports — %d hosts unresolved, skipped", mode, len(targets), dropped))
-		} else {
-			progress(0, fmt.Sprintf("%s: %d hosts × 65535 ports, random order", mode, len(targets)))
-		}
-	}
-
-	perms := make([]*portPermuter, len(targets))
-	for i := range targets {
-		perms[i] = newPortPermuter()
-	}
-
-	// Token-bucket rate limiter on NEW connections/sec, shared across hosts.
-	var tokens chan struct{}
-	rlDone := make(chan struct{})
-	if rate > 0 {
-		const tickHz = 20
-		per := rate / tickHz
-		if per < 1 {
-			per = 1
-		}
-		depth := rate
-		if depth < per {
-			depth = per
-		}
-		tokens = make(chan struct{}, depth)
-		go func() {
-			ticker := time.NewTicker(time.Second / tickHz)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-rlDone:
-					return
-				case <-ticker.C:
-					for i := 0; i < per; i++ {
-						select {
-						case tokens <- struct{}{}:
-						default:
-						}
-					}
-				}
-			}
-		}()
-	}
-
-	sem := make(chan struct{}, conc)
-	var wg sync.WaitGroup
-	var scanned int32
-	var found int32
-	var openMu sync.Mutex
-	type openHP struct {
-		host string
-		port int
-	}
-	var open []openHP
-
-	// start feeds the ETA; hitLog throttles the per-hit console lines so a
-	// 100M-scale sweep with many live services doesn't emit one line per hit
-	// (the 2s heartbeat carries the running "%d live" total; the results table
-	// still lists every service via onPartial).
-	start := time.Now()
-	hitLog := shared.NewPartialThrottler(750 * time.Millisecond)
-
-	// Heartbeat: report the phase-1 climb (done = ports probed so far) every
-	// 2s so the bar advances without a DB write per port.
-	hbDone := make(chan struct{})
-	if progress != nil {
-		go func() {
-			ticker := time.NewTicker(2 * time.Second)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-hbDone:
-					return
-				case <-ticker.C:
-					s := atomic.LoadInt32(&scanned)
-					eta := etaSuffix(start, int(s), discTotal)
-					if directHTTP {
-						progress(int(s), fmt.Sprintf("Direct HTTP sweep — %d/%d probed, %d live%s", s, discTotal, atomic.LoadInt32(&found), eta))
-					} else {
-						progress(int(s), fmt.Sprintf("Port sweep — %d/%d probed, %d open%s", s, discTotal, atomic.LoadInt32(&found), eta))
-					}
-				}
-			}
-		}()
-	}
-
-	// Round-robin dispatch: each round emits one (random) port per still-live
-	// host, so in-flight probes hit different hosts on scattered ports.
-	for round := 0; round < maxPort; round++ {
-		if opts.Done() {
-			break
-		}
-		for hi, host := range targets {
-			if opts.Done() {
-				break
-			}
-			port, ok := perms[hi].next()
-			if !ok {
-				continue
-			}
-			if tokens != nil {
-				<-tokens
-			}
-			wg.Add(1)
-			sem <- struct{}{}
-			go func(host string, port int) {
-				defer wg.Done()
-				defer func() { <-sem }()
-				defer atomic.AddInt32(&scanned, 1)
-				if opts.Done() {
-					return
-				}
-				if directHTTP {
-					svc := probeHTTP(host, port, sharedClient, opts)
-					if svc == nil {
-						return
-					}
-					atomic.AddInt32(&found, 1)
-					mu.Lock()
-					added := result.addService(*svc)
-					var snap *ScanResult
-					if added && onPartial != nil {
-						snap = &ScanResult{Services: append([]ServiceResult(nil), result.Services...), Truncated: result.Truncated}
-					}
-					mu.Unlock()
-					if progress != nil && hitLog.ShouldFire() {
-						progress(int(atomic.LoadInt32(&scanned)), fmt.Sprintf("✓ %s (HTTP %d)", svc.URL, svc.StatusCode))
-					}
-					if snap != nil {
-						onPartial(snap)
-					}
-					return
-				}
-				// connect probe — killswitch-bound dialer so L2 source-IP
-				// pinning applies to the port-sweep traffic too. Dial the cached
-				// IP so DNS isn't re-resolved on every one of the host's ports.
-				dialHost := host
-				if ip := ipCache[host]; ip != "" {
-					dialHost = ip
-				}
-				conn, err := shared.BoundDialer(nil, tcpTimeout).Dial("tcp", net.JoinHostPort(dialHost, strconv.Itoa(port)))
-				if err != nil {
-					return
-				}
-				conn.Close()
-				atomic.AddInt32(&found, 1)
-				openMu.Lock()
-				open = append(open, openHP{host, port})
-				openMu.Unlock()
-			}(host, port)
-		}
-	}
-	wg.Wait()
-	close(hbDone)
-	close(rlDone)
-
-	if directHTTP {
-		// Only stamp "done" if we finished on our own. If opts.Done() is set the
-		// run was cancelled out-of-band (memory governor / killswitch / user Stop)
-		// and that path already wrote the real terminal reason into progress_msg
-		// (e.g. "Scan aborted — the server was almost out of memory"). Overwriting
-		// it with "sweep done" here is what hid the true cause behind a bare
-		// "Scan failed".
-		if progress != nil && !opts.Done() {
-			progress(discTotal, fmt.Sprintf("Direct HTTP sweep done — %d live service(s)", atomic.LoadInt32(&found)))
-		}
-		return result
-	}
-
-	// ---- Phase 2 (connect mode): HTTP-probe the discovered open ports. ----
-	p := len(open)
-	if p == 0 {
-		if progress != nil && !opts.Done() {
-			progress(discTotal+reserve, "Port sweep done — 0 open ports")
-		}
-		return result
-	}
-	if progress != nil {
-		progress(discTotal, fmt.Sprintf("%d open port(s) — probing for HTTP services", p))
-	}
-	pc := probeConc
-	if pc <= 0 {
-		pc = probeConcLimit
-	}
-	psem := make(chan struct{}, pc)
-	var pwg sync.WaitGroup
-	var pdone int32
-	var plive int32
-	// Phase-2 heartbeat: a bounded 2s tick instead of one console line per open
-	// port (the old per-hit/per-miss lines flooded the log on a big sweep and
-	// buried the caption). Maps done into the reserved [discTotal, +reserve]
-	// band and carries its own ETA. Every live service still reaches the
-	// results table via onPartial.
-	p2start := time.Now()
-	p2Done := make(chan struct{})
-	if progress != nil {
-		go func() {
-			ticker := time.NewTicker(2 * time.Second)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-p2Done:
-					return
-				case <-ticker.C:
-					d := atomic.LoadInt32(&pdone)
-					done := discTotal + int(int64(d)*int64(reserve)/int64(p))
-					progress(done, fmt.Sprintf("HTTP probe — %d/%d open ports, %d live%s", d, p, atomic.LoadInt32(&plive), etaSuffix(p2start, int(d), p)))
-				}
-			}
-		}()
-	}
-	for _, hp := range open {
-		if opts.Done() {
-			break
-		}
-		pwg.Add(1)
-		psem <- struct{}{}
-		go func(host string, port int) {
-			defer pwg.Done()
-			defer func() { <-psem }()
-			svc := probeHTTP(host, port, sharedClient, opts)
-			atomic.AddInt32(&pdone, 1)
-			if svc == nil {
-				return
-			}
-			atomic.AddInt32(&plive, 1)
-			mu.Lock()
-			added := result.addService(*svc)
-			var snap *ScanResult
-			if added && onPartial != nil {
-				snap = &ScanResult{Services: append([]ServiceResult(nil), result.Services...), Truncated: result.Truncated}
-			}
-			mu.Unlock()
-			if snap != nil {
-				onPartial(snap)
-			}
-		}(hp.host, hp.port)
-	}
-	pwg.Wait()
-	close(p2Done)
-	if progress != nil && !opts.Done() {
-		progress(discTotal+reserve, fmt.Sprintf("Full scan done — %d live HTTP service(s)", len(result.Services)))
-	}
-	return result
 }
 
 // fmtDur renders a coarse human duration for the ETA (handles hours — a

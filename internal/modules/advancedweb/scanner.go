@@ -506,7 +506,11 @@ func Scan(cfg Config, opts *shared.HTTPOptions, concurrency int, cveLookup CVELo
 		}
 		switch {
 		case len(customPorts) > 0:
-			httpxResult = httpxfind.ScanWithPorts(hosts, customPorts, cfg.HTTPXConcurrency, opts, nil, httpxProg)
+			// directHTTP=true preserves the suite's historical custom-port
+			// behaviour (single-phase HTTP probe, no connect pre-scan); rate 0
+			// = module default. The engine now also supports a connect-first
+			// custom sweep (directHTTP=false), but the suite keeps direct.
+			httpxResult = httpxfind.ScanWithPorts(hosts, customPorts, cfg.HTTPXConcurrency, 0, true, opts, nil, httpxProg)
 		case httpxMode == httpxfind.ModeFull:
 			// Full mode: honour the direct-HTTP toggle (skip the connect
 			// port-scan, HTTP-probe every port directly) via ScanFull.

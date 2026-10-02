@@ -14,6 +14,7 @@ import (
 	"scanner/internal/modules/corsscan"
 	"scanner/internal/modules/cvematch"
 	"scanner/internal/modules/graphqlscan"
+	"scanner/internal/modules/httpxfind"
 	"scanner/internal/modules/oob"
 	"scanner/internal/modules/openredirect"
 	"scanner/internal/modules/shared"
@@ -268,7 +269,13 @@ func (h *Handler) dispatchRestart(scanID, module, configJSON string) {
 	case "httpxfind":
 		var cfg HTTPXFindConfig
 		json.Unmarshal([]byte(configJSON), &cfg)
-		go h.runHTTPXFind(scanID, cfg.Targets, cfg.Mode, cfg.DirectHTTP, h.BuildHTTPOptionsFromSettings(), 0, 0)
+		// Replay the stored custom-port list (ModePorts) so Restart reruns the
+		// same ports; empty for Common/Full.
+		var customPorts []int
+		if cfg.Mode == httpxfind.ModePorts {
+			customPorts = shared.ExpandPortSpec(cfg.Ports)
+		}
+		go h.runHTTPXFind(scanID, cfg.Targets, cfg.Mode, cfg.DirectHTTP, customPorts, h.BuildHTTPOptionsFromSettings(), 0, 0)
 	case "httpmethods":
 		var cfg HTTPMethodsConfig
 		json.Unmarshal([]byte(configJSON), &cfg)

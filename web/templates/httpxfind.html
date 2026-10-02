@@ -21,33 +21,56 @@
                 <div class="space-y-4">
                     <!-- Scan Mode -->
                     <div>
-                        <label class="block text-sm text-dark-300 mb-2">{{T "Scan Mode"}}{{template "info_icon" (T `Common: just 4 standard HTTP ports (80, 443, 8080, 8443). All Ports: TCP-scan 1-65535 then HTTP-probe open ones (very slow).`)}} <span class="text-danger">*</span></label>
-                        <div class="grid grid-cols-2 gap-2">
+                        <label class="block text-sm text-dark-300 mb-2">{{T "Scan Mode"}}{{template "info_icon" (T `Common: just 4 standard HTTP ports (80, 443, 8080, 8443). All Ports: 1-65535 (very slow). Custom Ports: your own list/range.`)}} <span class="text-danger">*</span></label>
+                        <div class="grid grid-cols-3 gap-2">
                             <label class="relative cursor-pointer">
-                                <input type="radio" name="mode" value="common" class="peer sr-only" checked>
+                                <input type="radio" name="mode" value="common" class="peer sr-only" checked onchange="httpxTogglePorts()">
                                 <div class="p-3 bg-dark-850 border border-dark-700 rounded-lg peer-checked:border-accent-500 peer-checked:bg-accent-600/5 transition-all text-center">
                                     <p class="text-xs font-medium text-dark-300 peer-checked:text-accent-400">{{T "Common Ports"}}</p>
                                     <p class="text-[10px] text-dark-500 mt-0.5">80, 443, 8080, 8443</p>
                                 </div>
                             </label>
                             <label class="relative cursor-pointer">
-                                <input type="radio" name="mode" value="full" class="peer sr-only">
+                                <input type="radio" name="mode" value="full" class="peer sr-only" onchange="httpxTogglePorts()">
                                 <div class="p-3 bg-dark-850 border border-dark-700 rounded-lg peer-checked:border-warning peer-checked:bg-warning/5 transition-all text-center">
                                     <p class="text-xs font-medium text-dark-300 peer-checked:text-warning">{{T "All Ports"}}</p>
                                     <p class="text-[10px] text-dark-500 mt-0.5">1-65535 ({{T "slow"}})</p>
                                 </div>
                             </label>
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="mode" value="ports" class="peer sr-only" onchange="httpxTogglePorts()">
+                                <div class="p-3 bg-dark-850 border border-dark-700 rounded-lg peer-checked:border-accent-500 peer-checked:bg-accent-600/5 transition-all text-center">
+                                    <p class="text-xs font-medium text-dark-300 peer-checked:text-accent-400">{{T "Custom Ports"}}</p>
+                                    <p class="text-[10px] text-dark-500 mt-0.5">{{T "your list / range"}}</p>
+                                </div>
+                            </label>
                         </div>
 
-                        <!-- Full-mode option: direct HTTP/HTTPS (skip the TCP connect port-scan) -->
+                        <!-- Custom-ports input (shown only when the Custom Ports mode is selected) -->
+                        <div id="httpxPortsRow" class="mt-2.5 hidden">
+                            <label class="block text-xs text-dark-400 mb-1.5">{{T "Ports"}}{{template "info_icon" (T `Comma-separated ports and ranges, e.g. 80,443,8000-8100. Each listed port is probed on every target.`)}}</label>
+                            <input type="text" name="ports" placeholder="80,443,8000-8100"
+                                   class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                        </div>
+
+                        <!-- Direct HTTP/HTTPS (skip the TCP connect port pre-scan) -->
                         <label class="flex items-start gap-2 mt-2.5 cursor-pointer">
                             <input type="checkbox" name="direct_http" class="mt-0.5 rounded border-dark-600 bg-dark-850 text-accent-500 focus:ring-0 focus:ring-offset-0">
                             <span class="text-[11px] text-dark-400 leading-snug">
                                 <span class="text-dark-200">{{T "Direct HTTP/HTTPS (skip the port pre-scan)"}}</span><br>
-                                {{T "Only in"}} <span class="text-warning">{{T "All Ports"}}</span> {{T "mode: no TCP connect scan is run; each port is probed directly over HTTP/HTTPS. Only ports that actually return an HTTP response are reported — a firewall that accepts connect / tarpits can't inflate the result. Slower."}}
+                                {{T "Skip the TCP connect pre-scan — probe each port directly over HTTP/HTTPS. Only ports that return an HTTP response are reported, so a firewall that accepts connects / tarpits can't inflate the result. Most useful on wide ranges (All Ports or a large custom set); has no effect in Common mode. Slower."}}
                             </span>
                         </label>
                     </div>
+
+                    <script>
+                    function httpxTogglePorts() {
+                        var m = document.querySelector('input[name="mode"]:checked');
+                        var row = document.getElementById('httpxPortsRow');
+                        if (row) { row.classList.toggle('hidden', !m || m.value !== 'ports'); }
+                    }
+                    httpxTogglePorts();
+                    </script>
 
                     <!-- Targets -->
                     {{template "workspace_targets" .}}

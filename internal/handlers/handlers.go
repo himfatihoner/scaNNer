@@ -60,6 +60,8 @@ func formErrorMsg(code string) string {
 	switch code {
 	case "no_urls", "no_targets", "no_target", "no_hosts", "no_domains":
 		return "No targets were submitted. Enter at least one target before launching the scan."
+	case "no_ports":
+		return "Custom Ports mode needs a valid port list or range (e.g. 80,443,8000-8100)."
 	case "no_queries":
 		return "No search queries were submitted."
 	case "no_tokens":

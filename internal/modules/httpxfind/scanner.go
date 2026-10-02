@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"regexp"
 	"scanner/internal/modules/shared"
-	"scanner/internal/sysmon"
 	"strconv"
 	"strings"
 	"sync"
@@ -50,13 +49,6 @@ const (
 	probeConcLimit = 20 // concurrency for HTTP probing
 	// fullMaxPort is the top of the full-sweep port range.
 	fullMaxPort = 65535
-	// memBackpressureFrac: the feeder PAUSES streaming new probe tasks while
-	// MemAvailable/MemTotal drops below this fraction, so a wide sweep self-
-	// limits BEFORE it trips the memory governor's hard abort (~0.12). This is
-	// insurance on top of the result caps (addService) — the task channel is
-	// already bounded, but a burst of large pages can still grow RSS between
-	// GC cycles; backing off feeding lets GC catch up instead of OOMing.
-	memBackpressureFrac = 0.20
 )
 
 // TotalUpdatePrefix is a sentinel prefix on progress messages used to
@@ -433,52 +425,43 @@ func runEngine(ec engineConfig) *ScanResult {
 	var scanned int32 // tasks probed (phase 1 for connect; all for single-phase)
 	var found int32   // live services (single-phase) or open ports (connect phase 1)
 
-	// feedProbes streams every (host,port) task, bounded by cancellation, the
-	// rate token, and memory back-pressure. It round-robins across hosts (full:
-	// one random port per host per round via portPermuter; fixed: host-outer,
-	// port-inner to match the historical Common ordering).
+	// feedProbes streams every (host,port) task, bounded by cancellation and the
+	// rate token. It round-robins across hosts (full: one random port per host
+	// per round via portPermuter; fixed: host-outer, port-inner to match the
+	// historical Common ordering).
+	//
+	// NB: there is deliberately NO memory back-pressure here. An earlier version
+	// paused feeding while MemAvailable/MemTotal < 0.20 — but that threshold sits
+	// ABOVE the memory governor's own (soft 0.18 / hard 0.12), so on any box that
+	// idles below ~20% free the feeder stalled FOREVER: zero tasks emitted, zero
+	// probes, zero connections — advancedweb reported "0 live hosts" and the open-
+	// socket count never moved. It also bought nothing: in-flight memory is
+	// already bounded by the BOUNDED task channel (buffer = workers) × the 256 KB
+	// per-probe body cap, retained memory by addService's caps, and true OOM by
+	// the governor (CancelAll → opts.Done()). Throttling the feeder could not
+	// lower peak RSS below what the bounded channel already enforces.
+	emit := func(tasks chan<- probeTask, host string, port int) bool {
+		if opts.Done() {
+			return false
+		}
+		if tokens != nil {
+			select {
+			case <-tokens:
+			case <-rlDone:
+				return false
+			}
+			if opts.Done() {
+				return false
+			}
+		}
+		// Safe to block here: workers always keep receiving until the channel is
+		// closed (they drain-and-skip after cancellation), so this never
+		// deadlocks — it is the intended back-pressure that bounds in-flight.
+		tasks <- probeTask{host: host, port: port}
+		return true
+	}
 	feedProbes := func(tasks chan<- probeTask) {
 		defer close(tasks)
-		var lastMem time.Time
-		memWait := func() {
-			// Sample ~1×/sec; pause feeding while available memory is low so a
-			// wide sweep self-limits before the governor's hard abort.
-			now := time.Now()
-			if now.Sub(lastMem) < time.Second {
-				return
-			}
-			lastMem = now
-			for sysmon.ReadMemory().AvailFrac() < memBackpressureFrac {
-				if opts.Done() {
-					return
-				}
-				time.Sleep(200 * time.Millisecond)
-			}
-		}
-		emit := func(host string, port int) bool {
-			if opts.Done() {
-				return false
-			}
-			if tokens != nil {
-				select {
-				case <-tokens:
-				case <-rlDone:
-					return false
-				}
-				if opts.Done() {
-					return false
-				}
-			}
-			memWait()
-			if opts.Done() {
-				return false
-			}
-			// Safe to block here: workers always keep receiving until the channel
-			// is closed (they drain-and-skip after cancellation), so this never
-			// deadlocks — it is the intended back-pressure that bounds in-flight.
-			tasks <- probeTask{host: host, port: port}
-			return true
-		}
 		if ec.full {
 			perms := make([]*portPermuter, len(targets))
 			for i := range perms {
@@ -493,7 +476,7 @@ func runEngine(ec engineConfig) *ScanResult {
 					if !ok {
 						continue
 					}
-					if !emit(host, port) {
+					if !emit(tasks, host, port) {
 						return
 					}
 				}
@@ -504,7 +487,7 @@ func runEngine(ec engineConfig) *ScanResult {
 					return
 				}
 				for _, port := range ec.ports {
-					if !emit(host, port) {
+					if !emit(tasks, host, port) {
 						return
 					}
 				}

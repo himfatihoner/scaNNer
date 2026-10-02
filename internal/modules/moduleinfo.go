@@ -209,7 +209,7 @@ var Infos = map[string]ModuleDoc{
 		},
 		Phases: []string{
 			"Mode selection — Common (4 ports: 80, 443, 8080, 8443), Full (1–65535), or Custom Ports (your own list/range, e.g. 80,443,8000-8100)",
-			"Bounded worker-pool engine — one feeder goroutine streams (host,port) tasks into a fixed pool of N workers (N = concurrency), so a 3000-host × 65535-port sweep runs at a flat ~N+2 goroutines instead of one goroutine per probe; the feeder also applies memory back-pressure (pauses streaming while free RAM is low) and a token-bucket rate cap",
+			"Bounded worker-pool engine — one feeder goroutine streams (host,port) tasks into a fixed pool of N workers (N = concurrency) over a bounded channel, so a 3000-host × 65535-port sweep runs at a flat ~N+2 goroutines instead of one goroutine per probe; memory stays bounded by the bounded channel + the 256 KB body cap + the retained-result caps, with a token-bucket rate cap on new connections",
 			"Full mode — sweep every host's 65535 ports in a per-host randomised order, round-robin across hosts, to defeat the sequential-scan signature an IDS/firewall keys on; a shared token bucket caps new connections per second and unresolvable hostnames are dropped up front (fail-open on resolver errors)",
 			"For each target × port, probe both schemes — HTTPS-first on most ports, HTTP-first on 80/8080; the first scheme that answers wins, otherwise fall back to the other — many legacy admin panels are still HTTP-only",
 			"Send GET / with a recognisable User-Agent and capture the raw request bytes via httputil.DumpRequest (Burp replay material)",

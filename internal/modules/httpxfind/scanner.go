@@ -349,6 +349,20 @@ func runEngine(ec engineConfig) *ScanResult {
 	}
 	discTotal := len(targets) * portsPerHost
 
+	// Announce the host count up front for EVERY mode (the resolve modes add a
+	// richer intro below). This makes a "0 live in a few seconds" scan
+	// self-explaining: "probing 0 host(s)" means nothing reached this stage (an
+	// empty target list — e.g. the suite fed it no hosts), which is a DIFFERENT
+	// failure from "probing N host(s)" then 0 live (egress dropped every probe).
+	// Without this, an empty-list scan finishes instantly with no probes, no
+	// errors and no message — indistinguishable from a broken engine.
+	if !ec.resolve && ec.progress != nil {
+		ec.progress(0, fmt.Sprintf("%s: probing %d host(s) × %d port(s)", ec.label, len(targets), portsPerHost))
+	}
+	if len(targets) == 0 && ec.progress != nil {
+		ec.progress(0, "0 host(s) reached this stage — nothing to probe (empty target list)")
+	}
+
 	// ---- Rate normalisation ----------------------------------------------
 	// After this: rate == 0 → unlimited (no token bucket); rate > 0 → capped.
 	//   full/custom (resolve): a blank rate (0) → the safe fullScanRate default,

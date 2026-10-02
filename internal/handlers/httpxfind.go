@@ -29,7 +29,7 @@ type HTTPXFindConfig struct {
 }
 
 func (h *Handler) HTTPXFindPage(w http.ResponseWriter, r *http.Request) {
-	data := h.baseData(r, "HTTPX Finder - scaNNer", "httpxfind")
+	data := h.baseData(r, "HTTP Service Finder - scaNNer", "httpxfind")
 	ws := data["ActiveWorkspace"].(*models.Workspace)
 	targets, _ := h.db.ListTargets(ws.ID, "")
 	data["WSTargets"] = targets
@@ -163,7 +163,7 @@ func (h *Handler) HTTPXFindResults(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := h.baseData(r, "HTTPX Results - scaNNer", "httpxfind_results")
+	data := h.baseData(r, "HTTP Service Results - scaNNer", "httpxfind_results")
 	var result httpxfind.ScanResult
 	json.Unmarshal([]byte(scan.Result), &result)
 

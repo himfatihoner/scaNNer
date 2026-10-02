@@ -199,7 +199,7 @@ var Infos = map[string]ModuleDoc{
 	},
 
 	// ========================================================================
-	// HTTPX Finder
+	// HTTP Service Finder
 	// ========================================================================
 	"httpxfind": {
 		Summary: "Discovers HTTP/HTTPS services across a target list by probing ports and capturing per-service metadata (status, title, Server header, redirect target, response body, raw request/response bytes). This is the bread-and-butter first step of a web pentest: before you can hunt vulnerabilities you need to know WHERE the web apps live. The 'Full' mode TCP-scans all 65535 ports first so admin panels hidden on weird ports (e.g. Jenkins on 8082, Grafana on 3000) don't slip through.",
@@ -322,7 +322,7 @@ var Infos = map[string]ModuleDoc{
 			"FaviconMMH3 is the killer feature for asset discovery — paste the int32 into Shodan's http.favicon.hash:<value> filter and you'll find every other deployment in the wild (think SaaS clones)",
 			"Version detection is best-effort. Where multiple sources disagree (header says 'nginx/1.18', X-Powered-By says 'nginx/1.20'), the FIRST version detected wins — later sources only backfill a version onto a detection that has none, they never overwrite one",
 			"Feeds cvematch directly — once you have (Apache, 2.4.49) the CVE matcher returns CVE-2021-41773 in one click",
-			"In the advancedweb suite, techdetect runs a network-free path that reuses HTTPX's already-fetched responses (ScanFromPrefetched) — whatweb and all fresh fetches are skipped, only the built-in fingerprints, header parsing and version mining run, sized to one worker per CPU core",
+			"In the advancedweb suite, techdetect runs a network-free path that reuses the HTTP Service Finder's already-fetched responses (ScanFromPrefetched) — whatweb and all fresh fetches are skipped, only the built-in fingerprints, header parsing and version mining run, sized to one worker per CPU core",
 		},
 		References: []ReferenceRef{
 			{Label: "WhatWeb plugin reference", URL: "https://github.com/urbanadventurer/WhatWeb/wiki"},
@@ -961,9 +961,9 @@ var Infos = map[string]ModuleDoc{
 		},
 		Phases: []string{
 			"Stage 1 (WHOIS/ASN) — only runs for domain targets, skipped for URLs",
-			"Stage 2 (DNS Enum) — passive + brute; provides subdomain list to feed httpx",
-			"Stage 3 (HTTPX) — probe every supplied host + discovered subdomain on common ports (full/custom modes optional); surfaces alive services",
-			"Stage 4 (SSL/TLS) — independent of HTTPX: probes every DNS-discovered host (or the raw targets) on a configured port set (default 443,8443) with nmap ssl-enum + sslscan; finds cipher/protocol/vuln issues across the asset map",
+			"Stage 2 (DNS Enum) — passive + brute; provides subdomain list to feed the HTTP Service Finder",
+			"Stage 3 (HTTP Service Finder) — probe every supplied host + discovered subdomain on common ports (full/custom modes optional); surfaces alive services",
+			"Stage 4 (SSL/TLS) — independent of HTTP Service Finder: probes every DNS-discovered host (or the raw targets) on a configured port set (default 443,8443) with nmap ssl-enum + sslscan; finds cipher/protocol/vuln issues across the asset map",
 			"Stage 5 (WAF) — fingerprint each alive URL's edge defenses",
 			"Stage 6 (TechDetect) — fingerprint the stack of every alive URL; feeds profile selection downstream",
 			"Stage 7 (CVE Matcher) — maps stage 6's (product, version) pairs onto the CVE database; requires Tech Detection and a DB lookup, else skipped",
@@ -979,9 +979,9 @@ var Infos = map[string]ModuleDoc{
 			"Iterative cross-feed terminates early when spider finds nothing new — keeps reasonable bounds on runtime for site maps without many sub-dirs",
 			"Per-stage results embed the native module's results template inline — no special UI for the suite, just stacked module views",
 			"Suite is intentionally NOT modifiable mid-flight — stop button cancels the whole chain. For granular control, run modules individually",
-			"Accepts multiple targets at once (manual list or an imported target list); WHOIS/DNS/HTTPX (stages 1-3) are skipped only when EVERY target is a URL — a single domain in the mix still triggers full recon, and plain-IP entries are dropped",
+			"Accepts multiple targets at once (manual list or an imported target list); WHOIS/DNS/HTTP Service Finder (stages 1-3) are skipped only when EVERY target is a URL — a single domain in the mix still triggers full recon, and plain-IP entries are dropped",
 			"CVE Matcher and WPScan both hard-require Tech Detection — with it disabled they are force-disabled regardless of the checkbox; WPScan additionally only runs when WordPress is detected",
-			"Supports stage-level resume — stages that completed before a connectivity pause are seeded back and skipped on the resume run, while the data-producing stages (DNS/HTTPX/TechDetect) are reconstructed so later stages still get their input",
+			"Supports stage-level resume — stages that completed before a connectivity pause are seeded back and skipped on the resume run, while the data-producing stages (DNS/HTTP Service Finder/TechDetect) are reconstructed so later stages still get their input",
 			"A Nuclei run can be reported INCOMPLETE (marked as an error state and the whole suite flagged incomplete) when it hits its time cap or exits abnormally; a 'low'/'info' severity sweep over 50+ hosts is warned up-front as a multi-hour job",
 			"The DirEnum ↔ Spider cross-feed has a 72-hour wall-clock deadline; if it fires, the stage returns partial results and the suite is flagged incomplete rather than being pinned as 'running' forever",
 		},

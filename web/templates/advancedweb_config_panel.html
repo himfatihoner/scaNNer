@@ -80,7 +80,7 @@
                 {{/* Enabled stages first — accent-tinted chips. */}}
                 {{if $cfg.EnableWhois}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-accent-600/15 text-accent-300 border border-accent-500/30">WHOIS</span>{{end}}
                 {{if $cfg.EnableDNSEnum}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-accent-600/15 text-accent-300 border border-accent-500/30">DNS</span>{{end}}
-                {{if $cfg.EnableHTTPXFind}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-accent-600/15 text-accent-300 border border-accent-500/30">HTTPX</span>{{end}}
+                {{if $cfg.EnableHTTPXFind}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-accent-600/15 text-accent-300 border border-accent-500/30">HTTP Svc</span>{{end}}
                 {{if $cfg.EnableSSLScan}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-accent-600/15 text-accent-300 border border-accent-500/30">SSL</span>{{end}}
                 {{if $cfg.EnableWAFDetect}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-accent-600/15 text-accent-300 border border-accent-500/30">WAF</span>{{end}}
                 {{if $cfg.EnableTechDetect}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-accent-600/15 text-accent-300 border border-accent-500/30">Tech</span>{{end}}
@@ -93,7 +93,7 @@
                 {{/* Then disabled stages dimmed — the user sees what was NOT enabled too */}}
                 {{if not $cfg.EnableWhois}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-dark-850 text-dark-600 line-through">WHOIS</span>{{end}}
                 {{if not $cfg.EnableDNSEnum}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-dark-850 text-dark-600 line-through">DNS</span>{{end}}
-                {{if not $cfg.EnableHTTPXFind}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-dark-850 text-dark-600 line-through">HTTPX</span>{{end}}
+                {{if not $cfg.EnableHTTPXFind}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-dark-850 text-dark-600 line-through">HTTP Svc</span>{{end}}
                 {{if not $cfg.EnableSSLScan}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-dark-850 text-dark-600 line-through">SSL</span>{{end}}
                 {{if not $cfg.EnableWAFDetect}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-dark-850 text-dark-600 line-through">WAF</span>{{end}}
                 {{if not $cfg.EnableTechDetect}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-dark-850 text-dark-600 line-through">Tech</span>{{end}}
@@ -122,7 +122,7 @@
 
         {{if $cfg.EnableHTTPXFind}}
         <div>
-            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1.5">HTTPX Find</p>
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1.5">HTTP Service Finder</p>
             <p class="text-[11px] text-dark-200">
                 <span class="mono">mode={{if $cfg.HTTPXMode}}{{$cfg.HTTPXMode}}{{else}}common{{end}}</span>
                 {{if $cfg.HTTPXConcurrency}}<span class="mono ml-2">concurrency={{$cfg.HTTPXConcurrency}}</span>{{end}}

@@ -27,6 +27,8 @@ func Exec(ctx context.Context, name string, args ...string) *exec.Cmd {
 
 func IsActive() bool { return false }
 
+func ActiveInterface() string { return "" }
+
 func HealthCheck(targetIface, expectedIP string) error {
 	return errors.New("killswitch not supported on this platform")
 }

@@ -135,6 +135,15 @@ func throttleGate(ctx context.Context) error {
 func throttleControl(ctx context.Context, network, address string, c syscall.RawConn) error {
 	if c != nil && scannet.IsActive() {
 		markSocket(c, scannet.ScanFwMark)
+		// Force egress via the pinned interface. SO_MARK alone only lets the
+		// OUTPUT rule RECOGNISE scan traffic; it does not ROUTE it. Without this,
+		// an in-process dial carries the pinned source IP but the kernel still
+		// routes it out the DEFAULT interface, where `! -o targetIface -j DROP`
+		// kills it — so host-process scans (httpxfind etc.) failed under the
+		// killswitch even though subprocess tools (confined via the namespace +
+		// NAT) worked. Binding to the device makes the in-process path egress the
+		// pinned iface too. Best-effort (see bindToDevice).
+		bindToDevice(c, scannet.ActiveInterface())
 	}
 	return throttleGate(ctx)
 }

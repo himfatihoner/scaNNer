@@ -19,6 +19,24 @@ import (
 // decide whether to wrap commands with `ip netns exec`.
 var active atomic.Bool
 
+// activeIface holds the pinned outbound interface name while the killswitch is
+// armed. Go-side in-process dialers read it (ActiveInterface) to SO_BINDTODEVICE
+// their sockets to this interface — so host-process scan traffic actually
+// EGRESSES via the pinned iface, instead of only carrying its source IP and
+// then being routed out the default interface (where the fail-closed OUTPUT rule
+// `! -o targetIface -j DROP` kills it). This is the in-process analogue of the
+// namespace's NAT-via-targetIface confinement used for subprocesses.
+var activeIface atomic.Pointer[string]
+
+// ActiveInterface returns the pinned outbound interface name while the
+// killswitch is armed, or "" when it isn't.
+func ActiveInterface() string {
+	if s := activeIface.Load(); s != nil {
+		return *s
+	}
+	return ""
+}
+
 // setupMu serializes Setup/Teardown so a concurrent SettingsSave +
 // startup race can't double-install or double-delete rules.
 var setupMu sync.Mutex
@@ -207,6 +225,8 @@ func Setup(targetIface string) error {
 		fmt.Fprintf(os.Stderr, "netns: warning: resolv.conf copy failed: %v\n", err)
 	}
 
+	ifaceCopy := targetIface
+	activeIface.Store(&ifaceCopy)
 	active.Store(true)
 	return nil
 }
@@ -223,6 +243,7 @@ func Teardown() error {
 // (for pre-clean) and Teardown.
 func teardownLocked() error {
 	active.Store(false)
+	activeIface.Store(nil)
 
 	// Remove iptables rules — strictly by comment so we don't disturb
 	// rules other apps installed. -D needs the exact rule spec; we

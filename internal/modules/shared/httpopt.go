@@ -13,6 +13,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	scannet "scanner/internal/network"
 )
 
 // HTTPOptions holds user-supplied custom headers and cookies for web modules
@@ -504,6 +506,25 @@ func BoundDialer(opts *HTTPOptions, timeout time.Duration) *net.Dialer {
 	// hook that respects the dial's context, so a throttled connect still cancels
 	// immediately on scan Stop.
 	d := &net.Dialer{Timeout: timeout, ControlContext: throttleControl}
+
+	// Killswitch armed with a known interface: confine egress via SO_BINDTODEVICE
+	// (set in throttleControl) and DO NOT bind an explicit source IP.
+	//
+	// Why no source-IP bind: binding a source IP constrains the kernel's route
+	// lookup to routes that egress THAT IP's interface. Under a VPN that routes
+	// via policy rules / its own fwmark (or where the target's main-table route is
+	// the default interface), a tun source-IP bind leaves the kernel with no
+	// matching route → connect() fails INSTANTLY ("network error") even though
+	// `curl --interface tun0` works. curl just does SO_BINDTODEVICE (force the
+	// device, let the kernel pick a valid source on it) — so we do exactly that.
+	// Subprocess tools never hit this because they egress through the namespace +
+	// NAT. The fail-closed OUTPUT rule (`! -o iface -j DROP`) is the leak backstop
+	// if SO_BINDTODEVICE can't be set.
+	if scannet.IsActive() && scannet.ActiveInterface() != "" {
+		d.Resolver = deviceBoundResolver(timeout)
+		return d
+	}
+
 	la := effectiveLocalAddr(opts)
 	if la != nil {
 		d.LocalAddr = la
@@ -515,6 +536,21 @@ func BoundDialer(opts *HTTPOptions, timeout time.Duration) *net.Dialer {
 		d.Resolver = boundResolver(la, timeout)
 	}
 	return d
+}
+
+// deviceBoundResolver pins DNS egress to the killswitch interface via
+// SO_BINDTODEVICE (through throttleControl), NOT via a source-IP bind — the same
+// reasoning as BoundDialer. throttleControl skips the device-bind for loopback
+// destinations, so the systemd-resolved stub (127.0.0.53) still resolves.
+// PreferGo forces the pure-Go resolver so our Dial is actually used.
+func deviceBoundResolver(timeout time.Duration) *net.Resolver {
+	return &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			d := &net.Dialer{Timeout: timeout, ControlContext: throttleControl}
+			return d.DialContext(ctx, network, address)
+		},
+	}
 }
 
 // effectiveLocalAddr resolves the source bind for a dial: the per-scan override
@@ -560,6 +596,11 @@ func boundResolver(la *net.TCPAddr, timeout time.Duration) *net.Resolver {
 // dropped by an all_traffic OUTPUT rule), else the stdlib default resolver.
 // Used by the connectivity monitor's DNS-latency probe.
 func SystemResolver() *net.Resolver {
+	// Armed with a known interface → device-bound (same reasoning as BoundDialer:
+	// a source-IP bind can't route under a policy-routed VPN).
+	if scannet.IsActive() && scannet.ActiveInterface() != "" {
+		return deviceBoundResolver(5 * time.Second)
+	}
 	if la := globalLocalAddr.Load(); la != nil {
 		return boundResolver(la, 5*time.Second)
 	}

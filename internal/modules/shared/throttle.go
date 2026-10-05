@@ -2,6 +2,7 @@ package shared
 
 import (
 	"context"
+	"net"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -136,14 +137,28 @@ func throttleControl(ctx context.Context, network, address string, c syscall.Raw
 	if c != nil && scannet.IsActive() {
 		markSocket(c, scannet.ScanFwMark)
 		// Force egress via the pinned interface. SO_MARK alone only lets the
-		// OUTPUT rule RECOGNISE scan traffic; it does not ROUTE it. Without this,
-		// an in-process dial carries the pinned source IP but the kernel still
-		// routes it out the DEFAULT interface, where `! -o targetIface -j DROP`
-		// kills it — so host-process scans (httpxfind etc.) failed under the
-		// killswitch even though subprocess tools (confined via the namespace +
-		// NAT) worked. Binding to the device makes the in-process path egress the
-		// pinned iface too. Best-effort (see bindToDevice).
-		bindToDevice(c, scannet.ActiveInterface())
+		// OUTPUT rule RECOGNISE scan traffic; it does not ROUTE it. Binding the
+		// device makes the in-process path actually leave via the pinned iface
+		// (like `curl --interface <iface>`) instead of routing out the default
+		// interface, where `! -o targetIface -j DROP` kills it.
+		//
+		// SKIP loopback destinations: the systemd-resolved stub (127.0.0.53) is
+		// only reachable via lo, so forcing it onto a non-loopback device would
+		// break DNS. (SO_MARK is still fine on it — the `-o lo -j ACCEPT` OUTPUT
+		// rule lets loopback through regardless of the mark.)
+		if iface := scannet.ActiveInterface(); iface != "" && !isLoopbackDest(address) {
+			bindToDevice(c, iface)
+		}
 	}
 	return throttleGate(ctx)
+}
+
+// isLoopbackDest reports whether a dial "host:port" targets a loopback IP.
+func isLoopbackDest(address string) bool {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		host = address
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }

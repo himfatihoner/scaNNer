@@ -86,3 +86,26 @@ func TestNetworkThrottle(t *testing.T) {
 		t.Fatalf("throttle did not honor ctx cancel promptly: %v", el)
 	}
 }
+
+// TestIsLoopbackDest guards the rule that keeps the systemd-resolved stub
+// working under the killswitch: loopback destinations must NOT be
+// SO_BINDTODEVICE'd onto the pinned (non-loopback) interface.
+func TestIsLoopbackDest(t *testing.T) {
+	cases := []struct {
+		addr string
+		want bool
+	}{
+		{"127.0.0.53:53", true},    // systemd-resolved stub
+		{"127.0.0.1:80", true},     // plain loopback
+		{"[::1]:53", true},         // IPv6 loopback
+		{"10.8.0.2:443", false},    // a VPN-side target
+		{"8.8.8.8:53", false},      // a public resolver
+		{"example.com:443", false}, // hostname (not an IP → not treated as loopback)
+		{"127.0.0.53", true},       // no port
+	}
+	for _, c := range cases {
+		if got := isLoopbackDest(c.addr); got != c.want {
+			t.Errorf("isLoopbackDest(%q) = %v, want %v", c.addr, got, c.want)
+		}
+	}
+}

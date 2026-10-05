@@ -3,12 +3,7 @@
      Required data: .Scan, .StatusURL (e.g. "/modules/direnum/status/") */}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl p-6 mb-6">
     <div class="flex items-start gap-4">
-        <div class="w-10 h-10 rounded-full bg-accent-600/10 flex items-center justify-center shrink-0">
-            <svg class="w-5 h-5 text-accent-400 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-            </svg>
-        </div>
+        <div class="shrink-0">{{template "radar_inline" (dict "size" 46 "msg" "")}}</div>
         <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between gap-3 mb-2">
                 <div class="min-w-0 flex-1">

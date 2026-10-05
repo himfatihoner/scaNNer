@@ -2334,5 +2334,7 @@
   "Cert + cipher + protocol assessment · independent of HTTP Service Finder · configurable ports": "Sertifika + şifreleme + protokol değerlendirmesi · HTTP Servis Bulucu'dan bağımsız · yapılandırılabilir portlar",
   "Independent — every discovered host is TLS-scanned on these ports (not tied to the port HTTP Service Finder found), so TLS on other ports is not skipped. Empty = 443,8443.": "Bağımsız — her keşfedilen host bu portlarda TLS taranır (HTTP Servis Bulucu'nun bulduğu porta bağlı değil), böylece diğer portlardaki TLS atlanmaz. Boş = 443,8443.",
   "on every live service for deeper version/plugin detection. Much slower — a whatweb subprocess per host. Off = fast passive detection reusing the HTTP Service Finder bodies.": "daha derin sürüm/eklenti tespiti için her canlı serviste. Çok daha yavaş — host başına bir whatweb alt süreci. Kapalı = HTTP Servis Bulucu gövdelerini yeniden kullanan hızlı pasif tespit.",
-  "Saving settings…": "Ayarlar kaydediliyor…"
+  "Saving settings…": "Ayarlar kaydediliyor…",
+  "Launching rescan…": "Yeniden tarama başlatılıyor…",
+  "Building the vulnerability index…": "Zafiyet indeksi oluşturuluyor…"
 }

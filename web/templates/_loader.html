@@ -1,0 +1,44 @@
+{{/* Reusable inline radar loader (NOT the full-screen overlay in layout.html).
+     Use for ongoing / background waits that must stay non-blocking — a running
+     scan with no output yet, the vulnerability index building, an NVD sync.
+     Arg: a dict with "size" (px) and optional "msg" (string).
+     Example: {{template "radar_inline" (dict "size" 64 "msg" (T "Indexing…"))}}
+     The gradient ids are shared (ri-*) and identical across instances, so
+     multiple on one page is fine. */}}
+{{define "radar_inline"}}
+<div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+  <svg width="{{.size}}" height="{{.size}}" viewBox="0 0 64 64" role="img" aria-label="loading" style="filter:drop-shadow(0 4px 16px rgba(57,225,255,0.22))">
+    <defs>
+      <linearGradient id="ri-bg" x1="0" y1="0" x2="0.85" y2="1"><stop offset="0" stop-color="#173463"/><stop offset="1" stop-color="#081226"/></linearGradient>
+      <linearGradient id="ri-gloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.16"/><stop offset="0.5" stop-color="#fff" stop-opacity="0"/></linearGradient>
+      <linearGradient id="ri-sweep" gradientUnits="userSpaceOnUse" x1="14.0" y1="19.37" x2="32" y2="10"><stop offset="0" stop-color="#39e1ff" stop-opacity="0"/><stop offset="1" stop-color="#39e1ff" stop-opacity="0.55"/></linearGradient>
+      <radialGradient id="ri-blip" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#a6f4ff" stop-opacity="0.95"/><stop offset="1" stop-color="#39e1ff" stop-opacity="0"/></radialGradient>
+      <radialGradient id="ri-tip" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#a6f4ff" stop-opacity="0.8"/><stop offset="1" stop-color="#39e1ff" stop-opacity="0"/></radialGradient>
+      <clipPath id="ri-tile"><rect x="2" y="2" width="60" height="60" rx="15"/></clipPath>
+    </defs>
+    <rect x="2" y="2" width="60" height="60" rx="15" fill="url(#ri-bg)"/>
+    <rect x="2" y="2" width="60" height="60" rx="15" fill="url(#ri-gloss)"/>
+    <g clip-path="url(#ri-tile)">
+      <g stroke="#8fd8ff" stroke-opacity="0.12" stroke-width="1"><line x1="10.5" y1="32" x2="53.5" y2="32"/><line x1="32" y1="10.5" x2="32" y2="53.5"/></g>
+      <circle cx="32" cy="32" r="22" fill="none" stroke="#3f8fd6" stroke-opacity="0.42" stroke-width="1.6"/>
+      <circle cx="32" cy="32" r="15" fill="none" stroke="#3f8fd6" stroke-opacity="0.58" stroke-width="1.6"/>
+      <circle cx="32" cy="32" r="8" fill="none" stroke="#3f8fd6" stroke-opacity="0.70" stroke-width="1.6"/>
+      <g>
+        <circle cx="45.86" cy="24.0" r="4.6" fill="url(#ri-blip)" opacity="0"><animate attributeName="opacity" dur="2.4s" repeatCount="indefinite" keyTimes="0;0.147;0.167;0.46;1" values="0;0;1;0;0"/></circle>
+        <circle cx="39.07" cy="39.07" r="4.2" fill="url(#ri-blip)" opacity="0"><animate attributeName="opacity" dur="2.4s" repeatCount="indefinite" keyTimes="0;0.355;0.375;0.66;1" values="0;0;1;0;0"/></circle>
+        <circle cx="22.5" cy="48.45" r="4.6" fill="url(#ri-blip)" opacity="0"><animate attributeName="opacity" dur="2.4s" repeatCount="indefinite" keyTimes="0;0.563;0.583;0.86;1" values="0;0;1;0;0"/></circle>
+        <circle cx="14.24" cy="21.75" r="4.4" fill="url(#ri-blip)" opacity="0"><animate attributeName="opacity" dur="2.4s" repeatCount="indefinite" keyTimes="0;0.813;0.833;1;1" values="0;0;1;0;0"/></circle>
+      </g>
+      <g>
+        <animateTransform attributeName="transform" type="rotate" from="0 32 32" to="360 32 32" dur="2.4s" repeatCount="indefinite" calcMode="linear"/>
+        <path d="M32 32 L32 10 A22 22 0 0 0 14.0 19.37 Z" fill="url(#ri-sweep)"/>
+        <line x1="32" y1="32" x2="32" y2="10" stroke="#7fe9ff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="32" cy="10" r="3.4" fill="url(#ri-tip)"/>
+      </g>
+      <circle cx="32" cy="32" r="1.9" fill="#a6f4ff"/>
+    </g>
+    <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="14.25" fill="none" stroke="#fff" stroke-opacity="0.13" stroke-width="1.3"/>
+  </svg>
+  {{if .msg}}<p style="margin:0;font-size:12px;color:#9fb6d6;letter-spacing:.02em;text-align:center;">{{.msg}}</p>{{end}}
+</div>
+{{end}}

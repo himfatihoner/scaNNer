@@ -185,7 +185,11 @@
 </div>
 {{else}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
-    <p class="text-sm">{{if .VulnReady}}{{T "No vulnerabilities found across this workspace's scans."}}{{else}}{{T "Indexing…"}}{{end}}</p>
+    {{if .VulnReady}}
+    <p class="text-sm">{{T "No vulnerabilities found across this workspace's scans."}}</p>
+    {{else}}
+    {{template "radar_inline" (dict "size" 76 "msg" (T "Building the vulnerability index…"))}}
+    {{end}}
 </div>
 {{end}}
 {{end}}{{/* /active tab */}}
@@ -329,20 +333,24 @@ function refreshSelCount(){
 }
 function onVulnCbClick(e){ e.stopPropagation(); refreshSelCount(); }
 // ---- Rescan / Archive actions ----
-function postIdsForm(action, ids, extra){
+function postIdsForm(action, ids, extra, loaderMsg){
     if(!ids || !ids.length) return;
     var f=document.createElement('form'); f.method='POST'; f.action=action; f.style.display='none';
     function add(n,v){ var i=document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; f.appendChild(i); }
     add('ids', ids.join(','));
     if(extra){ for(var k in extra){ add(k, extra[k]); } }
-    document.body.appendChild(f); f.submit();
+    document.body.appendChild(f);
+    // These are programmatic form submits (f.submit() does NOT fire the global
+    // submit listener), so trigger the overlay directly for the POST→reload wait.
+    if(window.showAppLoader) showAppLoader(loaderMsg||'');
+    f.submit();
 }
 function rescanVulns(ids, btn){
     // Optimistic instant feedback: spin the clicked row's icon right away (the
     // page reloads immediately after, then the server-rendered state + live
     // poll keep it spinning until the rescan resolves).
     if(btn){ var s=btn.querySelector('.rescan-spin'); if(s) s.classList.add('animate-spin'); }
-    postIdsForm('/vulnerabilities/rescan', ids);
+    postIdsForm('/vulnerabilities/rescan', ids, null, '{{T `Launching rescan…`}}');
 }
 function rescanSelected(){ rescanVulns(selectedVulnIds()); }
 function archiveVulns(ids, action){ postIdsForm('/vulnerabilities/archive', ids, {action: action, from: (action==='unarchive'?'archive':'active')}); }

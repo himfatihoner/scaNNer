@@ -622,6 +622,7 @@
 
             <!-- Live progress bar — shows during sync. -->
             <div id="cveDBProgressBox" class="hidden mb-3 bg-dark-950 border border-dark-700 rounded-lg p-3">
+                <div class="flex justify-center mb-2.5">{{template "radar_inline" (dict "size" 44 "msg" "")}}</div>
                 <div class="flex items-center justify-between mb-1.5 text-[11px]">
                     <span class="text-dark-300" id="cveDBProgressLabel">{{T "starting…"}}</span>
                     <div class="flex items-center gap-2">

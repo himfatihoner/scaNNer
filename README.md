@@ -1,7 +1,7 @@
 # scaNNer
 
 A single-binary, web-UI penetration-testing **scan orchestrator**. One Go binary
-serves a Tailwind/htmx frontend on port **9090** and drives ~33 internal modules
+serves a Tailwind/htmx frontend on port **9090** and drives ~35 internal modules
 that wrap standard offensive tooling (nmap, nuclei, wpscan, hydra, the impacket
 suite, netexec/nxc, subfinder, amass, whatweb, and more), parsing their output
 into structured findings stored in SQLite. Every scan is asynchronous,
@@ -34,7 +34,7 @@ cancellable, and re-runnable from its saved configuration.
 
 ## Features
 
-- **~33 modules** across recon, web, network, and vuln categories, plus an
+- **~35 modules** across recon, web, network, and vuln categories, plus an
   orchestrated multi-stage **Advanced Web** suite.
 - **Multi-user auth & RBAC** — login sessions, an admin-managed
   per-user × per-workspace × per-module permission model, an optional per-user
@@ -49,7 +49,12 @@ cancellable, and re-runnable from its saved configuration.
   restart into the new version from the UI (build-to-temp + smoke-test +
   atomic swap + rollback, so a bad update can't brick the app).
 - **Workspaces**, target lists, an assets inventory, a live network/performance
-  dashboard, a CVE matcher, and CSV/JSON/PDF report export.
+  dashboard, a CVE matcher, a workspace-wide **vulnerabilities** view with triage
+  (fixed / false-positive / assigned / archive) and per-finding rescan, and
+  CSV/JSON/PDF report export.
+- **Offline Tools page** — a self-hosted CyberChef (no external calls) plus small
+  utilities (diff/comparer, URL codec, ViewState decoder).
+- **English / Turkish UI** — switchable from the top bar.
 
 ## Modules
 
@@ -60,7 +65,7 @@ note above.
 | Module | What it does |
 |---|---|
 | DNS Enumerator | Subdomain enumeration + DNS records (subfinder/amass/puredns/dig). |
-| HTTPX Finder | Probes hosts/ports for live HTTP(S) services and metadata. |
+| HTTP Service Finder | Probes hosts/ports for live HTTP(S) services and metadata (in-house probe engine). |
 | Tech Detector | Fingerprints web technologies (whatweb). |
 | WAF Detector | Detects web application firewalls in front of a target. |
 | WHOIS / ASN Lookup | WHOIS and ASN/owner information for hosts and ranges. |
@@ -100,6 +105,7 @@ note above.
 | SNMP Enum | SNMP enumeration (onesixtyone/snmpwalk). |
 | Service Brute Forcer | Credential brute-forcing for SSH/FTP/RDP (hydra). |
 | Active Directory | Multi-phase AD assessment (impacket/nxc/bloodhound/certipy/…). |
+| Hashcat | Password/hash cracking — dictionary, rules, mask/brute, with live progress (hashcat + hashid). |
 
 ### Vuln
 | Module | What it does |
@@ -151,11 +157,12 @@ HTTPS connection (the prompt is refused over plain HTTP) and wiped from memory
 immediately. The installer runs in its own transient systemd unit so it survives
 the restart it performs.
 
-To remove the service and every system change it made (your repo, binary, and
-data are left untouched):
+To remove the service and every system change it made (your **source and data**
+are left untouched; the binary `install.sh` built is removed by default — pass
+`--keep-binary` to keep it):
 
 ```bash
-sudo scripts/uninstall.sh
+sudo scripts/uninstall.sh                 # add --keep-binary to leave ./scanner
 ```
 
 Then open **`https://<host>:9090`** — `localhost` when you run it on your own
@@ -202,7 +209,7 @@ git checkout — rebuild the image to update.)
 
 Modules shell out to third-party tools expected on `$PATH` (nmap, nuclei,
 wpscan, hydra, the impacket suite, netexec/nxc, subfinder, amass,
-puredns/massdns, whatweb, and others). The Docker image installs/builds the
+puredns/massdns, whatweb, hashcat/hashid, and others). The Docker image installs/builds the
 common ones; for a bare-metal run, `scripts/install.sh` checks for them and can
 install the missing ones for you. Anything still absent is reported in the
 startup banner and the affected modules degrade gracefully.

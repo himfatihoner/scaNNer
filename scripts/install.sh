@@ -462,8 +462,9 @@ openssl|apt|openssl|SSL/TLS scanner|soft
 ldapsearch|apt|ldap-utils|AD discovery/enum|soft
 impacket-GetUserSPNs|apt|python3-impacket|AD (kerberoast, enum, roast)|soft
 responder|apt|responder|AD LLMNR/NBT-NS poisoning|soft
-hashcat|apt|hashcat|AD hash cracking|soft
-john|apt|john|AD hash cracking fallback|soft
+hashcat|apt|hashcat|hash cracking (Hashcat module, AD)|soft
+hashid|apt|hashid|hash-type auto-detect (Hashcat module)|soft
+john|apt|john|hash cracking fallback|soft
 seclists|apt|seclists|wordlists (direnum, brutef)|soft
 subfinder|go|go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest|dnsenum|soft
 puredns|go|go install github.com/d3mondev/puredns/v2@latest|dnsenum|soft
@@ -652,7 +653,7 @@ check_prerequisites() {
       fi
       # Re-check regardless of the exit code (a partial install still helped).
       local still=() check2
-      for check2 in go git nmap dig whois whatweb amass recon-ng wpscan nuclei hydra smbclient enum4linux enum4linux-ng nbtscan snmpwalk onesixtyone theHarvester sslscan openssl ldapsearch impacket-GetUserSPNs responder hashcat john; do
+      for check2 in go git nmap dig whois whatweb amass recon-ng wpscan nuclei hydra smbclient enum4linux enum4linux-ng nbtscan snmpwalk onesixtyone theHarvester sslscan openssl ldapsearch impacket-GetUserSPNs responder hashcat hashid john; do
         have "$check2" || still+=("$check2")
       done
       [ "${#still[@]}" -gt 0 ] && warn "still missing after apt (may need go/pipx or a different pkg name): ${still[*]}"

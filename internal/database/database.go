@@ -1956,6 +1956,22 @@ func (d *DB) UpdateScanProgressBatched(id string, done int, msg string) {
 	progressBatcher.mu.Unlock()
 }
 
+// SetFinalProgressMsg writes a terminal progress_msg that MUST survive — e.g. a
+// module's "0 live services — <reason>" explanation written after the sweep. It
+// drains the per-scan batch AND issues the UPDATE while holding the batcher
+// mutex, so a concurrent flushProgressBatch can't race in and clobber the reason
+// with a stale per-probe caption (the bug that made 0-live scans look like a
+// silent success: the direct write landed, then the 500ms batch tick overwrote
+// it with the last "· no HTTP on host:port" line). Status/result untouched.
+func (d *DB) SetFinalProgressMsg(id, msg string) {
+	progressBatcher.mu.Lock()
+	defer progressBatcher.mu.Unlock()
+	delete(progressBatcher.pending, id)
+	if _, err := d.Exec(`UPDATE scans SET progress_msg = ? WHERE id = ?`, msg, id); err != nil {
+		log.Printf("SetFinalProgressMsg(%s) failed: %v", id, err)
+	}
+}
+
 func (d *DB) FinalizeScan(id, result, msg string, status models.ScanStatus) {
 	// Drain any pending batched progress writes for this scan so the
 	// final UPDATE sees a consistent baseline (audit B5).

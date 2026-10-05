@@ -283,16 +283,38 @@ func (h *Handler) runHTTPXFind(scanID string, targets []string, mode httpxfind.S
 	resultJSON, _ := json.Marshal(result)
 	h.db.UpdateScanResult(scanID, string(resultJSON))
 
-	// 0 live services is ambiguous — say WHY. A pile of connection
-	// refused/timeout/DNS errors means the targets were unreachable from the
-	// scanner (down, firewalled, geo-blocked, no route), not that they run no
-	// HTTP. Surface the recorded breakdown so the operator isn't left staring
-	// at a bare "0 services".
+	// 0 live services is ambiguous — ALWAYS say WHY so the scan is never a
+	// silent "success". Two shapes:
+	//   - probe errors recorded → targets were unreachable from the scanner
+	//     (down / firewalled / geo-blocked / no route / killswitch-VPN egress).
+	//   - NO probe errors → every scanned port answered without HTTP, or the
+	//     service is on a port outside the scanned set (Common = only 4 ports).
+	// Written via SetFinalProgressMsg, which drains the per-scan progress batch
+	// under lock so the 500ms batch flush can't overwrite this reason with the
+	// last "· no HTTP on host:port" per-probe caption (that race is exactly why
+	// a 0-live scan previously showed no reason and looked like it succeeded).
 	if opts.Ctx.Err() == nil && len(result.Services) == 0 {
+		var portDesc string
+		switch {
+		case mode == httpxfind.ModePorts:
+			portDesc = fmt.Sprintf("%d custom port(s)", len(customPorts))
+		case mode == httpxfind.ModeFull:
+			portDesc = "all 65535 ports"
+		default:
+			portDesc = "the common ports (80, 443, 8080, 8443)"
+		}
 		if n, brk := opts.ErrorSummary(); n > 0 {
-			h.db.UpdateScanProgress(scanID, 0, fmt.Sprintf(
-				"⚠ 0 live services — %d probe failure(s) (%s): targets unreachable from the scanner (down, firewalled, geo-blocked, or no route). DNS resolving but no TCP/HTTP connection succeeded.",
-				n, brk))
+			h.db.SetFinalProgressMsg(scanID, fmt.Sprintf(
+				"⚠ 0 live services — probed %d host(s) on %s; %d probe failure(s) (%s): targets unreachable from the scanner (down, firewalled, geo-blocked, no route, or killswitch/VPN egress). DNS resolved but no TCP/HTTP connection succeeded.",
+				len(targets), portDesc, n, brk))
+		} else {
+			hint := ""
+			if mode == httpxfind.ModeCommon {
+				hint = " If the web server listens on a non-standard port, re-run in All Ports or Custom mode."
+			}
+			h.db.SetFinalProgressMsg(scanID, fmt.Sprintf(
+				"0 live services — probed %d host(s) on %s with no probe errors: nothing answered as HTTP/HTTPS on the scanned ports.%s",
+				len(targets), portDesc, hint))
 		}
 	}
 }

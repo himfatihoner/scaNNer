@@ -207,6 +207,9 @@
 {{else}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
     <p class="text-sm">{{if eq (print .Scan.Status) "running"}}{{T "Waiting for first results..."}}{{else}}{{T "No HTTP services found"}}{{end}}</p>
+    {{if and (ne (print .Scan.Status) "running") .Scan.ProgressMsg}}
+    <p class="text-xs text-dark-400 mt-3 text-center max-w-2xl leading-relaxed">{{.Scan.ProgressMsg}}</p>
+    {{end}}
 </div>
 {{end}}
 {{end}}

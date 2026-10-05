@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="scaNNer radar loading">
+  <defs>
+    <linearGradient id="rl-bg" x1="0" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#173463"/><stop offset="1" stop-color="#081226"/>
+    </linearGradient>
+    <linearGradient id="rl-gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/><stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <!-- bright at the leading edge (up), fading into the trailing phosphor -->
+    <linearGradient id="rl-sweep" gradientUnits="userSpaceOnUse" x1="14.0" y1="19.37" x2="32" y2="10">
+      <stop offset="0" stop-color="#39e1ff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#39e1ff" stop-opacity="0.55"/>
+    </linearGradient>
+    <radialGradient id="rl-blip" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#a6f4ff" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#39e1ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="rl-tip" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#a6f4ff" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="#39e1ff" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="rl-tile"><rect x="2" y="2" width="60" height="60" rx="15"/></clipPath>
+  </defs>
+
+  <!-- tile -->
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="url(#rl-bg)"/>
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="url(#rl-gloss)"/>
+
+  <g clip-path="url(#rl-tile)">
+    <!-- crosshair -->
+    <g stroke="#8fd8ff" stroke-opacity="0.12" stroke-width="1">
+      <line x1="10.5" y1="32" x2="53.5" y2="32"/><line x1="32" y1="10.5" x2="32" y2="53.5"/>
+    </g>
+    <!-- radar rings -->
+    <circle cx="32" cy="32" r="22" fill="none" stroke="#3f8fd6" stroke-opacity="0.42" stroke-width="1.6"/>
+    <circle cx="32" cy="32" r="15" fill="none" stroke="#3f8fd6" stroke-opacity="0.58" stroke-width="1.6"/>
+    <circle cx="32" cy="32" r="8"  fill="none" stroke="#3f8fd6" stroke-opacity="0.70" stroke-width="1.6"/>
+
+    <!-- blips: flare when the beam passes their clock position, then fade -->
+    <!-- beam starts pointing up (12 o'clock) and rotates clockwise over 2.4s -->
+    <g>
+      <!-- 2 o'clock (~60deg -> t=0.167) -->
+      <circle cx="45.86" cy="24.0" r="4.6" fill="url(#rl-blip)" opacity="0">
+        <animate attributeName="opacity" dur="2.4s" repeatCount="indefinite"
+                 keyTimes="0;0.147;0.167;0.46;1" values="0;0;1;0;0"/>
+      </circle>
+      <!-- 4:30 (~135deg -> t=0.375) -->
+      <circle cx="39.07" cy="39.07" r="4.2" fill="url(#rl-blip)" opacity="0">
+        <animate attributeName="opacity" dur="2.4s" repeatCount="indefinite"
+                 keyTimes="0;0.355;0.375;0.66;1" values="0;0;1;0;0"/>
+      </circle>
+      <!-- 7 o'clock (~210deg -> t=0.583) -->
+      <circle cx="22.5" cy="48.45" r="4.6" fill="url(#rl-blip)" opacity="0">
+        <animate attributeName="opacity" dur="2.4s" repeatCount="indefinite"
+                 keyTimes="0;0.563;0.583;0.86;1" values="0;0;1;0;0"/>
+      </circle>
+      <!-- 10 o'clock (~300deg -> t=0.833) -->
+      <circle cx="14.24" cy="21.75" r="4.4" fill="url(#rl-blip)" opacity="0">
+        <animate attributeName="opacity" dur="2.4s" repeatCount="indefinite"
+                 keyTimes="0;0.813;0.833;1;1" values="0;0;1;0;0"/>
+      </circle>
+    </g>
+
+    <!-- rotating sweep: wedge (phosphor trail) + bright leading edge + tip -->
+    <g>
+      <animateTransform attributeName="transform" type="rotate"
+                        from="0 32 32" to="360 32 32" dur="2.4s"
+                        repeatCount="indefinite" calcMode="linear"/>
+      <path d="M32 32 L32 10 A22 22 0 0 0 14.0 19.37 Z" fill="url(#rl-sweep)"/>
+      <line x1="32" y1="32" x2="32" y2="10" stroke="#7fe9ff" stroke-opacity="0.9"
+            stroke-width="1.5" stroke-linecap="round"/>
+      <circle cx="32" cy="10" r="3.4" fill="url(#rl-tip)"/>
+    </g>
+
+    <!-- center -->
+    <circle cx="32" cy="32" r="1.9" fill="#a6f4ff"/>
+  </g>
+
+  <!-- inner border on top -->
+  <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="14.25" fill="none"
+        stroke="#ffffff" stroke-opacity="0.13" stroke-width="1.3"/>
+</svg>

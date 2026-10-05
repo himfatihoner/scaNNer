@@ -97,6 +97,18 @@ func ClassifyError(err error) string {
 		return "connection reset"
 	case strings.Contains(low, "eof"):
 		return "unexpected EOF"
+	// Break the vague "network error" bucket into actionable egress faults.
+	// These fire INSTANTLY (not after a timeout) and, on a killswitch-armed
+	// scan, point at the pinned outbound interface rather than the target:
+	// the kernel/VPN has no path, or the bound source IP is stale.
+	case strings.Contains(low, "no route to host"):
+		return "no route to host (pinned iface/VPN can't reach the target)"
+	case strings.Contains(low, "network is unreachable"):
+		return "network unreachable (outbound iface/VPN down or wrong)"
+	case strings.Contains(low, "cannot assign requested address"):
+		return "source-IP bind failed (killswitch IP is stale — reconnect / re-save Settings)"
+	case strings.Contains(low, "permission denied"), strings.Contains(low, "operation not permitted"):
+		return "egress blocked (killswitch rules / missing caps)"
 	default:
 		return "network error"
 	}

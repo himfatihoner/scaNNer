@@ -204,6 +204,14 @@ func Scan(ctx context.Context, cfg Config, progress ProgressFunc, partial Partia
 	lastErr := ""
 	anyClean := false // any pass reached a normal exit (0/1) → not a hard error
 
+	// Auto-detect tries several candidate modes; each fills an equal 1/numModes
+	// slice of the overall bar (modeBase .. modeBase+modeSpan), so the % climbs
+	// smoothly across modes instead of resetting 0→100 on every attempt.
+	numModes := len(modes)
+	if numModes < 1 {
+		numModes = 1
+	}
+
 modeLoop:
 	for i, mid := range modes {
 		if ctx.Err() != nil {
@@ -217,7 +225,9 @@ modeLoop:
 		if totalKS < 1 {
 			totalKS = 1
 		}
-		var doneKS int64 // keyspace of the fully-completed passes for this mode
+		modeBase := float64(i) / float64(numModes)
+		modeSpan := 1.0 / float64(numModes)
+		var doneKS int64 // base keyspace of the completed passes for this mode
 		for pi, p := range passes {
 			if ctx.Err() != nil {
 				break
@@ -245,12 +255,13 @@ modeLoop:
 			}
 			_ = os.Remove(outFile) // fresh outfile per pass
 
-			exit, errTail := crackPassAgg(ctx, cfg, mid, p.rule, hashFile.Name(), outFile, prog, &out.Summary, &mu, pushPartial, doneKS, totalKS)
+			pw := passKeyspace(cfg, p.rule, words)
+			exit, errTail := crackPassAgg(ctx, cfg, mid, p.rule, hashFile.Name(), outFile, prog, &out.Summary, &mu, pushPartial, doneKS, pw, totalKS, modeBase, modeSpan)
 			lastExit, lastErr = exit, errTail
 			if exit == 0 || exit == 1 {
 				anyClean = true
 			}
-			doneKS += passKeyspace(cfg, p.rule, words)
+			doneKS += pw
 			applyCracked(out, outFile)
 			if out.Summary.Cracked > 0 {
 				break modeLoop // solved — stop all remaining passes/candidates
@@ -297,7 +308,8 @@ modeLoop:
 // --status-json into the shared summary. Returns the process exit code and a
 // short stderr tail (for error reporting).
 func crackPassAgg(ctx context.Context, cfg Config, modeID int, rule, hashFile, outFile string,
-	prog func(int, string), sum *Summary, mu *sync.Mutex, pushPartial func(bool), doneKS, totalKS int64) (int, string) {
+	prog func(int, string), sum *Summary, mu *sync.Mutex, pushPartial func(bool),
+	doneWeight, passWeight, totalWeight int64, modeBase, modeSpan float64) (int, string) {
 
 	args := buildArgs(cfg, modeID, rule, hashFile, outFile)
 	prog(0, "$ "+shared.FormatCommand("hashcat", args))
@@ -325,7 +337,7 @@ func crackPassAgg(ctx context.Context, cfg Config, modeID int, rule, hashFile, o
 			continue
 		}
 		mu.Lock()
-		applyStatusAgg(sum, st, doneKS, totalKS)
+		applyStatusAgg(sum, st, doneWeight, passWeight, totalWeight, modeBase, modeSpan)
 		pct, rate, cracked, util, eta, total, cand := sum.ProgressPct, sum.HashrateHuman, sum.Cracked, sum.LiveUtilPct, sum.ETA, sum.Total, sum.CandHuman
 		mu.Unlock()
 		prog(pct, fmt.Sprintf("%d%% · %s tried · %s · %d/%d cracked · CPU %d%%%s", pct, cand, rate, cracked, total, util, etaSuffix(eta)))
@@ -393,7 +405,7 @@ func buildArgs(cfg Config, modeID int, rule, hashFile, outFile string) []string 
 // reports progress + ETA across the WHOLE job (all rule/mode passes), not just
 // the current pass: doneKS is the keyspace of already-finished passes, totalKS
 // the grand total. ETA = remaining keyspace ÷ the current live speed.
-func applyStatusAgg(s *Summary, st hcStatus, doneKS, totalKS int64) {
+func applyStatusAgg(s *Summary, st hcStatus, doneWeight, passWeight, totalWeight int64, modeBase, modeSpan float64) {
 	switch st.Status {
 	case 3:
 		s.Status = "running"
@@ -427,28 +439,67 @@ func applyStatusAgg(s *Summary, st hcStatus, doneKS, totalKS int64) {
 	if util > s.PeakUtilPct {
 		s.PeakUtilPct = util
 	}
-	// Aggregate progress across all passes.
-	var passDone int64
-	if len(st.Progress) == 2 {
-		passDone = st.Progress[0]
+	// Aggregate progress across all passes AND (for auto-detect) all modes.
+	//
+	// Use hashcat's OWN per-pass fraction, not its raw counter. status-json
+	// progress = [cur, end], where `end` already folds in the exact rule count
+	// AND the salt amplifier: hashcat multiplies the keyspace by the number of
+	// distinct salts, so cracking several salted hashes makes cur/end many times
+	// our salt-free estimate. Mixing hashcat's salt-amplified `cur` with our
+	// salt-free denominator was the bug that pinned the bar at 100%. Instead take
+	// the FRACTION cur/end here, and weight each pass by our own base keyspace —
+	// the salt factor is identical across passes of a mode, so it cancels in the
+	// ratio and the weighting stays correct.
+	var passEnd int64
+	var passFrac float64
+	if len(st.Progress) == 2 && st.Progress[1] > 0 {
+		passEnd = st.Progress[1]
+		passFrac = clamp01(float64(st.Progress[0]) / float64(passEnd))
 	}
-	aggDone := doneKS + passDone
-	if aggDone > totalKS {
-		aggDone = totalKS
+	if totalWeight < 1 {
+		totalWeight = 1
 	}
-	if totalKS > 0 {
-		s.ProgressPct = int(aggDone * 100 / totalKS)
-	}
-	// Candidate progress (tried / total) — what the operator wants to see for a
-	// mask or dictionary run: how many candidates will be tried and how many so far.
-	s.CandTried = aggDone
-	s.CandTotal = totalKS
-	s.CandHuman = humanCand(aggDone) + " / " + humanCand(totalKS)
-	if remaining := totalKS - aggDone; remaining > 0 && rate > 0 {
-		s.ETA = humanDuration(remaining / rate)
+	withinMode := clamp01((float64(doneWeight) + passFrac*float64(passWeight)) / float64(totalWeight))
+	s.ProgressPct = int(clamp01(modeBase+modeSpan*withinMode) * 100)
+
+	// Candidate progress (tried / total) — the SALT-FREE base keyspace the
+	// operator reads as "passwords tried", not hashcat's salt-amplified counter.
+	candTried := int64(float64(doneWeight) + passFrac*float64(passWeight))
+	s.CandTried = candTried
+	s.CandTotal = totalWeight
+	s.CandHuman = humanCand(candTried) + " / " + humanCand(totalWeight)
+
+	// ETA for the remaining passes of THIS mode, in hashcat's own units so the
+	// live hashrate (hashes/sec, already salt-amplified) divides out cleanly. The
+	// salt amplifier is hashcat's `end` ÷ our base keyspace for the current pass.
+	if rate > 0 && passEnd > 0 && passWeight > 0 {
+		salts := passEnd / passWeight
+		if salts < 1 {
+			salts = 1
+		}
+		futureBase := totalWeight - doneWeight - passWeight
+		if futureBase < 0 {
+			futureBase = 0
+		}
+		remainingHC := (passEnd - st.Progress[0]) + futureBase*salts
+		if remainingHC < 0 {
+			remainingHC = 0
+		}
+		s.ETA = humanDuration(remainingHC / rate)
 	} else {
 		s.ETA = ""
 	}
+}
+
+// clamp01 clamps a fraction into [0,1].
+func clamp01(f float64) float64 {
+	if f < 0 {
+		return 0
+	}
+	if f > 1 {
+		return 1
+	}
+	return f
 }
 
 func applyCracked(out *ScanResult, outFile string) {

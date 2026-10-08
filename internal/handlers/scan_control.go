@@ -19,7 +19,6 @@ import (
 	"scanner/internal/modules/openredirect"
 	"scanner/internal/modules/shared"
 	"scanner/internal/modules/sstiscan"
-	"scanner/internal/modules/takeover"
 	"scanner/internal/modules/wafdetect"
 	"scanner/internal/modules/wpscan"
 )
@@ -522,10 +521,6 @@ func (h *Handler) dispatchRestart(scanID, module, configJSON string) {
 		var c sstiscan.Config
 		json.Unmarshal([]byte(configJSON), &c)
 		go h.runSSTIScan(scanID, c, h.BuildHTTPOptionsFromSettings())
-	case "takeover":
-		var c takeover.Config
-		json.Unmarshal([]byte(configJSON), &c)
-		go h.runTakeover(scanID, c, h.BuildHTTPOptionsFromSettings())
 	case "corsscan":
 		var c corsscan.Config
 		json.Unmarshal([]byte(configJSON), &c)

@@ -146,8 +146,6 @@ func ModuleDisplayName(module string) string {
 		return "Concurrency Tester"
 	case "advancedweb":
 		return "Advanced Web Application Scanner"
-	case "takeover":
-		return "Subdomain Takeover"
 	case "corsscan":
 		return "CORS Misconfig"
 	case "openredirect":

@@ -610,31 +610,6 @@ func ExportSchema(module string) []ExportSection {
 	// each `case` enumerates only the columns actually present in that
 	// module's Finding type (verified against scanner.go). ===
 
-	case "takeover":
-		// takeover.ScanResult has both top-level Findings and per-host
-		// Results. Two sections: the high-signal Findings list +
-		// per-host outcome table for the audit trail.
-		return []ExportSection{
-			{ID: "findings", Label: "Takeover Findings", Default: true, HasSeverity: true, Columns: []ExportColumn{
-				{ID: "subdomain", Label: "Subdomain", Default: true},
-				{ID: "cname", Label: "CNAME", Default: true},
-				{ID: "ips", Label: "IPs", Default: false},
-				{ID: "service", Label: "Service", Default: true},
-				{ID: "severity", Label: "Severity", Default: true},
-				{ID: "http_status", Label: "HTTP", Default: true},
-				{ID: "matched_pattern", Label: "Matched Pattern", Default: true},
-				{ID: "note", Label: "Note", Default: false},
-				{ID: "body_snippet", Label: "Body Snippet", Default: false},
-			}},
-			{ID: "hosts", Label: "Per-host Outcome", Default: false, Columns: []ExportColumn{
-				{ID: "subdomain", Label: "Subdomain", Default: true},
-				{ID: "cname", Label: "CNAME", Default: true},
-				{ID: "ips", Label: "IPs", Default: false},
-				{ID: "status", Label: "Status", Default: true},
-				{ID: "note", Label: "Note", Default: false},
-			}},
-		}
-
 	case "corsscan":
 		return []ExportSection{
 			{ID: "findings", Label: "CORS Findings", Default: true, HasSeverity: true, Columns: []ExportColumn{

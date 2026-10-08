@@ -53,7 +53,6 @@ import (
 	"scanner/internal/modules/spider"
 	"scanner/internal/modules/sslscan"
 	"scanner/internal/modules/sstiscan"
-	"scanner/internal/modules/takeover"
 	"scanner/internal/modules/techdetect"
 	"scanner/internal/modules/wafdetect"
 	"scanner/internal/modules/whoisinfo"
@@ -252,7 +251,6 @@ func main() {
 	registry.Register(&concurtest.Module{})
 	registry.Register(&advancedweb.Module{})
 	// A-group (pentest expansion)
-	registry.Register(&takeover.Module{})
 	registry.Register(&corsscan.Module{})
 	registry.Register(&openredirect.Module{})
 	registry.Register(&cvematch.Module{})
@@ -723,11 +721,6 @@ func main() {
 
 	// === A-group (pentest expansion) =====================================
 
-	// A1: Subdomain Takeover
-	http.HandleFunc("/modules/takeover", h.TakeoverPage)
-	http.HandleFunc("/modules/takeover/run", h.TakeoverRun)
-	http.HandleFunc("/modules/takeover/results/", h.TakeoverResults)
-	http.HandleFunc("/modules/takeover/status/", h.TakeoverStatus)
 
 	// A2: CORS Misconfig
 	http.HandleFunc("/modules/corsscan", h.CORSScanPage)

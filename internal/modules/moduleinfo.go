@@ -34,7 +34,6 @@ var VulnEmitters = map[string]bool{
 	"secheaders":   true,
 	"jwt":          true,
 	"cvematch":     true,
-	"takeover":     true,
 	"corsscan":     true,
 	"openredirect": true,
 	"graphqlscan":  true,
@@ -987,41 +986,6 @@ var Infos = map[string]ModuleDoc{
 		},
 		References: []ReferenceRef{
 			{Label: "OWASP Testing Guide v4.2", URL: "https://owasp.org/www-project-web-security-testing-guide/v42/"},
-		},
-	},
-
-	// ========================================================================
-	// Subdomain Takeover (A1)
-	// ========================================================================
-	"takeover": {
-		Summary: "Detects dangling subdomain CNAMEs pointing at deprovisioned third-party services (S3, GitHub Pages, Heroku, Azure, Vercel, Netlify, Fastly, Shopify, Tumblr, Squarespace, etc.). Resolves each candidate subdomain's CNAME, matches the tail against 26 provider signatures, then HTTP-probes both schemes and looks for service-specific error messages ('NoSuchBucket', \"There isn't a GitHub Pages site here\", 'No such app' for Heroku, etc.). A hit means the attacker can register the upstream service name and claim the dangling subdomain.",
-		Tools: []ToolRef{
-			{Name: "Go net (LookupCNAME)", Desc: "Native CNAME resolution"},
-			{Name: "Built-in provider signature DB", Desc: "26 provider fingerprints with CNAME tails, body markers, HTTP statuses, severity ratings"},
-			{Name: "Go net/http", Desc: "HTTPS-then-HTTP probe of each candidate subdomain; reads up to 128 KB of the response body to fingerprint provider error pages"},
-		},
-		Phases: []string{
-			"For each input subdomain, query CNAME record via Go resolver. If empty/equal-to-self → record 'no_cname' and skip",
-			"Resolve to IPs as well — provides context (alive IPs = service still up; no IPs = likely candidate)",
-			"Match CNAME tail against signature DB (S3 bucket suffix patterns, github.io, herokuapp.com, azurewebsites.net, etc.)",
-			"If no signature match → status 'resolved_normal' (CNAME points to something we don't recognize)",
-			"If the CNAME matches a provider but the CNAME target itself doesn't resolve (NXDOMAIN/unresolved) → immediately flag 'vulnerable' (pattern 'cname-target-nxdomain') with no HTTP body needed — the dangling name can be claimed on the provider",
-			"HTTP probe — try HTTPS then HTTP. Status + body capture",
-			"Body marker check — substring-search for provider's specific 'not found' message",
-			"Mark as 'vulnerable' when status matches signature filter AND body marker found. Mark 'candidate' if CNAME matches but probe fails (manual verification needed)",
-			"Optional dnsenum import — pull subdomains directly from a previous DNS Enumerator scan with one click",
-		},
-		Notes: []string{
-			"S3 takeovers are the #1 hit — every dev team prototypes with a bucket then deletes it without removing the CNAME. CRITICAL severity, easy to verify (register the bucket name in your AWS account)",
-			"GitHub Pages takeovers require both: a CNAME pointing at github.io AND no claimed repository serving that custom domain. Severity HIGH because attacker needs a GH account",
-			"Statuspage requires email verification on takeover — flagged LOW because exploitation isn't automatic. Netlify validates domain ownership and takeover requires DNS poisoning — flagged MEDIUM, still a misconfiguration",
-			"Some 'unreachable' candidates are still findings — the CNAME points at a dead provider but probe failed for network reasons. Mark for manual review, don't dismiss",
-			"Re-run weekly on stable target lists — providers refresh their unclaimed inventory daily, hits appear and disappear",
-		},
-		References: []ReferenceRef{
-			{Label: "can-i-take-over-xyz (community signature DB)", URL: "https://github.com/EdOverflow/can-i-take-over-xyz"},
-			{Label: "Hackerone subdomain takeover writeups", URL: "https://www.hackerone.com/application-security/guide-subdomain-takeovers"},
-			{Label: "Detectify Labs research", URL: "https://labs.detectify.com/2014/10/21/hostile-subdomain-takeover-using-herokugithubdesk-more/"},
 		},
 	},
 

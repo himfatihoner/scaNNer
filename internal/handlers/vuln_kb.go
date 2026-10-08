@@ -433,7 +433,6 @@ var classByModule = map[string]string{
 	"jwt":          "jwt-weakness",
 	"sslscan":      "weak-tls",
 	"secheaders":   "missing-security-header",
-	"takeover":     "subdomain-takeover",
 	"authtest":     "auth-bypass",
 	"brutef":       "default-credential",
 }

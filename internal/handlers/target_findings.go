@@ -348,8 +348,6 @@ func dispatchTargetParser(module, resJSON, target string, scanDate time.Time, sc
 		parseSSLScanTarget(resJSON, target, scanDate, scanID, emit)
 	case "sstiscan":
 		parseSSTITarget(resJSON, target, scanDate, scanID, emit)
-	case "takeover":
-		parseTakeoverTarget(resJSON, target, scanDate, scanID, emit)
 	case "techdetect":
 		parseTechDetectTarget(resJSON, target, scanDate, scanID, emit)
 	case "wafdetect":

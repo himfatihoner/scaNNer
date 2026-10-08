@@ -343,8 +343,6 @@ func New(registry *modules.Registry, db *database.DB, templateDir string) (*Hand
 					return "/modules/concurtest/results/" + scan.ID
 				case "advancedweb":
 					return "/modules/advanced-web/results/" + scan.ID
-				case "takeover":
-					return "/modules/takeover/results/" + scan.ID
 				case "corsscan":
 					return "/modules/corsscan/results/" + scan.ID
 				case "openredirect":

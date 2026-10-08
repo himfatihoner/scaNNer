@@ -94,7 +94,7 @@ var moduleClass = map[string]ExecClass{
 	"spider": ClassSocketLight, "direnum": ClassSocketLight, "secheaders": ClassSocketLight,
 	"paramdisc": ClassSocketLight, "httpmethods": ClassSocketLight, "wafdetect": ClassSocketLight,
 	"corsscan": ClassSocketLight, "openredirect": ClassSocketLight, "sstiscan": ClassSocketLight,
-	"takeover": ClassSocketLight, "graphqlscan": ClassSocketLight, "authtest": ClassSocketLight,
+	"graphqlscan": ClassSocketLight, "authtest": ClassSocketLight,
 	"cachepoison": ClassSocketLight, "httpxfind": ClassSocketLight, "advancedweb": ClassSocketLight,
 	// subprocess-per-host, socket/port heavy
 	"sslscan": ClassSocketHeavy,

@@ -1,7 +1,7 @@
 # scaNNer
 
 A single-binary, web-UI penetration-testing **scan orchestrator**. One Go binary
-serves a Tailwind/htmx frontend on port **9090** and drives ~35 internal modules
+serves a Tailwind/htmx frontend on port **9090** and drives ~34 internal modules
 that wrap standard offensive tooling (nmap, nuclei, wpscan, hydra, the impacket
 suite, netexec/nxc, subfinder, amass, whatweb, and more), parsing their output
 into structured findings stored in SQLite. Every scan is asynchronous,
@@ -34,7 +34,7 @@ cancellable, and re-runnable from its saved configuration.
 
 ## Features
 
-- **~35 modules** across recon, web, network, and vuln categories, plus an
+- **~34 modules** across recon, web, network, and vuln categories, plus an
   orchestrated multi-stage **Advanced Web** suite.
 - **Multi-user auth & RBAC** — login sessions, an admin-managed
   per-user × per-workspace × per-module permission model, an optional per-user
@@ -70,7 +70,6 @@ note above.
 | WAF Detector | Detects web application firewalls in front of a target. |
 | WHOIS / ASN Lookup | WHOIS and ASN/owner information for hosts and ranges. |
 | Asset Discovery | Aggregates discovered hosts/services into workspace assets. |
-| Subdomain Takeover | Checks subdomains for dangling/claimable records. |
 | Email Harvester | Collects e-mail addresses for a domain (theHarvester). |
 | GitHub Leak Scanner | Searches public GitHub for exposed secrets/references. |
 | OOB Collaborator | A local out-of-band interaction listener for blind findings. |

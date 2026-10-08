@@ -194,24 +194,6 @@ func SeverityHits(module, resultJSON string) int {
 			}
 		}
 		return n
-	case "takeover":
-		// takeover.ScanResult.Findings are the confirmed dangling-CNAME hits
-		// (CRITICAL S3, HIGH GitHub Pages / Heroku / Azure, etc).
-		var r struct {
-			Findings []struct {
-				Severity string `json:"severity"`
-			} `json:"findings"`
-		}
-		if json.Unmarshal([]byte(resultJSON), &r) != nil {
-			return 0
-		}
-		n := 0
-		for _, f := range r.Findings {
-			if severe(f.Severity) {
-				n++
-			}
-		}
-		return n
 	case "graphqlscan":
 		// graphqlscan emits {endpoints:[{findings:[{severity:"HIGH"|"MEDIUM"|"LOW"}]}]}
 		// — the generic fallback only walks `results[]`/`findings[]`/bare-array
@@ -347,10 +329,10 @@ func SeverityHits(module, resultJSON string) int {
 	// previously had to be hand-added to this switch — 18 modules silently
 	// skipped Dashboard severity counts. Generic fallback walks the same
 	// shape any module-shaped scan result would have, so adpentest,
-	// takeover, openredirect, graphqlscan, corsscan, authtest, sstiscan,
+	// openredirect, graphqlscan, corsscan, authtest, sstiscan,
 	// cachepoison, assetdisc, advancedweb, oob, concurtest, leakscan,
 	// paramdisc, jwt, snmpenum, whoisinfo, emailharvest, direnum,
-	// dnsenum, spider, takeover etc. all start counting without code edits.
+	// dnsenum, spider etc. all start counting without code edits.
 	return genericSeverityHits(resultJSON, severe)
 }
 

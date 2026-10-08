@@ -38,7 +38,6 @@ import (
 	"scanner/internal/modules/spider"
 	"scanner/internal/modules/sslscan"
 	"scanner/internal/modules/sstiscan"
-	"scanner/internal/modules/takeover"
 	"scanner/internal/modules/techdetect"
 	"scanner/internal/modules/wafdetect"
 	"scanner/internal/modules/whoisinfo"
@@ -211,8 +210,6 @@ func (h *Handler) exportCSV(w http.ResponseWriter, module, result, shortID strin
 		case "paramdisc":
 			sections["hits"] = true
 		// Commit 2 defaults — schema brand-new for these modules.
-		case "takeover":
-			sections["findings"] = true
 		case "corsscan":
 			sections["findings"] = true
 		case "openredirect":
@@ -1369,44 +1366,6 @@ func (h *Handler) exportCSV(w http.ResponseWriter, module, result, shortID strin
 
 	// === Commit 2: CSV writers for the 8 modules whose schema was
 	// brand-new. Most follow the {findings, optional secondary} shape. ===
-
-	case "takeover":
-		var sr takeover.ScanResult
-		json.Unmarshal([]byte(result), &sr)
-		if sections["findings"] {
-			writeFilteredCSVHeader(writer, "takeover", "findings", columns)
-			for _, f := range sr.Findings {
-				if !SeverityAllowed(f.Severity, severities) {
-					continue
-				}
-				writeFilteredCSVRow(writer, "takeover", "findings", columns, map[string]string{
-					"subdomain":       f.Subdomain,
-					"cname":           f.CNAME,
-					"ips":             strings.Join(f.IPs, ","),
-					"service":         f.Service,
-					"severity":        f.Severity,
-					"http_status":     fmt.Sprintf("%d", f.HTTPStatus),
-					"matched_pattern": f.MatchedPattern,
-					"note":            f.Note,
-					"body_snippet":    f.BodySnippet,
-				})
-			}
-		}
-		if sections["hosts"] {
-			if sections["findings"] {
-				writer.Write([]string{})
-			}
-			writeFilteredCSVHeader(writer, "takeover", "hosts", columns)
-			for _, h := range sr.Results {
-				writeFilteredCSVRow(writer, "takeover", "hosts", columns, map[string]string{
-					"subdomain": h.Subdomain,
-					"cname":     h.CNAME,
-					"ips":       strings.Join(h.IPs, ","),
-					"status":    h.Status,
-					"note":      h.Note,
-				})
-			}
-		}
 
 	case "corsscan":
 		var sr corsscan.ScanResult
@@ -2708,43 +2667,6 @@ func (h *Handler) exportJSON(w http.ResponseWriter, module, result, shortID stri
 
 	// === Commit 2: JSON writers for the 8 modules. ===
 
-	case "takeover":
-		var sr takeover.ScanResult
-		json.Unmarshal([]byte(result), &sr)
-		if sections["findings"] {
-			rows := []map[string]interface{}{}
-			for _, f := range sr.Findings {
-				if !SeverityAllowed(f.Severity, severities) {
-					continue
-				}
-				rows = append(rows, map[string]interface{}{
-					"subdomain":       f.Subdomain,
-					"cname":           f.CNAME,
-					"ips":             f.IPs,
-					"service":         f.Service,
-					"severity":        f.Severity,
-					"http_status":     f.HTTPStatus,
-					"matched_pattern": f.MatchedPattern,
-					"note":            f.Note,
-					"body_snippet":    f.BodySnippet,
-				})
-			}
-			out["findings"] = rows
-		}
-		if sections["hosts"] {
-			rows := []map[string]interface{}{}
-			for _, h := range sr.Results {
-				rows = append(rows, map[string]interface{}{
-					"subdomain": h.Subdomain,
-					"cname":     h.CNAME,
-					"ips":       h.IPs,
-					"status":    h.Status,
-					"note":      h.Note,
-				})
-			}
-			out["hosts"] = rows
-		}
-
 	case "corsscan":
 		var sr corsscan.ScanResult
 		json.Unmarshal([]byte(result), &sr)
@@ -3181,8 +3103,6 @@ func (h *Handler) exportPDF(w http.ResponseWriter, module, result, shortID strin
 		case "paramdisc":
 			sections["hits"] = true
 		// Commit 2 defaults — schema brand-new for these modules.
-		case "takeover":
-			sections["findings"] = true
 		case "corsscan":
 			sections["findings"] = true
 		case "openredirect":

@@ -1,7 +1,7 @@
 # scaNNer
 
 A single-binary, web-UI penetration-testing **scan orchestrator**. One Go binary
-serves a Tailwind/htmx frontend on port **9090** and drives ~34 internal modules
+serves a Tailwind/htmx frontend on port **9090** and drives ~35 internal modules
 that wrap standard offensive tooling (nmap, nuclei, wpscan, hydra, the impacket
 suite, netexec/nxc, subfinder, amass, whatweb, and more), parsing their output
 into structured findings stored in SQLite. Every scan is asynchronous,
@@ -34,7 +34,7 @@ cancellable, and re-runnable from its saved configuration.
 
 ## Features
 
-- **~34 modules** across recon, web, network, and vuln categories, plus an
+- **~35 modules** across recon, web, network, and vuln categories, plus an
   orchestrated multi-stage **Advanced Web** suite.
 - **Multi-user auth & RBAC** — login sessions, an admin-managed
   per-user × per-workspace × per-module permission model, an optional per-user
@@ -72,6 +72,7 @@ note above.
 | Asset Discovery | Aggregates discovered hosts/services into workspace assets. |
 | Email Harvester | Collects e-mail addresses for a domain (theHarvester). |
 | GitHub Leak Scanner | Searches public GitHub for exposed secrets/references. |
+| Google Metadata Collector | FOCA-style document-metadata OSINT via the Serper.dev search API (exiftool/pdftotext); needs a Serper key in Settings. |
 | OOB Collaborator | A local out-of-band interaction listener for blind findings. |
 
 ### Web
@@ -208,7 +209,8 @@ git checkout — rebuild the image to update.)
 
 Modules shell out to third-party tools expected on `$PATH` (nmap, nuclei,
 wpscan, hydra, the impacket suite, netexec/nxc, subfinder, amass,
-puredns/massdns, whatweb, hashcat/hashid, and others). The Docker image installs/builds the
+puredns/massdns, whatweb, hashcat/hashid, exiftool, poppler-utils (pdftotext),
+and others). The Docker image installs/builds the
 common ones; for a bare-metal run, `scripts/install.sh` checks for them and can
 install the missing ones for you. Anything still absent is reported in the
 startup banner and the affected modules degrade gracefully.

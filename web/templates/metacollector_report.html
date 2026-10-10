@@ -1,0 +1,93 @@
+{{define "page_metacollector_report"}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules/metacollector" class="hover:text-accent-400 transition-colors">{{T "Google Metadata Collector"}}</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="/modules/metacollector/results/{{.Scan.ID}}" class="hover:text-accent-400 transition-colors">{{T "Results"}}</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">{{T "Report"}}</span>
+</div>
+
+<div class="max-w-2xl">
+    <h2 class="text-xl font-bold text-white flex items-center gap-2 mb-1"><span class="text-2xl">📄</span> {{T "Generate Intelligence Report"}}</h2>
+    <p class="text-sm text-dark-400 mb-6">{{T "Customize the branded report, then download. The PDF uses your theme colour, logo and titles; CSV/JSON are raw exports."}}</p>
+
+    <form action="/modules/metacollector/report/{{.Scan.ID}}" method="POST" enctype="multipart/form-data" class="bg-dark-900 border border-dark-800 rounded-xl p-5 space-y-5">
+        <!-- Theme colour -->
+        <div>
+            <label class="block text-sm text-dark-300 mb-2">{{T "Theme colour"}}</label>
+            <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                {{$themes := dict "red" "#A23B3B" "blue" "#3B5E8C" "green" "#3B7A57" "purple" "#6B4A8C" "teal" "#2E7D7B" "slate" "#3F4651"}}
+                {{range $name, $hex := $themes}}
+                <label class="cursor-pointer">
+                    <input type="radio" name="theme" value="{{$name}}" {{if eq $name "red"}}checked{{end}} class="peer sr-only">
+                    <span class="block rounded-lg border-2 border-dark-700 peer-checked:border-white transition-colors p-2 text-center">
+                        <span class="block h-6 rounded" style="background:{{$hex}}"></span>
+                        <span class="block text-[10px] text-dark-400 mt-1 capitalize">{{$name}}</span>
+                    </span>
+                </label>
+                {{end}}
+            </div>
+            <div class="flex items-center gap-3 mt-3">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="theme" value="custom" class="rounded-full border-dark-600 bg-dark-800 text-accent-500">
+                    <span class="text-xs text-dark-300">{{T "Custom colour"}}</span>
+                </label>
+                <input type="color" name="color" value="#A23B3B" class="h-8 w-14 bg-dark-850 border border-dark-700 rounded cursor-pointer">
+                <span class="text-[11px] text-dark-500">{{T "used when “Custom colour” is selected"}}</span>
+            </div>
+        </div>
+
+        <!-- Logo -->
+        <div>
+            <label class="block text-sm text-dark-300 mb-1.5">{{T "Logo"}} <span class="text-[11px] text-dark-500 normal-case">{{T "(optional — PNG/JPG, shown on the cover)"}}</span></label>
+            <input type="file" name="logo" accept="image/png,image/jpeg,image/gif"
+                   class="w-full text-xs text-dark-300 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-dark-800 file:text-dark-200 hover:file:bg-dark-700 bg-dark-850 border border-dark-700 rounded-lg">
+        </div>
+
+        <!-- Title + Org -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm text-dark-300 mb-1.5">{{T "Report title"}}</label>
+                <input type="text" name="title" value="{{.DefaultTitle}}"
+                       class="w-full bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+            </div>
+            <div>
+                <label class="block text-sm text-dark-300 mb-1.5">{{T "Target organization"}}</label>
+                <input type="text" name="target_org" placeholder="{{T `optional`}}"
+                       class="w-full bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+            </div>
+        </div>
+
+        <!-- Appendix + Language + Format -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+                <label class="block text-sm text-dark-300 mb-1.5">{{T "Per-file appendix"}}</label>
+                <select name="appendix" class="w-full bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-500">
+                    <option value="full">{{T "Full (per-document detail)"}}</option>
+                    <option value="none">{{T "None"}}</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm text-dark-300 mb-1.5">{{T "Language"}}</label>
+                <select name="lang" class="w-full bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-500">
+                    <option value="tr">Türkçe</option>
+                    <option value="en">English</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm text-dark-300 mb-1.5">{{T "Format"}}</label>
+                <select name="format" class="w-full bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-500">
+                    <option value="pdf">PDF</option>
+                    <option value="csv">CSV</option>
+                    <option value="json">JSON</option>
+                </select>
+            </div>
+        </div>
+
+        <button type="submit" class="w-full py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            {{T "Download Report"}}
+        </button>
+    </form>
+</div>
+{{end}}

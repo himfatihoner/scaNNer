@@ -837,6 +837,11 @@
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                     </div>
                 </div>
+                <div>
+                    <label class="block text-xs text-dark-400 mb-1.5">{{T "Serper.dev API Key"}} <span class="text-[10px] text-dark-500 normal-case">{{T "— required for the Google Metadata Collector module (get a key at serper.dev)."}}</span></label>
+                    <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="serper_api_key" value="{{.Settings.SerperAPIKey}}" placeholder="{{T `serper.dev api key`}}"
+                           class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+                </div>
             </div>
         </div>
 

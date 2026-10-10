@@ -41,6 +41,7 @@ import (
 	"scanner/internal/modules/httpxfind"
 	"scanner/internal/modules/jwt"
 	"scanner/internal/modules/leakscan"
+	"scanner/internal/modules/metacollector"
 	"scanner/internal/modules/nuclei"
 	"scanner/internal/modules/oob"
 	"scanner/internal/modules/openredirect"
@@ -139,6 +140,7 @@ func main() {
 		"enum4linux", "onesixtyone", "whois",
 		"sslscan", "openssl", // SSL/TLS Scanner's tool-driven engine
 		"hashcat", "hashid", // Hashcat cracking module (+ hashid for hash-type auto-detect)
+		"exiftool", "pdftotext", "soffice", // Google Metadata Collector (exiftool required; pdftotext/soffice for body text)
 	}
 	missing := []string{}
 	for _, t := range tools {
@@ -245,6 +247,7 @@ func main() {
 	registry.Register(&whoisinfo.Module{})
 	registry.Register(&emailharvest.Module{})
 	registry.Register(&leakscan.Module{})
+	registry.Register(&metacollector.Module{})
 	registry.Register(&snmpenum.Module{})
 	registry.Register(&jwt.Module{})
 	registry.Register(&paramdisc.Module{})
@@ -700,6 +703,13 @@ func main() {
 	http.HandleFunc("/modules/leakscan/run", h.LeakScanRun)
 	http.HandleFunc("/modules/leakscan/results/", h.LeakScanResults)
 	http.HandleFunc("/modules/leakscan/status/", h.LeakScanStatus)
+
+	// Google Metadata Collector (Serper.dev)
+	http.HandleFunc("/modules/metacollector", h.MetaCollectorPage)
+	http.HandleFunc("/modules/metacollector/run", h.MetaCollectorRun)
+	http.HandleFunc("/modules/metacollector/results/", h.MetaCollectorResults)
+	http.HandleFunc("/modules/metacollector/status/", h.MetaCollectorStatus)
+	http.HandleFunc("/modules/metacollector/report/", h.MetaCollectorReport)
 
 	// SNMP Enum
 	http.HandleFunc("/modules/snmpenum", h.SNMPEnumPage)

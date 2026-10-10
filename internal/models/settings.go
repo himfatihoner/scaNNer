@@ -93,6 +93,7 @@ type AppSettings struct {
 	CensysID         string `db:"censys_id"          json:"censys_id,omitempty"`
 	CensysSecret     string `db:"censys_secret"      json:"censys_secret,omitempty"`
 	VirusTotalAPIKey string `db:"virustotal_api_key" json:"virustotal_api_key,omitempty"`
+	SerperAPIKey     string `db:"serper_api_key"     json:"serper_api_key,omitempty"` // Google Metadata Collector (serper.dev)
 
 	// SMTP — used to deliver 2FA e-mail codes and admin notifications. These
 	// are read fresh from the DB at send time (the mailer holds no cached

@@ -1,0 +1,176 @@
+{{define "page_metacollector_results"}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">{{T "Modules"}}</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="/modules/metacollector" class="hover:text-accent-400 transition-colors">{{T "Google Metadata Collector"}}</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">{{T "Results"}}</span>
+</div>
+{{template "scan_actions" .}}
+
+{{if or (eq (print .Scan.Status) "running") (eq (print .Scan.Status) "pending")}}
+{{template "scan_progress" .}}
+{{end}}
+
+<div id="scanContent">
+{{template "metacollector_results_inner" .}}
+</div>
+{{end}}
+
+{{define "metacollector_results_inner"}}
+<!-- KPI row -->
+<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">{{T "Documents"}}</p>
+        <p class="text-2xl font-bold {{if .TotalDocs}}text-accent-400{{else}}text-dark-600{{end}}">{{.TotalDocs}}</p>
+    </div>
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">{{T "Users"}}</p>
+        <p class="text-2xl font-bold {{if index .Counts "user"}}text-success{{else}}text-dark-600{{end}}">{{index .Counts "user"}}</p>
+    </div>
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">{{T "Emails"}}</p>
+        <p class="text-2xl font-bold {{if index .Counts "email"}}text-warning{{else}}text-dark-600{{end}}">{{index .Counts "email"}}</p>
+    </div>
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">{{T "Software"}}</p>
+        <p class="text-2xl font-bold {{if index .Counts "software"}}text-accent-400{{else}}text-dark-600{{end}}">{{index .Counts "software"}}</p>
+    </div>
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">{{T "Internal path/server"}}</p>
+        <p class="text-2xl font-bold {{if .LeakCount}}text-danger{{else}}text-dark-600{{end}}">{{.LeakCount}}</p>
+    </div>
+</div>
+
+{{if .Stopped}}
+<div class="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 mb-4">
+    <div class="text-[11px] uppercase tracking-wider text-warning mb-1">{{T "Search stopped early"}}</div>
+    <p class="text-xs text-warning">{{.Stopped}}</p>
+</div>
+{{end}}
+
+{{if .Warnings}}
+<div class="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 mb-4">
+    <div class="text-[11px] uppercase tracking-wider text-warning mb-1">{{T "Warnings"}}</div>
+    <ul class="list-disc list-inside text-[11px] text-warning space-y-0.5">
+        {{range .Warnings}}<li>{{.}}</li>{{end}}
+    </ul>
+</div>
+{{end}}
+
+{{if and .HasReport (eq (print .Scan.Status) "done")}}
+<div class="flex items-center justify-between gap-3 bg-dark-900 border border-accent-500/30 rounded-xl px-5 py-4 mb-5">
+    <div>
+        <p class="text-sm font-semibold text-white">{{T "Generate Intelligence Report"}}</p>
+        <p class="text-[11px] text-dark-400 mt-0.5">{{T "Branded PDF (choose a theme colour, logo, title and organization) — plus CSV / JSON export."}}</p>
+    </div>
+    <a href="/modules/metacollector/report/{{.Scan.ID}}" class="shrink-0 px-4 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        {{T "Create Report"}}
+    </a>
+</div>
+{{end}}
+
+<!-- FOCA category panels -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+    {{template "mc_cat_panel" (dict "Title" (T "Users / Authors") "Items" .TopUsers)}}
+    {{template "mc_cat_panel" (dict "Title" (T "Software / Versions") "Items" .TopSoftware)}}
+    {{template "mc_cat_panel" (dict "Title" (T "Emails") "Items" .TopEmails)}}
+    {{template "mc_cat_panel" (dict "Title" (T "Organization") "Items" .TopCompany)}}
+    {{template "mc_cat_panel" (dict "Title" (T "Internal Paths") "Items" .TopPaths)}}
+    {{template "mc_cat_panel" (dict "Title" (T "Servers") "Items" .TopServers)}}
+    {{template "mc_cat_panel" (dict "Title" (T "Operating Systems") "Items" .TopOS)}}
+    {{template "mc_cat_panel" (dict "Title" (T "Printers") "Items" .TopPrinters)}}
+    {{template "mc_cat_panel" (dict "Title" (T "Dates") "Items" .TopDates)}}
+    {{template "mc_cat_panel" (dict "Title" (T "GPS") "Items" .TopGPS)}}
+</div>
+
+{{if .Correlation}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl mb-4 overflow-hidden">
+    <div class="px-5 py-3 border-b border-dark-800">
+        <span class="text-sm font-semibold text-white">{{T "User – Software / Path Correlation"}}</span>
+        <span class="text-[11px] text-dark-500 ml-2">{{T "same-document co-occurrence (top 15 users)"}}</span>
+    </div>
+    <div class="overflow-auto max-h-96">
+        <table class="w-full text-left">
+            <thead class="bg-dark-850 sticky top-0">
+                <tr class="text-[10px] uppercase tracking-wider text-dark-500">
+                    <th class="px-4 py-2 font-medium">{{T "User"}}</th>
+                    <th class="px-4 py-2 font-medium">{{T "Software"}}</th>
+                    <th class="px-4 py-2 font-medium">{{T "Path / OS"}}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Correlation}}
+                <tr class="border-t border-dark-800">
+                    <td class="px-4 py-2 mono text-[11px] text-accent-400 break-all">{{.User}}</td>
+                    <td class="px-4 py-2 mono text-[11px] text-dark-200 break-all">{{if .Software}}{{.Software}}{{else}}-{{end}}</td>
+                    <td class="px-4 py-2 mono text-[11px] text-dark-300 break-all">{{if .PathOS}}{{.PathOS}}{{else}}-{{end}}</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+{{end}}
+
+<!-- Documents -->
+<div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+    <details>
+        <summary class="px-5 py-3 cursor-pointer text-sm font-semibold text-white flex items-center justify-between">
+            <span>{{T "Documents"}} <span class="text-dark-500 font-normal">({{len .Documents}})</span></span>
+            <svg class="w-4 h-4 text-dark-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </summary>
+        <div class="overflow-auto max-h-[32rem] border-t border-dark-800">
+            <table class="w-full text-left">
+                <thead class="bg-dark-850 sticky top-0">
+                    <tr class="text-[10px] uppercase tracking-wider text-dark-500">
+                        <th class="px-4 py-2 font-medium">{{T "URL"}}</th>
+                        <th class="px-4 py-2 font-medium">{{T "Type"}}</th>
+                        <th class="px-4 py-2 font-medium">{{T "Status"}}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Documents}}
+                    <tr class="border-t border-dark-800">
+                        <td class="px-4 py-2 mono text-[11px] text-dark-200 break-all"><a href="{{.URL}}" target="_blank" rel="noopener noreferrer" class="hover:text-accent-400">{{.URL}}</a></td>
+                        <td class="px-4 py-2 mono text-[11px] text-dark-400">{{.Filetype}}</td>
+                        <td class="px-4 py-2">
+                            {{if eq .Status "extracted"}}<span class="text-[10px] text-success">{{.Status}}</span>
+                            {{else if eq .Status "downloaded"}}<span class="text-[10px] text-accent-400">{{.Status}}</span>
+                            {{else if eq .Status "found"}}<span class="text-[10px] text-dark-400">{{.Status}}</span>
+                            {{else}}<span class="text-[10px] text-dark-500" title="{{.Error}}">{{.Status}}</span>{{end}}
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </details>
+</div>
+
+{{if not .TotalDocs}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500 mt-4">
+    <p class="text-sm">{{if eq (print .Scan.Status) "running"}}{{T "Searching and collecting documents..."}}{{else}}{{T "No documents found for the given domains."}}{{end}}</p>
+</div>
+{{end}}
+{{end}}
+
+{{define "mc_cat_panel"}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+    <div class="px-4 py-3 border-b border-dark-800 flex items-center justify-between">
+        <span class="text-xs font-semibold text-dark-300 uppercase tracking-wider">{{.Title}}</span>
+        <span class="text-[11px] text-dark-500">{{len .Items}}</span>
+    </div>
+    {{if .Items}}
+    <div class="p-3 max-h-72 overflow-auto space-y-1">
+        {{range .Items}}
+        <div class="flex items-center justify-between gap-2">
+            <span class="mono text-[11px] text-dark-200 break-all">{{.Value}}</span>
+            <span class="text-[10px] text-dark-500 shrink-0" title="documents">{{.Docs}}</span>
+        </div>
+        {{end}}
+    </div>
+    {{else}}<div class="p-4 text-[11px] text-dark-600 italic">{{T "none"}}</div>{{end}}
+</div>
+{{end}}

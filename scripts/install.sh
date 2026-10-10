@@ -465,6 +465,8 @@ responder|apt|responder|AD LLMNR/NBT-NS poisoning|soft
 hashcat|apt|hashcat|hash cracking (Hashcat module, AD)|soft
 hashid|apt|hashid|hash-type auto-detect (Hashcat module)|soft
 john|apt|john|hash cracking fallback|soft
+exiftool|apt|libimage-exiftool-perl|Google Metadata Collector (metadata extraction — required by the module)|soft
+pdftotext|apt|poppler-utils|Google Metadata Collector (PDF body-text harvesting)|soft
 seclists|apt|seclists|wordlists (direnum, brutef)|soft
 subfinder|go|go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest|dnsenum|soft
 puredns|go|go install github.com/d3mondev/puredns/v2@latest|dnsenum|soft
@@ -477,6 +479,13 @@ certipy-ad|pipx|pipx install certipy-ad|AD ADCS enum|soft
 mitm6|pipx|pipx install mitm6|AD IPv6 takeover|soft
 coercer|pipx|pipx install coercer|AD coercion|soft
 CATALOG
+
+# NOTE: soffice/libreoffice (legacy .doc/.xls/.ppt body text for the Metadata
+# Collector) is deliberately NOT in the catalog above — it is a ~400 MB package
+# for an optional enhancement (exiftool still extracts metadata from legacy
+# office files; only their body-text email/UNC harvesting is skipped without it).
+# The startup banner notes it when absent; install by hand if wanted:
+#   sudo apt-get install -y libreoffice
 
 # TU_HOME — the target user's home, for locating per-user go/pipx binaries.
 TU_HOME="$(getent passwd "$TARGET_USER" 2>/dev/null | cut -d: -f6)"
@@ -653,7 +662,7 @@ check_prerequisites() {
       fi
       # Re-check regardless of the exit code (a partial install still helped).
       local still=() check2
-      for check2 in go git nmap dig whois whatweb amass recon-ng wpscan nuclei hydra smbclient enum4linux enum4linux-ng nbtscan snmpwalk onesixtyone theHarvester sslscan openssl ldapsearch impacket-GetUserSPNs responder hashcat hashid john; do
+      for check2 in go git nmap dig whois whatweb amass recon-ng wpscan nuclei hydra smbclient enum4linux enum4linux-ng nbtscan snmpwalk onesixtyone theHarvester sslscan openssl ldapsearch impacket-GetUserSPNs responder hashcat hashid john exiftool pdftotext; do
         have "$check2" || still+=("$check2")
       done
       [ "${#still[@]}" -gt 0 ] && warn "still missing after apt (may need go/pipx or a different pkg name): ${still[*]}"

@@ -68,6 +68,8 @@ func formErrorMsg(code string) string {
 		return "No JWT tokens were submitted."
 	case "no_token":
 		return "A required API token is missing. Set it in Settings before launching this scan."
+	case "no_serper_key":
+		return "A Serper.dev API key is required for this module. Add it in Settings → API Keys before launching."
 	case "no_subdomains":
 		return "No subdomains were submitted."
 	case "no_seed", "no_seeds":
@@ -333,6 +335,8 @@ func New(registry *modules.Registry, db *database.DB, templateDir string) (*Hand
 					return "/modules/emailharvest/results/" + scan.ID
 				case "leakscan":
 					return "/modules/leakscan/results/" + scan.ID
+				case "metacollector":
+					return "/modules/metacollector/results/" + scan.ID
 				case "snmpenum":
 					return "/modules/snmpenum/results/" + scan.ID
 				case "jwt":
@@ -581,7 +585,7 @@ func (h *Handler) baseData(r *http.Request, title, page string) map[string]inter
 func capacityWired(module string) bool {
 	switch module {
 	case "portservice", "hostdiscovery", "smbenum", "brutef", "snmpenum", "whoisinfo",
-		"dnsenum", "cvematch", "jwt", "oob", "leakscan", "assetdisc", "concurtest", "adpentest", "wpscan":
+		"dnsenum", "cvematch", "jwt", "oob", "leakscan", "metacollector", "assetdisc", "concurtest", "adpentest", "wpscan":
 		return false
 	default:
 		return true
@@ -1382,6 +1386,7 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 		CensysID:                 strings.TrimSpace(r.FormValue("censys_id")),
 		CensysSecret:             strings.TrimSpace(r.FormValue("censys_secret")),
 		VirusTotalAPIKey:         strings.TrimSpace(r.FormValue("virustotal_api_key")),
+		SerperAPIKey:             strings.TrimSpace(r.FormValue("serper_api_key")),
 		NetworkInterface:         ifaceName,
 		NetworkInterfaceIP:       ifaceIP,
 		KillswitchScope:          killswitchScope,

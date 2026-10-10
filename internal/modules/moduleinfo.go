@@ -814,6 +814,41 @@ var Infos = map[string]ModuleDoc{
 	},
 
 	// ========================================================================
+	// Google Metadata Collector (Serper.dev)
+	// ========================================================================
+	"metacollector": {
+		Summary: "FOCA-style document-metadata OSINT. Google-dorks a target domain for public documents (PDF/Office/OpenOffice/images, 22 file types) via the Serper.dev search API, downloads them, and extracts embedded metadata with exiftool plus body-text harvesting. Classifies findings into FOCA categories — users/authors, software & versions, operating systems, printers, internal UNC/template paths, emails, servers, organization, creation dates, and GPS — then renders a branded, themeable PDF intelligence report (with CSV/JSON export). Requires a Serper.dev API key in Settings; the module will not run without one.",
+		Tools: []ToolRef{
+			{Name: "Serper.dev Search API", Desc: "Google search via POST https://google.serper.dev/search with the X-API-KEY header — one combined or per-filetype dork per host, paginated up to 300 results/host. 5-attempt exponential backoff on 429/5xx; a 4xx credit/auth error stops the search non-fatally (partial results still processed)."},
+			{Name: "exiftool (required)", Desc: "The metadata engine — invoked as exiftool -json -G1 -a -ee over batches of 150 downloaded files. Its tag output is classified by exact-suffix rules into the FOCA categories. Without it, downloads still run but no metadata is extracted (surfaced as a warning)."},
+			{Name: "pdftotext (optional)", Desc: "poppler-utils — extracts PDF body text so emails and \\\\server\\share UNC paths embedded in the document body are harvested. Absent → PDF body harvesting is skipped (metadata still extracted)."},
+			{Name: "soffice / LibreOffice (optional)", Desc: "Batch-converts legacy OLE .doc/.xls/.ppt to text for body harvesting. Heavy dependency; absent → legacy-office body harvesting is skipped."},
+		},
+		Phases: []string{
+			"Gate on the Serper API key (set in Settings) — a keyless run is refused before any work starts",
+			"For each domain build a Google dork (combined site:<d> (filetype:… OR …), or one query per file type in split mode) and paginate the Serper API up to 300 results/host, deduping URLs",
+			"Download every discovered document through a bounded worker pool (10 global / 2 per host) over the killswitch-bound dialer, streaming to a temp file with a 50 MB cap and sha256 naming",
+			"Run exiftool over the downloads (batched 150) and classify each tag into a FOCA category; harvest emails/paths/servers by regex over every tag value (raw + percent-decoded)",
+			"Harvest document body text (PDF via pdftotext, OOXML/ODF via embedded XML, legacy OLE via one batched soffice conversion) for additional emails and UNC server names",
+			"Aggregate findings (distinct-document counts, user↔software/path correlation) and emit throttled partial snapshots; the temp download directory is removed on completion",
+			"On report export, render a branded PDF (6 preset themes or a free hex colour, optional logo/title/organization) plus optional CSV/JSON — the customization is asked AFTER the scan",
+		},
+		Notes: []string{
+			"The Serper API key lives only in Settings (never in a config file, env var, or the repo); it is sent solely as the X-API-KEY header to google.serper.dev",
+			"All search + download traffic dials through shared.BoundDialer, so it honors the global killswitch source-IP/interface binding instead of leaking over the host's default route",
+			"exiftool is the only hard tool dependency; pdftotext and soffice are optional and the module degrades gracefully (with a warning) when they are absent",
+			"A credit-exhausted or rejected Serper key stops the search but is NOT a hard failure — whatever documents were already found are still downloaded, extracted and reported, with the stop reason surfaced as a warning",
+			"Downloaded documents are NOT retained — they are extracted in a per-scan temp directory that is deleted on completion; only the structured metadata findings are stored",
+			"GDPR/KVKK — extracted user names, emails and paths MAY be personal data; treat the collected intelligence and the report as sensitive even though sourced from public documents",
+		},
+		References: []ReferenceRef{
+			{Label: "Serper.dev — Google Search API", URL: "https://serper.dev"},
+			{Label: "ExifTool by Phil Harvey", URL: "https://exiftool.org"},
+			{Label: "FOCA — metadata analysis (background)", URL: "https://github.com/ElevenPaths/FOCA"},
+		},
+	},
+
+	// ========================================================================
 	// GitHub Leak Scanner
 	// ========================================================================
 	"leakscan": {

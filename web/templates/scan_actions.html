@@ -55,7 +55,9 @@
     </div>
 
     <div class="flex items-center gap-2 shrink-0">
-        {{if eq (print .Scan.Status) "done"}}
+        {{/* metacollector has its own richer, themeable report flow (Create Report on the results page),
+             so the generic per-scan export modal is suppressed for it to avoid an empty-schema export. */}}
+        {{if and (eq (print .Scan.Status) "done") (ne (print .Scan.Module) "metacollector")}}
         <button onclick="openExportModal('{{.Scan.ID}}')"
                 class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-dark-300 hover:text-white bg-dark-850 border border-dark-700 hover:border-dark-600 rounded-lg transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>

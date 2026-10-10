@@ -491,6 +491,10 @@ func (h *Handler) dispatchRestart(scanID, module, configJSON string) {
 		// even though those Settings hadn't changed. BuildHTTPOptionsFromSettings
 		// rebuilds from current Settings only (no per-request headers).
 		go h.runLeakScan(scanID, c, h.BuildHTTPOptionsFromSettings())
+	case "metacollector":
+		var c metaCollectorConfig
+		json.Unmarshal([]byte(configJSON), &c)
+		go h.runMetaCollector(scanID, c)
 	case "snmpenum":
 		var c snmpEnumConfig
 		json.Unmarshal([]byte(configJSON), &c)

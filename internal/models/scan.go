@@ -136,6 +136,8 @@ func ModuleDisplayName(module string) string {
 		return "Email Harvester"
 	case "leakscan":
 		return "GitHub Leak Scanner"
+	case "metacollector":
+		return "Google Metadata Collector (Serper.dev)"
 	case "snmpenum":
 		return "SNMP Enum"
 	case "jwt":

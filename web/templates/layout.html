@@ -430,6 +430,12 @@
                     {{template "page_leakscan" .}}
                 {{else if eq .Page "leakscan_results"}}
                     {{template "page_leakscan_results" .}}
+                {{else if eq .Page "metacollector"}}
+                    {{template "page_metacollector" .}}
+                {{else if eq .Page "metacollector_results"}}
+                    {{template "page_metacollector_results" .}}
+                {{else if eq .Page "metacollector_report"}}
+                    {{template "page_metacollector_report" .}}
                 {{else if eq .Page "snmpenum"}}
                     {{template "page_snmpenum" .}}
                 {{else if eq .Page "snmpenum_results"}}

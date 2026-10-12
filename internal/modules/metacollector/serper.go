@@ -45,15 +45,39 @@ type serperStop struct {
 
 func (e *serperStop) Error() string { return e.Message }
 
-// serperClient talks to google.serper.dev through the killswitch-bound transport.
+// serperClient talks to google.serper.dev through the killswitch-bound
+// transport. It holds a pool of API keys and rotates to the next one when the
+// current key runs out of credits/quota or is rejected (see withKeyRotation).
 type serperClient struct {
-	key    string
-	client *http.Client
-	gl     string
-	hl     string
+	keys     []string
+	idx      int
+	onRotate func(string) // called when the search switches to the next key
+	client   *http.Client
+	gl       string
+	hl       string
 }
 
-func newSerperClient(cfg Config) *serperClient {
+// currentKey returns the key in use (last key if the index ran past the pool).
+func (c *serperClient) currentKey() string {
+	if len(c.keys) == 0 {
+		return ""
+	}
+	if c.idx >= len(c.keys) {
+		return c.keys[len(c.keys)-1]
+	}
+	return c.keys[c.idx]
+}
+
+// advanceKey moves to the next key; returns false if already on the last key.
+func (c *serperClient) advanceKey() bool {
+	if c.idx+1 >= len(c.keys) {
+		return false
+	}
+	c.idx++
+	return true
+}
+
+func newSerperClient(cfg Config, onRotate func(string)) *serperClient {
 	// A dedicated client: 30s total timeout (meta-collector's default), no
 	// redirect-follow needed for an API POST, killswitch-bound dialer + proxy.
 	tr := &http.Transport{
@@ -68,17 +92,60 @@ func newSerperClient(cfg Config) *serperClient {
 		cfg.HTTPOpts.ApplyTransport(tr) // proxy + register for idle-pool flush on cancel
 	}
 	return &serperClient{
-		key:    cfg.SerperKey,
-		gl:     "us",
-		hl:     "en",
-		client: &http.Client{Transport: tr, Timeout: 30 * time.Second},
+		keys:     cfg.SerperKeys,
+		onRotate: onRotate,
+		gl:       "us",
+		hl:       "en",
+		client:   &http.Client{Transport: tr, Timeout: 30 * time.Second},
 	}
 }
 
-// searchPage fetches one page, with up to 5 attempts of exponential backoff
-// (1,2,4,8,16s capped at 30s) on transient errors (network / timeout / 429 /
-// 5xx). A permanent 4xx (not 429) returns a *serperStop immediately (no retry).
+// searchPage fetches one page, rotating to the next API key in the pool when
+// the current key runs out of credits/quota or is rejected (so a mid-scan limit
+// hit transparently continues from the same page with the next key).
 func (c *serperClient) searchPage(ctx context.Context, query string, page int) ([]searchResult, error) {
+	return c.withKeyRotation(func() ([]searchResult, error) {
+		return c.searchPageOneKey(ctx, query, page)
+	})
+}
+
+// withKeyRotation runs do with the current key; on a credit/quota exhaustion or
+// auth rejection it advances to the next key and retries. Only when EVERY key is
+// exhausted does it return the stop. Transient/bad-request errors propagate
+// without rotation (a 429 is already retried with backoff inside searchPageOneKey).
+func (c *serperClient) withKeyRotation(do func() ([]searchResult, error)) ([]searchResult, error) {
+	for {
+		res, err := do()
+		if err == nil {
+			return res, nil
+		}
+		if stop, ok := err.(*serperStop); ok && (stop.Kind == stopCredits || stop.Kind == stopAuth) {
+			prev := c.idx
+			if c.advanceKey() {
+				if c.onRotate != nil {
+					c.onRotate(fmt.Sprintf("Serper key #%d %s — continuing with key #%d of %d",
+						prev+1, rotReason(stop.Kind), c.idx+1, len(c.keys)))
+				}
+				continue
+			}
+			return nil, stop // whole pool exhausted / all keys rejected
+		}
+		return res, err
+	}
+}
+
+func rotReason(k stopKind) string {
+	if k == stopAuth {
+		return "was rejected"
+	}
+	return "ran out of credits"
+}
+
+// searchPageOneKey fetches one page with the CURRENT key, with up to 5 attempts
+// of exponential backoff (1,2,4,8,16s capped at 30s) on transient errors
+// (network / timeout / 429 / 5xx). A permanent 4xx (not 429) returns a
+// *serperStop immediately (no retry) so the caller can rotate keys.
+func (c *serperClient) searchPageOneKey(ctx context.Context, query string, page int) ([]searchResult, error) {
 	const maxAttempts = 5
 	var lastErr error
 	for attempt := 0; attempt < maxAttempts; attempt++ {
@@ -124,7 +191,7 @@ func (c *serperClient) doSearch(ctx context.Context, query string, page int) ([]
 	if err != nil {
 		return nil, false, &serperStop{Kind: stopBadRequest, Message: err.Error()}
 	}
-	req.Header.Set("X-API-KEY", c.key)
+	req.Header.Set("X-API-KEY", c.currentKey())
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.client.Do(req)
 	if err != nil {

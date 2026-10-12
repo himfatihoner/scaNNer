@@ -108,6 +108,68 @@ func TestClassifyHTTPError(t *testing.T) {
 	}
 }
 
+func TestWithKeyRotationExhaustThenSucceed(t *testing.T) {
+	rot := 0
+	c := &serperClient{keys: []string{"k1", "k2", "k3"}, onRotate: func(string) { rot++ }}
+	calls := 0
+	res, err := c.withKeyRotation(func() ([]searchResult, error) {
+		calls++
+		if calls <= 2 { // first two keys are out of credits
+			return nil, &serperStop{Kind: stopCredits, Message: "no credits"}
+		}
+		return mkResults("a", "b"), nil
+	})
+	if err != nil || len(res) != 2 {
+		t.Fatalf("rotation→success: res=%d err=%v", len(res), err)
+	}
+	if c.idx != 2 || rot != 2 {
+		t.Errorf("want idx=2 rotations=2, got idx=%d rot=%d", c.idx, rot)
+	}
+}
+
+func TestWithKeyRotationAllExhausted(t *testing.T) {
+	rot := 0
+	c := &serperClient{keys: []string{"k1", "k2"}, onRotate: func(string) { rot++ }}
+	_, err := c.withKeyRotation(func() ([]searchResult, error) {
+		return nil, &serperStop{Kind: stopCredits, Message: "no credits"}
+	})
+	if err == nil {
+		t.Fatal("want a stop when every key is exhausted")
+	}
+	if c.idx != 1 || rot != 1 {
+		t.Errorf("want idx=1 rotations=1, got idx=%d rot=%d", c.idx, rot)
+	}
+}
+
+func TestWithKeyRotationNoRotateOnBadRequest(t *testing.T) {
+	rot := 0
+	c := &serperClient{keys: []string{"k1", "k2"}, onRotate: func(string) { rot++ }}
+	if _, err := c.withKeyRotation(func() ([]searchResult, error) {
+		return nil, &serperStop{Kind: stopBadRequest, Message: "bad query"}
+	}); err == nil {
+		t.Fatal("want error")
+	}
+	if c.idx != 0 || rot != 0 {
+		t.Errorf("must not rotate on bad-request: idx=%d rot=%d", c.idx, rot)
+	}
+}
+
+func TestCurrentKeyAdvance(t *testing.T) {
+	c := &serperClient{keys: []string{"a", "b"}}
+	if c.currentKey() != "a" {
+		t.Error("current should be a")
+	}
+	if !c.advanceKey() || c.currentKey() != "b" {
+		t.Error("should advance to b")
+	}
+	if c.advanceKey() {
+		t.Error("should not advance past the last key")
+	}
+	if (&serperClient{}).currentKey() != "" {
+		t.Error("empty pool → empty key")
+	}
+}
+
 func TestRetryableStatus(t *testing.T) {
 	for _, s := range []int{429, 500, 502, 503} {
 		if !retryableStatus(s) {

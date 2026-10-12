@@ -23,7 +23,7 @@ const TotalUpdatePrefix = "__TOTAL__:"
 // form + Settings). Zero values are filled with the meta-collector defaults.
 type Config struct {
 	Domains     []string
-	SerperKey   string
+	SerperKeys  []string // key pool; the search rotates to the next on credit/auth exhaustion
 	Split       bool
 	Filetypes   []string
 	MaxPerHost  int
@@ -141,7 +141,12 @@ func Scan(ctx context.Context, cfg Config, progress ProgressFunc, partial Partia
 	defer os.RemoveAll(tmp)
 
 	// ---- 1) SEARCH ----
-	client := newSerperClient(cfg)
+	// onRotate fires when a key hits its credit/quota limit (or is rejected) and
+	// the search switches to the next key — surfaced as a warning + a live line.
+	client := newSerperClient(cfg, func(msg string) {
+		warnings = append(warnings, msg)
+		progress(0, msg)
+	})
 	seen := map[string]bool{}
 	for i, domain := range cfg.Domains {
 		if ctx.Err() != nil {

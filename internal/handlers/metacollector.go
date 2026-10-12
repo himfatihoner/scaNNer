@@ -27,7 +27,7 @@ func (h *Handler) MetaCollectorPage(w http.ResponseWriter, r *http.Request) {
 	ws := data["ActiveWorkspace"].(*models.Workspace)
 	scans, _ := h.db.ListScansLite(ws.ID, "metacollector")
 	data["Scans"] = scans
-	data["HasSerperKey"] = strings.TrimSpace(h.db.GetSettings().SerperAPIKey) != ""
+	data["HasSerperKey"] = len(h.db.GetSettings().SerperAPIKeys) > 0
 	data["Filetypes"] = metacollector.DefaultFiletypes
 	h.render(w, "layout", data)
 }
@@ -50,7 +50,7 @@ func (h *Handler) MetaCollectorRun(w http.ResponseWriter, r *http.Request) {
 	}
 	r.ParseForm()
 	// Hard gate: the module cannot run without a Serper API key.
-	if strings.TrimSpace(h.db.GetSettings().SerperAPIKey) == "" {
+	if len(h.db.GetSettings().SerperAPIKeys) == 0 {
 		http.Redirect(w, r, "/modules/metacollector?error=no_serper_key", http.StatusSeeOther)
 		return
 	}
@@ -159,7 +159,7 @@ func (h *Handler) runMetaCollector(scanID string, cfg metaCollectorConfig) {
 
 	scanCfg := metacollector.Config{
 		Domains:     cfg.Domains,
-		SerperKey:   settings.SerperAPIKey,
+		SerperKeys:  settings.SerperAPIKeys,
 		Split:       cfg.Split,
 		Concurrency: cfg.Concurrency,
 		ScanBody:    true,

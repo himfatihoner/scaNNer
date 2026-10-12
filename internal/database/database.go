@@ -2555,7 +2555,17 @@ func (d *DB) GetSettings() models.AppSettings {
 	s.CensysID = d.GetSetting("censys_id")
 	s.CensysSecret = d.GetSetting("censys_secret")
 	s.VirusTotalAPIKey = d.GetSetting("virustotal_api_key")
-	s.SerperAPIKey = d.GetSetting("serper_api_key")
+	// Serper.dev API key pool (Google Metadata Collector). Stored newline-joined;
+	// migrate the legacy single serper_api_key into the pool if the pool KV is unset.
+	if raw := d.GetSetting("serper_api_keys"); raw != "" {
+		for _, ln := range strings.Split(raw, "\n") {
+			if t := strings.TrimSpace(ln); t != "" {
+				s.SerperAPIKeys = append(s.SerperAPIKeys, t)
+			}
+		}
+	} else if legacy := strings.TrimSpace(d.GetSetting("serper_api_key")); legacy != "" {
+		s.SerperAPIKeys = []string{legacy}
+	}
 	// Outbound binding (killswitch). Both written atomically on save
 	// so reads see a consistent (name, ip) pair.
 	s.NetworkInterface = d.GetSetting("network_interface")
@@ -2631,7 +2641,8 @@ func (d *DB) SaveSettings(s models.AppSettings) {
 	d.SetSetting("censys_id", s.CensysID)
 	d.SetSetting("censys_secret", s.CensysSecret)
 	d.SetSetting("virustotal_api_key", s.VirusTotalAPIKey)
-	d.SetSetting("serper_api_key", s.SerperAPIKey)
+	d.SetSetting("serper_api_keys", strings.Join(s.SerperAPIKeys, "\n"))
+	d.SetSetting("serper_api_key", "") // legacy single key is migrated into the pool; clear so it can't re-seed
 	d.SetSetting("network_interface", s.NetworkInterface)
 	d.SetSetting("network_interface_ip", s.NetworkInterfaceIP)
 	d.SetSetting("killswitch_scope", s.KillswitchScope)

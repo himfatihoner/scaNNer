@@ -1302,6 +1302,18 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 	if len(userAgents) == 0 {
 		userAgents = append([]string(nil), models.DefaultUserAgents...)
 	}
+	// Serper.dev API key pool (Google Metadata Collector) — one key per line,
+	// trimmed, blanks dropped, deduped preserving order.
+	var serperKeys []string
+	seenSerper := map[string]bool{}
+	for _, line := range strings.Split(r.FormValue("serper_api_keys"), "\n") {
+		k := strings.TrimSpace(line)
+		if k == "" || seenSerper[k] {
+			continue
+		}
+		seenSerper[k] = true
+		serperKeys = append(serperKeys, k)
+	}
 	uaMode := "rotate"
 	if r.FormValue("ua_mode") == "fixed" {
 		uaMode = "fixed"
@@ -1386,7 +1398,7 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 		CensysID:                 strings.TrimSpace(r.FormValue("censys_id")),
 		CensysSecret:             strings.TrimSpace(r.FormValue("censys_secret")),
 		VirusTotalAPIKey:         strings.TrimSpace(r.FormValue("virustotal_api_key")),
-		SerperAPIKey:             strings.TrimSpace(r.FormValue("serper_api_key")),
+		SerperAPIKeys:            serperKeys,
 		NetworkInterface:         ifaceName,
 		NetworkInterfaceIP:       ifaceIP,
 		KillswitchScope:          killswitchScope,

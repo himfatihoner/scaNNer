@@ -475,9 +475,18 @@ func applyStatusAgg(s *Summary, st hcStatus, doneWeight, passWeight, totalWeight
 	s.CandTotal = totalWeight
 	s.CandHuman = humanCand(candTried) + " / " + humanCand(totalWeight)
 
-	// ETA for the remaining passes of THIS mode, in hashcat's own units so the
-	// live hashrate (hashes/sec, already salt-amplified) divides out cleanly. The
-	// salt amplifier is hashcat's `end` ÷ our base keyspace for the current pass.
+	// ETA across the WHOLE job in hashcat's own units (the live hashrate is
+	// hashes/sec, already salt-amplified, so it divides out cleanly). The salt
+	// amplifier is hashcat's `end` ÷ our base keyspace for the current pass.
+	//
+	// In auto-detect we try several candidate modes in sequence, each with the
+	// SAME base keyspace (same wordlist + rules); the remaining UNTRIED modes add
+	// their full keyspace to the estimate. Folding them in here is what stops the
+	// ETA from resetting upward every time hashcat moves on to the next algorithm:
+	// it now decreases monotonically for the run as a whole. Future modes are
+	// assumed to run at the current rate/salt factor — for the typical same-length
+	// unsalted candidates that holds, and the figure is the honest try-all-
+	// candidates worst case that an early crack only beats.
 	if rate > 0 && passEnd > 0 && passWeight > 0 {
 		salts := passEnd / passWeight
 		if salts < 1 {
@@ -487,7 +496,22 @@ func applyStatusAgg(s *Summary, st hcStatus, doneWeight, passWeight, totalWeight
 		if futureBase < 0 {
 			futureBase = 0
 		}
-		remainingHC := (passEnd - st.Progress[0]) + futureBase*salts
+		// Recover the candidate-mode count + current index from the bar slice
+		// (modeSpan = 1/numModes, modeBase = idx/numModes). Single-mode runs have
+		// numModes=1 → remainingModes=0 → identical to the per-pass estimate.
+		numModes, modeIdx := 1, 0
+		if modeSpan > 0 {
+			numModes = int(1.0/modeSpan + 0.5)
+			if numModes < 1 {
+				numModes = 1
+			}
+			modeIdx = int(modeBase/modeSpan + 0.5)
+		}
+		remainingModes := int64(numModes - modeIdx - 1)
+		if remainingModes < 0 {
+			remainingModes = 0
+		}
+		remainingHC := (passEnd - st.Progress[0]) + (futureBase+remainingModes*totalWeight)*salts
 		if remainingHC < 0 {
 			remainingHC = 0
 		}
@@ -537,12 +561,19 @@ func applyCracked(out *ScanResult, outFile string, partialWrite bool) {
 		}
 		hashPart := strings.TrimSpace(line[:idx])
 		plain := line[idx+1:]
+		// Hashcat writes the hash in lowercase hex in its outfile regardless of the
+		// case the operator pasted, so compare case-insensitively (and whitespace-
+		// trimmed) — otherwise an UPPERCASE or mixed-case hash is cracked by hashcat
+		// but never registers here, and in auto-detect the module then wrongly moves
+		// on to the next candidate algorithm. Only the hash side is normalised; the
+		// plaintext is kept verbatim.
+		hp := strings.ToLower(hashPart)
 		for i := range out.Hashes {
 			if out.Hashes[i].Cracked {
 				continue
 			}
-			h := out.Hashes[i].Hash
-			if h == hashPart || strings.Contains(hashPart, h) || strings.Contains(h, hashPart) {
+			h := strings.ToLower(strings.TrimSpace(out.Hashes[i].Hash))
+			if h == hp || strings.Contains(hp, h) || strings.Contains(h, hp) {
 				out.Hashes[i].Cracked = true
 				out.Hashes[i].Plaintext = plain
 				break

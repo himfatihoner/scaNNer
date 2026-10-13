@@ -33,8 +33,16 @@ type wsSearchIndex struct {
 	ips         map[string][]string // normalizedAsset -> resolved IP(s) (the IPv4 subset of related)
 	live        map[string]int      // normalizedAsset -> best HTTP status an HTTP(S) probe returned (0 = unknown)
 	redirect    map[string]string   // normalizedAsset -> redirect target when the asset answered with a 3xx / Location
+	people      map[string][]Person // normalizedAsset(FQDN) -> person intel (emails + names) from metacollector
 	ready       bool
 	building    bool
+}
+
+// Person is one metacollector-derived person datum attached to an FQDN asset:
+// an email or an author/creator name. Comparable, so it keys a dedup set.
+type Person struct {
+	Value string `json:"value"`
+	Kind  string `json:"kind"` // "email" | "name"
 }
 
 // statusRank ranks HTTP status codes for "best status seen" selection when an
@@ -361,6 +369,20 @@ func (h *Handler) buildAssetSearchIndex(workspaceID, fp string, ids [][2]string)
 		}
 	}
 
+	// Person intel (emails + author/creator names) per FQDN, from metacollector
+	// documents, for the Assets "People" section. Keyed by normalizeAsset(DocURL).
+	peopleByAsset := map[string]map[Person]bool{}
+	mergePeople := func(m map[string][]Person) {
+		for a, ppl := range m {
+			if peopleByAsset[a] == nil {
+				peopleByAsset[a] = map[Person]bool{}
+			}
+			for _, p := range ppl {
+				peopleByAsset[a][p] = true
+			}
+		}
+	}
+
 	// Liveness (best HTTP status seen) and redirect target per asset, accumulated
 	// across every scan that probed the host (httpxfind + portservice).
 	liveByAsset := map[string]int{}
@@ -373,6 +395,7 @@ func (h *Handler) buildAssetSearchIndex(workspaceID, fp string, ids [][2]string)
 		}
 		mergeInto(scanSearchTokens(im[1], scan.Result))
 		mergeTech(scanTechnologies(im[1], scan.Result))
+		mergePeople(scanMetaPeople(im[1], scan.Result))
 		for _, pr := range scanResolutionPairs(im[1], scan.Result) {
 			// pr = {hostname, ip}: the IP asset lists the hostname, and the
 			// hostname asset lists the IP.
@@ -401,6 +424,21 @@ func (h *Handler) buildAssetSearchIndex(workspaceID, fp string, ids [][2]string)
 		}
 		sort.Strings(list)
 		tech[a] = list
+	}
+
+	people := make(map[string][]Person, len(peopleByAsset))
+	for a, set := range peopleByAsset {
+		list := make([]Person, 0, len(set))
+		for p := range set {
+			list = append(list, p)
+		}
+		sort.Slice(list, func(i, j int) bool {
+			if list[i].Kind != list[j].Kind {
+				return list[i].Kind < list[j].Kind
+			}
+			return list[i].Value < list[j].Value
+		})
+		people[a] = list
 	}
 
 	related := make(map[string][]string, len(host2ip))
@@ -477,6 +515,7 @@ func (h *Handler) buildAssetSearchIndex(workspaceID, fp string, ids [][2]string)
 	idx.ips = ips
 	idx.live = liveByAsset
 	idx.redirect = redirectByAsset
+	idx.people = people
 	idx.fingerprint = fp
 	idx.ready = true
 	idx.building = false
@@ -540,6 +579,70 @@ func (h *Handler) getAssetTechnologies(workspaceID string) map[string][]string {
 		return idx.tech
 	}
 	return map[string][]string{}
+}
+
+// getAssetPeople returns the per-FQDN person intel (emails + author/creator
+// names) harvested by metacollector, from the (already triggered via
+// getAssetSearchBlob) index. Keyed by normalized FQDN. Empty until the
+// background build finishes.
+func (h *Handler) getAssetPeople(workspaceID string) map[string][]Person {
+	assetSearchMu.Lock()
+	defer assetSearchMu.Unlock()
+	if idx := assetSearchCache[workspaceID]; idx != nil && idx.people != nil {
+		return idx.people
+	}
+	return map[string][]Person{}
+}
+
+// scanMetaPeople extracts person intel per FQDN from a metacollector result:
+// category "email" → kind "email", category "user" → kind "name" (author/
+// creator; the metadata does not separate real-name vs username). Every other
+// category (company/software/os/path/date/gps) is dropped. Keyed by
+// normalizeAsset(DocURL) — the same host key every asset row uses — so one
+// metacollector scan that dorks many domains fans its people out across FQDNs.
+func scanMetaPeople(module, result string) map[string][]Person {
+	if module != "metacollector" || result == "" {
+		return nil
+	}
+	var r struct {
+		Findings []struct {
+			Category string `json:"category"`
+			Value    string `json:"value"`
+			DocURL   string `json:"doc_url"`
+		} `json:"findings"`
+	}
+	if json.Unmarshal([]byte(result), &r) != nil {
+		return nil
+	}
+	const maxPerAsset = 2000 // bound a pathological harvest per FQDN
+	out := map[string][]Person{}
+	seen := map[string]map[Person]bool{}
+	for _, f := range r.Findings {
+		var kind string
+		switch f.Category {
+		case "email":
+			kind = "email"
+		case "user":
+			kind = "name"
+		default:
+			continue
+		}
+		val := strings.TrimSpace(f.Value)
+		key := normalizeAsset(f.DocURL)
+		if val == "" || key == "" || len(out[key]) >= maxPerAsset {
+			continue
+		}
+		p := Person{Value: val, Kind: kind}
+		if seen[key] == nil {
+			seen[key] = map[Person]bool{}
+		}
+		if seen[key][p] {
+			continue
+		}
+		seen[key][p] = true
+		out[key] = append(out[key], p)
+	}
+	return out
 }
 
 // scanTechnologies extracts detected technology names per normalized asset from

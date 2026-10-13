@@ -258,6 +258,15 @@ func (h *Handler) aggregateAssetsFromScans(workspaceID string, scans []models.Sc
 
 // Assets renders the /assets page — aggregates every scan's targets into one
 // deduplicated list.
+// PersonRow is one person datum for the Assets "People" section: a value (an
+// email or an author/creator name from document metadata) plus the FQDN(s) the
+// metacollector found it on. One row per distinct (Value, Kind).
+type PersonRow struct {
+	Value string
+	Kind  string // "email" | "name"
+	FQDNs []string
+}
+
 func (h *Handler) Assets(w http.ResponseWriter, r *http.Request) {
 	data := h.baseData(r, "Assets - scaNNer", "assets")
 	ws := data["ActiveWorkspace"].(*models.Workspace)
@@ -273,6 +282,7 @@ func (h *Handler) Assets(w http.ResponseWriter, r *http.Request) {
 	ipsBlob := h.getAssetIPs(ws.ID)
 	liveBlob := h.getAssetLive(ws.ID)
 	redirectBlob := h.getAssetRedirect(ws.ID)
+	peopleBlob := h.getAssetPeople(ws.ID) // metacollector person intel, keyed by FQDN
 
 	// Promote DISCOVERED hosts to first-class assets: any host the background
 	// index saw in scan RESULTS (dnsenum subdomains, httpxfind live services,
@@ -310,6 +320,9 @@ func (h *Handler) Assets(w http.ResponseWriter, r *http.Request) {
 			discovered[k] = true
 		}
 		for k := range portsBlob {
+			discovered[k] = true
+		}
+		for k := range peopleBlob {
 			discovered[k] = true
 		}
 		for host := range discovered {
@@ -412,6 +425,40 @@ func (h *Handler) Assets(w http.ResponseWriter, r *http.Request) {
 		filterType = "fqdn"
 	}
 	data["FilterType"] = filterType
+
+	// People section: regroup the per-FQDN metacollector person intel into one row
+	// per distinct (value, kind), listing every FQDN the person was found on.
+	type pkey struct{ Value, Kind string }
+	pm := map[pkey]map[string]bool{}
+	for fqdn, ppl := range peopleBlob {
+		for _, p := range ppl {
+			k := pkey{p.Value, p.Kind}
+			if pm[k] == nil {
+				pm[k] = map[string]bool{}
+			}
+			if fqdn != "" {
+				pm[k][fqdn] = true
+			}
+		}
+	}
+	people := make([]PersonRow, 0, len(pm))
+	for k, fqdnSet := range pm {
+		fqdns := make([]string, 0, len(fqdnSet))
+		for f := range fqdnSet {
+			fqdns = append(fqdns, f)
+		}
+		sort.Strings(fqdns)
+		people = append(people, PersonRow{Value: k.Value, Kind: k.Kind, FQDNs: fqdns})
+	}
+	sort.Slice(people, func(i, j int) bool {
+		if people[i].Kind != people[j].Kind {
+			return people[i].Kind < people[j].Kind
+		}
+		return people[i].Value < people[j].Value
+	})
+	data["AssetPeople"] = people
+	data["AssetPeopleCount"] = len(people)
+
 	h.render(w, "layout", data)
 }
 

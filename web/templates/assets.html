@@ -16,7 +16,7 @@
 </div>
 
 <!-- Stats -->
-<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+<div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
     <div class="bg-dark-900 border border-dark-800 rounded-xl p-4">
         <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">{{T "Total Assets"}}</p>
         <p class="text-2xl font-bold text-white">{{.AssetTotal}}</p>
@@ -49,6 +49,13 @@
         </div>
         <p class="text-2xl font-bold text-white">{{.AssetFQDN}}</p>
     </div>
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-4">
+        <div class="flex items-center gap-2 mb-1">
+            <span class="w-2 h-2 rounded-full bg-accent-400"></span>
+            <p class="text-xs text-dark-500 uppercase tracking-wider">{{T "People"}}</p>
+        </div>
+        <p class="text-2xl font-bold text-white">{{.AssetPeopleCount}}</p>
+    </div>
 </div>
 
 {{/* Asset-list strip + "New list" modal were removed — assets are now
@@ -57,8 +64,9 @@
 
 <!-- Filter / Sort bar -->
 <div class="flex flex-wrap items-center gap-2 mb-4">
-    <button type="button" data-asset-tab="fqdn" onclick="setAssetTypeTab(this)" class="asset-tab px-3 py-1.5 text-xs rounded-lg transition-colors {{if eq .FilterType "ip"}}bg-dark-850 border border-dark-700 text-dark-300 hover:text-white{{else}}bg-accent-600 text-white{{end}}">FQDN</button>
+    <button type="button" data-asset-tab="fqdn" onclick="setAssetTypeTab(this)" class="asset-tab px-3 py-1.5 text-xs rounded-lg transition-colors {{if or (eq .FilterType "ip") (eq .FilterType "people")}}bg-dark-850 border border-dark-700 text-dark-300 hover:text-white{{else}}bg-accent-600 text-white{{end}}">FQDN</button>
     <button type="button" data-asset-tab="ip" onclick="setAssetTypeTab(this)" class="asset-tab px-3 py-1.5 text-xs rounded-lg transition-colors {{if eq .FilterType "ip"}}bg-accent-600 text-white{{else}}bg-dark-850 border border-dark-700 text-dark-300 hover:text-white{{end}}">IP</button>
+    <button type="button" data-asset-tab="people" onclick="setAssetTypeTab(this)" class="asset-tab px-3 py-1.5 text-xs rounded-lg transition-colors {{if eq .FilterType "people"}}bg-accent-600 text-white{{else}}bg-dark-850 border border-dark-700 text-dark-300 hover:text-white{{end}}">{{T "People"}} <span class="opacity-60">{{.AssetPeopleCount}}</span></button>
     <input id="assetSearch" type="search" placeholder="{{T `Search host, port, service or technology (e.g. nginx, 443, wordpress)…`}}" oninput="applyAssetFilter()"
            class="w-64 mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
     <select id="assetStatusFilter" onchange="applyAssetFilter()"
@@ -83,6 +91,7 @@
 </div>
 {{end}}
 
+<div id="assetsView">
 {{if .Assets}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
     <table id="assetsTable" class="w-full text-sm">
@@ -218,6 +227,55 @@
     <a href="/modules" class="mt-4 px-4 py-2 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors">{{T "Go to Modules"}}</a>
 </div>
 {{end}}
+</div>
+
+<!-- People: person intel (emails + author/creator names) from the Google Metadata
+     Collector, each linked to the FQDN its document was found on. Hidden until the
+     People tab is active (toggled in applyAssetFilter). -->
+<div id="peopleSection" hidden>
+    {{if .AssetPeople}}
+    <div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+        <table id="peopleTable" class="w-full text-sm">
+            <thead class="bg-dark-850 border-b border-dark-800 text-left">
+                <tr>
+                    <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="person" data-sort-type="string">{{T "Person"}}</th>
+                    <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="kind" data-sort-type="string">{{T "Kind"}}</th>
+                    <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">{{T "Found on (FQDN)"}}</th>
+                </tr>
+            </thead>
+            <tbody id="peopleTbody" class="divide-y divide-dark-800">
+                {{range .AssetPeople}}
+                <tr class="people-row hover:bg-dark-850/60 transition-colors"
+                    data-person="{{.Value}}" data-kind="{{.Kind}}"
+                    data-fqdn="{{range $i, $f := .FQDNs}}{{if $i}} {{end}}{{$f}}{{end}}">
+                    <td class="px-4 py-3 mono text-sm text-dark-100 break-all select-all">{{.Value}}</td>
+                    <td class="px-4 py-3">
+                        {{if eq .Kind "email"}}
+                        <span class="text-[10px] uppercase tracking-wider text-accent-300 bg-accent-500/10 px-2 py-0.5 rounded">{{T "Email"}}</span>
+                        {{else}}
+                        <span class="text-[10px] uppercase tracking-wider text-warning bg-warning/10 px-2 py-0.5 rounded">{{T "Name"}}</span>
+                        {{end}}
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="flex flex-wrap gap-1 max-w-xl">
+                            {{range .FQDNs}}
+                            <a href="/assets/{{assetKey .}}" class="mono text-[10px] text-dark-300 bg-dark-850 border border-dark-700 hover:border-accent-500/50 hover:text-accent-300 px-1.5 py-0.5 rounded">{{.}}</a>
+                            {{end}}
+                        </div>
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+    {{else}}
+    <div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center justify-center">
+        <h3 class="text-lg font-semibold text-white mb-1">{{T "No People Yet"}}</h3>
+        <p class="text-sm text-dark-500 text-center max-w-md">{{T "People (emails and author/creator names) appear here after a Google Metadata Collector scan extracts them from documents, each linked to the domain the document was found on."}}</p>
+        <a href="/modules/metacollector" class="mt-4 px-4 py-2 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors">{{T "Go to Metadata Collector"}}</a>
+    </div>
+    {{end}}
+</div>
 
 <script>
 function setAssetTypeTab(btn) {
@@ -229,8 +287,8 @@ function setAssetTypeTab(btn) {
     btn.classList.add('bg-accent-600', 'text-white');
     var t = btn.getAttribute('data-asset-tab') || 'fqdn';
     var url = new URL(window.location);
-    // FQDN is the default view, so keep its URL clean; only pin ?type=ip.
-    if (t === 'ip') url.searchParams.set('type', t); else url.searchParams.delete('type');
+    // FQDN is the default view, so keep its URL clean; pin ?type=ip / ?type=people.
+    if (t === 'ip' || t === 'people') url.searchParams.set('type', t); else url.searchParams.delete('type');
     history.replaceState(null, '', url);
     applyAssetFilter();
 }
@@ -258,6 +316,28 @@ function applyAssetFilter() {
     var q = (document.getElementById('assetSearch').value || '').toLowerCase().trim();
     var statusFilter = document.getElementById('assetStatusFilter').value;
     var typeTab = _activeAssetTab();
+    // People is a separate table, not a row-filter on the asset rows: toggle the
+    // two views and (when active) filter the people rows by the search box.
+    var assetsView = document.getElementById('assetsView');
+    var peopleSection = document.getElementById('peopleSection');
+    if (typeTab === 'people') {
+        if (assetsView) assetsView.style.display = 'none';
+        if (peopleSection) peopleSection.hidden = false;
+        var ptbody = document.getElementById('peopleTbody');
+        var prows = ptbody ? Array.prototype.slice.call(ptbody.querySelectorAll('.people-row')) : [];
+        var pvisible = 0;
+        prows.forEach(function(row) {
+            var hay = ((row.getAttribute('data-person') || '') + ' ' + (row.getAttribute('data-kind') || '') + ' ' + (row.getAttribute('data-fqdn') || '')).toLowerCase();
+            var show = !q || hay.indexOf(q) !== -1;
+            row.style.display = show ? '' : 'none';
+            if (show) pvisible++;
+        });
+        var pc = document.getElementById('assetResultCount');
+        if (pc) pc.textContent = pvisible + ' / ' + prows.length + ' shown';
+        return;
+    }
+    if (assetsView) assetsView.style.display = '';
+    if (peopleSection) peopleSection.hidden = true;
     var bd = _activeBaseDomain().toLowerCase();
     var tbody = document.getElementById('assetsTbody');
     if (!tbody) return;

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -29,7 +30,43 @@ func (h *Handler) MetaCollectorPage(w http.ResponseWriter, r *http.Request) {
 	data["Scans"] = scans
 	data["HasSerperKey"] = len(h.db.GetSettings().SerperAPIKeys) > 0
 	data["Filetypes"] = metacollector.DefaultFiletypes
+	// Discovered subdomains/hosts in this workspace, offered as clickable chips
+	// that populate the Target Domains box (so recon output — dnsenum subdomains,
+	// HTTP Service Finder hosts, assets — can be selected instead of retyped).
+	data["DiscoveredDomains"] = h.discoveredHostnames(ws.ID)
 	h.render(w, "layout", data)
+}
+
+// discoveredHostnames returns the workspace's discovered bare hostnames for the
+// Metadata Collector launch-form picker: the union of workspace targets and the
+// asset-search index, scheme/port/path-stripped (normalizeAsset), with IPs
+// dropped (metacollector dorks domains, not IPs), deduped and sorted. The asset
+// index is lazily built, so the set fills in once that background pass completes
+// (consistent with the Assets page); workspace targets appear immediately.
+func (h *Handler) discoveredHostnames(wsID string) []string {
+	set := map[string]bool{}
+	add := func(raw string) {
+		host := normalizeAsset(raw)
+		if host == "" || classifyAsset(host) == "ipv4" {
+			return
+		}
+		set[host] = true
+	}
+	if targets, err := h.db.ListTargets(wsID, ""); err == nil {
+		for _, t := range targets {
+			add(t.Value)
+		}
+	}
+	liteScans, _ := h.db.ListScansLite(wsID, "")
+	for host := range h.getAssetSearchBlob(wsID, liteScans) {
+		add(host)
+	}
+	out := make([]string, 0, len(set))
+	for host := range set {
+		out = append(out, host)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func parseMetaCollectorForm(r *http.Request) metaCollectorConfig {

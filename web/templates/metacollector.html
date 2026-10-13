@@ -23,6 +23,27 @@
                                   class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
                     </div>
 
+                    {{if .DiscoveredDomains}}
+                    <div>
+                        <label class="block text-sm text-dark-300 mb-1.5">{{T "Discovered in this workspace"}} <span class="text-[10px] text-dark-500 normal-case">{{T "— click a host to add it to the domains above"}}</span></label>
+                        <div class="flex flex-wrap gap-1.5 max-h-40 overflow-auto p-2 bg-dark-850 border border-dark-700 rounded-lg">
+                            {{range .DiscoveredDomains}}
+                            <button type="button" onclick="mcAddDomain(this.textContent)" class="mono text-[11px] px-2 py-1 bg-dark-800 border border-dark-700 rounded text-dark-300 hover:border-accent-500 hover:text-accent-400 transition-colors">{{.}}</button>
+                            {{end}}
+                        </div>
+                    </div>
+                    <script>
+                    function mcAddDomain(host){
+                        host=(host||'').trim(); if(!host){ return; }
+                        var ta=document.querySelector('textarea[name="domains"]'); if(!ta){ return; }
+                        var lines=ta.value.split('\n').map(function(s){return s.trim();}).filter(Boolean);
+                        if(lines.indexOf(host)===-1){ lines.push(host); }
+                        ta.value=lines.join('\n')+'\n';
+                        ta.focus();
+                    }
+                    </script>
+                    {{end}}
+
                     {{if .HasSerperKey}}
                     <div class="flex items-start gap-2 px-3 py-2 bg-success/5 border border-success/20 rounded-lg">
                         <svg class="w-4 h-4 text-success mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>

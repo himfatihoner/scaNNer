@@ -184,6 +184,37 @@ func (h *Handler) HTTPXFindStatus(w http.ResponseWriter, r *http.Request) {
 	h.writeScanStatus(w, scan)
 }
 
+// addDiscoveredServices promotes each HTTP/HTTPS service the HTTP Service Finder
+// discovered to a workspace target (upsert-safe via CreateTargetMulti, so an
+// existing target keeps its categories), grouped under an "HTTP services
+// (discovered)" list. svc.URL is already scheme://host[:port], which the picker's
+// splitByScheme files under its HTTPS/HTTP sub-sections — so the services then
+// appear in the shared workspace target picker of EVERY module form, with no
+// template change. Mirrors dnsenum's addDiscoveredSubdomains.
+func (h *Handler) addDiscoveredServices(scanID string, result *httpxfind.ScanResult) {
+	if result == nil || len(result.Services) == 0 {
+		return
+	}
+	scan, err := h.db.GetScan(scanID)
+	if err != nil || scan == nil {
+		return
+	}
+	wsID := scan.WorkspaceID
+	var listIDs []string
+	if lid := h.ensureTargetList(wsID, "HTTP services (discovered)"); lid != "" {
+		listIDs = []string{lid}
+	}
+	seen := map[string]bool{}
+	for _, svc := range result.Services {
+		val := strings.TrimSpace(svc.URL)
+		if val == "" || seen[val] {
+			continue
+		}
+		seen[val] = true
+		h.db.CreateTargetMulti(wsID, val, models.TargetURL, "discovered via HTTP Service Finder", listIDs)
+	}
+}
+
 func (h *Handler) runHTTPXFind(scanID string, targets []string, mode httpxfind.ScanMode, directHTTP bool, customPorts []int, opts *shared.HTTPOptions, tcpConc, tcpRate int) {
 	if !h.db.MarkRunning(scanID) {
 		return
@@ -282,6 +313,15 @@ func (h *Handler) runHTTPXFind(scanID string, targets []string, mode httpxfind.S
 
 	resultJSON, _ := json.Marshal(result)
 	h.db.UpdateScanResult(scanID, string(resultJSON))
+
+	// Promote every discovered HTTP/HTTPS service to a real workspace target so
+	// it appears in the shared target picker of every module form (grouped under
+	// an "HTTP services (discovered)" list), mirroring how DNS Enum promotes
+	// subdomains. Guarded by ctx so a cancelled/killswitched scan doesn't import
+	// partial/false services.
+	if opts.Ctx.Err() == nil {
+		h.addDiscoveredServices(scanID, result)
+	}
 
 	// 0 live services is ambiguous — ALWAYS say WHY so the scan is never a
 	// silent "success". Two shapes:

@@ -419,9 +419,9 @@ function awScrollToStage(ev, stageKey) {
                      BulkText carries every discovered subdomain (built handler-
                      side before truncation) so Copy-all dumps the full list,
                      not just the 50 rendered rows. */}}
-                {{if $data}}{{template "dnsenum_results_inner" (dict "Results" $data.Results "DisplayLimit" 50 "BulkText" (index $stageData "dnsenum_bulk"))}}{{end}}
+                {{if $data}}{{template "dnsenum_results_inner" (dict "Results" $data.Results "DisplayLimit" 50 "TotalSubs" (index $stageMeta "dnsenum_count") "BulkText" (index $stageData "dnsenum_bulk"))}}{{end}}
             {{else if eq (print $stage) "httpxfind"}}
-                {{if $data}}{{template "httpxfind_results_inner" (dict "Services" $data.Services "Scan" $.Scan "DisplayLimit" 50 "TotalCount" (index $stageMeta "httpxfind_count") "MoreBase" (printf "/modules/advancedweb/results/%s" $.Scan.ID) "BulkText" (index $stageData "httpxfind_bulk"))}}{{end}}
+                {{if $data}}{{template "httpxfind_results_inner" (dict "Services" $data.Services "Scan" $.Scan "DisplayLimit" 50 "ServiceCount" (index $stageMeta "httpxfind_count") "TotalCount" (index $stageMeta "httpxfind_count") "MoreBase" (printf "/modules/advancedweb/results/%s" $.Scan.ID) "BulkText" (index $stageData "httpxfind_bulk"))}}{{end}}
             {{else if eq (print $stage) "sslscan"}}
                 {{if $data}}{{template "sslscan_results_inner" (dict
                     "Results" $data

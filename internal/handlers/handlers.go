@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -147,8 +148,14 @@ func New(registry *modules.Registry, db *database.DB, templateDir string) (*Hand
 			// it verbatim, other languages look it up in web/i18n/<lang>.json.
 			"T":     func(msgid string, args ...interface{}) string { return i18n.T(lang, msgid, args...) },
 			"Thtml": func(msgid string, args ...interface{}) template.HTML { return i18n.Thtml(lang, msgid, args...) },
-			"Tn": func(n int, singular, plural string, args ...interface{}) string {
-				return i18n.Tn(lang, n, singular, plural, args...)
+			// Tn's count is interface{} (not int) on purpose: templates call it as
+			// {{Tn .SomeCount ...}}, and a shared partial embedded with a dict that
+			// omits that key would pass nil to an int param — which html/template
+			// rejects as "expected int", ABORTING the whole page render. Coercing
+			// here (nil → 0) makes a missing count render "0 …" instead of crashing
+			// every stage after it (the Advanced-Web suite regression).
+			"Tn": func(n interface{}, singular, plural string, args ...interface{}) string {
+				return i18n.Tn(lang, tmplInt(n), singular, plural, args...)
 			},
 			"targetTypeLabel":   func(t models.TargetType) string { return i18n.T(lang, models.TargetTypeLabel(t)) },
 			"moduleDisplayName": func(m string) string { return i18n.T(lang, models.ModuleDisplayName(m)) },
@@ -2327,6 +2334,24 @@ func (h *Handler) lang(r *http.Request) string {
 // langFromData extracts a "Lang" value from a data map (set by baseData / the
 // auth pages), defaulting to English. Used by render() so the ~90 map-based call
 // sites need no signature change.
+// tmplInt coerces a template value to int for the Tn pluralizer, treating a
+// nil/absent dict key (or an unexpected type) as 0 so a shared partial embedded
+// without its count renders "0 …" instead of aborting the page with "expected int".
+func tmplInt(v interface{}) int {
+	switch n := v.(type) {
+	case int:
+		return n
+	case int64:
+		return int(n)
+	case int32:
+		return int(n)
+	case float64:
+		return int(n)
+	default:
+		return 0
+	}
+}
+
 func (h *Handler) langFromData(data interface{}) string {
 	if m, ok := data.(map[string]interface{}); ok {
 		if l, ok := m["Lang"].(string); ok {
@@ -2345,14 +2370,21 @@ func (h *Handler) render(w http.ResponseWriter, name string, data interface{}) {
 // the data is not a Lang-carrying map (e.g. the vuln detail drawer passes a
 // struct) — pass h.lang(r) explicitly.
 func (h *Handler) renderLang(w http.ResponseWriter, lang, name string, data interface{}) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	tmpl := h.templates[i18n.Normalize(lang)]
 	if tmpl == nil {
 		tmpl = h.templates[i18n.LangEN]
 	}
-	if err := tmpl.ExecuteTemplate(w, name, data); err != nil {
+	// Render into a buffer first: a mid-template execution error (e.g. a shared
+	// partial referencing a key an embedder omitted) must produce a clean 500,
+	// not a half-written page truncated at the crash with an error string
+	// appended — which is exactly what silently hid later Advanced-Web stages.
+	var buf bytes.Buffer
+	if err := tmpl.ExecuteTemplate(&buf, name, data); err != nil {
 		http.Error(w, "Template error: "+err.Error(), http.StatusInternalServerError)
+		return
 	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = buf.WriteTo(w)
 }
 
 // renderResults handles the partial vs. full-page split for /modules/<x>/results/<id>.

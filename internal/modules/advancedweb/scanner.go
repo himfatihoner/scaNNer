@@ -254,6 +254,13 @@ func Scan(cfg Config, opts *shared.HTTPOptions, concurrency int, cveLookup CVELo
 	// flickers in the UI (audit B30). atomic.Int32 keeps reads + writes
 	// strictly ordered without needing a Mutex.
 	var doneUnits atomic.Int32
+	// lastFwdNano throttles how often a stage's live sub-progress is forwarded to
+	// the TOP banner (Channel 1), so a high-fan-out stage (techdetect/httpx, which
+	// call progress per probe) can't hammer the DB with an UPDATE per probe. The
+	// stage CARD (Channel 2) still updates every tick via sr.*; only the banner
+	// forward is rate-limited. Atomic CAS makes it race-free across a stage's
+	// concurrent worker callbacks. Stage-boundary bumps bypass it entirely.
+	var lastFwdNano atomic.Int64
 	bumpStage := func(stageIdx int, label, msg string) {
 		d := doneUnits.Add(1)
 		if progress != nil {
@@ -334,6 +341,22 @@ func Scan(cfg Config, opts *shared.HTTPOptions, concurrency int, cveLookup CVELo
 				sr.ProgressMsg = msg
 			}
 			resultMu.Unlock()
+			// Forward live sub-progress to the TOP banner + console so a long
+			// stage (Nuclei especially) doesn't look frozen at "starting…" for
+			// its whole run — previously only DirSpider did this, so every other
+			// stage's top line stayed stuck between startStage and bumpStage.
+			// Guard on msg!="" so the seeded tr.Update(0,"") and coalesced blank
+			// ticks don't clobber startStage's "starting…". The overall bar stays
+			// at finished-stages/total (liveProgress reads doneUnits) so it never
+			// jumps. Throttle the banner forward to ≤2/sec (race-free CAS) so a
+			// high-fan-out stage doesn't issue a DB progress UPDATE per probe; the
+			// status poll is slower than this anyway, so nothing visible is lost.
+			if msg != "" {
+				now := time.Now().UnixNano()
+				if last := lastFwdNano.Load(); now-last >= int64(500*time.Millisecond) && lastFwdNano.CompareAndSwap(last, now) {
+					liveProgress(StageDisplayNames[sr.Stage], msg)
+				}
+			}
 		})
 		// Seed the total immediately so the bar can render the
 		// denominator even before the first module callback fires.
@@ -1103,7 +1126,26 @@ func Scan(cfg Config, opts *shared.HTTPOptions, concurrency int, cveLookup CVELo
 				nucleiCfg.TagsByTarget = tbt
 			}
 		}
-		nucleiRes := nuclei.Scan(ctx, nucleiSeeds, nucleiCfg, stageProgress(sr, len(nucleiSeeds)), nil)
+		// Stream Nuclei findings into the stage card AS THEY ARE FOUND (was nil →
+		// findings stayed invisible until the whole stage finished, the longest
+		// stage in the suite). nuclei.Scan already throttles these partial emits
+		// to ~2s; the handler's 2s flush ticker persists sr.Result so the
+		// ?partial=1 poll renders findings live. finishStage below still writes
+		// the canonical final result, so nothing is lost.
+		nucleiRes := nuclei.Scan(ctx, nucleiSeeds, nucleiCfg, stageProgress(sr, len(nucleiSeeds)),
+			func(p *nuclei.ScanResult) {
+				if p == nil {
+					return
+				}
+				b, err := json.Marshal(p)
+				if err != nil {
+					return
+				}
+				resultMu.Lock()
+				sr.Result = b
+				resultMu.Unlock()
+				pushPartial()
+			})
 		findingCount := 0
 		for _, t := range nucleiRes.Results {
 			findingCount += len(t.Findings)

@@ -384,6 +384,12 @@ func (h *Handler) runAdvancedWeb(scanID string, cfg advancedweb.Config, opts *sh
 
 	result, err := advancedweb.Scan(cfg, opts, conc, cveLookup,
 		func(done, total int, msg string) {
+			// Full (not Batched) so the per-tick `total` keeps correcting the
+			// denominator — critical on a stage-level RESUME, where the row's
+			// CreateScan total (all enabled stages) is larger than the suite's
+			// live totalUnits (remaining stages only). The suite throttles the
+			// high-frequency sub-progress forwards at the source (scanner.go), so
+			// this stays affordable without dropping the total.
 			h.db.UpdateScanProgressFull(scanID, done, total, msg)
 		},
 		func(partial *advancedweb.ScanResult) {

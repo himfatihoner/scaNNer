@@ -256,13 +256,13 @@ modeLoop:
 			_ = os.Remove(outFile) // fresh outfile per pass
 
 			pw := passKeyspace(cfg, p.rule, words)
-			exit, errTail := crackPassAgg(ctx, cfg, mid, p.rule, hashFile.Name(), outFile, prog, &out.Summary, &mu, pushPartial, doneKS, pw, totalKS, modeBase, modeSpan)
+			exit, errTail := crackPassAgg(ctx, cfg, mid, p.rule, hashFile.Name(), outFile, prog, out, &out.Summary, &mu, pushPartial, doneKS, pw, totalKS, modeBase, modeSpan)
 			lastExit, lastErr = exit, errTail
 			if exit == 0 || exit == 1 {
 				anyClean = true
 			}
 			doneKS += pw
-			applyCracked(out, outFile)
+			applyCracked(out, outFile, false)
 			if out.Summary.Cracked > 0 {
 				break modeLoop // solved — stop all remaining passes/candidates
 			}
@@ -308,7 +308,7 @@ modeLoop:
 // --status-json into the shared summary. Returns the process exit code and a
 // short stderr tail (for error reporting).
 func crackPassAgg(ctx context.Context, cfg Config, modeID int, rule, hashFile, outFile string,
-	prog func(int, string), sum *Summary, mu *sync.Mutex, pushPartial func(bool),
+	prog func(int, string), out *ScanResult, sum *Summary, mu *sync.Mutex, pushPartial func(bool),
 	doneWeight, passWeight, totalWeight int64, modeBase, modeSpan float64) (int, string) {
 
 	args := buildArgs(cfg, modeID, rule, hashFile, outFile)
@@ -338,6 +338,12 @@ func crackPassAgg(ctx context.Context, cfg Config, modeID int, rule, hashFile, o
 		}
 		mu.Lock()
 		applyStatusAgg(sum, st, doneWeight, passWeight, totalWeight, modeBase, modeSpan)
+		// Fold the freshly-written outfile into per-hash plaintexts so the live
+		// snapshot (pushPartial copies out.Hashes) shows each crack AS it lands —
+		// not only when the whole pass finishes (the bug: bulk cracks surfaced
+		// only at the end). Recomputes sum.Cracked from the outfile so the live
+		// count stays consistent with the rows shown.
+		applyCracked(out, outFile, true)
 		pct, rate, cracked, util, eta, total, cand := sum.ProgressPct, sum.HashrateHuman, sum.Cracked, sum.LiveUtilPct, sum.ETA, sum.Total, sum.CandHuman
 		mu.Unlock()
 		prog(pct, fmt.Sprintf("%d%% · %s tried · %s · %d/%d cracked · CPU %d%%%s", pct, cand, rate, cracked, total, util, etaSuffix(eta)))
@@ -502,10 +508,23 @@ func clamp01(f float64) float64 {
 	return f
 }
 
-func applyCracked(out *ScanResult, outFile string) {
+func applyCracked(out *ScanResult, outFile string, partialWrite bool) {
 	data, err := os.ReadFile(outFile)
 	if err != nil {
 		return
+	}
+	// Called live (mid-write, each status tick) the outfile's last line may be
+	// only partially flushed; process only up to the last newline so the
+	// `if Cracked { continue }` guard below can't permanently lock in a truncated
+	// plaintext. The deferred remainder lands on the next tick / the final
+	// post-pass read (partialWrite=false, which keeps every line including a last
+	// one without a trailing newline).
+	if partialWrite {
+		if i := bytes.LastIndexByte(data, '\n'); i >= 0 {
+			data = data[:i+1]
+		} else {
+			data = nil
+		}
 	}
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)

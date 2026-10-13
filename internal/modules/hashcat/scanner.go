@@ -859,6 +859,11 @@ type WordlistOption struct {
 var wordlistSources = []struct {
 	glob, group string
 }{
+	// Bundled with scaNNer (relative to the working dir, abs-resolved in Wordlists
+	// so hashcat finds it from any cwd) — a merged Turkish list built by
+	// scripts/build-turkish-wordlist.sh. hashcat reads .gz natively.
+	{"data/hashcat-wordlists/*.txt.gz", "Turkish (bundled)"},
+	{"data/hashcat-wordlists/*.txt", "Turkish (bundled)"},
 	{"/usr/share/wordlists/*.txt", "General"},
 	{"/usr/share/wordlists/*.txt.gz", "General"},
 	{"/usr/share/seclists/Passwords/Common-Credentials/Language-Specific/*.txt", "Language-specific"},
@@ -884,6 +889,9 @@ func Wordlists() []WordlistOption {
 			fi, err := os.Stat(p)
 			if err != nil || fi.IsDir() {
 				continue
+			}
+			if abs, err := filepath.Abs(p); err == nil {
+				p = abs // bundled wordlists are glob-relative; abs-resolve so hashcat finds them from any cwd
 			}
 			words, approx := wordCount(p, fi.Size())
 			wh := humanCount(words)

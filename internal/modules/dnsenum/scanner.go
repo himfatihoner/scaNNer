@@ -1528,7 +1528,15 @@ func sweepReverseDNS(ctx context.Context, dr *DomainResult, cidrOverride string,
 		}
 	}
 	out := []PTRRecord{}
-	resolver := net.Resolver{}
+	// Reverse-PTR lookups of scan-derived IPs are SCAN DNS — they must obey
+	// the killswitch. Use the package boundResolver (PreferGo + shared.BoundDialer
+	// Dial: device-bound + SO_MARK when armed) instead of an unbound
+	// net.Resolver{}, which bypassed the bind entirely. With the killswitch in
+	// scan_only scope, an UNMARKED PTR query to a non-VPN-routed resolver (e.g. a
+	// LAN nameserver reachable via the default iface) is NOT caught by the
+	// fail-closed `! -o <vpn> --mark 0x5343 DROP` rule, so it would leak the scan
+	// target's reverse lookups off the VPN. Marked/bound, it rides the VPN or
+	// fails closed. (Leak origin found 2026; see project_dns_killswitch.)
 	if concurrency <= 0 {
 		concurrency = 16
 	}
@@ -1546,7 +1554,7 @@ func sweepReverseDNS(ctx context.Context, dr *DomainResult, cidrOverride string,
 			defer func() { <-sem }()
 			lookupCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 			defer cancel()
-			names, err := resolver.LookupAddr(lookupCtx, ip)
+			names, err := boundResolver.LookupAddr(lookupCtx, ip)
 			if err != nil {
 				return
 			}

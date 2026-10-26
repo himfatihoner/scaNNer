@@ -201,6 +201,12 @@ func (h *Handler) StartConnectivityMonitor() {
 					if vpnDownSince.IsZero() {
 						vpnDownSince = time.Now()
 						log.Printf("vpn-watchdog: %s down — pausing scans; will reconnect %q", iface, st.VPNConnection)
+						h.recordNetEvent(models.NetworkEvent{
+							EventType: models.NetEvtVPNDown, Severity: models.NetSevCritical,
+							Interface: iface, VPNConnection: st.VPNConnection,
+							ScansAffected: len(h.scanMgr.ActiveIDs()),
+							Detail:        "VPN interface " + iface + " down — pausing scans, auto-reconnecting",
+						})
 					}
 					if ids := h.scanMgr.ActiveIDs(); len(ids) > 0 {
 						h.scanMgr.PauseAll("Paused — VPN (" + iface + ") down; auto-reconnecting and resuming from checkpoint.")
@@ -218,8 +224,18 @@ func (h *Handler) StartConnectivityMonitor() {
 							defer reconnecting.Store(false)
 							if err := reconnectVPN(name); err != nil {
 								log.Printf("vpn-watchdog: reconnect %q failed: %v", name, err)
+								h.recordNetEvent(models.NetworkEvent{
+									EventType: models.NetEvtVPNReconnectFailed, Severity: models.NetSevCritical,
+									Interface: iface, VPNConnection: name,
+									Detail: "VPN reconnect failed: " + err.Error(),
+								})
 							} else {
 								log.Printf("vpn-watchdog: reconnect %q issued — waiting for %s to come up", name, iface)
+								h.recordNetEvent(models.NetworkEvent{
+									EventType: models.NetEvtVPNReconnecting, Severity: models.NetSevWarning,
+									Interface: iface, VPNConnection: name,
+									Detail: "VPN reconnect issued for " + name + " — waiting for " + iface,
+								})
 							}
 						}()
 					}
@@ -227,6 +243,11 @@ func (h *Handler) StartConnectivityMonitor() {
 				}
 				if !vpnDownSince.IsZero() {
 					log.Printf("vpn-watchdog: %s back up", iface)
+					h.recordNetEvent(models.NetworkEvent{
+						EventType: models.NetEvtVPNUp, Severity: models.NetSevInfo,
+						Interface: iface, VPNConnection: st.VPNConnection,
+						Detail: "VPN interface " + iface + " back up",
+					})
 					vpnDownSince = time.Time{}
 				}
 			}
@@ -240,10 +261,16 @@ func (h *Handler) StartConnectivityMonitor() {
 				downFails, degradeStreak = 0, 0
 				clearThrottle()
 				if !up { // recovered from a pause
-					if n := h.resumePausedScans(); n > 0 {
+					n := h.resumePausedScans()
+					if n > 0 {
 						log.Printf("connectivity: internet restored — auto-resumed %d paused scan(s)", n)
 						lastResume = time.Now()
 					}
+					h.recordNetEvent(models.NetworkEvent{
+						EventType: models.NetEvtInternetRestored, Severity: models.NetSevInfo,
+						Reachable: sample.reachable, DNSOK: netBool(sample.dnsOK),
+						ScansAffected: n, Detail: "internet connectivity restored",
+					})
 					up = true
 				}
 
@@ -258,6 +285,11 @@ func (h *Handler) StartConnectivityMonitor() {
 					log.Printf("connectivity: network degraded (dns=%s, reachable=%d/%d) — throttling scans",
 						sample.dnsLatency.Round(time.Millisecond), sample.reachable, len(connProbeHosts))
 					h.scanMgr.WarnAll("⚠ Network degraded — scan auto-throttled")
+					h.recordNetEvent(models.NetworkEvent{
+						EventType: models.NetEvtInternetDegraded, Severity: models.NetSevWarning,
+						Reachable: sample.reachable, DNSOK: netBool(sample.dnsOK),
+						Detail: "network degraded (partial reachability or slow DNS) — scans auto-throttled",
+					})
 				}
 				// Partial connectivity is enough to make (throttled) progress: if
 				// we were paused by a full loss, resume now rather than waiting
@@ -279,10 +311,19 @@ func (h *Handler) StartConnectivityMonitor() {
 				if time.Since(lastResume) < connResumeCooldown {
 					continue // just resumed — don't immediately re-pause (anti-flap)
 				}
-				if ids := h.scanMgr.ActiveIDs(); len(ids) > 0 {
+				ids := h.scanMgr.ActiveIDs()
+				if len(ids) > 0 {
 					log.Printf("connectivity: internet unreachable — pausing %d running scan(s)", len(ids))
 					h.scanMgr.PauseAll("Paused — internet connectivity lost; the scan will resume automatically when the connection is back.")
 				}
+				// Record the loss even when no scan was running — that idle-time
+				// blind spot (an event that killed zero scans left no trace) is
+				// exactly what the Network History log closes.
+				h.recordNetEvent(models.NetworkEvent{
+					EventType: models.NetEvtInternetDown, Severity: models.NetSevCritical,
+					Reachable: sample.reachable, DNSOK: netBool(sample.dnsOK),
+					ScansAffected: len(ids), Detail: "internet unreachable — all reachability probes failed",
+				})
 				// A pause supersedes throttling; drop it so a fresh resume starts clean.
 				clearThrottle()
 				up = false

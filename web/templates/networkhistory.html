@@ -1,0 +1,106 @@
+{{define "page_networkhistory"}}
+<div class="p-6 max-w-6xl mx-auto">
+    <div class="mb-4">
+        <h1 class="text-xl font-bold">{{T `Network History`}}</h1>
+        <p class="text-sm text-dark-400">{{T `A retrospective timeline of every network event — when and why the VPN dropped, the killswitch tripped, connectivity was lost or a DNS leak was detected. Written automatically by the background monitors.`}}</p>
+    </div>
+
+    <!-- Live current-state strip -->
+    <div class="flex flex-wrap items-center gap-2 mb-5 text-xs">
+        {{if .KSArmed}}
+        <span class="px-2 py-1 rounded-lg bg-success/15 text-success font-medium">{{T `Killswitch`}}: {{T `Armed`}}</span>
+        {{else}}
+        <span class="px-2 py-1 rounded-lg bg-dark-800 text-dark-400 font-medium">{{T `Killswitch`}}: {{T `Off`}}</span>
+        {{end}}
+        <span class="px-2 py-1 rounded-lg bg-dark-800 text-dark-300">{{T `Interface`}}: <span class="mono text-dark-100">{{if .NetIface}}{{.NetIface}}{{else}}{{T `default`}}{{end}}</span></span>
+        {{if .NetScope}}<span class="px-2 py-1 rounded-lg bg-dark-800 text-dark-300">{{T `Scope`}}: <span class="mono text-dark-100">{{.NetScope}}</span></span>{{end}}
+        {{if eq .NetHealth "ok"}}
+        <span class="px-2 py-1 rounded-lg bg-success/15 text-success">{{T `Network`}}: {{T `Online`}}</span>
+        {{else if eq .NetHealth "degraded"}}
+        <span class="px-2 py-1 rounded-lg bg-amber-500/15 text-amber-400">{{T `Network`}}: {{T `Degraded`}}</span>
+        {{else}}
+        <span class="px-2 py-1 rounded-lg bg-red-500/15 text-red-400">{{T `Network`}}: {{T `Offline`}}</span>
+        {{end}}
+        {{if .LeakActive}}<span class="px-2 py-1 rounded-lg bg-red-500/15 text-red-400 font-medium">{{T `DNS leak active`}} ({{.LeakCount}})</span>{{end}}
+    </div>
+
+    <form method="GET" action="/network-history" class="flex flex-wrap items-end gap-3 mb-5 bg-dark-900 border border-dark-800 rounded-xl p-4">
+        <div>
+            <label class="block text-xs text-dark-300 mb-1.5">{{T `Category`}}</label>
+            <select name="category" class="rounded-lg bg-dark-950 border border-dark-700 px-3 py-2 text-sm">
+                <option value="" {{if eq .FilterCategory ""}}selected{{end}}>{{T `All`}}</option>
+                <option value="vpn" {{if eq .FilterCategory "vpn"}}selected{{end}}>{{T `VPN`}}</option>
+                <option value="interface" {{if eq .FilterCategory "interface"}}selected{{end}}>{{T `Interface`}}</option>
+                <option value="integrity" {{if eq .FilterCategory "integrity"}}selected{{end}}>{{T `Killswitch integrity`}}</option>
+                <option value="config" {{if eq .FilterCategory "config"}}selected{{end}}>{{T `Killswitch config`}}</option>
+                <option value="connectivity" {{if eq .FilterCategory "connectivity"}}selected{{end}}>{{T `Connectivity`}}</option>
+                <option value="leak" {{if eq .FilterCategory "leak"}}selected{{end}}>{{T `Leak`}}</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs text-dark-300 mb-1.5">{{T `Severity`}}</label>
+            <select name="severity" class="rounded-lg bg-dark-950 border border-dark-700 px-3 py-2 text-sm">
+                <option value="" {{if eq .FilterSeverity ""}}selected{{end}}>{{T `All`}}</option>
+                <option value="critical" {{if eq .FilterSeverity "critical"}}selected{{end}}>{{T `Critical`}}</option>
+                <option value="warning" {{if eq .FilterSeverity "warning"}}selected{{end}}>{{T `Warning`}}</option>
+                <option value="info" {{if eq .FilterSeverity "info"}}selected{{end}}>{{T `Info`}}</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs text-dark-300 mb-1.5">{{T `Time range`}}</label>
+            <select name="range" class="rounded-lg bg-dark-950 border border-dark-700 px-3 py-2 text-sm">
+                <option value="" {{if eq .FilterRange ""}}selected{{end}}>{{T `All time`}}</option>
+                <option value="1h" {{if eq .FilterRange "1h"}}selected{{end}}>{{T `Last hour`}}</option>
+                <option value="24h" {{if eq .FilterRange "24h"}}selected{{end}}>{{T `Last 24 hours`}}</option>
+                <option value="7d" {{if eq .FilterRange "7d"}}selected{{end}}>{{T `Last 7 days`}}</option>
+                <option value="30d" {{if eq .FilterRange "30d"}}selected{{end}}>{{T `Last 30 days`}}</option>
+            </select>
+        </div>
+        <label class="flex items-center gap-2 text-sm text-dark-300 pb-2 cursor-pointer">
+            <input type="checkbox" name="scan_affecting" value="1" {{if .FilterScanAffecting}}checked{{end}} class="rounded bg-dark-950 border-dark-700">
+            {{T `Only scan-affecting`}}
+        </label>
+        <button type="submit" class="rounded-lg bg-accent-600 hover:bg-accent-500 text-white text-sm font-medium px-4 py-2">{{T `Filter`}}</button>
+        <a href="/network-history" class="text-sm text-dark-400 hover:text-white px-2 py-2">{{T `Reset`}}</a>
+    </form>
+
+    <div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-dark-925 text-dark-400 text-xs uppercase tracking-wide">
+                    <tr>
+                        <th class="text-left font-medium px-4 py-2.5">{{T `Time`}}</th>
+                        <th class="text-left font-medium px-4 py-2.5">{{T `Category`}}</th>
+                        <th class="text-left font-medium px-4 py-2.5">{{T `Severity`}}</th>
+                        <th class="text-left font-medium px-4 py-2.5">{{T `Event`}}</th>
+                        <th class="text-left font-medium px-4 py-2.5">{{T `Interface`}}</th>
+                        <th class="text-left font-medium px-4 py-2.5">{{T `Scans`}}</th>
+                        <th class="text-left font-medium px-4 py-2.5">{{T `Detail`}}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-dark-800">
+                    {{range .Events}}
+                    <tr class="hover:bg-dark-850">
+                        <td class="px-4 py-2.5 whitespace-nowrap text-dark-300 font-mono text-xs">{{.TS.Format "2006-01-02 15:04:05"}}</td>
+                        <td class="px-4 py-2.5"><span class="text-[10px] px-1.5 py-0.5 rounded bg-dark-800 text-dark-300 uppercase">{{.Category}}</span></td>
+                        <td class="px-4 py-2.5">
+                            {{if eq .Severity "critical"}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 uppercase">{{T `Critical`}}</span>
+                            {{else if eq .Severity "warning"}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 uppercase">{{T `Warning`}}</span>
+                            {{else}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-accent-600/20 text-accent-400 uppercase">{{T `Info`}}</span>{{end}}
+                        </td>
+                        <td class="px-4 py-2.5 text-dark-100">{{T .Label}}</td>
+                        <td class="px-4 py-2.5 font-mono text-xs text-dark-300">
+                            {{if .Interface}}{{.Interface}}{{else}}<span class="text-dark-600">—</span>{{end}}{{if .KillswitchScope}} · {{.KillswitchScope}}{{end}}
+                        </td>
+                        <td class="px-4 py-2.5 text-dark-300">{{if .ScansAffected}}{{.ScansAffected}}{{else}}<span class="text-dark-600">—</span>{{end}}</td>
+                        <td class="px-4 py-2.5 text-dark-400 text-xs">{{.Detail}}</td>
+                    </tr>
+                    {{else}}
+                    <tr><td colspan="7" class="px-4 py-8 text-center text-dark-500">{{T `No network events recorded for this filter.`}}</td></tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{{end}}

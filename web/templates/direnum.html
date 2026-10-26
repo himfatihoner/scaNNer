@@ -44,27 +44,27 @@
 
                     <!-- Scan Level -->
                     <div>
-                        <label class="block text-sm text-dark-300 mb-2">{{T `Scan Level`}}{{template "info_icon" (T `Light ~4K words · Normal ~50K · Aggressive ~300K+. Larger = more coverage, longer scan.`)}}</label>
+                        <label class="block text-sm text-dark-300 mb-2">{{T `Scan Level`}}{{template "info_icon" (T `Per-language tiers built by scripts/build-direnum-wordlists.sh: Popular ~200K most-common · Extended ~1M +likely paths · Exhaustive ~3M everything. Falls back to system SecLists (~4K/50K/300K) until the lists are built.`)}}</label>
                         <div class="grid grid-cols-3 gap-2">
                             <label class="relative cursor-pointer">
                                 <input type="radio" name="level" value="light" class="peer sr-only">
                                 <div class="p-3 bg-dark-850 border border-dark-700 rounded-lg peer-checked:border-success peer-checked:bg-success/5 transition-all text-center">
-                                    <p class="text-xs font-medium text-dark-300">{{T `Light`}}</p>
-                                    <p class="text-[10px] text-dark-500">{{T `~4K words`}}</p>
+                                    <p class="text-xs font-medium text-dark-300">{{T `Popular`}}</p>
+                                    <p class="text-[10px] text-dark-500">{{T `~200K`}}</p>
                                 </div>
                             </label>
                             <label class="relative cursor-pointer">
                                 <input type="radio" name="level" value="normal" class="peer sr-only" checked>
                                 <div class="p-3 bg-dark-850 border border-dark-700 rounded-lg peer-checked:border-warning peer-checked:bg-warning/5 transition-all text-center">
-                                    <p class="text-xs font-medium text-dark-300">{{T `Normal`}}</p>
-                                    <p class="text-[10px] text-dark-500">{{T `~50K words`}}</p>
+                                    <p class="text-xs font-medium text-dark-300">{{T `Extended`}}</p>
+                                    <p class="text-[10px] text-dark-500">{{T `~1M`}}</p>
                                 </div>
                             </label>
                             <label class="relative cursor-pointer">
                                 <input type="radio" name="level" value="aggressive" class="peer sr-only">
                                 <div class="p-3 bg-dark-850 border border-dark-700 rounded-lg peer-checked:border-danger peer-checked:bg-danger/5 transition-all text-center">
-                                    <p class="text-xs font-medium text-dark-300">{{T `Aggressive`}}</p>
-                                    <p class="text-[10px] text-dark-500">{{T `~300K+ words`}}</p>
+                                    <p class="text-xs font-medium text-dark-300">{{T `Exhaustive`}}</p>
+                                    <p class="text-[10px] text-dark-500">{{T `~3M`}}</p>
                                 </div>
                             </label>
                         </div>

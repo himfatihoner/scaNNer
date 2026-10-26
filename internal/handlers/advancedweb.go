@@ -130,7 +130,7 @@ func (h *Handler) AdvancedWebRun(w http.ResponseWriter, r *http.Request) {
 		// attacker (or CSRF) could submit any list ID and enumerate
 		// targets from other workspaces. Reject any list whose
 		// workspace_id doesn't match the active workspace — silently
-		// skipped, same UX as the manual-IP filter below.
+		// skipped, same UX as the malformed-target filter below.
 		tl, err := h.db.GetTargetList(lid)
 		if err != nil || tl == nil || tl.WorkspaceID != ws.ID {
 			continue
@@ -145,7 +145,7 @@ func (h *Handler) AdvancedWebRun(w http.ResponseWriter, r *http.Request) {
 	// Individual targets ticked in the workspace target-list picker
 	// ({{template "workspace_targets"}}, name="targets") — same UX as the other
 	// module forms. These are already resolved target strings; the per-target
-	// validation below still rejects IPs/malformed entries.
+	// validation below still rejects malformed / unsafe entries.
 	for _, v := range r.Form["targets"] {
 		if v = strings.TrimSpace(v); v != "" {
 			targetSet[v] = true
@@ -155,8 +155,8 @@ func (h *Handler) AdvancedWebRun(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/modules/advanced-web?error=no_target", http.StatusSeeOther)
 		return
 	}
-	// Pre-validate each target so we reject IPs and malformed input
-	// before kicking off any scan goroutines.
+	// Pre-validate each target so we reject malformed / unsafe input
+	// before kicking off any scan goroutines (IPs are accepted).
 	type tgt struct {
 		raw  string
 		kind shared.InputKind
@@ -164,18 +164,17 @@ func (h *Handler) AdvancedWebRun(w http.ResponseWriter, r *http.Request) {
 	targets := make([]tgt, 0, len(targetSet))
 	for raw := range targetSet {
 		classified, err := shared.ClassifyInput(raw)
-		if err != nil || classified.Kind == shared.KindIP {
-			continue // skip silently; user's other targets still run
+		if err != nil {
+			continue // genuinely malformed / unsafe — skip; other targets still run
 		}
+		// IPs are valid web targets (scanned via HTTPX + every URL-level stage);
+		// only WHOIS/DNS enumeration skip them, handled per-stage in the scanner.
 		targets = append(targets, tgt{raw: raw, kind: classified.Kind})
 	}
 	if len(targets) == 0 {
 		http.Redirect(w, r, "/modules/advanced-web?error=invalid_target", http.StatusSeeOther)
 		return
 	}
-	// For pre-validation defaults below we use the first target's kind;
-	// the per-scan goroutine re-validates per target.
-	classified := shared.ClassifiedInput{Kind: targets[0].kind}
 
 	// Re-check stage permissions server-side so a hidden stage cannot be
 	// re-enabled by a forged POST (defense-in-depth beyond the hidden UI).
@@ -265,31 +264,40 @@ func (h *Handler) AdvancedWebRun(w http.ResponseWriter, r *http.Request) {
 	// show "X/10" and then jump down to "X/7" once the scanner
 	// re-emitted the real total — looking like the count was being
 	// "multiplied" by some factor.
-	isURL := classified.Kind == shared.KindURL
-	enabledCount := 0
-	addUnit := func(on, urlSkips bool) {
-		if !on {
-			return
+	// Mirror the scanner's stage-skip rules so the denominator matches:
+	// WHOIS + DNS Enum run only when a bare DOMAIN is present (URL-only and
+	// IP-only inputs skip them); HTTPX Finder is skipped only when EVERY
+	// target is a URL (it still runs for IP/domain input).
+	hasDomain := false
+	allURL := true
+	for _, t := range targets {
+		if t.kind == shared.KindDomain {
+			hasDomain = true
 		}
-		if urlSkips && isURL {
-			return
+		if t.kind != shared.KindURL {
+			allURL = false
 		}
-		enabledCount++
 	}
-	addUnit(cfg.EnableWhois, true)
-	addUnit(cfg.EnableDNSEnum, true)
-	addUnit(cfg.EnableHTTPXFind, true)
-	addUnit(cfg.EnableSSLScan, false)
-	addUnit(cfg.EnableWAFDetect, false)
-	addUnit(cfg.EnableTechDetect, false)
+	enabledCount := 0
+	addUnit := func(on bool) {
+		if on {
+			enabledCount++
+		}
+	}
+	addUnit(cfg.EnableWhois && hasDomain)
+	addUnit(cfg.EnableDNSEnum && hasDomain)
+	addUnit(cfg.EnableHTTPXFind && !allURL)
+	addUnit(cfg.EnableSSLScan)
+	addUnit(cfg.EnableWAFDetect)
+	addUnit(cfg.EnableTechDetect)
 	// CVE Matcher / WPScan only count when techdetect is also on
 	// (else they're no-op skips driven by missing inputs).
-	addUnit(cfg.EnableCVEMatch && cfg.EnableTechDetect, false)
-	addUnit(cfg.EnableWPScan && cfg.EnableTechDetect, false)
-	addUnit(cfg.EnableNuclei, false)
-	addUnit(cfg.EnableDirSpider, false)
-	addUnit(cfg.EnableHTTPMethods, false)
-	addUnit(cfg.EnableSecHeaders, false)
+	addUnit(cfg.EnableCVEMatch && cfg.EnableTechDetect)
+	addUnit(cfg.EnableWPScan && cfg.EnableTechDetect)
+	addUnit(cfg.EnableNuclei)
+	addUnit(cfg.EnableDirSpider)
+	addUnit(cfg.EnableHTTPMethods)
+	addUnit(cfg.EnableSecHeaders)
 	if enabledCount == 0 {
 		enabledCount = 1
 	}
@@ -423,6 +431,15 @@ func (h *Handler) runAdvancedWeb(scanID string, cfg advancedweb.Config, opts *sh
 		h.db.FinalizeScan(scanID, string(resultJSON), "error: "+result.Error, models.ScanError)
 		return
 	}
+	// Promote the HTTP/HTTPS services the suite's HTTPX stage discovered to
+	// selectable workspace targets (the same shared path as the standalone HTTP
+	// Service Finder), so a suite run also populates the target picker of every
+	// other module. Runs for both a complete and a time-capped (incomplete)
+	// suite — the services found are real either way — but not on a hard error or
+	// cancel. Guarded by ctx.
+	if opts.Ctx.Err() == nil {
+		h.promoteAdvWebServices(scanID, result)
+	}
 	// Incomplete suite (a stage was cut short by its time cap — e.g. nuclei
 	// or DirSpider). The scan produced usable partial results but did NOT
 	// fully cover the target, so it must NOT show as a clean green "done"
@@ -438,6 +455,38 @@ func (h *Handler) runAdvancedWeb(scanID string, cfg advancedweb.Config, opts *sh
 	// (its WHERE clause skips rows whose status went to cancelled in
 	// the meantime), so we don't need to read-then-write.
 	h.db.FinalizeScan(scanID, string(resultJSON), "completed", models.ScanDone)
+}
+
+// promoteAdvWebServices extracts the HTTP/HTTPS services the suite's HTTPX stage
+// found and promotes them to selectable workspace targets via the shared path
+// (promoteWebServiceTargets). Only the service URLs are unmarshalled — a minimal
+// view, not the body-carrying full stage result — to keep memory flat on large
+// suite blobs.
+func (h *Handler) promoteAdvWebServices(scanID string, result *advancedweb.ScanResult) {
+	if result == nil || result.Stages == nil {
+		return
+	}
+	sr, ok := result.Stages[advancedweb.StageHTTPXFind]
+	if !ok || sr == nil || len(sr.Result) == 0 {
+		return
+	}
+	var v struct {
+		Services []struct {
+			URL string `json:"url"`
+		} `json:"services"`
+	}
+	if json.Unmarshal(sr.Result, &v) != nil || len(v.Services) == 0 {
+		return
+	}
+	scan, err := h.db.GetScan(scanID)
+	if err != nil || scan == nil {
+		return
+	}
+	urls := make([]string, 0, len(v.Services))
+	for _, s := range v.Services {
+		urls = append(urls, s.URL)
+	}
+	h.promoteWebServiceTargets(scan.WorkspaceID, urls, "discovered via Advanced Web Suite")
 }
 
 // jsonEscape is a tiny helper for stuffing an error message into a

@@ -58,10 +58,23 @@ func ClassifyInput(s string) (ClassifiedInput, error) {
 		return out, nil
 	}
 
-	// Bare IP — must not contain slashes or hyphen-ranges (those are
-	// CIDR / range syntax, not a single target the suite would scan).
-	if strings.ContainsAny(out.Raw, "/ \t") {
-		return out, errors.New("target contains whitespace, slash, or range syntax — not supported")
+	// Bare IP or domain. Reject CIDR/range/path syntax (slash) and anything
+	// that would be unsafe if the bare host reached a subprocess argv: a
+	// leading dash (flag injection) or a shell metacharacter / control byte.
+	// A valid IP or hostname never contains these, so this only rejects
+	// malformed or hostile input — and it makes KindDomain safe for the stages
+	// that pass a bare host to a tool without a separate SafeTarget check.
+	if strings.HasPrefix(out.Raw, "-") {
+		return out, errors.New("target starts with '-' (flag-injection guard)")
+	}
+	for _, r := range out.Raw {
+		if r < 0x20 || r == 0x7f {
+			return out, errors.New("target contains a control character")
+		}
+		switch r {
+		case ' ', '\t', '/', ';', '|', '&', '$', '`', '<', '>', '"', '\'', '\\':
+			return out, errors.New("target contains whitespace, slash, or an unsafe shell metacharacter")
+		}
 	}
 	if ip := net.ParseIP(out.Raw); ip != nil {
 		out.Kind = KindIP
@@ -90,7 +103,13 @@ func (c ClassifiedInput) EnsureURL() string {
 	if c.Kind == KindURL {
 		return c.Raw
 	}
-	return "https://" + c.Host
+	host := c.Host
+	// Bracket IPv6 literals so the result is a valid URL (https://[::1]/),
+	// not the invalid https://::1 that url.Parse mis-splits on the ':'.
+	if c.Kind == KindIP && strings.Contains(host, ":") {
+		host = "[" + host + "]"
+	}
+	return "https://" + host
 }
 
 // SafeTarget validates a user-supplied target value before it reaches a

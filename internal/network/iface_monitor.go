@@ -2,10 +2,13 @@ package network
 
 import (
 	"context"
+	"errors"
 	"log"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"scanner/internal/models"
 )
 
 // CancelAllFn is the contract the scan manager satisfies: cancel every
@@ -25,6 +28,13 @@ type MarkScanErrorFn func(scanID, message string)
 // modules/shared — shared imports network, which would be an import cycle.
 // Passing "" clears the binding.
 type RebindFn func(ipv4 string)
+
+// RecordEventFn persists a network event (a killswitch trip or an auto-re-arm)
+// to the Network History log. Defined as a plain-value callback — like
+// CancelAllFn/MarkScanErrorFn — because the network package must not import the
+// handlers/db layer. The handler's implementation snapshots the active
+// interface/scope and writes the row. Nil = not wired (e.g. default mode).
+type RecordEventFn func(eventType, severity, iface, detail string, scansAffected int)
 
 // Monitor watches the pinned outbound interface and triggers scaNNer's
 // app-layer killswitch when it drops:
@@ -50,9 +60,10 @@ type Monitor struct {
 	cancel     context.CancelFunc
 	iface      string
 	expectIPv4 string
-	cancelAll  CancelAllFn
-	markErr    MarkScanErrorFn
-	rebind     RebindFn
+	cancelAll   CancelAllFn
+	markErr     MarkScanErrorFn
+	rebind      RebindFn
+	recordEvent RecordEventFn
 }
 
 // monitor is the process-singleton instance.
@@ -63,7 +74,7 @@ var monitorRunning atomic.Bool
 // cmd/scanner/main.go at startup AND from handlers.SettingsSave so a
 // settings change picks up the new iface. Passing iface="" stops any
 // running monitor — that's the default mode.
-func StartMonitor(iface, expectIPv4 string, cancelAll CancelAllFn, markErr MarkScanErrorFn, rebind RebindFn) {
+func StartMonitor(iface, expectIPv4 string, cancelAll CancelAllFn, markErr MarkScanErrorFn, rebind RebindFn, recordEvent RecordEventFn) {
 	monitor.mu.Lock()
 	defer monitor.mu.Unlock()
 	// Stop the previous loop, if any.
@@ -82,6 +93,7 @@ func StartMonitor(iface, expectIPv4 string, cancelAll CancelAllFn, markErr MarkS
 	monitor.cancelAll = cancelAll
 	monitor.markErr = markErr
 	monitor.rebind = rebind
+	monitor.recordEvent = recordEvent
 	monitorRunning.Store(true)
 	go monitor.loop(ctx)
 }
@@ -113,6 +125,7 @@ func (m *Monitor) loop(ctx context.Context) {
 			cancelAll := m.cancelAll
 			markErr := m.markErr
 			rebind := m.rebind
+			recordEvent := m.recordEvent
 			m.mu.Unlock()
 
 			if recovering {
@@ -138,6 +151,10 @@ func (m *Monitor) loop(ctx context.Context) {
 				}
 				recovering = false
 				log.Printf("killswitch: interface %s recovered (%s) — auto-re-armed", iface, newIP)
+				if recordEvent != nil {
+					recordEvent(models.NetEvtKillswitchRecovered, models.NetSevInfo, iface,
+						"interface "+iface+" recovered ("+newIP+") — auto-re-armed", 0)
+				}
 				continue
 			}
 
@@ -146,24 +163,34 @@ func (m *Monitor) loop(ctx context.Context) {
 			//   2. Namespace state (veth, iptables rules, ns exists) is
 			//      intact. The namespace HealthCheck only runs if the
 			//      killswitch is active (default-mode monitors skip it).
-			var trigger string
+			var trigger, evtType string
 			if err := CheckInterfaceUp(iface, ip); err != nil {
 				trigger = "interface check failed: " + err.Error()
+				if errors.Is(err, ErrInterfaceIPChanged) {
+					evtType = models.NetEvtInterfaceIPChanged
+				} else {
+					evtType = models.NetEvtInterfaceDown
+				}
 			} else if IsActive() {
 				if err := HealthCheck(iface, ip); err != nil {
 					trigger = "namespace health failed: " + err.Error()
+					evtType = models.NetEvtKillswitchIntegrity
 				}
 			}
 			if trigger != "" {
 				log.Printf("killswitch: %s — aborting all running scans, waiting to auto-re-arm", trigger)
+				var killed []string
 				if cancelAll != nil {
 					reason := "Interface " + iface + " went down — scan aborted by killswitch"
-					killed := cancelAll(reason)
+					killed = cancelAll(reason)
 					if markErr != nil {
 						for _, id := range killed {
 							markErr(id, "killswitch: "+trigger)
 						}
 					}
+				}
+				if recordEvent != nil {
+					recordEvent(evtType, models.NetSevCritical, iface, trigger, len(killed))
 				}
 				// Enter recovery mode instead of stopping. monitorRunning stays
 				// true — the killswitch is still engaged (its DROP rules keep

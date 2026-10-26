@@ -333,7 +333,8 @@ func (h *Handler) authorizePath(r *http.Request, user *models.User) bool {
 	// operator-tier workload — not for regular users).
 	if strings.HasPrefix(p, "/settings") || strings.HasPrefix(p, "/users") ||
 		strings.HasPrefix(p, "/logs") || strings.HasPrefix(p, "/monitor/calibrate") ||
-		strings.HasPrefix(p, "/update") || strings.HasPrefix(p, "/leak-report") {
+		strings.HasPrefix(p, "/update") || strings.HasPrefix(p, "/leak-report") ||
+		strings.HasPrefix(p, "/network-history") {
 		return false
 	}
 	// Scan-scoped operations (results/status/export reads + scan-control

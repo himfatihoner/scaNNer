@@ -100,7 +100,7 @@ func formErrorMsg(code string) string {
 	case "invalid_url", "bad_url":
 		return "One or more URLs were malformed. Use the http(s):// prefix."
 	case "invalid_target", "bad_target", "unsafe_target":
-		return "One or more targets were rejected (contains shell or flag characters)."
+		return "One or more targets were rejected — each must be a valid URL, IP, or domain with no shell or flag characters."
 	case "invalid_method":
 		return "HTTP method value is not one of GET/POST/BOTH."
 	case "method_not_allowed":
@@ -980,6 +980,50 @@ func splitByScheme(g *TargetGroup) {
 	}
 }
 
+// promoteWebServiceTargets upserts each discovered HTTP/HTTPS service URL as a
+// selectable workspace target (models.TargetURL) under the shared "HTTP services
+// (discovered)" list, so the service appears in the target picker of EVERY
+// module form — splitByScheme files scheme-prefixed values into the HTTPS/HTTP
+// buckets with no template change. It is module-agnostic: the HTTP Service
+// Finder, the Advanced Host Scanner (port scan) and the Advanced Web Suite all
+// funnel their discoveries through here. URLs are canonicalised so the same
+// service found by different scans dedupes to one picker entry, and
+// CreateTargetMulti is upsert-safe so re-runs never duplicate rows.
+func (h *Handler) promoteWebServiceTargets(wsID string, urls []string, note string) {
+	if wsID == "" || len(urls) == 0 {
+		return
+	}
+	var listIDs []string
+	if lid := h.ensureTargetList(wsID, "HTTP services (discovered)"); lid != "" {
+		listIDs = []string{lid}
+	}
+	seen := map[string]bool{}
+	for _, u := range urls {
+		val := canonicalWebServiceURL(u)
+		if val == "" || seen[val] {
+			continue
+		}
+		seen[val] = true
+		h.db.CreateTargetMulti(wsID, val, models.TargetURL, note, listIDs)
+	}
+}
+
+// canonicalWebServiceURL normalises a scheme://host[:port] string so the same
+// service dedupes regardless of which scan discovered it: it trims a trailing
+// slash and drops the default port (:443 for https, :80 for http), matching the
+// HTTP Service Finder's own formatting (httpxfind's scanner omits default ports).
+func canonicalWebServiceURL(u string) string {
+	u = strings.TrimSpace(u)
+	u = strings.TrimSuffix(u, "/")
+	switch {
+	case strings.HasPrefix(u, "https://") && strings.HasSuffix(u, ":443"):
+		u = strings.TrimSuffix(u, ":443")
+	case strings.HasPrefix(u, "http://") && strings.HasSuffix(u, ":80"):
+		u = strings.TrimSuffix(u, ":80")
+	}
+	return u
+}
+
 // groupTargetsByList returns every target in the workspace grouped by its
 // category (TargetList). Empty groups are filtered out so the form only
 // renders buckets with members.
@@ -1437,6 +1481,7 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 	// Errors are logged but don't roll back the settings save — the
 	// user explicitly asked for this iface and may need to fix
 	// privileges or restore the interface manually.
+	wasMonitoring := scannet.IsMonitoring()
 	_ = scannet.Teardown()
 	if s.NetworkInterface != "" {
 		// Record the scope BEFORE Setup so the OUTPUT rules match the choice;
@@ -1444,8 +1489,16 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 		scannet.SetKillswitchScope(s.KillswitchScope)
 		if err := scannet.RequiresPrivilege(); err != nil {
 			log.Printf("⚠ Killswitch unavailable: %v", err)
+			h.recordNetEvent(models.NetworkEvent{
+				EventType: models.NetEvtKillswitchArmFailed, Severity: models.NetSevCritical,
+				Interface: s.NetworkInterface, Detail: "killswitch unavailable: " + err.Error(),
+			})
 		} else if err := scannet.Setup(s.NetworkInterface); err != nil {
 			log.Printf("⚠ Killswitch setup failed: %v", err)
+			h.recordNetEvent(models.NetworkEvent{
+				EventType: models.NetEvtKillswitchArmFailed, Severity: models.NetSevCritical,
+				Interface: s.NetworkInterface, Detail: "killswitch setup failed: " + err.Error(),
+			})
 		} else {
 			scannet.StartMonitor(
 				s.NetworkInterface,
@@ -1457,7 +1510,15 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 						shared.SetGlobalLocalAddr(&net.TCPAddr{IP: ip})
 					}
 				},
+				h.RecordKillswitchEvent,
 			)
+			if !wasMonitoring { // off → on transition only (re-saving stays quiet)
+				h.recordNetEvent(models.NetworkEvent{
+					EventType: models.NetEvtKillswitchArmed, Severity: models.NetSevInfo,
+					Interface: s.NetworkInterface,
+					Detail:    "killswitch armed on " + s.NetworkInterface,
+				})
+			}
 		}
 		// Bind every Go-side dialer — including the always-on connectivity
 		// probe — to the freshly resolved interface IP so the change takes
@@ -1473,8 +1534,14 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 		// interface's possibly-stale IP: every dial fails and the header shows a
 		// false "Offline" until the next restart, even though Settings reads
 		// "Default". This was the actual cause of a "Default but Offline" report.
-		scannet.StartMonitor("", "", h.scanMgr.CancelAll, h.db.MarkScanError, nil)
+		scannet.StartMonitor("", "", h.scanMgr.CancelAll, h.db.MarkScanError, nil, nil)
 		shared.SetGlobalLocalAddr(nil)
+		if wasMonitoring { // on → off transition only
+			h.recordNetEvent(models.NetworkEvent{
+				EventType: models.NetEvtKillswitchDisarmed, Severity: models.NetSevInfo,
+				Detail: "killswitch disarmed — returned to default routing",
+			})
+		}
 	}
 
 	http.Redirect(w, r, "/settings?success=saved", http.StatusSeeOther)

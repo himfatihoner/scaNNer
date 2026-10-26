@@ -71,9 +71,9 @@ type CVELookup func(productKey string) []cvematch.CacheCVE
 
 func Scan(cfg Config, opts *shared.HTTPOptions, concurrency int, cveLookup CVELookup, progress ProgressFunc, partial PartialFunc) (out *ScanResult, retErr error) {
 	// Build the input list — Targets is the new multi-target field, but
-	// fall back to the legacy single Target if Targets is empty. Filter
-	// out IPs (the suite is web-focused and IPs are handled by the
-	// network-scan suite).
+	// fall back to the legacy single Target if Targets is empty. URLs,
+	// domains and bare IPs are all accepted; only genuinely malformed /
+	// unsafe tokens are dropped (WHOIS + DNS Enum self-skip for IP targets).
 	rawTargets := cfg.Targets
 	if len(rawTargets) == 0 && strings.TrimSpace(cfg.Target) != "" {
 		rawTargets = []string{cfg.Target}
@@ -84,13 +84,13 @@ func Scan(cfg Config, opts *shared.HTTPOptions, concurrency int, cveLookup CVELo
 	var allClassified []shared.ClassifiedInput
 	for _, t := range rawTargets {
 		c, err := shared.ClassifyInput(strings.TrimSpace(t))
-		if err != nil || c.Kind == shared.KindIP {
+		if err != nil {
 			continue
 		}
 		allClassified = append(allClassified, c)
 	}
 	if len(allClassified) == 0 {
-		return nil, fmt.Errorf("Advanced Web Suite needs a domain or URL — none of the supplied targets qualified (plain IPs are not supported)")
+		return nil, fmt.Errorf("Advanced Web Suite needs at least one valid target (URL, domain, or IP) — none of the supplied targets qualified")
 	}
 	// `classified` (legacy var name kept) is the representative target —
 	// used for ScanResult.Target/Kind display + URL-vs-domain skip logic.
@@ -103,7 +103,34 @@ func Scan(cfg Config, opts *shared.HTTPOptions, concurrency int, cveLookup CVELo
 			break
 		}
 	}
-	_ = allURL // currently used implicitly via classified.Kind below; refactor in progress
+
+	// Partition targets up-front: WHOIS + DNS Enum operate only on bare
+	// DOMAINS. Bare IPs are valid web targets (HTTPX probes them below, and
+	// every URL-level stage reaches them via EnsureURL) but have no registry /
+	// subdomain surface, so they're kept OUT of allDomains and fed to HTTPX
+	// separately. URL-kind hosts are handled by the stages' seedURLs() directly.
+	allDomains := []string{}
+	allIPs := []string{}
+	domainSeen := map[string]bool{}
+	ipSeen := map[string]bool{}
+	for _, c := range allClassified {
+		h := strings.TrimSpace(c.Host)
+		if h == "" {
+			continue
+		}
+		switch c.Kind {
+		case shared.KindIP:
+			if !ipSeen[h] {
+				allIPs = append(allIPs, h)
+				ipSeen[h] = true
+			}
+		case shared.KindDomain:
+			if !domainSeen[h] {
+				allDomains = append(allDomains, h)
+				domainSeen[h] = true
+			}
+		}
+	}
 
 	ctx := context.Background()
 	if opts != nil && opts.Ctx != nil {
@@ -177,6 +204,19 @@ func Scan(cfg Config, opts *shared.HTTPOptions, concurrency int, cveLookup CVELo
 			result.Stages[s].Message = "all inputs are URLs — stage runs against domains, skipped"
 		}
 		result.Notes = append(result.Notes, fmt.Sprintf("All targets are URLs — using their schemes passively. Stages 1–3 (WHOIS/DNS/HTTPX) skipped."))
+	}
+	// WHOIS + DNS Enum need at least one bare domain. With only IPs (and/or
+	// URLs) there's nothing to resolve, so skip them cleanly and keep them out
+	// of the progress denominator (leaving them "enabled" but idle would strand
+	// the bar below 100%). HTTPX still runs — it probes the IPs directly.
+	if len(allDomains) == 0 {
+		for _, s := range []Stage{StageWhois, StageDNSEnum} {
+			if !skippedByKind[s] {
+				skippedByKind[s] = true
+				result.Stages[s].Status = StatusSkipped
+				result.Stages[s].Message = "no domain targets — WHOIS/DNS enumeration needs a domain"
+			}
+		}
 	}
 
 	// Stage-level resume (Task 0): seed the stages that already completed before
@@ -373,19 +413,8 @@ func Scan(cfg Config, opts *shared.HTTPOptions, concurrency int, cveLookup CVELo
 		pushPartial()
 	}
 
-	// Build the unique non-URL host list — both WHOIS and DNS Enum operate
-	// on bare domains. URL-kind targets skip these stages individually.
-	allDomains := []string{}
-	domainSeen := map[string]bool{}
-	for _, c := range allClassified {
-		if c.Kind == shared.KindURL {
-			continue
-		}
-		if h := strings.TrimSpace(c.Host); h != "" && !domainSeen[h] {
-			allDomains = append(allDomains, h)
-			domainSeen[h] = true
-		}
-	}
+	// allDomains / allIPs were partitioned up-front (WHOIS + DNS Enum run on
+	// domains only; IPs are fed to HTTPX below).
 	// Legacy single-domain alias — still used by fallback paths in
 	// seedURLs()/seedHosts() when no other source produced a list.
 	domain := classified.Host
@@ -468,6 +497,14 @@ func Scan(cfg Config, opts *shared.HTTPOptions, concurrency int, cveLookup CVELo
 			if !seen[d] {
 				hosts = append(hosts, d)
 				seen[d] = true
+			}
+		}
+		// Bare-IP targets: HTTPX is where they enter the live-service map that
+		// feeds every later web stage (seedURLs prefers HTTPX's output).
+		for _, ip := range allIPs {
+			if !seen[ip] {
+				hosts = append(hosts, ip)
+				seen[ip] = true
 			}
 		}
 		if dnsResult != nil {

@@ -18,12 +18,23 @@ type TechProfile struct {
 	Wordlists    [3][]string
 	LiteralLists [3][]string
 	ExtraWords   []string
+
+	// BundleKey names the generated, bundled tier list this profile prefers
+	// (data/direnum-wordlists/<BundleKey>-t{1,2,3}.txt.gz, built by
+	// scripts/build-direnum-wordlists.sh). When a bundled tier file for the
+	// chosen level EXISTS, the scanner loads it verbatim (its extensions +
+	// permutations are already baked in) and skips this profile's system
+	// Wordlists/LiteralLists. When it's absent — a fresh clone that hasn't run
+	// the generator — the scanner falls back to the system SecLists paths
+	// below, exactly as before. Empty BundleKey = always use system lists
+	// (CMS/server profiles whose curated SecLists lists have no bundled tier).
+	BundleKey string
 }
 
 // AllTechProfiles is the full list the user can select
 var AllTechProfiles = []TechProfile{
 	{
-		ID: "php", Name: "PHP",
+		ID: "php", Name: "PHP", BundleKey: "php",
 		Extensions: []string{".php", ".php5", ".php7", ".phtml", ".phar", ".inc", ".phps"},
 		Wordlists: [3][]string{
 			{WLCommon},
@@ -38,8 +49,8 @@ var AllTechProfiles = []TechProfile{
 		},
 	},
 	{
-		ID: "asp", Name: "ASP.NET / IIS",
-		Extensions: []string{".asp", ".aspx", ".ashx", ".asmx", ".axd", ".cshtml", ".config", ".svc"},
+		ID: "asp", Name: "ASP.NET / IIS", BundleKey: "dotnet",
+		Extensions: []string{".asp", ".aspx", ".ashx", ".asmx", ".axd", ".cshtml", ".config", ".svc", ".dll", ".pdb"},
 		Wordlists: [3][]string{
 			{WLCommon},
 			{WLCommon, WLRaftMediumWords},
@@ -59,7 +70,7 @@ var AllTechProfiles = []TechProfile{
 		},
 	},
 	{
-		ID: "java", Name: "Java / Tomcat / Spring",
+		ID: "java", Name: "Java / Tomcat / Spring", BundleKey: "java",
 		Extensions: []string{".jsp", ".jspa", ".jspx", ".do", ".action", ".faces", ".xml", ".properties"},
 		Wordlists: [3][]string{
 			{WLCommon},
@@ -80,7 +91,7 @@ var AllTechProfiles = []TechProfile{
 		},
 	},
 	{
-		ID: "python", Name: "Python / Django / Flask",
+		ID: "python", Name: "Python / Django / Flask", BundleKey: "python",
 		Extensions: []string{".py", ".pyc"},
 		Wordlists: [3][]string{
 			{WLCommon},
@@ -100,7 +111,7 @@ var AllTechProfiles = []TechProfile{
 		},
 	},
 	{
-		ID: "node", Name: "Node.js / Express",
+		ID: "node", Name: "Node.js / Express", BundleKey: "nodejs",
 		Extensions: []string{".js", ".json", ".map"},
 		Wordlists: [3][]string{
 			{WLCommon},
@@ -182,7 +193,7 @@ var AllTechProfiles = []TechProfile{
 		},
 	},
 	{
-		ID: "coldfusion", Name: "Adobe ColdFusion",
+		ID: "coldfusion", Name: "Adobe ColdFusion", BundleKey: "coldfusion",
 		Extensions: []string{".cfm", ".cfc", ".cfml"},
 		Wordlists: [3][]string{
 			{WLCommon},
@@ -197,6 +208,67 @@ var AllTechProfiles = []TechProfile{
 		ExtraWords: []string{
 			"CFIDE", "CFIDE/administrator", "CFIDE/adminapi",
 			"CFIDE/scripts", "cfusion", "Application.cfm",
+		},
+	},
+	{
+		ID: "ruby", Name: "Ruby / Rails / Rack", BundleKey: "ruby",
+		Extensions: []string{".rb", ".erb", ".ru", ".rhtml", ".rjs", ".cgi"},
+		Wordlists: [3][]string{
+			{WLCommon},
+			{WLCommon, WLRaftMediumWords},
+			{WLCommon, WLRaftLargeWords, WLDirMedium},
+		},
+		LiteralLists: [3][]string{
+			{WLRubyOnRails},
+			{WLRubyOnRails},
+			{WLRubyOnRails, WLDBBackups},
+		},
+		ExtraWords: []string{
+			"config.ru", "Gemfile", "Gemfile.lock", "Rakefile", "config/database.yml",
+			"config/secrets.yml", "config/master.key", "config/credentials.yml.enc",
+			"config/routes.rb", "db/schema.rb", "db/seeds.rb", ".env", "public",
+			"rails/info/routes", "rails/info/properties", "rails/mailers",
+			"sidekiq", "resque", "letter_opener", "assets", "storage",
+		},
+	},
+	{
+		ID: "perl", Name: "Perl / CGI", BundleKey: "perl",
+		Extensions: []string{".pl", ".pm", ".cgi", ".fcgi", ".plx"},
+		Wordlists: [3][]string{
+			{WLCommon},
+			{WLCommon, WLRaftMediumWords},
+			{WLCommon, WLRaftLargeWords, WLDirMedium},
+		},
+		LiteralLists: [3][]string{
+			{WLCGIs},
+			{WLCGIs, WLCGIXPlatform},
+			{WLCGIs, WLCGIXPlatform},
+		},
+		ExtraWords: []string{
+			"cgi-bin", "cgi-bin/test.cgi", "cgi-bin/index.cgi", "cgi-bin/admin.cgi",
+			"perl-status", "status", "test.pl", "index.pl", "admin.pl",
+			"cgi-sys", "cgi-bin/printenv.pl", "cgi-bin/test-cgi", "cgi-bin/php.cgi",
+			"awstats/awstats.pl", "cgi-bin/awstats.pl", "webmin", "mailman",
+		},
+	},
+	{
+		ID: "classicasp", Name: "Classic ASP (legacy IIS)", BundleKey: "classicasp",
+		Extensions: []string{".asp", ".asa", ".inc", ".cdx", ".cer", ".htr", ".stm", ".shtml"},
+		Wordlists: [3][]string{
+			{WLCommon},
+			{WLCommon, WLRaftMediumWords},
+			{WLCommon, WLRaftLargeWords, WLDirMedium},
+		},
+		LiteralLists: [3][]string{
+			{WLIIS},
+			{WLIIS, WLFrontpage},
+			{WLIIS, WLFrontpage},
+		},
+		ExtraWords: []string{
+			"global.asa", "global.asa.bak", "iisstart.asp", "default.asp", "index.asp",
+			"login.asp", "conn.asp", "conn.inc", "db.inc", "database.inc",
+			"_vti_bin", "_vti_cnf", "_vti_pvt", "_vti_bin/owssvr.dll", "fpdb",
+			"_private", "scripts", "iisadmpwd", "msadc", "adovbs.inc",
 		},
 	},
 	{
@@ -218,7 +290,7 @@ var AllTechProfiles = []TechProfile{
 		},
 	},
 	{
-		ID: "general", Name: "General / Unknown",
+		ID: "general", Name: "General / Unknown", BundleKey: "general",
 		Extensions: []string{".html", ".htm", ".txt", ".xml", ".json", ".bak", ".old", ".log", ".sql", ".zip", ".tar.gz"},
 		Wordlists: [3][]string{
 			{WLCommon},
@@ -295,4 +367,9 @@ const (
 	WLDotNetNuke    = "/usr/share/seclists/Discovery/Web-Content/CMS/dotnetnuke.txt"
 	WLSharepoint    = "/usr/share/seclists/Discovery/Web-Content/CMS/Sharepoint.txt"
 	WLCMSConfig     = "/usr/share/seclists/Discovery/Web-Content/CMS/cms-configuration-files.txt"
+	WLRubyOnRails   = "/usr/share/seclists/Discovery/Web-Content/Programming-Language-Specific/ror.txt"
+	WLCGIs          = "/usr/share/seclists/Discovery/Web-Content/LEGACY-SERVICES/CGIs/CGIs.txt"
+	WLCGIXPlatform  = "/usr/share/seclists/Discovery/Web-Content/LEGACY-SERVICES/CGIs/CGI-XPlatform.fuzz.txt"
+	WLIIS           = "/usr/share/seclists/Discovery/Web-Content/Web-Servers/IIS.txt"
+	WLFrontpage     = "/usr/share/seclists/Discovery/Web-Content/Microsoft-Frontpage.txt"
 )

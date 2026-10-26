@@ -450,24 +450,34 @@ func (h *Handler) runPortService(scanID string, cfg portServiceConfig, opts *sha
 		}
 		h.markHardFailure(scanID, errs, len(result.Results))
 	}
+
+	// Promote every discovered HTTP/HTTPS service to a selectable workspace
+	// target (under the shared "HTTP services (discovered)" list) so a host/port
+	// scan that surfaces web servers populates the target picker of every module
+	// form — mirroring the HTTP Service Finder. Guarded by ctx so a cancelled or
+	// killswitched scan imports nothing partial.
+	if ctx.Err() == nil {
+		urlSet := collectWebServiceURLs(result)
+		urls := make([]string, 0, len(urlSet))
+		for u := range urlSet {
+			urls = append(urls, u)
+		}
+		if s, _ := h.db.GetScan(scanID); s != nil {
+			h.promoteWebServiceTargets(s.WorkspaceID, urls, "discovered via Advanced Host Scanner")
+		}
+	}
 }
 
-// runNucleiPhase walks every host in the result, builds an http(s)://host:port
-// URL for each open web service, runs nuclei against the union, then attaches
-// each finding to its host's TargetResult. Skips hosts with no web services.
-// Takes a *database.DB so it can also reset progress_total to len(URLs) — the
-// nmap phases hit total before nuclei starts, which made the live progress
-// bar look "Done" prematurely.
-func runNucleiPhase(ctx context.Context, scanID string, result *portservice.ScanResult, db *database.DB, opts *shared.HTTPOptions) {
-	if result == nil || len(result.Results) == 0 {
-		return
+// collectWebServiceURLs returns scheme://host:port for every open http/https/ssl
+// web service in the result, deduped as url → host. It is the single source of
+// the web-service set shared by the in-scan Nuclei phase AND the post-scan target
+// promotion, so both act on an identical view. host prefers the resolved IP,
+// falling back to the original target.
+func collectWebServiceURLs(result *portservice.ScanResult) map[string]string {
+	urlSet := map[string]string{}
+	if result == nil {
+		return urlSet
 	}
-	type hostURL struct {
-		host string
-		url  string
-	}
-	urlSet := map[string]string{} // url → host (deduped — same scheme://host:port can't appear twice)
-	hostsWithUrls := map[string]struct{}{}
 	for _, tr := range result.Results {
 		host := tr.IP
 		if host == "" {
@@ -491,10 +501,30 @@ func runNucleiPhase(ctx context.Context, scanID string, result *portservice.Scan
 			if scheme == "" {
 				continue
 			}
-			u := fmt.Sprintf("%s://%s:%d", scheme, host, p.Port)
-			urlSet[u] = host
-			hostsWithUrls[host] = struct{}{}
+			urlSet[fmt.Sprintf("%s://%s:%d", scheme, host, p.Port)] = host
 		}
+	}
+	return urlSet
+}
+
+// runNucleiPhase walks every host in the result, builds an http(s)://host:port
+// URL for each open web service, runs nuclei against the union, then attaches
+// each finding to its host's TargetResult. Skips hosts with no web services.
+// Takes a *database.DB so it can also reset progress_total to len(URLs) — the
+// nmap phases hit total before nuclei starts, which made the live progress
+// bar look "Done" prematurely.
+func runNucleiPhase(ctx context.Context, scanID string, result *portservice.ScanResult, db *database.DB, opts *shared.HTTPOptions) {
+	if result == nil || len(result.Results) == 0 {
+		return
+	}
+	type hostURL struct {
+		host string
+		url  string
+	}
+	urlSet := collectWebServiceURLs(result) // url → host (deduped)
+	hostsWithUrls := map[string]struct{}{}
+	for _, host := range urlSet {
+		hostsWithUrls[host] = struct{}{}
 	}
 	urls := make([]string, 0, len(urlSet))
 	urlToHost := make(map[string]string, len(urlSet))

@@ -1,0 +1,988 @@
+{
+  "classicasp": {
+    "notes": "REALITY: classic ASP is a legacy stack, so there is NO giant single-stack corpus. Real, de-duplicated classic/aspnet-mixed material tops out around ~250k-300k lines; everything above that is synthetic permutation. The generator should (a) download the real sources, (b) extension-filter the mixed Assetnote/random-robbie files to .asp/.asa/.inc lines for the classicasp bucket (share .aspx/.ashx/.asmx/.svc with an aspnet bucket), then (c) permute.\\n\\nT1 ~200k (ESSENTIALLY ALL REAL): concat Assetnote combined asp/aspx family (~95k) + random-robbie asp.txt (~21k) + aspx.txt (~90k) + ashx.txt (~27k) + SecLists IIS/FrontPage/SVNDigger + fuzzdb + these seeds, then dedup. Lands ~200k-280k real lines. Optionally add one light backup pass (×{.bak,.old}) only if short. ~95-100% real.\\n\\nT2 ~1M (~25% real / ~75% synthetic): take base = (real classicasp filenames with extension stripped) ∪ raft-large-words (~120k) ∪ first ~200k of Assetnote httparchive_directories_1m → ~350k unique bases. Cross with core classic-ASP extensions {asp, asa, inc, cdx, cer, htr, stm, shtml} (8) → ~2.8M raw; dedup + cap to 1M. Alternative quick-fill: append Assetnote directories_1m wholesale, but that is generic (lower hit-rate) — prefer base×ext.\\n\\nT3 ~3M (~10% real / ~90% synthetic): base (~350k) × ext (8) × backup-suffix {\\\"\\\", .bak, .old, .txt, \\\"~\\\", .save, .orig} plus the iconic source-disclosure variants (::$DATA, +.htr) applied to top ~2k bases; add random-robbie combined_directories.txt (~640k) and DirBuster-2.3-big (~1.27M) crossed with .asp. Cap/dedup to 3M. Flag: beyond ~300k nothing is real classic-ASP — T2/T3 are permutation-reached, and because live classic-ASP targets are small, huge tiers mainly serve exhaustive offline fuzzing, not realistic hit-rate.\\n\\nHIGH-CONFIDENCE classifier discriminators (won't mis-bucket): asp, asa, cdx, htr, idc, idq, ida, global.asa, _vti_bin, _vti_pvt, iisadmpwd, msadc(s.dll), adovbs.inc, ewebeditor, dispbbs.asp, dvbbs, bbsxp, zb_system, iisstart.asp. SHARED/weaker tokens (may also hit PHP/Apache/.NET, keep but score lower): inc, cer, stm, shtm, shtml, mdb, web.config, fckeditor, ashx/asmx/svc.\\n\\nLICENSING: SecLists = MIT (permissive). Assetnote wordlists = Apache-2.0 (ship NOTICE/attribution; the httparchive lists are derived from public crawl data). random-robbie/bruteforce-lists = LICENSE present (~Apache-2.0 size) — verify before shipping. fuzzdb = mixed/CC-BY-SA-style — attribution required; SVNDigger subset carries its own Licence. All are redistributable for a bundled offline generator provided attribution/NOTICE files are preserved.",
+    "sources": [
+      {
+        "approx": "~1.56 MB, ~95k lines (bare filenames, no leading slash)",
+        "name": "Assetnote httparchive combined asp/aspx family (PRIMARY real corpus)",
+        "notes": "Best real per-stack corpus: real .asp/.asa/.aspx/.ashx/.asmx/.svc/.cfm filenames observed across the HTTP Archive crawl. Monthly file; name pattern httparchive_aspx_asp_cfm_svc_ashx_asmx_YYYY_MM_DD.txt — generator should auto-pick the newest date (2026_08_27 was latest in the /data/automated/ index; dates skip some months). MIXED asp+aspnet: extension-filter to .asp/.asa for the classicasp bucket and share the rest with an aspnet bucket. License: Apache-2.0 (keep NOTICE).",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated/httparchive_aspx_asp_cfm_svc_ashx_asmx_2026_08_27.txt"
+      },
+      {
+        "approx": "~1,000,000 lines (directory names)",
+        "name": "Assetnote httparchive_directories_1m (generic dir base for permutation)",
+        "notes": "Not stack-specific. Use as the base set to permute base×{.asp,.asa,.inc,.cdx,.cer,.htr} for T2/T3. Same monthly date pattern. Apache-2.0.",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated/httparchive_directories_1m_2026_08_27.txt"
+      },
+      {
+        "approx": "~1.59 MB, ~90k-110k lines",
+        "name": "random-robbie/bruteforce-lists aspx.txt",
+        "notes": "Bare filenames from real scans. Mostly .aspx (aspnet) but co-located classic names; extension-filter. Repo LICENSE present (~11 KB, Apache-2.0 size) — verify before redistribution.",
+        "url": "https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/aspx.txt"
+      },
+      {
+        "approx": "~372 KB, ~21k lines",
+        "name": "random-robbie/bruteforce-lists asp.txt",
+        "notes": "Classic .asp filenames (international/CMS flavored: ajax/cart/captcha/box fragments). Bare filenames, no slash. Highest-value random-robbie file for THIS stack.",
+        "url": "https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/asp.txt"
+      },
+      {
+        "approx": "ashx ~455 KB/~27k; asmx ~44 KB; svc ~36 KB; webconfig ~1.7 KB; web-inf ~2.9 KB",
+        "name": "random-robbie/bruteforce-lists ashx.txt / asmx.txt / svc.txt / webconfig.txt / web-inf.txt",
+        "notes": "ASP.NET-leaning handlers but frequently co-deployed on legacy IIS; webconfig.txt + web-inf.txt are small, config-focused. Swap filename in URL for each.",
+        "url": "https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/ashx.txt"
+      },
+      {
+        "approx": "old.txt ~220 KB/~13k backup base names; combined_directories.txt ~16 MB/~640k dirs",
+        "name": "random-robbie/bruteforce-lists old.txt + combined_directories.txt (backup/base)",
+        "notes": "old.txt = real backup/stale base names to append classic-ASP backup suffixes to. combined_directories.txt = large generic dir base for permutation (not stack-specific).",
+        "url": "https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/old.txt"
+      },
+      {
+        "approx": "~100-150 lines (curated)",
+        "name": "SecLists Web-Servers/IIS.txt (legacy IIS/classic-ASP canon)",
+        "notes": "The canonical legacy-IIS + classic-ASP path set: iisadmpwd/*.htr, msadc, iissamples, scripts/*, SiteServer, _mem_bin, adovbs.inc, _vti_*. Also IIS-POST.txt alongside. License: MIT. (IIS-systemweb.txt is just .NET CLR version strings — NOT useful for classicasp.)",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/Web-Servers/IIS.txt"
+      },
+      {
+        "approx": "~60-80 lines",
+        "name": "SecLists Microsoft-Frontpage.txt (FrontPage Server Extensions)",
+        "notes": "FrontPage canon: _vti_* dirs, service.pwd/authors.pwd/administrators.pwd, shtml.dll/.exe, owssvr.dll, author.dll/admin.dll, _fpclass. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/Microsoft-Frontpage.txt"
+      },
+      {
+        "approx": "asp.txt ~8.9 KB/~420 lines; aspx.txt ~3.3 KB/~160; ascx.txt ~1.1 KB/~60",
+        "name": "SecLists SVNDigger Language asp.txt / aspx.txt / ascx.txt (real app files)",
+        "notes": "Real-world classic-ASP application filenames mined from source repos (conn/inc_config/FreeASPUpload/upload_5xsoft/eWebEditor/FCKeditor connectors/dvbbs dispbbs/JSON_2.0.2). Generic corpora miss most of these. Has its own Licence file (SVNDigger) — attribution.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/File-Extensions-Universal-SVNDigger-Project/cat/Language/asp.txt"
+      },
+      {
+        "approx": "raft-large-words ~120k; raft-large-files ~37k; raft-large-directories ~62k; DirBuster-2007_directory-list-2.3-big ~1.27M; web-extensions.txt small",
+        "name": "SecLists generic high-volume (permutation base + extension list)",
+        "notes": "Not stack-specific. raft-large-words/files + DirBuster big = base sets to cross with classic-ASP extensions for T2/T3. web-extensions.txt seeds the extension matrix. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/raft-large-words.txt"
+      },
+      {
+        "approx": "IIS.txt ~90 lines; Frontpage.txt ~40; HTTP_POST_Microsoft.txt small",
+        "name": "fuzzdb webservers-appservers IIS.txt / Frontpage.txt / HTTP_POST_Microsoft.txt",
+        "notes": "Overlaps SecLists IIS/FrontPage but confirms/adds the legacy canon (adovbs.inc, SiteServer viewcode.asp, _vti_bin/_vti_aut/dvwssr.dll, certsrv). Swap filename for Frontpage.txt. License: fuzzdb mixed (CC-BY-SA style) — attribution; check repo LICENSE.",
+        "url": "https://raw.githubusercontent.com/fuzzdb-project/fuzzdb/master/discovery/predictable-filepaths/webservers-appservers/IIS.txt"
+      },
+      {
+        "approx": "whole /data/ dir mirrorable via wget",
+        "name": "Assetnote full-mirror (bulk) + wordlists.assetnote.io index",
+        "notes": "Page is JS-rendered (table loads dynamically). Bulk: wget -r -np -nH --cut-dirs=1 -R index.html https://wordlists-cdn.assetnote.io/data/ . The /data/automated/ index is directly browsable and lists 12 families × ~48 monthly snapshots; relevant families: aspx_asp_cfm_svc_ashx_asmx, directories_1m, parameters_top_1m. Apache-2.0.",
+        "url": "https://wordlists.assetnote.io/"
+      }
+    ]
+  },
+  "coldfusion": {
+    "notes": "REAL vs SYNTHETIC for ColdFusion/CFML. Truly CF-classified real paths are scarce: curated framework lists (SecLists ColdFusion.fuzz 203 + fuzzdb ColdFusion 111 + JRun 13 + login/cfm 294 + SVNDigger 25) plus these ~290 seeds dedupe to roughly 900-1,100 unique framework/secret/scaffold paths - these are exactly what generic corpora MISS (grepping Assetnote's 71.6k cfm corpus for CFIDE/lucee/railo/adminapi returned ZERO; only cfusion.cfm appeared). Real .cfm page-name volume comes from Assetnote cfm-series (71.6k mixed, realistically ~10-20k truly cfm after classifying) + random-robbie cfm.txt (1,006), i.e. ~15-25k real .cfm paths. So pure-real CF ~= 20-30k lines; the dedicated-stack corpus is far below any tier on its own.\n\nHOW TO HIT THE TIERS:\nT1 ~200k (~45% real / ~55% permutation): union all real (the ~1k framework seeds + full Assetnote cfm-series 71.6k used wholesale + jsp-series 19.5k folded in + random-robbie 1k) ~= ~90k real bases; then extension-swap each base across {cfm, cfml, cfc, dbm} (x4) and keep directory forms -> ~200k+.\nT2 ~1M (~15-20% real / ~80% synthetic): take ~50k unique bases x {cfm,cfml,cfc,dbm} (=200k) x backup-suffix set {\"\", .bak, .old, ~, .orig, .save} (x6) ~= ~1M. Equivalent: append a CF-token-classified slice of Assetnote httparchive_directories_1m.\nT3 ~3M (>90% synthetic): expand backup suffixes (.bak .old .orig .save .swp .tmp .inc .1 .2 _bak .copy .txt .cfm.bak + archive forms .zip/.tar.gz of dirs), add case permutations (CFIDE<->cfide, .cfm<->.CFM), and cross-fold a big GENERIC directory substrate (SecLists directory-list-2.3-big ~1.2M and/or Assetnote directories_1m) salted with CF prefixes/tokens. At 3M the list is effectively a generic dir corpus seeded with CF markers, not a CF-unique corpus - flag it to the operator as low-precision.\n\nBACKUP-PRONE BASES to drive base x ext x backup permutation: the neo-*.xml config set, password.properties/seed.properties, lucee-server.xml / lucee-web.xml.cfm, railo-*.xml.cfm, bluedragon.xml, box.json/server.json/.cfconfig.json, Application.cfc/Application.cfm. These rarely appear in generic corpora and are the highest-value permutation seeds.\n\nCLASSIFIER CAUTION: keep jsp/jspx OUT of the primary CF extension set (they belong to a java/jsp bucket) - rely on CF-specific path tokens (cfide, adminapi, flex2gateway, jrunscripts, cfusion, lucee, railo-context, cf_scripts) so the CF bucket stays precise. Dropped cf-templates as a token (collides with AWS CloudFormation S3 buckets) and server.json as a token (too generic; kept only as a seed path).\n\nLICENSING: SecLists = MIT; nuclei-templates = MIT; fuzzdb = Creative Commons / copyfree (attribution expected - verify LICENSE); Assetnote wordlists = freely downloadable/redistributable (verify assetnote/wordlists repo license, historically permissive); random-robbie/bruteforce-lists = check repo LICENSE before shipping. All paths themselves are non-copyrightable facts; attribution of the source lists in the generator's credits is the safe practice. Assetnote files regenerate monthly (28th, or 27th in 2025-2026) - the generator should resolve the latest date from the /data/automated/ and /data/technologies/ Apache directory indexes rather than pinning 2026_08_27.",
+    "sources": [
+      {
+        "approx": "203 lines / ~7 KB",
+        "name": "SecLists - CMS/ColdFusion.fuzz.txt",
+        "notes": "Highest-signal curated CF list: CFIDE admin+adminapi+componentutils+wizards, cfdocs sample apps, flex2gateway/messagebroker/blazeds/lcds, railo-context, bluedragon, cfusion sample .mdb DBs. MIT license. Strip the %00/null-byte and ?query= injection variants for pure path discovery (they are in the file as attack payloads).",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/CMS/ColdFusion.fuzz.txt"
+      },
+      {
+        "approx": "111 lines",
+        "name": "fuzzdb - webservers-appservers/ColdFusion.txt",
+        "notes": "CF Administrator + adminapi + cfdocs expeval/examples + cfusion .mdb. Leading-slash form; strip the slash. Heavy overlap with SecLists but a clean canonical core. fuzzdb license: Creative Commons / copyfree (attribution; verify LICENSE).",
+        "url": "https://raw.githubusercontent.com/fuzzdb-project/fuzzdb/master/discovery/predictable-filepaths/webservers-appservers/ColdFusion.txt"
+      },
+      {
+        "approx": "13 lines",
+        "name": "fuzzdb - webservers-appservers/JRun.txt",
+        "notes": "JRun app-server (CF's default servlet container) sample paths: jrunscripts, WEB-INF/web.xml, WEB-INF/webapp.properties, compass/logon.jsp, jstl-war, SmarTicketApp. Pair with ColdFusion.txt.",
+        "url": "https://raw.githubusercontent.com/fuzzdb-project/fuzzdb/master/discovery/predictable-filepaths/webservers-appservers/JRun.txt"
+      },
+      {
+        "approx": "294 lines",
+        "name": "fuzzdb - login-file-locations/cfm.txt",
+        "notes": "Predictable .cfm login/auth page names (login.cfm, signon.cfm, admin/login.cfm, etc.). Complements framework paths with real-world auth endpoints.",
+        "url": "https://raw.githubusercontent.com/fuzzdb-project/fuzzdb/master/discovery/predictable-filepaths/login-file-locations/cfm.txt"
+      },
+      {
+        "approx": "40 lines",
+        "name": "fuzzdb - attack/file-upload/alt-extensions-coldfusion.txt",
+        "notes": "Extension-bypass variants of cfm/cfml/cfc/dbm (case, trailing %20/dots, %00). Not discovery paths - feed these as the EXTENSION-suffix set to the permutation engine (base x these) for upload/bypass fuzzing.",
+        "url": "https://raw.githubusercontent.com/fuzzdb-project/fuzzdb/master/attack/file-upload/alt-extensions-coldfusion.txt"
+      },
+      {
+        "approx": "71,623 lines / 1.5 MB",
+        "name": "Assetnote automated - aspx_asp_cfm_svc_ashx_asmx (latest)",
+        "notes": "Biggest REAL .cfm path corpus (HTTPArchive-derived). Mixed 6 extensions - run the per-language classifier to pull the cfm subset. Grep confirms it is application page-names only (no CFIDE/adminapi framework paths), so it supplies VOLUME, not framework paths. Pick latest date from the /data/automated/ Apache index. Freely redistributable (verify assetnote/wordlists repo license).",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated/httparchive_aspx_asp_cfm_svc_ashx_asmx_2026_08_27.txt"
+      },
+      {
+        "approx": "19,569 lines / 346 KB",
+        "name": "Assetnote automated - jsp_jspa_do_action (latest)",
+        "notes": "CF runs on Java (JRun/Tomcat), so .jsp/.do paths co-occur on CF hosts. Optional fold-in for CF-on-Java volume. NOTE: these overlap a separate java/jsp language bucket - keep secondary so the classifier does not over-claim generic Java as ColdFusion.",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated/httparchive_jsp_jspa_do_action_2026_08_27.txt"
+      },
+      {
+        "approx": "1,006 lines",
+        "name": "random-robbie/bruteforce-lists - cfm.txt",
+        "notes": "Real-world crawl of .cfm page names (index.cfm, login.cfm, ajax*.cfm, getX.cfm...). Page-name volume, not framework paths (only cfusion.cfm/fusebox.cfm are stack-telling). Check repo LICENSE before redistribution.",
+        "url": "https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/cfm.txt"
+      },
+      {
+        "approx": "25 lines",
+        "name": "SecLists - SVNDigger/cat/Language/cfm.txt",
+        "notes": "FCKeditor/connector .cfm filenames (cf_connector.cfm, cf5_upload.cfm, fckeditor.cfm, spellchecker.cfm, sampleNN.cfm). Small but high-signal for the FCKeditor upload-RCE surface. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/File-Extensions-Universal-SVNDigger-Project/cat/Language/cfm.txt"
+      },
+      {
+        "approx": "N/A (template repo)",
+        "name": "ProjectDiscovery nuclei-templates (coldfusion + lucee)",
+        "notes": "Not a wordlist - harvest exact high-signal paths from it. Confirmed: lucee-detect probes lucee/doc/functions.cfm; CVE-2023-29298 probes CFIDE/wizards/common/utils.cfc; CVE-2024-20767 chain uses CFIDE/adminapi/_servermanager/servermanager.cfc + /pms. Grep http/technologies/{adobe,}, http/cves/*/CVE-*coldfusion/lucee*, http/exposures for more. MIT.",
+        "url": "https://github.com/projectdiscovery/nuclei-templates/tree/main/http"
+      },
+      {
+        "approx": "~1,000,000 lines",
+        "name": "Assetnote automated - directories_1m (volume substrate)",
+        "notes": "GENERIC top-1M directory names, not CF-specific. Use only as a volume substrate for T2/T3: classify by CF tokens / prefix with CFIDE etc. Verify the exact latest filename in the /data/automated/ index.",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated/httparchive_directories_1m_2026_08_27.txt"
+      },
+      {
+        "approx": "~1.2M lines (big); medium ~220k",
+        "name": "SecLists - directory-list-2.3-big.txt (volume substrate)",
+        "notes": "GENERIC DirBuster corpus. Not CF. Only a T3 substrate to cross with CF extensions/backup suffixes. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/directory-list-2.3-big.txt"
+      },
+      {
+        "approx": "7,944 lines (hostnames)",
+        "name": "Assetnote technologies - httparchive_coldfusion (HOST list, NOT paths)",
+        "notes": "WARNING: this is a Technology<=>Host mapping (full https://host/ URLs of sites running ColdFusion), NOT a path wordlist. Confirmed 7944/7944 lines are hosts. Use for target/scope discovery only; do NOT feed to the directory brute-forcer.",
+        "url": "https://wordlists-cdn.assetnote.io/data/technologies/httparchive_coldfusion_2026_08_27.txt"
+      }
+    ]
+  },
+  "dotnet": {
+    "notes": "REAL .NET-specific downloadable corpus (deduped union) tops out around ~250-300k lines — there is no multi-million real .NET wordlist in existence, so T2/T3 are permutation-driven. Measured line counts (wc -l): Assetnote httparchive aspx latest (2026_08_27)=71,623 with 48 monthly snapshots whose union (high overlap) is ~300-450k unique; random-robbie aspx=70,851, dll=77,156, asp=20,239, ashx=19,252, asmx=2,040, svc=1,672, cs=4,678, old=9,897; SecLists .NET CMS (kentico/dnn/umbraco/sharepoint/sitefinity/sitecore) ~40-60k combined; fuzzdb IIS/ADFS/SharePoint/FrontPage ~3-4k.\n\nT1 (~200k): essentially ALL REAL. Union {all recent Assetnote monthly aspx snapshots} + {random-robbie aspx/asp/ashx/asmx/svc/cs/old/dll} + {SecLists .NET CMS} + {fuzzdb dotnet} dedupes to ~200-280k. Only light synthesis needed: add the config-backup variants of web.config / appsettings.json / global.asax (a few hundred lines). ~90% real / ~10% synthetic.\n\nT2 (~1M): real ceiling ~300k, so ~700k must be synthetic. Strip extensions from the real union to get ~120-150k unique base names, then cross-multiply by the .NET extension set {.aspx .asp .asmx .ashx .svc .axd .config .ascx .master .cshtml .asax} (11) → ~1.3-1.6M, dedupe/cap to 1M. Equivalent path: real(~300k) + backup-suffix permutation {.bak .old .orig .save .txt .tmp ~ .1 .copy .disabled .inc .back} applied to every config/source base. ~30% real / ~70% synthetic.\n\nT3 (~3M): ~90%+ synthetic. Cleanest: take a generic directory/word base (SecLists DirBuster-2007_directory-list-2.3-big = 1,273,832 lines, or Assetnote directories_1m ~1M, or raft-large-words 119,600) and append >=3-4 .NET extensions to each (1.27M x 4 = 5.1M) then dedupe/cap to 3M, keeping only lines the classifier buckets as dotnet. Alternatively T2-union(~1M) x {case-variants + 2-3 backup suffixes}. NOTE on case: IIS/ASP.NET paths are case-insensitive, so lowercasing collapses duplicates safely for actual scanning — but KEEPING case variants (Default.aspx vs default.aspx) is a cheap, legitimate permutation specifically useful to inflate toward a tier when you want raw count.\n\nLicensing: SecLists = MIT; nuclei-templates = MIT; random-robbie/bruteforce-lists = Apache-2.0 (repo LICENSE, 11,357-byte Apache text); Assetnote wordlists repo = Apache-2.0 with data derived from HTTP Archive/Commonspeak2 (freely redistributable); fuzzdb = dual-licensed CC BY-SA 3.0 / GPLv2 — attribution + share-alike obligations, so vet before bundling fuzzdb lines into a closed/commercial distribution (the safest default is to keep fuzzdb-sourced seeds attributable or regenerate equivalents). All sources are anonymously downloadable over HTTPS; none require auth. GitHub raw has unauthenticated rate limits — mirror locally and pin a commit for reproducible generator builds.\"",
+    "sources": [
+      {
+        "approx": "71,623 lines (latest snapshot 2026_08_27); 48 monthly snapshots 2020-11 → 2026-08",
+        "name": "Assetnote — httparchive aspx/asp/cfm/svc/ashx/asmx (automated)",
+        "notes": "PRIMARY real .NET content corpus — real aspx/asp/asmx/ashx/svc/cfm paths mined from the HTTP Archive crawl. Same directory holds 48 dated snapshots; union several (change the date suffix) for ~300-450k unique. Bulk: wget -r --no-parent -R 'index.html*' -e robots=off https://wordlists-cdn.assetnote.io/data/ -nH . Published ~monthly on the 28th via Commonspeak2; probe the dir index and fall back one month on 404 (2026_09_27 was absent at research time). Apache-2.0; data derived from HTTP Archive (redistributable).",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated/httparchive_aspx_asp_cfm_svc_ashx_asmx_2026_08_27.txt"
+      },
+      {
+        "approx": "70,851 lines",
+        "name": "random-robbie/bruteforce-lists — aspx.txt",
+        "notes": "Largest single pure-.aspx path list. Heavy but not total overlap with Assetnote — union both. Apache-2.0 (repo LICENSE).",
+        "url": "https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/aspx.txt"
+      },
+      {
+        "approx": "77,156 lines",
+        "name": "random-robbie/bruteforce-lists — dll.txt",
+        "notes": "Assembly/DLL filenames for /bin/ enumeration, source leakage and version fingerprinting. Mostly disjoint from the path lists, so adds net-new volume. Apache-2.0.",
+        "url": "https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/dll.txt"
+      },
+      {
+        "approx": "20,239 lines",
+        "name": "random-robbie/bruteforce-lists — asp.txt",
+        "notes": "Classic ASP + legacy .asp path corpus. Apache-2.0.",
+        "url": "https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/asp.txt"
+      },
+      {
+        "approx": "19,252 lines",
+        "name": "random-robbie/bruteforce-lists — ashx.txt (HTTP handlers)",
+        "notes": "Generic-handler (.ashx) endpoints — upload/download/file/image handlers that generic lists under-cover. Apache-2.0.",
+        "url": "https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/ashx.txt"
+      },
+      {
+        "approx": "asmx.txt 2,040; svc.txt 1,672",
+        "name": "random-robbie/bruteforce-lists — web-service lists (asmx.txt, svc.txt)",
+        "notes": "ASMX (SOAP) and WCF (.svc) endpoints. Sibling raw URL: https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/svc.txt . Apache-2.0.",
+        "url": "https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/asmx.txt"
+      },
+      {
+        "approx": "old.txt 9,897; cs.txt 4,678; env.txt 1,396; webconfig.txt 89; web-inf.txt 77; config.txt 48; csproj.txt 26",
+        "name": "random-robbie/bruteforce-lists — source/backup/config lists (cs, old, webconfig, config, web-inf, csproj, env)",
+        "notes": "Backup/source/config siblings, all under https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/ : cs.txt, webconfig.txt, config.txt, web-inf.txt, csproj.txt, env.txt. old.txt is a ready-made backup-name list (feeds the backup-suffix permutation). Apache-2.0.",
+        "url": "https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/old.txt"
+      },
+      {
+        "approx": "kentico-cms-modules-themes ~545KB; dotnetnuke ~116KB; Umbraco.fuzz ~98KB + Umbraco.txt ~34KB; Sharepoint.txt ~42KB + Sharepoint-Ennumeration.txt ~25KB; Sitefinity-fuzz ~5KB; sitecore ~0.4KB",
+        "name": "SecLists — .NET CMS lists (SharePoint/DNN/Umbraco/Kentico/Sitefinity/Sitecore)",
+        "notes": "All under .../Discovery/Web-Content/CMS/ : dotnetnuke.txt, kentico-cms-modules-themes.txt, Umbraco.txt, Umbraco.fuzz.txt, Sharepoint.txt, Sharepoint-Ennumeration.txt, Sitefinity-fuzz.txt, and sitecore (no extension). These are the biggest real .NET-CMS path sets and are exactly what generic corpora miss. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/CMS/dotnetnuke.txt"
+      },
+      {
+        "approx": "backdoors ~23; ELMAH-Debugger.txt ~6",
+        "name": "SecLists — Programming-Language-Specific/ASP.NET (webshells + ELMAH)",
+        "notes": "Common ASP/ASPX webshell filenames (zehir.aspx, cmd.aspx, aspxshell.aspx...). Sibling: .../ASP.NET/ELMAH-Debugger.txt (samples/elmah.config, tools/NuGet.exe). MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/Programming-Language-Specific/ASP.NET/CommonBackdoors-ASP.fuzz.txt"
+      },
+      {
+        "approx": "~43 lines",
+        "name": "SecLists — Microsoft-Frontpage.txt",
+        "notes": "FrontPage/IIS _vti_* artifacts (owssvr.dll, shtml.exe, service.pwd, authors.pwd). MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/Microsoft-Frontpage.txt"
+      },
+      {
+        "approx": "IIS.txt ~200; ADFS.txt ~90; Sharepoint.txt ~1-2k; Frontpage.txt ~40; HTTP_POST_Microsoft.txt small",
+        "name": "fuzzdb — predictable-filepaths/webservers-appservers (IIS, ADFS, SharePoint, FrontPage)",
+        "notes": "Same directory siblings: ADFS.txt (real ASP.NET app scaffolding — App_Code/, App_GlobalResources/*.resx, Global.asax(.cs), *.aspx.cs, MasterPages/*.master, plus ADFS endpoints), Sharepoint.txt, Frontpage.txt, HTTP_POST_Microsoft.txt. IIS.txt carries legacy IIS/FrontPage/aspnet_files paths. Dual-licensed CC BY-SA 3.0 / GPLv2 — attribution + share-alike; vet before bundling into a closed distribution.",
+        "url": "https://raw.githubusercontent.com/fuzzdb-project/fuzzdb/master/discovery/predictable-filepaths/webservers-appservers/IIS.txt"
+      },
+      {
+        "approx": "N/A — per-template path matchers",
+        "name": "ProjectDiscovery nuclei-templates — http/exposures + http/technologies (seed source, not a list)",
+        "notes": "Harvest the `path:` fields from http/exposures (configs/, logs/, tokens/), http/misconfiguration and http/technologies to seed .NET detections: elmah.axd, trace.axd, web.config(.bak), Telerik.Web.UI.* (CVE-2017-11317/2019-18935), glimpse.axd, hangfire, swagger, DotNetNuke InstallWizard, Sitecore. Scrape into seeds rather than downloading as a wordlist. MIT.",
+        "url": "https://github.com/projectdiscovery/nuclei-templates/tree/main/http/exposures"
+      },
+      {
+        "approx": "DirBuster big 1,273,832 lines; Assetnote directories_1m ~1,000,000; raft-large-words 119,600",
+        "name": "Generic permutation bases (DirBuster big / Assetnote directories_1m / raft-large-words)",
+        "notes": "NOT .NET-specific — used as the base corpus for base x extension permutation to reach T2/T3. Siblings: https://wordlists-cdn.assetnote.io/data/automated/directories_1m_2026_08_27.txt and https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/raft-large-words.txt . Also web-extensions-big.txt (66,885 lines, .../Discovery/Web-Content/web-extensions-big.txt) to source the extension set. MIT / Apache-2.0.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/DirBuster-2007_directory-list-2.3-big.txt"
+      }
+    ]
+  },
+  "general": {
+    "notes": "TIERING (real corpora, deduped, no leading slash). T1 ~200k 'fast': union of the curated seed_lines + SecLists quickhits.txt + Bo0oM fuzz.txt + dirsearch dicc.txt(%EXT% expanded) + common.txt + raft-large-{directories,files,words} (mixed-case). After casefold-dedup that lands ~170-200k; top up to 200k with DirBuster medium (which alone is 220,560 - a clean single-source T1 fallback). T2 ~1M 'deep': T1 UNION assetnote httparchive_directories_1m (696,827, resolve current dated file via automated.json) UNION DirBuster-2007_directory-list-2.3-medium (220,560) UNION big.txt/combined_directories -> dedup ~0.9-1.0M. T3 ~3M 'full': T2 UNION DirBuster-2007_directory-list-2.3-big (1,273,833) UNION assetnote wordlist_no_underscores (1.9M) [optionally wordlist_with_underscores 2.67M / OneListForAll onelistforallshort 2.5M] -> dedup ~3M real. REAL vs PERMUTATION: the counts above are REAL union lines. To inflate toward a target without adding corpora, PERMUTE top-N names x the extensions[] backup/archive suffixes (e.g. top ~20k names x ~45 suffixes = ~900k synthetic candidates like config.bak, admin.zip, db.sql.gz); permuted entries are lower-signal, so generate them as a trailing section AFTER the real union and cap per-name (e.g. 6-8 suffixes on the top 5k names) rather than full cartesian. DEDUP/CASE: normalize = trim whitespace, strip leading/trailing '/', drop blank lines and comment lines (#, !, ;), drop entries containing scheme://, '?', '#', or spaces, NFC. CASE: Linux paths are case-sensitive so Admin != admin matters - keep the mixed-case union as the canonical 'full' set; ALSO emit a casefold-deduped (lowercase) variant for case-insensitive targets and for the smaller tiers (raft ships -lowercase variants ready for this). Dedup case-SENSITIVELY for T3, case-INSENSITIVELY for T1/T2 to keep them tight. LICENSING CAVEATS for a redistributed combined list: SecLists MIT, Bo0oM WTFPL, Assetnote Apache-2.0, trickest MIT all permit redistribution with attribution (ship a SOURCES.md crediting each). dirsearch dicc.txt is GPL-2.0 (copyleft) and OneListForAll has NO license - keep BOTH as runtime-fetched scan inputs or clearly-segregated optional pulls rather than baking their lines into a permissively-relicensed shipped blob. Prefer pulling at install/build time from the raw/CDN URLs over vendoring, so the public repo stays small and licenses stay with the source.",
+    "sources": [
+      {
+        "approx": "raft-large-directories ~62k lines (529KB); raft-large-files ~37k (482KB); raft-large-words ~120k (1.0MB); medium/small ~30k/~20k dirs",
+        "name": "SecLists - raft-* directories/files/words (Discovery/Web-Content)",
+        "notes": "LICENSE: MIT (Daniel Miessler, 2018). THE backbone of T1. Each comes in mixed-case and -lowercase variants. Exact raw URLs (same dir): raft-large-directories-lowercase.txt, raft-medium-directories.txt, raft-small-directories.txt, raft-large-files.txt, raft-medium-files.txt, raft-small-files.txt, raft-large-words.txt, raft-medium-words.txt, raft-small-words.txt, raft-large-extensions.txt. Base dir: https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/ . Mixed-case is the superset; merge mixed-case then casefold-dedup for a compact variant.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/raft-large-directories.txt"
+      },
+      {
+        "approx": "~2.4k lines (40KB)",
+        "name": "SecLists - quickhits.txt (high-signal)",
+        "notes": "LICENSE: MIT. Curated 'instant win' paths (.git/config, .env, actuator, swagger, server-status, .svn, backups). MUST be force-included in every tier regardless of size budget - highest findings-per-request of any list. Pair with Common-DB-Backups.txt (same dir, 4.6KB).",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/quickhits.txt"
+      },
+      {
+        "approx": "common.txt ~4.7k lines (38KB); big.txt ~20.5k lines (166KB); common_directories.txt tiny (150B)",
+        "name": "SecLists - common.txt (dirb) + big.txt",
+        "notes": "LICENSE: MIT. common.txt is the classic dirb default (small/fast baseline); big.txt is the dirb large list. common_directories.txt is a tiny dir-only starter. All in Discovery/Web-Content/.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/common.txt"
+      },
+      {
+        "approx": "big = 1,273,833 lines (14.8MB); medium = 220,560 (2.0MB); small ~87,664 (725KB); lowercase variants ~10-15% smaller",
+        "name": "SecLists - DirBuster directory-list-2.3 (big/medium/small)",
+        "notes": "LICENSE: MIT umbrella (originally OWASP DirBuster, 2007). NOTE the current filename prefix is 'DirBuster-2007_' - older guides drop it, but master uses it. Full set in Discovery/Web-Content/: DirBuster-2007_directory-list-2.3-big.txt, -medium.txt, -small.txt and DirBuster-2007_directory-list-lowercase-2.3-{big,medium,small}.txt. medium ~= a clean ~200k T1 single-source option; big anchors T3.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/DirBuster-2007_directory-list-2.3-medium.txt"
+      },
+      {
+        "approx": "combined_directories ~1.15MB; combined_words ~1.15MB; web-extensions-big ~829KB",
+        "name": "SecLists - combined_directories / combined_words / web-extensions-big",
+        "notes": "LICENSE: MIT. combined_* are pre-merged aggregates (raft + others) useful for T2 padding. web-extensions-big.txt feeds the extension-permutation stage, not the directory stage.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/combined_directories.txt"
+      },
+      {
+        "approx": "696,827 lines (19.2MB) as of 2026-08-27 snapshot",
+        "name": "Assetnote - httparchive_directories_1m (automated, MONTHLY)",
+        "notes": "LICENSE: Apache-2.0 (Copyright 2020 Assetnote; github.com/assetnote/wordlists). Real-world directory frequency from HTTP Archive via Commonspeak2 - the single best general directory corpus for T2. REGENERATED on the 28th of each month; the date is in the filename, so the generator must NOT hardcode 2026_08_27 - fetch https://wordlists-cdn.assetnote.io/data/automated.json first and parse the current 'httparchive_directories_1m_*' Filename/Download field at pull time.",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated/httparchive_directories_1m_2026_08_27.txt"
+      },
+      {
+        "approx": "403,119 lines (11.5MB)",
+        "name": "Assetnote - httparchive_apiroutes (automated)",
+        "notes": "LICENSE: Apache-2.0. Real-world API route segments - include when the general list should also cover API surface. Also date-rotated monthly (resolve via automated.json). Sibling automated lists exist per-extension (php/aspx/jsp/js/html) but those belong in the LANGUAGE-specific tiers, not general.",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated/httparchive_apiroutes_2026_08_27.txt"
+      },
+      {
+        "approx": "wordlist_no_underscores 1,916,730 lines (25.5MB); wordlist_with_underscores 2,674,434 (38.5MB)",
+        "name": "Assetnote - manual BigQuery corpora (wordlist_with/no_underscores)",
+        "notes": "LICENSE: Apache-2.0. Language-agnostic token corpora mined from GitHub via BigQuery (static, dated 2020). Primary fuel for the T3 'full' tier. Also hosts 2020 copies of raft-* and best-dns-wordlist.txt (DNS, not dirs) under /data/manual/. Index: https://wordlists-cdn.assetnote.io/data/manual.json",
+        "url": "https://wordlists-cdn.assetnote.io/data/manual/wordlist_no_underscores.txt"
+      },
+      {
+        "approx": "automated.json (12 lists), manual.json, kiterunner.json, technologies.json",
+        "name": "Assetnote - CDN index + bulk mirror (operational)",
+        "notes": "LICENSE: Apache-2.0. Machine-readable manifests at https://wordlists-cdn.assetnote.io/data/{automated,manual,kiterunner,technologies}.json each give Filename/Line Count/File Size/Date/Download - parse these to auto-discover current dated filenames. Full mirror: wget -r --no-parent -R \"index.html*\" https://wordlists-cdn.assetnote.io/data/ -nH -e robots=off",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated.json"
+      },
+      {
+        "approx": "~4.8k lines (79KB)",
+        "name": "Bo0oM/fuzz.txt (curated high-signal)",
+        "notes": "LICENSE: WTFPL v2 (do-anything; redistributable). Hand-curated mix of juicy paths/files (VCS metadata, server-status, crossdomain.xml, backups, admin). Low overlap with raft -> good force-include supplement for T1 like quickhits.",
+        "url": "https://raw.githubusercontent.com/Bo0oM/fuzz.txt/master/fuzz.txt"
+      },
+      {
+        "approx": "~11k entries (143KB)",
+        "name": "dirsearch - db/dicc.txt (default list, %EXT% templated)",
+        "notes": "LICENSE: GPL-2.0 (maurosoria) - COPYLEFT: fine to use as a scan input, but do NOT bake its lines into a redistributed combined list you ship under MIT/Apache without honoring GPL. Contains %EXT% placeholders - expand with the extensions set (or drop the placeholder tokens) before merging. Strong curated general list.",
+        "url": "https://raw.githubusercontent.com/maurosoria/dirsearch/master/db/dicc.txt"
+      },
+      {
+        "approx": "onelistforallmicro ~45k lines (559KB, curated); onelistforallshort ~2.5M lines (38.9MB); dict/directories_short.txt in-repo; dict/directories_long.txt 153MB (regen, >100MB GitHub limit)",
+        "name": "OneListForAll (six2dez) - aggregate",
+        "notes": "LICENSE: NO LICENSE file present in repo as of 2026-10 (aggregated from ~36 upstream lists, each under its own terms) - safe for internal authorized testing, but treat as 'verify upstream' before redistribution. micro = curated T1-grade base; onelistforallshort.txt (raw: .../main/onelistforallshort.txt) and dict/directories_long.txt (regenerate via the bundled 'olfa' binary / 'go run ./cmd/olfa pipeline', ~15GB disk) feed T3. Heavy overlap with SecLists+Assetnote - dedup after merge.",
+        "url": "https://raw.githubusercontent.com/six2dez/OneListForAll/main/onelistforallmicro.txt"
+      },
+      {
+        "approx": "inventory/parameters.txt 156KB (params); inventory/subdomains.txt 15.5MB (subdomains); technologies/<tech>.txt + <tech>-all-levels.txt; robots.txt-derived path lists under the repo",
+        "name": "trickest/wordlists (supplementary)",
+        "notes": "LICENSE: MIT (Trickest, 2022). NOT a giant general-directory corpus - its strengths are parameters, subdomains, per-technology paths, and robots.txt-mined paths (top 100/1k/10k sites). Include technologies/ in the per-tech tiers and the robots-derived lists as a T2 general supplement; parameters.txt belongs to the parameter-fuzzing list, not directories.",
+        "url": "https://raw.githubusercontent.com/trickest/wordlists/main/inventory/parameters.txt"
+      },
+      {
+        "approx": "n/a - payload/reference repo, no bulk directory wordlist",
+        "name": "PayloadsAllTheThings (NOT a directory corpus)",
+        "notes": "LICENSE: MIT (verify in repo). This is an injection/exploitation payload reference, not a content-discovery corpus. Do NOT pull it into the general directory tiers. Cite only for specialized payload fuzzing (traversal, SSTI, etc.) in other modules.",
+        "url": "https://github.com/swisskyrepo/PayloadsAllTheThings"
+      }
+    ]
+  },
+  "java": {
+    "notes": "REAL Java-specific corpus is unusually large for this stack thanks to Assetnote's manual per-extension lists, so tiers lean more on real data than most stacks.\n\nT1 (~200k) - REACHABLE WITH REAL DATA, little/no permutation: Assetnote manual do.txt (~160k .do/Struts/Spring-MVC) + jsp.txt (~90k JSP), deduped ~=180-220k; top up with httparchive_jsp_jspa_do_action (~12k), SecLists raft-large-directories (~62k) and the curated framework seeds/fuzzdb/SecLists/random-robbie files (~3-5k). Clean, high-signal.\n\nT2 (~1M): unique REAL Java-specific content plateaus around ~250-300k (do.txt + jsp.txt + httparchive + framework files heavily overlap). Reach 1M by (a) folding in generic-but-applicable big corpora the classifier buckets into Java -- httparchive_directories_1m (~1M), httparchive_apiroutes (~400k, great for Spring REST), SecLists DirBuster directory-list-2.3-big (~1.2M), raft-large-words (~90k); and/or (b) light permutation: ~90k raft-large-words bases x Java extensions {jsp,jspx,jspf,do,action,faces,jsf,xhtml} ~= 720k. So T2 ~= ~300k real + ~700k generic/synthetic.\n\nT3 (~3M): dominated by synthetic permutation + generic corpora. BASE set (raft-large-words 90k UNION directories_1m 1M UNION DirBuster big 1.2M) x Java-ext (~10) + backup-suffix set {.bak,.old,.orig,.save,.swp,~,.1,.tmp,.copy,.class,.java,.war,.jar,.zip,.tar.gz} applied to config/base names -> 3M+ easily. Unique real Java paths stay ~250-300k; essentially everything above T1 is bucketed-generic or permutation.\n\nBackup permutation is especially productive for Java: web.xml, struts.xml, application.properties/yml, applicationContext.xml, faces-config.xml, hibernate.cfg.xml, log4j.properties and *.war are routinely left as .bak/.old/~/.orig and are MISSED by generic corpora -- generate base x suffix from the config-name seeds + Assetnote bak.txt (~40k bases).\n\nIMPORTANT exclusion: Assetnote /data/technologies/httparchive_{spring,tomcat,coldfusion}_*.txt are Technology<->Host MAPPINGS (lists of live domains running the tech), NOT content-discovery path lists -- do NOT ingest them as path wordlists (verified: contents are full URLs on distinct domains, e.g. CAS hosts). The only Assetnote Java PATH corpora live under /data/manual/ and /data/automated/.\n\nProvenance of synthetic seeds: Spring actuator endpoint names from Spring Boot docs + SecLists Java-Spring-Boot.txt; WebLogic/JBoss/Struts2 CVE paths (wls-wsat/CoordinatorPortType, _async/AsyncResponseService, console.portal double-encoded, invoker/JMXInvokerServlet, struts2-showcase) from fuzzdb + nuclei-templates + HackTricks (HackTricks pages are now behind a tollbit paywall for automated fetches -- paths reproduced from fuzzdb/nuclei and domain expertise instead).\n\nLicensing: SecLists = MIT; Assetnote wordlists = Apache-2.0; fuzzdb = dual CC-BY-3.0 / GPLv2; random-robbie/bruteforce-lists = per-repo LICENSE (Apache-2.0-sized). All permit redistribution/use in tooling; retain the upstream license/attribution notices alongside any bundled or generated lists. All sources are public; this is read-only wordlist compilation for authorized pentest content-discovery.",
+    "sources": [
+      {
+        "approx": "~5.0 MB, ~160k lines",
+        "name": "Assetnote manual do.txt (Struts / Spring-MVC .do paths)",
+        "notes": "LARGEST real Java-specific path corpus. Real-world .do endpoints (Struts 1 / Spring MVC / WebWork). Static curated list (dated 2023-04-28). Apache-2.0. Single biggest contributor to a real Java T1.",
+        "url": "https://wordlists-cdn.assetnote.io/data/manual/do.txt"
+      },
+      {
+        "approx": "~2.3 MB, ~90k lines",
+        "name": "Assetnote manual jsp.txt (JSP paths)",
+        "notes": "Second-largest real Java corpus: real-world .jsp paths. Static curated (2023-04-28). Apache-2.0. do.txt + jsp.txt deduped alone ~180-220k real lines => hits T1 without permutation.",
+        "url": "https://wordlists-cdn.assetnote.io/data/manual/jsp.txt"
+      },
+      {
+        "approx": "~345 KB, ~12k lines",
+        "name": "Assetnote automated httparchive_jsp_jspa_do_action (current)",
+        "notes": "Monthly-regenerated, deduped current Java extension wordlist (jsp/jspa/do/action) from HTTP Archive. List https://wordlists-cdn.assetnote.io/data/automated/ and pick the newest date (as of research 2026_08_27 is newest present). Apache-2.0.",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated/httparchive_jsp_jspa_do_action_2026_08_27.txt"
+      },
+      {
+        "approx": "~53 MB, ~2M lines",
+        "name": "Assetnote manual xml_filenames.txt",
+        "notes": "XML config filenames at scale (web.xml / faces-config / struts-config / *.xml). Mostly generic but the classifier buckets Java-relevant lines; useful for config/backup discovery and padding toward T2/T3. Apache-2.0.",
+        "url": "https://wordlists-cdn.assetnote.io/data/manual/xml_filenames.txt"
+      },
+      {
+        "approx": "~3.6 KB, ~250 lines",
+        "name": "SecLists Programming-Language-Specific/Java-Spring-Boot.txt",
+        "notes": "Curated Spring Boot actuator paths incl. root, /actuator/, api/actuator/ and management/ prefixes, env sub-paths, gateway/routes, jolokia, heapdump. High-signal; MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/Programming-Language-Specific/Java-Spring-Boot.txt"
+      },
+      {
+        "approx": "Apache-Tomcat.txt ~3.6 KB; JBoss.txt 365 B; Glassfish-Sun-Microsystems.txt 917 B; Java-Servlet-Runner-Adobe-JRun.txt 306 B; Apache-Axis.txt 223 B",
+        "name": "SecLists Web-Servers framework files (Tomcat/JBoss/GlassFish/JRun/Axis)",
+        "notes": "Pull the whole Web-Servers/ dir (also JBoss.txt, Glassfish-Sun-Microsystems.txt, Java-Servlet-Runner-Adobe-JRun.txt, Apache-Axis.txt). Tomcat list covers manager/host-manager/jmxproxy/jolokia/psi-probe/examples/docs + j_security_check default-cred strings. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/Web-Servers/Apache-Tomcat.txt"
+      },
+      {
+        "approx": "small (56 B - 5 KB each)",
+        "name": "SecLists JSP/J2EE misc lists",
+        "notes": "Also fetch Discovery/Web-Content/vulnerability-scan_j2ee-websites_WEB-INF.txt (~5 KB, WEB-INF paths) and Discovery/Web-Content/Programming-Language-Specific/CommonBackdoors-JSP.fuzz.txt (JSP webshell names). MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/JavaServlets-Common.fuzz.txt"
+      },
+      {
+        "approx": "small, high-signal (dozens-hundreds of lines each)",
+        "name": "fuzzdb webservers-appservers (JBoss/WebLogic/Tomcat/WebSphere/GlassFish/Oracle)",
+        "notes": "Fetch the whole dir: Weblogic.txt (bea_wls_internal, uddiexplorer, wl_management, console), JBoss.txt (jmx-console, web-console, invoker/JMXInvokerServlet), ApacheTomcat.txt, Websphere.txt, SunAppServerGlassfish.txt, OracleAppServer.txt, Oracle9i.txt, Apache_Axis.txt, JRun.txt, JavaServlets_Common.txt. fuzzdb is dual CC-BY-3.0 / GPLv2.",
+        "url": "https://raw.githubusercontent.com/fuzzdb-project/fuzzdb/master/discovery/predictable-filepaths/webservers-appservers/Weblogic.txt"
+      },
+      {
+        "approx": "web-inf.txt ~2.9 KB; properties-files.txt ~1 KB; swagger.txt ~5 KB; api.txt ~31 KB; old.txt ~220 KB",
+        "name": "random-robbie/bruteforce-lists web-inf.txt + Java config/backup lists",
+        "notes": "web-inf.txt is gold: WEB-INF/struts-config.xml, web.xml, and ~80 WEB-INF/faces-config-*.xml (JSF/RichFaces). Strip leading slashes. Also properties-files.txt, swagger.txt (Spring REST), api.txt, and old.txt (~220 KB backup names). Repo LICENSE is Apache-2.0-sized; keep attribution.",
+        "url": "https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/web-inf.txt"
+      },
+      {
+        "approx": "~20 MB, ~1,000,000 lines",
+        "name": "Assetnote automated httparchive_directories_1m (generic directories)",
+        "notes": "Top ~1M real directories across the web (generic). Backbone for directory discovery; classifier buckets the Java-looking subset. Pick newest date from /data/automated/. Apache-2.0.",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated/httparchive_directories_1m_2026_08_27.txt"
+      },
+      {
+        "approx": "~12 MB, ~400k lines",
+        "name": "Assetnote automated httparchive_apiroutes (REST/API routes)",
+        "notes": "Real API/REST route segments -- strong for Spring REST / @RestController and actuator-adjacent discovery. Generic but highly applicable. Apache-2.0.",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated/httparchive_apiroutes_2026_08_27.txt"
+      },
+      {
+        "approx": "big ~14.8 MB (~1.2M lines); medium ~2 MB (~220k)",
+        "name": "SecLists DirBuster directory-list-2.3 (generic big dirs)",
+        "notes": "Published at Discovery/Web-Content/DirBuster-2007_directory-list-2.3-big.txt. Classic generic directory corpus; main lever to push T2/T3 via bucketing + as permutation base. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/directory-list-2.3-big.txt"
+      },
+      {
+        "approx": "raft-large-words.txt ~1 MB (~90k); raft-large-directories.txt ~62k; api/api-seen-in-wild.txt ~159 KB; api/api-endpoints-res.txt ~181 KB",
+        "name": "SecLists raft-large lists + api/ endpoint lists",
+        "notes": "raft-large-words is the primary permutation BASE set. api/api-seen-in-wild.txt + api/api-endpoints-res.txt help Spring REST discovery. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/raft-large-words.txt"
+      },
+      {
+        "approx": "bak.txt ~650 KB (~40k backup bases)",
+        "name": "Assetnote manual bak.txt + raft extensions (permutation inputs)",
+        "notes": "Feed the backup-suffix permutation (base x {.bak,.old,.orig,.save,.swp,~,.1,.tmp,.war,.jar,.zip,.tar.gz}). Pair with SecLists raft-large-extensions.txt and Common-DB-Backups.txt. Apache-2.0 / MIT respectively.",
+        "url": "https://wordlists-cdn.assetnote.io/data/manual/bak.txt"
+      },
+      {
+        "approx": "n/a (YAML templates)",
+        "name": "ProjectDiscovery nuclei-templates (seed provenance, not a corpus)",
+        "notes": "Mined for high-value seeds: spring-boot actuator detections (http/exposures, http/misconfiguration), WebLogic CVE paths (wls-wsat, _async/AsyncResponseService, console.portal), JBoss invoker, Struts2 showcase. Not downloadable as a wordlist -- harvest paths into seed_lines. MIT.",
+        "url": "https://github.com/projectdiscovery/nuclei-templates/tree/main/http/exposures"
+      },
+      {
+        "approx": "~16 MB",
+        "name": "random-robbie combined_directories.txt (generic big, optional)",
+        "notes": "Large generic directory aggregate for T3 bulk; also xml.txt (~92 MB, mostly generic -- use only if chasing T3). Dedup against Assetnote/DirBuster to avoid double counting.",
+        "url": "https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/combined_directories.txt"
+      }
+    ]
+  },
+  "nodejs": {
+    "notes": "TIER MATH (this stack). The Node-SPECIFIC real corpus is actually modest: the only high-precision real lists are Assetnote httparchive_express (147k), SecLists api/* (~40k), random-robbie curated (a few k), and the ~330 curated seeds. The big volume comes from generic-but-on-format corpora bucketed by extension (.js/.json/.ts/.map/.env). T1 ~200k (REAL): httparchive_express (147k) + SecLists api/* (~40k) + raft-large-words (120k) + seeds, dedup -> ~200k, essentially 100% real; OR a token-filtered slice of httparchive_js (lines with _next/_nuxt/dist/build/static/js/chunk/bundle/webpack/assets) which yields ~150-300k real. T2 ~1M (REAL, no synthetic needed): httparchive_js (3.99M raw, or token-filtered) + httparchive_apiroutes (403k) + httparchive_directories_1m (697k) + dot_filenames filtered to node dotfiles (.env/.npmrc/.babelrc/.eslintrc/.prettierrc/.nvmrc...), dedup -> comfortably 1M+. T3 ~3M: httparchive_js alone is 3.99M raw and dedups/normalizes to ~3M REAL; combine with dot_filenames (3.19M) and raw dedup clears 3M with margin. So for THIS stack T3 is reachable from REAL corpus purely on the strength of the js + dotfile lists - permutation is NOT required for volume. CAVEAT on precision vs volume: that volume is generic .js/dotfile paths bucketed by extension, not Node-framework-unique. If you want T2/T3 with HIGH Node-framework precision (not just .js volume), you must ADD a synthetic permutation layer because no 1M+ Node-framework-unique corpus exists: take the ~330 curated base names (config/secret/entry/manifest) x extension variants {.js,.mjs,.cjs,.ts,.json,.env,.map} x backup-suffixes {.bak,.old,.save,.orig,.swp,~,.1,.2,.copy,.tmp,.gz,.zip,.tar.gz} -> ~330 x 7 x 13 = ~30k high-signal synthetic; widen base pool with raft-large-words x the same matrix to add 100k-1M+ synthetic. Net: real corpus dominates raw tiers (js + dotfiles), permutation dominates framework-precision. IMPLEMENTATION: resolve Assetnote filenames via the .json catalogs at runtime (the YYYY_MM_DD suffix rotates monthly and old URLs 404). LICENSING (all permissive, redistribution OK): SecLists MIT, nuclei-templates MIT, Assetnote wordlists Apache-2.0, random-robbie bruteforce-lists Apache-2.0, fuzzdb BSD-3-Clause. No copyleft anywhere. Apache-2.0 -> preserve attribution/NOTICE; BSD-3 -> retain fuzzdb copyright + no-endorsement clause; MIT -> include license text. For nuclei-templates, extract path strings (facts) rather than shipping the YAML files as a wordlist.",
+    "sources": [
+      {
+        "approx": "3,986,162 lines / 75.7 MB",
+        "name": "Assetnote automated httparchive_js (PRIMARY .js corpus)",
+        "notes": "The single biggest on-topic real corpus for this stack: every .js path HTTP Archive saw. Date suffix rotates monthly (regenerated ~28th) - resolve the current filename from automated.json, do NOT hardcode. Generic across the whole web (WordPress/jQuery/CDN noise), so for a high-precision Node bucket, token-filter lines containing _next/ _nuxt/ dist/ build/ static/js/ chunk bundle webpack runtime vendor main. polyfill assets/. Un-filtered it alone carries T2/T3 volume. Apache-2.0.",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated/httparchive_js_2026_08_27.txt"
+      },
+      {
+        "approx": "3,191,712 lines / 71.3 MB",
+        "name": "Assetnote manual dot_filenames (dotfiles corpus)",
+        "notes": "All dotfiles from the GitHub/BigQuery dataset - the real-world home of .env .npmrc .babelrc .eslintrc .prettierrc .nvmrc .yarnrc etc. Filter to node dotfile tokens for a precise bucket, or use raw for tier volume. Static snapshot (2020), Apache-2.0.",
+        "url": "https://wordlists-cdn.assetnote.io/data/manual/dot_filenames.txt"
+      },
+      {
+        "approx": "146,929 lines / 4.3 MB",
+        "name": "Assetnote technologies httparchive_express (HIGHEST SIGNAL)",
+        "notes": "Paths observed specifically on hosts fingerprinted as Express (X-Powered-By). Highest Node-precision real corpus available anywhere. No Next.js/Nuxt/NestJS-specific Assetnote list exists - Express is the only Node tech list. Date rotates monthly (resolve via technologies.json). Apache-2.0.",
+        "url": "https://wordlists-cdn.assetnote.io/data/technologies/httparchive_express_2026_08_27.txt"
+      },
+      {
+        "approx": "403,119 lines / 11.5 MB",
+        "name": "Assetnote automated httparchive_apiroutes",
+        "notes": "Real API route segments - directly relevant to Express/NestJS/Next route-handler and Nuxt server/api endpoints. Date rotates monthly. Apache-2.0.",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated/httparchive_apiroutes_2026_08_27.txt"
+      },
+      {
+        "approx": "696,827 lines / 19.2 MB",
+        "name": "Assetnote automated httparchive_directories_1m",
+        "notes": "Top real directories - bucket slice contributes heavily to T2. Generic (needs token-filter for Node precision). Date rotates monthly. Apache-2.0.",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated/httparchive_directories_1m_2026_08_27.txt"
+      },
+      {
+        "approx": "words 119,600 / files 37,042 / directories 62,283",
+        "name": "Assetnote manual raft-large (words/files/directories)",
+        "notes": "Also raft-large-files.txt and raft-large-directories.txt at the same /data/manual/ path (mirror of SecLists raft). Generic backbone for the directory/file layer. Apache-2.0.",
+        "url": "https://wordlists-cdn.assetnote.io/data/manual/raft-large-words.txt"
+      },
+      {
+        "approx": "31,725 lines / 634.8 KB",
+        "name": "Assetnote manual bak.txt (backup-suffix seeds)",
+        "notes": "Real .bak filenames - use as the seed pool for the base x backup-suffix permutation layer. Apache-2.0.",
+        "url": "https://wordlists-cdn.assetnote.io/data/manual/bak.txt"
+      },
+      {
+        "approx": "catalog (also technologies.json, manual.json)",
+        "name": "Assetnote JSON catalogs (resolve current monthly filenames)",
+        "notes": "CRITICAL for the generator: these JSON files list Filename+Line Count+File Size+Download for every current list. Fetch them first to resolve the live YYYY_MM_DD-suffixed filename instead of hardcoding a date that 404s after the next regeneration. Paths: /data/automated.json, /data/technologies.json, /data/manual.json.",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated.json"
+      },
+      {
+        "approx": "api-endpoints ~37k; also objects.txt, actions.txt, api-seen-in-wild.txt",
+        "name": "SecLists API endpoint lists",
+        "notes": "Same directory also has objects.txt / actions.txt / api-seen-in-wild.txt / common-api-endpoints-mazen160.txt (one level up). Core for Node REST/NestJS/Next API route brute. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/api/api-endpoints.txt"
+      },
+      {
+        "approx": "~small (hundreds)",
+        "name": "SecLists graphql.txt",
+        "notes": "GraphQL endpoint/introspection paths (Apollo, NestJS @nestjs/graphql, Hasura). MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/graphql.txt"
+      },
+      {
+        "approx": "words 119,600 / files 37,042 / directories 62,283",
+        "name": "SecLists raft-large (words/files/directories)",
+        "notes": "Canonical source of the raft set (Assetnote mirrors it). Pair raft-large-words with the .js/.ts/.json/.env/.map extension matrix for the permutation layer. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/raft-large-words.txt"
+      },
+      {
+        "approx": "env.txt large (.env permutations); plus npmrc.txt, dotfiles.txt, config.txt, keys.txt, js.txt, api.txt, swagger.txt, git_config.txt, yaml.txt",
+        "name": "random-robbie bruteforce-lists (curated Node-relevant files)",
+        "notes": "Swap the filename in the URL for each: env.txt (massive .env path/suffix variants), npmrc.txt, dotfiles.txt, config.txt, keys.txt (.pem/.key), js.txt, api.txt, swagger.txt, git_config.txt. High-signal, low-noise. Apache-2.0.",
+        "url": "https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/env.txt"
+      },
+      {
+        "approx": "N/A (extract path strings from YAML)",
+        "name": "ProjectDiscovery nuclei-templates (path mining, not bulk download)",
+        "notes": "Mine {{BaseURL}} paths from http/exposures/{files,configs,logs} and http/{technologies,misconfiguration}. Node-specific templates confirmed: next-js-config-file, nuxtjs-config-file, npm-debug-log (/npm-debug.log,/assets/npm-debug.log), javascript-env (/env.js,/env.*.js,/__ENV.js,/env-config.js), devtron-env-config-js (/dashboard/env-config.js), npmrc-authtoken, npm-shrinkwrap-exposure, pnpm-lock, bun-lock, bower-json, angular-json, vercel-source-exposure (/_src), node-express-status (/, express-status-monitor), node-express-dev-env, express-stack-trace, express-default-page. MIT - extract strings (facts), don't redistribute template files wholesale.",
+        "url": "https://github.com/projectdiscovery/nuclei-templates/tree/main/http/exposures"
+      },
+      {
+        "approx": "UnixDotfiles ~small, KitchensinkDirectories ~large",
+        "name": "fuzzdb discovery/predictable-filepaths",
+        "notes": "UnixDotfiles.txt, KitchensinkDirectories.txt, Randomfiles.txt, webservers-appservers/, wellknown-rfc5785.txt. Older and mostly non-Node, limited incremental value beyond the above - include only to top up the directory layer. BSD-3-Clause (retain copyright, no-endorsement clause).",
+        "url": "https://github.com/fuzzdb-project/fuzzdb/tree/master/discovery/predictable-filepaths"
+      }
+    ]
+  },
+  "perl": {
+    "notes": "CORPUS REALITY: Perl/CGI has a SMALL real-world footprint and it is shrinking (legacy stack). Hard proof from Assetnote's own HTTP Archive extraction: the php list is 3.28 MB (~1M+ real paths) while cgi_pl is only 345 KB / 11,350 lines - roughly 30x smaller. After merging + dedupe + payload-stripping across Assetnote cgi_pl (~11k), SecLists CGIs/XPlatform/Microsoft (~7.4k raw -> ~3-4k unique base paths), fuzzdb CGI_* (overlaps SecLists), random-robbie perl/cgi (~2.5k), Nikto base paths (~2-3k unique after collapsing payload variants), SVNDigger pl (135) and the curated seed_lines (~380), the TRUE unique Perl-specific corpus is only ~25-35k lines. Everything above that is synthetic permutation.\\n\\nHOW TO HIT THE TIERS:\\n- T1 ~200k: ~30k real corpus + permutation. Take ~35-40k base tokens (raft-medium/large-words or the distinct basenames already in the real corpus + common app dirs) x the core Perl ext set {pl, cgi, pm, psgi, fcgi} ~= 175k, add the 30k real = ~205k. => ~15% real, ~85% permutation.\\n- T2 ~1M: pure permutation. ~200k base words (raft-large-words 120k + top ~80k of Assetnote directories_1m) x 5 Perl exts {pl,cgi,pm,psgi,fcgi} = 1M. => ~97% permutation.\\n- T3 ~3M: pure permutation. Either 200k bases x 5 exts x 3 backup-suffixes {.bak, ~, .old} ~= 3M, or 600k bases (top of Assetnote directories_1m) x 5 exts = 3M. => ~99% permutation.\\nBackup-suffix set to permute (esp. against config/secret basenames localconfig, mt-config.cgi, Kernel/Config.pm, RT_SiteConfig.pm, koha-conf.xml, config.pl): .bak ~ .old .orig .save .swp .tmp .copy .1 .2 .txt .dist .sample .inc .default .-original. Also WAF/parser-bypass ext variants from fuzzdb alt-extensions-perl.txt (%00, trailing dots, case flips) for a dedicated bypass mode. Note: .cgi is the strongest Perl signal but is language-agnostic at the HTTP layer (a .cgi can be C/sh/python); bucket by .pl/.pm/.psgi/.fcgi first, treat .cgi as Perl-probable. tt/tt2/tmpl/mhtml/mas/ep/epl are template exts that strongly imply Perl but are not 100% exclusive (Template-Toolkit has ports) - keep but weight lower in the classifier.\\n\\nLICENSING CAVEATS: Assetnote (Apache-2.0), SecLists (MIT), random-robbie (Apache-2.0), nuclei-templates (MIT) are all safe to download and redistribute with attribution. fuzzdb is CC BY 3.0 and bundles Skipfish dictionaries -> attribution required; since fuzzdb's CGI lists are the upstream of SecLists' copies, prefer ingesting the MIT SecLists mirror to simplify licensing. Nikto db_tests is the single exception: its header forbids use/redistribution outside the full Nikto package - do NOT bake it into the shipped corpus; mine it only for manual seed ideas or shell out to Nikto at scan time. OneListForAll aggregates many upstreams with mixed licenses - treat as feedstock only and verify before shipping.\"",
+    "sources": [
+      {
+        "approx": "11,350 lines / 345 KB",
+        "name": "Assetnote httparchive_cgi_pl (latest monthly)",
+        "notes": "THE top real-world corpus for this stack: .cgi + .pl paths observed in HTTP Archive crawls. Regenerated monthly (~27th/28th) with a new date stamp, so the generator must list the directory https://wordlists-cdn.assetnote.io/data/automated/ and pick the newest httparchive_cgi_pl_*.txt rather than hardcode the date. Caveat: contains noise from the Polish .pl TLD (e.g. gemius.pl, okazjum.pl) and query-string fragments (?target=..., loader.js?...) that should be stripped. License: Apache-2.0.",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated/httparchive_cgi_pl_2026_08_27.txt"
+      },
+      {
+        "approx": "~1,000,000 lines / 20 MB",
+        "name": "Assetnote directories_1m (generic feedstock for permutation)",
+        "notes": "Not Perl-specific. Use as the BASE-WORD feedstock: take the top-N directory/word tokens and append the Perl extension set to reach T2/T3 by permutation. Monthly regen like cgi_pl above. Apache-2.0.",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated/httparchive_directories_1m_2026_08_27.txt"
+      },
+      {
+        "approx": "3,388 lines",
+        "name": "SecLists CGIs.txt (LEGACY-SERVICES)",
+        "notes": "Classic Nikto-derived CGI list. CRITICAL: most entries are base-path + an attached exploit payload (e.g. cgi-bin/awstats/awstats.pl, cgi-bin/calendar_admin.pl?config=|cat%20/etc/passwd|, ...%00, <script>). The generator MUST strip everything from the first '?' or '|' or '%' to recover clean base paths, then dedupe. Yields a few thousand unique classic-CGI base names. License: MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/LEGACY-SERVICES/CGIs/CGIs.txt"
+      },
+      {
+        "approx": "3,948 lines",
+        "name": "SecLists CGI-XPlatform.fuzz.txt",
+        "notes": "Cross-platform CGI discovery list (byte-identical to fuzzdb CGI_XPlatform.txt). Same payload-stripping needed. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/LEGACY-SERVICES/CGIs/CGI-XPlatform.fuzz.txt"
+      },
+      {
+        "approx": "74 lines",
+        "name": "SecLists CGI-Microsoft.fuzz.txt",
+        "notes": "ActivePerl/IIS-era Perl CGI on Windows (perl.exe, perlis.dll, .plx, scripts/perl.exe). Small but unique to the Windows-Perl corner. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/LEGACY-SERVICES/CGIs/CGI-Microsoft.fuzz.txt"
+      },
+      {
+        "approx": "119,600 words (+ extensions list carries .pl/.cgi/.pm/.plx/.fcgi/.epl/.ep/.mhtml/.tmpl)",
+        "name": "SecLists raft-large-words.txt + raft-large-extensions.txt",
+        "notes": "Generic base-word feedstock for permutation. raft-large-extensions.txt confirms the Perl extension set. Cross-product raft-large-words x {pl,cgi,pm,psgi,fcgi} ~= 600k. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/raft-large-words.txt"
+      },
+      {
+        "approx": "135 lines",
+        "name": "SecLists SVNDigger Language/pl.txt",
+        "notes": "Perl filenames mined from open-source repos (config.pl, spellchecker.pl, upgrade.pl, io.pl, util.pl...). Modest and skews toward generic dev/example scripts, but every line is a real .pl basename. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/File-Extensions-Universal-SVNDigger-Project/cat/Language/pl.txt"
+      },
+      {
+        "approx": "3,948 / 79 / small",
+        "name": "fuzzdb cgi/CGI_XPlatform.txt + CGI_Microsoft.txt + CGI_HTTP_POST.txt",
+        "notes": "Upstream of the SecLists CGI lists; use one or the other to avoid duplicate ingestion. License: Creative Commons Attribution 3.0 (BSD-style notice), and it bundles Skipfish dictionaries -> attribution REQUIRED if redistributed.",
+        "url": "https://raw.githubusercontent.com/fuzzdb-project/fuzzdb/master/discovery/predictable-filepaths/cgi/CGI_XPlatform.txt"
+      },
+      {
+        "approx": "33 lines",
+        "name": "fuzzdb attack/file-upload/alt-extensions-perl.txt",
+        "notes": "Not a path list - it is the Perl extension-bypass set: pl, pm, cgi, lib plus case variants (pL, cGi) and WAF/parser bypass suffixes (%00, %20%20%20, trailing dots). Feed the extension-permutation stage and any bypass-variant mode. CC BY 3.0.",
+        "url": "https://raw.githubusercontent.com/fuzzdb-project/fuzzdb/master/attack/file-upload/alt-extensions-perl.txt"
+      },
+      {
+        "approx": "1,236 lines",
+        "name": "random-robbie/bruteforce-lists perl-files.txt",
+        "notes": "Curated .pl path list. Pair with cgi-files.txt (1,192) and cgi-bin.txt (90) from the same repo. License: Apache-2.0.",
+        "url": "https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/perl-files.txt"
+      },
+      {
+        "approx": "1,192 lines",
+        "name": "random-robbie/bruteforce-lists cgi-files.txt",
+        "notes": "Curated .cgi path list; companion cgi-bin.txt at https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/cgi-bin.txt (90). Apache-2.0.",
+        "url": "https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/cgi-files.txt"
+      },
+      {
+        "approx": "7,288 lines",
+        "name": "Nikto db_tests (classic CGI mega-DB)",
+        "notes": "The historical mother-lode of vendor CGI test paths (CSV format, field 4 = URI). LICENSING RED FLAG: header states 'This file may only be distributed and used with the full Nikto package ... may not be used with any software product without written permission.' DO NOT bundle/redistribute inside the generator's corpus. Use only as manual research for seed_lines, or invoke Nikto itself at runtime. License: NOASSERTION/custom-restrictive.",
+        "url": "https://raw.githubusercontent.com/sullo/nikto/master/program/databases/db_tests"
+      },
+      {
+        "approx": "path source, not a flat wordlist",
+        "name": "ProjectDiscovery nuclei-templates (exact app paths)",
+        "notes": "Harvest exact request paths from: perl-status.yaml (/perl-status), bugzilla-config.yaml (/config.cgi), awstats-script.yaml (6 awstats.pl locations), awstats-config.yaml (/awstats/, /awstats.conf), cgi-printenv.yaml (/cgi-bin/printenv.pl), cpanel-config.yaml (/cpanel.config), movable-type-login.yaml (/mt.cgi, /mt/admin), request-tracker-panel.yaml, webmin-panel.yaml, cgi-test-page.yaml (/cgi-bin/test/test.cgi). License: MIT.",
+        "url": "https://github.com/projectdiscovery/nuclei-templates/tree/main/http/exposures/configs"
+      },
+      {
+        "approx": "onelistforallmicro ~37k up to onelistforall ~5.1M lines",
+        "name": "OneListForAll (optional mega aggregate)",
+        "notes": "Aggregated generic content-discovery corpus. Only useful here as extra base-word feedstock for the T3 permutation tier (filter/extend with Perl extensions); it is not Perl-specific. Mixed upstream licenses - verify before redistribution.",
+        "url": "https://github.com/six2dez/OneListForAll"
+      }
+    ]
+  },
+  "php": {
+    "notes": "CLASSIFIER: bucket a generic-corpus line into PHP when its final segment ends in one of the php extensions (php/phtml/php3-8/pht/phps/phar/inc/phpt) OR the path contains a distinctive token (artisan, telescope, horizon, nova, _debugbar, _ignition, livewire, _profiler, _wdt, _fragment, app_dev.php, appkernel, symfony.lock, composer.json/lock, vendor/, phpmyadmin, adminer, parameters.yml, bundles.php). The backup-prone config tokens (env, config.php, config.inc.php, configuration.php, settings.php, database.php, parameters.yml, composer.lock, auth.json) are listed so the classifier also catches their suffixed/backup forms (.env.old, config.php.bak, parameters.yml.dist) which the bare 'php' extension misses.\n\nREAL CORPUS (deduped approx, all verified reachable): Assetnote php.txt=3.17M, phpmillion.txt=1.0M, dot_filenames.txt=3.19M (dotfiles, cross-tech); httparchive per-tech laravel=169k, php(auto)=169k, yii=32k, symfony=17k, zend=0.3k, directories_1m=697k; random-robbie larv=30k, php=13k, env=1.4k, old=9.9k, combined_directories=1.38M; SecLists Common-PHP-Filenames=5.2k, CommonBackdoors-PHP=422, symfony-315-demo=305, raft-large files/dirs/words=37k/62k/120k, DirBuster medium=220k/big=1.27M; fuzzdb php=29.\n\nHITTING TIERS (PHP is one of the rare stacks where every tier is reachable with REAL data - synthetic padding is NOT needed for raw count):\n- T1 ~200k: 100% real, no synthesis. Union httparchive_php(169k)+httparchive_laravel(169k)+httparchive_symfony(17k)+httparchive_yii(32k)+raft-large-files(37k)+Common-PHP-Filenames(5k)+random-robbie larv(30k)+env(1.4k)+the curated seeds, dedupe and cap to ~200k. Highest signal-to-noise.\n- T2 ~1M: use phpmillion.txt (1.0M, real) as the spine, OR php.txt truncated to 1M, OR T1-set + directories_1m(697k) permuted with top PHP exts (php,phtml,php5,php7,inc). Effectively all real.\n- T3 ~3M: Assetnote php.txt (3.17M real) meets it alone. For a fuller ~3M, union php.txt + filtered dot_filenames + httparchive_* and dedupe. No permutation required to reach the count.\n\nPERMUTATION (base x ext x backup-suffix) is for QUALITY, not for hitting tiers: cross the ~430 curated config/secret base names with exts (php, inc, phtml) and a backup-suffix set drawn from Assetnote bak.txt / random-robbie old.txt (practical subset: .bak .old .orig .save .swp .swo ~ .dist .sample .txt .1 .2 .zip .tar.gz .copy) to synthesize backup-file candidates (.env.bak, config.php.old, parameters.yml.dist, database.php.swp) that raw corpora under-cover. Yields tens of thousands of high-value entries, not millions - keep it as an overlay on top of the real corpus, not a tier-filler.\n\nMONTHLY URL ROLLOVER: Assetnote httparchive_* (technologies/ and automated/) are regenerated ~27th-28th monthly with a dated filename (..._YYYY_MM_DD.txt); the 2026_08_27 dates above are the latest at research time. Do NOT hardcode - GET https://wordlists-cdn.assetnote.io/data/technologies.json and .../automated.json (each is {\\\"data\\\":[{Filename,Line Count,File Size,Date,Download}...]}) and pick the newest Filename per prefix. manual/php.txt and manual/phpmillion.txt are stable/undated.\n\nLICENSING: SecLists = MIT; nuclei-templates = MIT (redistribute freely, keep notices). Assetnote wordlists = published free (Commonspeak2/HTTPArchive-derived from public crawl data; repo carries no explicit SPDX historically - treat as permissive and attribute Assetnote). random-robbie/bruteforce-lists = check repo LICENSE before shipping. fuzzdb = dual GPL / CC-BY 3.0, ATTRIBUTION REQUIRED. All are redistributable inside an offline generator; carry attribution for fuzzdb and Assetnote. Web-shell names (CommonBackdoors-PHP) are for authorized detection only.",
+    "sources": [
+      {
+        "approx": "3,174,758 lines / 81.3 MB (85,270,800 bytes, verified HTTP 200)",
+        "name": "Assetnote manual/php.txt (THE massive real PHP corpus)",
+        "notes": "Largest real-world PHP path/filename corpus in existence (Commonspeak2/HTTPArchive-derived). Reaches T3 (~3M) alone. Stable undated URL. Dedupe and optionally cap. Rank #1.",
+        "url": "https://wordlists-cdn.assetnote.io/data/manual/php.txt"
+      },
+      {
+        "approx": "1,000,000 lines / 55.1 MB (verified HTTP 200)",
+        "name": "Assetnote manual/phpmillion.txt",
+        "notes": "Exactly 1M curated PHP filenames; the clean T2 (~1M) spine. Stable undated URL. Overlaps php.txt, so dedupe if unioned.",
+        "url": "https://wordlists-cdn.assetnote.io/data/manual/phpmillion.txt"
+      },
+      {
+        "approx": "169,388 lines / 4.6 MB (verified HTTP 200)",
+        "name": "Assetnote technologies/httparchive_laravel (latest monthly)",
+        "notes": "Real Laravel paths observed on live hosts. Date rolls monthly (~27th-28th) - do NOT hardcode; resolve newest 'Filename' with prefix httparchive_laravel_ from technologies.json. Highest-signal Laravel source.",
+        "url": "https://wordlists-cdn.assetnote.io/data/technologies/httparchive_laravel_2026_08_27.txt"
+      },
+      {
+        "approx": "16,988 lines / 0.48 MB",
+        "name": "Assetnote technologies/httparchive_symfony (latest monthly)",
+        "notes": "Real Symfony paths. Monthly dated URL; resolve latest via technologies.json (prefix httparchive_symfony_).",
+        "url": "https://wordlists-cdn.assetnote.io/data/technologies/httparchive_symfony_2026_08_27.txt"
+      },
+      {
+        "approx": "32,220 lines / 0.89 MB",
+        "name": "Assetnote technologies/httparchive_yii (latest monthly)",
+        "notes": "PHP framework (Yii). Monthly dated; resolve via technologies.json. Assetnote groups yii & zend under PHP stacks.",
+        "url": "https://wordlists-cdn.assetnote.io/data/technologies/httparchive_yii_2026_08_27.txt"
+      },
+      {
+        "approx": "339 lines / 10.6 kb",
+        "name": "Assetnote technologies/httparchive_zend (latest monthly)",
+        "notes": "Zend/Laminas PHP paths. Tiny but high-signal. Monthly dated; resolve via technologies.json.",
+        "url": "https://wordlists-cdn.assetnote.io/data/technologies/httparchive_zend_2026_08_27.txt"
+      },
+      {
+        "approx": "169,336 lines / 3.1 MB (verified HTTP 200)",
+        "name": "Assetnote automated/httparchive_php (latest monthly)",
+        "notes": "Aggregated real paths ending in .php observed across HTTPArchive. Monthly dated; resolve newest via automated.json (prefix httparchive_php_). Core T1 ingredient.",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated/httparchive_php_2026_08_27.txt"
+      },
+      {
+        "approx": "696,827 lines / 19.2 MB",
+        "name": "Assetnote automated/httparchive_directories_1m (latest monthly)",
+        "notes": "Generic directory corpus (all stacks). Use as base words to permute with PHP extensions for T2. Monthly dated; resolve via automated.json.",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated/httparchive_directories_1m_2026_08_27.txt"
+      },
+      {
+        "approx": "3,191,712 lines / 71.3 MB (74,750,104 bytes, verified HTTP 200)",
+        "name": "Assetnote manual/dot_filenames.txt",
+        "notes": "Every dotfile observed (.env/.env.*/.git/.htaccess/.svn/...). Cross-tech, so filter or union-then-dedupe. Excellent secret/backup-file coverage that framework lists miss. Stable URL.",
+        "url": "https://wordlists-cdn.assetnote.io/data/manual/dot_filenames.txt"
+      },
+      {
+        "approx": "31,725 lines / 0.65 MB (verified HTTP 200)",
+        "name": "Assetnote manual/bak.txt (backup-suffix driver)",
+        "notes": "Backup/suffix filename patterns. Feed as the backup-suffix set for base x ext x backup permutation (quality, not raw count). Stable URL.",
+        "url": "https://wordlists-cdn.assetnote.io/data/manual/bak.txt"
+      },
+      {
+        "approx": "files 37,042 / directories 62,283 / words 119,600",
+        "name": "Assetnote manual/raft-large-files.txt (+ -directories, -words)",
+        "notes": "Probability-weighted RAFT crawl lists. Also raft-large-directories.txt and raft-large-words.txt at the same path. Good generic high-hit-rate T1 filler. Same lists also in SecLists.",
+        "url": "https://wordlists-cdn.assetnote.io/data/manual/raft-large-files.txt"
+      },
+      {
+        "approx": "30,134 lines",
+        "name": "random-robbie/bruteforce-lists larv.txt (Laravel)",
+        "notes": "Laravel default scaffolding (app/, bootstrap/cache, config/*.php, routes/, database/, storage/). Directly fills the Laravel framework-structure gap. Verify repo LICENSE before redistribution.",
+        "url": "https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/larv.txt"
+      },
+      {
+        "approx": "12,924 lines",
+        "name": "random-robbie/bruteforce-lists php.txt",
+        "notes": "Curated PHP filenames. Small, high-signal T1 filler.",
+        "url": "https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/php.txt"
+      },
+      {
+        "approx": "1,396 lines",
+        "name": "random-robbie/bruteforce-lists env.txt",
+        "notes": "Dedicated .env / dotenv variant list (framework + CI/CD env files). Pairs with laravel-env nuclei payloads.",
+        "url": "https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/env.txt"
+      },
+      {
+        "approx": "9,897 lines",
+        "name": "random-robbie/bruteforce-lists old.txt",
+        "notes": "Backup/old-file names (.old/.bak/~/.save variants). Supplements permutation backup coverage.",
+        "url": "https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/old.txt"
+      },
+      {
+        "approx": "1,377,725 lines",
+        "name": "random-robbie/bruteforce-lists combined_directories.txt",
+        "notes": "~1.4M generic directories. Use as permutation base for T2/T3 directory coverage; heavy overlap with Assetnote directories_1m - dedupe.",
+        "url": "https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/combined_directories.txt"
+      },
+      {
+        "approx": "5,163 lines",
+        "name": "SecLists Common-PHP-Filenames.txt",
+        "notes": "Canonical curated PHP filenames (incl. admin/install/config/backup names). MIT licensed. Core T1 ingredient.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/Programming-Language-Specific/Common-PHP-Filenames.txt"
+      },
+      {
+        "approx": "104 lines",
+        "name": "SecLists PHP.fuzz.txt",
+        "notes": "Small hand-picked PHP fuzz set. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/Programming-Language-Specific/PHP.fuzz.txt"
+      },
+      {
+        "approx": "422 lines",
+        "name": "SecLists CommonBackdoors-PHP.fuzz.txt (web shells)",
+        "notes": "Known PHP web-shell/backdoor filenames (c99/r57/wso/b374k...). High-value for compromise detection. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/Programming-Language-Specific/CommonBackdoors-PHP.fuzz.txt"
+      },
+      {
+        "approx": "305 lines",
+        "name": "SecLists CMS/symfony-315-demo.txt",
+        "notes": "Full Symfony (2/3-era) app skeleton: app/AppKernel.php, app/config/*.yml, web/app_dev.php. Directly fills the Symfony legacy-structure gap. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/CMS/symfony-315-demo.txt"
+      },
+      {
+        "approx": "directories 62,281 / files 37,050 / words 119,600",
+        "name": "SecLists raft-large-directories.txt (+ files, words)",
+        "notes": "Canonical RAFT lists (MIT). raft-large-files.txt and raft-large-words.txt share the Web-Content path. Generic high-hit filler.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/raft-large-directories.txt"
+      },
+      {
+        "approx": "~220,560 lines",
+        "name": "SecLists DirBuster-2007 directory-list-2.3-medium.txt",
+        "notes": "Classic DirBuster medium list (note the DirBuster-2007_ prefix - the un-prefixed path 404s). Generic dir words to permute with PHP exts for T1->T2. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/DirBuster-2007_directory-list-2.3-medium.txt"
+      },
+      {
+        "approx": "~1,273,833 lines",
+        "name": "SecLists DirBuster-2007 directory-list-2.3-big.txt",
+        "notes": "Classic DirBuster big list. Generic permutation base to help approach T2/T3. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/DirBuster-2007_directory-list-2.3-big.txt"
+      },
+      {
+        "approx": "29 lines (+ PHP_CommonBackdoors.txt alongside)",
+        "name": "fuzzdb discovery/predictable-filepaths/php/PHP.txt",
+        "notes": "Small but classic predictable PHP paths (phpinfo/test/phpmyadmin/application.ini). fuzzdb is dual-licensed GPL / CC-BY 3.0 - attribution required on redistribution.",
+        "url": "https://raw.githubusercontent.com/fuzzdb-project/fuzzdb/master/discovery/predictable-filepaths/php/PHP.txt"
+      },
+      {
+        "approx": "N/A - mine payload paths from ~50 PHP-stack templates",
+        "name": "ProjectDiscovery nuclei-templates (path-mining source, not a flat list)",
+        "notes": "MIT. Grep the `paths:` payloads from http/exposures/configs/{laravel-env,symfony-profiler,symfony-database-config,composer-config,phpinfo-files,yii-debugger,zend-config-file}.yaml, http/exposures/files/{composer-auth-json,php-ini,phpunit}.yaml, http/exposures/backups/{generic-php-files,php-backup-files}.yaml, and http/misconfiguration/{laravel-horizon-unauth,laravel-nova-unauth,laravel-pulse-unauth,laravel-debugbar-exposure,laravel-clockwork-exposure,laravel-terminal-exposure,php-debugbar-exposure,php-fpm-status}.yaml. The seed_lines above already encode the current harvest; re-run periodically for new endpoints.",
+        "url": "https://github.com/projectdiscovery/nuclei-templates"
+      }
+    ]
+  },
+  "python": {
+    "notes": "REALITY CHECK (this stack is unusual): Python web frameworks ROUTE URLs (regex/decorator dispatch) instead of mapping files to disk, so there is essentially NO large, high-quality, Python-framework-specific PATH corpus in the public ecosystem, and Assetnote has NO .py extension list (confirmed: automated.json has php/aspx/jsp/cgi_pl but no py). Verified traps: (1) Assetnote technologies/httparchive_django.txt and _flask.txt are HOST-MAPPING lists (lists of sites running the tech), NOT path wordlists - must be excluded from the generator. (2) OLFA flask_long.txt (652 B) is mostly Flask CONFIG KEY names (SECRET_KEY, SESSION_COOKIE_*), not paths; python_long.txt is small and polluted. NET: the real Python-SPECIFIC unique path content caps at roughly 50-100k lines (OLFA django_long ~39k + swagger/graphql/api-doc specifics + the ~320 curated seeds here). Everything bigger is generic web-path corpus that the per-language classifier buckets, plus synthetic permutation. The curated seed_lines + the backup-suffix permutation engine are therefore the primary Python value-add, not downloaded corpora.\\n\\nTIER STRATEGY:\\n- T1 ~200k (mostly REAL): curated seeds (~320) + OLFA django_long (~39k) + OLFA swagger_short + graphql_short + SecLists api/* + Assetnote apiroutes top-slice (~150k) OR SecLists raft-large-directories(62k)+raft-large-files(37k)+raft-large-words(38k)+common(4.7k)+dirsearch dicc(11k). ~90% real corpus; ~10% permutation (base x {'',.bak,.old,.orig,~,.swp} over the Python base set). Python-relevant density is high here.\\n- T2 ~1M (REAL, generic-dominated): Assetnote directories_1m (696,827) + apiroutes (403,119) deduped to ~1.0-1.05M; OR a single OLFA paths_long (~1.5-2M) / api_long (~2.3-3M) truncated. Only a thin slice is Python-specific; the rest is generic buckets.\\n- T3 ~3M (GENERIC + PERMUTATION; NOT reachable with Python-specific content): OLFA api_long (~2.3-3M) + paths_long (~1.5-2M) + Assetnote directories_1m (697k) deduped ~3-4M; OR onelistforallshort.txt (~2.5M) + directories_1m (697k). Synthetic alternative: Python base set (~50-60k bases from seeds+django_long) x backup/ext suffix set {'' .bak .old .orig .save ~ .swp .1 .py.bak .pyc .tmp} (~11) x optional dir-prefix variants (config/, app/, src/, instance/) can synthesize 1.5-3M entries, but value drops sharply past ~2x the base. Honest guidance: label the Python-specific portion of T3 as permutation; the volume is real only because generic corpora are merged in.\\n\\nNORMALIZATION: strip scheme/host and leading slash; Django defaults to APPEND_SLASH so emit BOTH trailing-slash and non-slash variants of route-style seeds; expand dirsearch %EXT% with py/pyc. Resolve Assetnote dated filenames at runtime via https://wordlists-cdn.assetnote.io/data/automated.json and .../technologies.json (files refresh ~monthly; hardcoded dates 404 later).\\n\\nLICENSING: SecLists = MIT (free, attribute). OneListForAll = MIT. dirsearch = GPLv2 (fine to bundle/derive for internal tooling; retain notice). Assetnote wordlists = publicly distributed by Assetnote/Searchlight Cyber, no explicit OSS license - free to download/use, attribute, don't resell. Random-Robbie/bruteforce-lists and Bo0oM/fuzz.txt = no explicit license - treat as reference material, attribute, safe for internal offline generation. fuzzdb = CC-BY 3.0 / GPL mixed (not needed here - no Python content). All acceptable for an offline pentest wordlist generator shipped to authorized operators; keep a SOURCES/attribution manifest alongside generated lists.",
+    "sources": [
+      {
+        "approx": "584 KB, ~38-40k lines",
+        "name": "OneListForAll dict/django_long.txt (six2dez)",
+        "notes": "RANK 1 and the single best REAL Python-framework PATH list in the public ecosystem. Aggregated from Assetnote+SecLists+others. Content is genuine paths/files (settings, static/admin, CI/dev dotfiles, admin routes) though ~1/3 is generic dev-repo noise (.babelrc, .github/). Pair with django_short.txt (62 KB) for a high-signal subset.",
+        "url": "https://raw.githubusercontent.com/six2dez/OneListForAll/main/dict/django_long.txt"
+      },
+      {
+        "approx": "10 KB, ~400 lines",
+        "name": "OneListForAll dict/python_long.txt (six2dez)",
+        "notes": "Python-specific but SMALL and partly polluted with pickle-opcode doc lines; grep to keep only lines starting with / or ending in .py/.txt before ingest. Low volume, high relevance after cleaning.",
+        "url": "https://raw.githubusercontent.com/six2dez/OneListForAll/main/dict/python_long.txt"
+      },
+      {
+        "approx": "11.5 MB, 403,119 lines",
+        "name": "Assetnote httparchive_apiroutes (automated)",
+        "notes": "RANK 2 for DRF/FastAPI/Flask API apps. Real API route segments mined from HTTP Archive. Date in filename rotates ~monthly: the generator should GET https://wordlists-cdn.assetnote.io/data/automated.json and resolve the current dated filename rather than hardcoding.",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated/httparchive_apiroutes_2026_08_27.txt"
+      },
+      {
+        "approx": "19.2 MB, 696,827 lines",
+        "name": "Assetnote httparchive_directories_1m (automated)",
+        "notes": "Biggest real generic directory corpus; the per-language classifier buckets Python-looking entries. Core of the T2 tier. Resolve current date via automated.json.",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated/httparchive_directories_1m_2026_08_27.txt"
+      },
+      {
+        "approx": "long 16.7 MB (~800k-1M lines); short 101 KB",
+        "name": "OneListForAll dict/swagger_long.txt + swagger_short.txt",
+        "notes": "High value: FastAPI/DRF/flasgger expose OpenAPI/Swagger UIs. Covers swagger/redoc/openapi path permutations generic corpora miss. short variant is the curated subset.",
+        "url": "https://raw.githubusercontent.com/six2dez/OneListForAll/main/dict/swagger_long.txt"
+      },
+      {
+        "approx": "long 19 MB (~0.9-1.1M lines); short 69 KB",
+        "name": "OneListForAll dict/graphql_long.txt + graphql_short.txt",
+        "notes": "graphene-django/strawberry/ariadne endpoints (/graphql, /graphiql, /voyager, console). Use graphql_short for signal, graphql_long only when chasing T3 volume.",
+        "url": "https://raw.githubusercontent.com/six2dez/OneListForAll/main/dict/graphql_long.txt"
+      },
+      {
+        "approx": "long 49.4 MB (~2.3-3M lines); short 10.2 MB",
+        "name": "OneListForAll dict/api_long.txt + api_short.txt",
+        "notes": "Largest API-route corpus available; mostly generic but the main realistic road to T2/T3 for API-centric Python apps. Dedup against Assetnote apiroutes.",
+        "url": "https://raw.githubusercontent.com/six2dez/OneListForAll/main/dict/api_long.txt"
+      },
+      {
+        "approx": "long 37.4 MB (~1.5-2M lines); short 3.3 MB",
+        "name": "OneListForAll dict/paths_long.txt + paths_short.txt",
+        "notes": "Massive generic path corpus; second big lever for T2/T3 after dedup. Not Python-specific.",
+        "url": "https://raw.githubusercontent.com/six2dez/OneListForAll/main/dict/paths_long.txt"
+      },
+      {
+        "approx": "api-endpoints ~5k; api-seen-in-wild ~2.5k; actions/objects small",
+        "name": "SecLists api/ endpoint lists (api-endpoints, api-seen-in-wild, actions, objects)",
+        "notes": "Also fetch .../api/api-seen-in-wild.txt, .../api/actions.txt, .../api/objects.txt and common-api-endpoints-mazen160.txt. High-signal REST verbs/objects for DRF/FastAPI/Flask-RESTX route construction. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/api/api-endpoints.txt"
+      },
+      {
+        "approx": "config_long 1.3 MB; env_long 20 KB; debug_long 5.7 KB; dotfiles_long 19 KB; db_backups_long 546 KB",
+        "name": "OneListForAll config/secret pieces (config_long, env_long, debug_long, dotfiles_long, db_backups_long)",
+        "notes": "Drive .env/settings/secret and sqlite-backup discovery. Combine with the backup-suffix permutation engine over the Python base set.",
+        "url": "https://raw.githubusercontent.com/six2dez/OneListForAll/main/dict/config_long.txt"
+      },
+      {
+        "approx": "small, hundreds each",
+        "name": "Random-Robbie/bruteforce-lists secret-file lists (env, config, keys, dotfiles)",
+        "notes": "Also config.txt, keys.txt, dotfiles.txt, yaml.txt, ini.txt, swagger.txt, combined_directories.txt. Branch is master (main 404s). Curated secret/config filenames; high precision for Python deployments.",
+        "url": "https://raw.githubusercontent.com/Random-Robbie/bruteforce-lists/master/env.txt"
+      },
+      {
+        "approx": "raft-large-directories ~62k; raft-large-files ~37k; raft-large-words ~38k; common.txt ~4.7k",
+        "name": "SecLists generic baseline (raft-large-directories/files/words, common.txt)",
+        "notes": "Generic bucketed baseline for T1. Also raft-large-files.txt, raft-large-words.txt, common.txt, DirBuster-2007_directory-list-2.3-big.txt. MIT. NOTE: SecLists has NO Django/Flask/Python path file (Programming-Language-Specific/ holds only ASP.NET, PHP, Java-Spring, golang, ror).",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/raft-large-directories.txt"
+      },
+      {
+        "approx": "38.8 MB, ~2.3-2.6M lines",
+        "name": "OneListForAll onelistforallshort.txt (aggregate)",
+        "notes": "Pre-assembled mega-aggregate; fastest single-file path to ~2.5M. onelistforallmicro.txt (559 KB, ~40k) is the small counterpart for T1. MIT.",
+        "url": "https://raw.githubusercontent.com/six2dez/OneListForAll/main/onelistforallshort.txt"
+      },
+      {
+        "approx": "~240 KB, ~11k lines",
+        "name": "dirsearch db/dicc.txt (maurosoria)",
+        "notes": "Curated general content-discovery list with %EXT% placeholders (expand with py). GPLv2 - fine for internal tooling, keep attribution. Good T1 filler.",
+        "url": "https://raw.githubusercontent.com/maurosoria/dirsearch/master/db/dicc.txt"
+      },
+      {
+        "approx": "~260 KB, ~4.7k lines",
+        "name": "Bo0oM/fuzz.txt",
+        "notes": "Curated high-signal general fuzz list incl. many config/backup/debug entries relevant to Python deployments. No explicit license - treat as reference/attribute.",
+        "url": "https://raw.githubusercontent.com/Bo0oM/fuzz.txt/master/fuzz.txt"
+      },
+      {
+        "approx": "78 KB",
+        "name": "OneListForAll dict/ssti_long.txt (niche)",
+        "notes": "Jinja2/Mako SSTI probe payloads - not paths; only include if the generator also emits SSTI test endpoints. Optional.",
+        "url": "https://raw.githubusercontent.com/six2dez/OneListForAll/main/dict/ssti_long.txt"
+      },
+      {
+        "approx": "django 46,000 lines; flask 1,313 lines",
+        "name": "EXCLUDE: Assetnote technologies httparchive_django/flask (host mappings)",
+        "notes": "DO NOT ingest as a path wordlist. Verified content = lists of HOSTNAMES (https://site/ ) that run the tech (Assetnote 'Technology <=> Host Mappings'), useful only for target discovery, NOT directory/file brute-force. Flagged to prevent misclassification.",
+        "url": "https://wordlists-cdn.assetnote.io/data/technologies/httparchive_django_2026_08_27.txt"
+      },
+      {
+        "approx": "n/a",
+        "name": "EXCLUDE/skip: fuzzdb discovery/predictable-filepaths",
+        "notes": "No Python/Django/Flask/WSGI content (webservers-appservers has Ruby_Rails + Java/ColdFusion only). Skip for this stack; mentioned so the generator does not waste a fetch. CC-BY/GPL mixed.",
+        "url": "https://github.com/fuzzdb-project/fuzzdb/tree/master/discovery/predictable-filepaths"
+      }
+    ]
+  },
+  "ruby": {
+    "notes": "CORE REALITY: Unlike PHP/ASP.NET/Java, Ruby/Rails has essentially NO large public *path* wordlist. The file everyone assumes is one - Assetnote's httparchive_rails (6.8 MB) - is a technology->host mapping (217,262 hostnames, verified 0 non-URL lines), not paths. Genuinely Ruby-distinctive PATH content available publicly is tiny: SecLists ror.txt (~190) + the seed_lines here (~330) + HackTricks CVE/traversal paths (~15) = ~500 curated lines, plus maybe ~10-30k more mined by the classifier from the Ruby-token/ext slice of the big generic corpora (directories_1m, raft, OneListForAll, combined_directories). Everything beyond ~20-30k is synthetic permutation or generic spillover. This is also inherent to Rails: real structure hides behind RESTful controller#action routes that are app-specific and not brute-forceable from a generic list - so the highest-value Ruby targets are the FIXED framework/config/secret files and the mounted gem dashboards (which seed_lines fully covers), not deep path enumeration.\n\nHITTING THE TIERS (real corpus vs synthetic permutation):\n- T1 ~200k: ~500 curated (always-include) + ~10-30k Ruby-matched lines mined by the classifier from directories_1m (697k) + raft-* + OneListForAll-micro + combined_directories. Close the gap with permutation: distinct Ruby base names B (~4-8k from seeds + mined bases) x Ruby extensions E(~15: rb,erb,haml,slim,jbuilder,rabl,builder,rake,ru,yml,...) x a plain+backup multiplier. B(6k) x E(15) = 90k; add one backup-suffix round (Common-DB-Backups templates, x~2) => ~180k. So T1 = ~20-30k real/mined + ~170k synthetic. MOSTLY SYNTHETIC.\n- T2 ~1M: add the directory-prefix cross-product. ~25 canonical Rails dir prefixes (config/, config/initializers/, config/environments/, config/credentials/, app/controllers/, app/models/, app/views/, app/helpers/, app/jobs/, app/mailers/, app/channels/, db/, db/migrate/, lib/, lib/tasks/, spec/, test/, public/, public/assets/, public/packs/, storage/, log/, tmp/, vendor/) x B(6-8k) x ~5 exts ~= 750k-1M, unioned with the T1 set. Real content stays ~20-30k; ~97% synthetic.\n- T3 ~3M: union the full generic aggregate as a Ruby-flavored superset - onelistforallshort (~2.5-3M) + DirBuster-big (~1.27M) + directories_1m (697k) + combined_directories (~1M), deduped to ~3-4M - then run the full Ruby permutation matrix on top (base x ext x backup x dir-prefix x {plain, leading-dot, trailing-slash, case}). 3M is reached by permutation explosion + generic spillover; genuinely Ruby-distinctive content remains a few tens of thousands at most, so per-request precision is low while coverage is maximal. ONLY permutation (and the generic kitchen-sink) can reach T3 for this stack - there is no 3M real Ruby corpus.\n\nASSETNOTE NOTE: data/* is nginx-autoindexed (not raw S3), dated files regenerate ~27th/28th monthly and OLD dates are RETAINED, so pinned URLs are stable but to always get latest, parse the data/automated/ and data/technologies/ autoindex and take max date. No rack/sinatra/ruby file exists under data/technologies/ - only rails (and it's the host list).\n\nLICENSING: SecLists = MIT (attribute). Assetnote data = free to use, attribute Assetnote/Searchlight Cyber; the technologies/* host lists are real third-party hostnames (privacy - don't ship as 'paths' anyway). random-robbie/bruteforce-lists = permissive LICENSE present, default branch master (main 404s). OneListForAll = MIT wrapper but transitively bundles SecLists/Assetnote/etc., branch main; fine for runtime download. DirBuster list = OWASP (Apache/LGPL) via SecLists-MIT, attribute OWASP. fuzzdb = dual CC-BY-SA 3.0 / GPLv2 (copyleft/share-alike) - most restrictive; prefer runtime-download over bundling and keep the notice. For an offline generator, downloading at runtime (not vendoring) keeps the tool itself clean of the copyleft/share-alike obligations.",
+    "sources": [
+      {
+        "approx": "2.7 KB, ~190 lines",
+        "name": "SecLists - ror.txt (Ruby on Rails, the only curated RoR path list)",
+        "notes": "THE single Ruby-specific curated path wordlist in the public ecosystem. Real Rails scaffolding/config/script paths (Gemfile, Rakefile, config/*, app/*, db/seeds.rb, dispatch.cgi/fcgi, rails/info/properties, script/*). Small but 100% high-signal; use as a guaranteed-include seed, not a bulk corpus. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/Programming-Language-Specific/ror.txt"
+      },
+      {
+        "approx": "reference page (not a corpus)",
+        "name": "HackTricks - Ruby tricks (Rails/Rack CVE + traversal probe paths)",
+        "notes": "Not a wordlist - source of CVE/traversal probe paths generic corpora miss: Sprockets path-traversal CVE-2018-3760 (assets/file:// and assets/%2e%2e/.../config/database.yml), Rack::Static LFI CVE-2025-27610, ActiveStorage transform RCE CVE-2025-24293, favicon.ico/..%2f..%2f.env, config/master.key, credentials.yml.enc. Harvest these into seed_lines. HackTricks license CC-BY-NC.",
+        "url": "https://raw.githubusercontent.com/HackTricks-wiki/hacktricks/master/src/network-services-pentesting/pentesting-web/ruby-tricks.md"
+      },
+      {
+        "approx": "4.6 KB, ~280 lines",
+        "name": "SecLists - Common-DB-Backups.txt (backup-suffix permutation seed)",
+        "notes": "Backup/suffix templates (%EXT%.bak, .%EXT%.swp, ~, .old, .save, .orig, .1, .zip, .tar.gz). This is the suffix dimension of the base x ext x backup-suffix permutation - feed it to the backup-generator, not as literal paths. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/Common-DB-Backups.txt"
+      },
+      {
+        "approx": "40 KB, ~2,600 lines",
+        "name": "SecLists - quickhits.txt (dev/backup leftovers)",
+        "notes": "High-signal dev/backup/VCS leftovers (.git, .env, .bak dumps, editor swaps). Classifier will bucket the .env/config/.git lines into Ruby; rest stays generic. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/quickhits.txt"
+      },
+      {
+        "approx": "20.2 MB, 696,827 lines (verified)",
+        "name": "Assetnote - httparchive_directories_1m (biggest REAL generic path corpus)",
+        "notes": "Largest real observed-path corpus. Heavily Shopify/Wix/Next.js/WordPress-polluted, so only the Ruby-token/ext slice (/assets, /packs, /rails, /sidekiq, .rb, config/*, Gemfile*) is kept by the classifier - realistically a few thousand lines. Date rolls ~28th monthly and old files are retained; parse the data/automated/ nginx autoindex and pick max date. Free (Assetnote/Searchlight Cyber), attribute.",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated/httparchive_directories_1m_2026_08_27.txt"
+      },
+      {
+        "approx": "12.1 MB, ~400-600k lines",
+        "name": "Assetnote - httparchive_apiroutes (API routes, Rails API mode)",
+        "notes": "Generic observed API routes (/api/v1/..., /oauth/token, etc.) - relevant to Rails API-only apps and mounted JSON engines. Mine the api/ and oauth/ slice. Date-rolling like directories_1m. Free, attribute Assetnote.",
+        "url": "https://wordlists-cdn.assetnote.io/data/automated/httparchive_apiroutes_2026_08_27.txt"
+      },
+      {
+        "approx": "542 KB, ~62,000 lines",
+        "name": "SecLists - raft-large-directories.txt",
+        "notes": "Generic directory corpus; yields Ruby dir bases (config, app, db, vendor, public, assets, packs, storage) and permutation bases. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/raft-large-directories.txt"
+      },
+      {
+        "approx": "494 KB, ~37,000 lines",
+        "name": "SecLists - raft-large-files.txt",
+        "notes": "Generic filename corpus; supplies base filenames for the base x ext permutation. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/raft-large-files.txt"
+      },
+      {
+        "approx": "1.05 MB, ~86,000 lines",
+        "name": "SecLists - raft-large-words.txt",
+        "notes": "Pure word stems - the richest base-name source for synthetic base x ext x backup permutation (the main way Ruby reaches T2/T3). MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/raft-large-words.txt"
+      },
+      {
+        "approx": "26.5 KB, ~2,000 lines",
+        "name": "random-robbie/bruteforce-lists - env.txt (.env variants)",
+        "notes": "Dedicated .env/dotenv variant list - directly relevant to Rails secret leakage. Repo default branch is master (main 404s). Siblings on same repo: old.txt (~220 KB backup base names), config.txt, yaml.txt (2.2 KB), dotfiles.txt, git_config.txt. LICENSE present (permissive), attribute.",
+        "url": "https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/env.txt"
+      },
+      {
+        "approx": "old.txt 220 KB (~15k); combined_directories.txt 16.2 MB (~1M)",
+        "name": "random-robbie/bruteforce-lists - old.txt + combined_directories.txt",
+        "notes": "old.txt = backup/old base names (feeds backup permutation). combined_directories.txt (https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/combined_directories.txt, 16.2 MB) = large generic dir union for the T3 generic pool. master branch. Attribute.",
+        "url": "https://raw.githubusercontent.com/random-robbie/bruteforce-lists/master/old.txt"
+      },
+      {
+        "approx": "38.9 MB, ~2.5-3M lines (verified size)",
+        "name": "six2dez/OneListForAll - onelistforallshort.txt (T3 kitchen-sink aggregate)",
+        "notes": "Deduped mega-aggregate of SecLists+Assetnote+others - the realistic way to approach the ~3M T3 pool with a real (if generic, non-Ruby-specific) corpus. Branch is main. micro variant below. MIT wrapper over transitively-licensed sources.",
+        "url": "https://raw.githubusercontent.com/six2dez/OneListForAll/main/onelistforallshort.txt"
+      },
+      {
+        "approx": "559 KB, ~40,000 lines",
+        "name": "six2dez/OneListForAll - onelistforallmicro.txt",
+        "notes": "Curated smaller aggregate; good mid-tier generic pool to mine the Ruby slice from without the 38 MB download. Branch main. MIT (aggregate).",
+        "url": "https://raw.githubusercontent.com/six2dez/OneListForAll/main/onelistforallmicro.txt"
+      },
+      {
+        "approx": "14.8 MB, ~1,273,000 lines",
+        "name": "SecLists - DirBuster-2007_directory-list-2.3-big.txt",
+        "notes": "Classic ~1.27M generic dir/word list; use as additional generic T3 pool and permutation base source. OWASP DirBuster origin (Apache/LGPL), redistributed in SecLists MIT. Attribute OWASP.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/DirBuster-2007_directory-list-2.3-big.txt"
+      },
+      {
+        "approx": "common.txt 38.5 KB (~4,700); big.txt 166 KB (~20,500)",
+        "name": "SecLists - common.txt / big.txt (baseline generic)",
+        "notes": "Baseline generic web-content lists. big.txt at https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/big.txt. Low Ruby-specific yield but cheap, always-include baselines. MIT.",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/common.txt"
+      },
+      {
+        "approx": "6.8 MB, 217,262 lines - ALL hostnames (verified: 0 non-URL lines)",
+        "name": "Assetnote - httparchive_rails HOST list (DISCOVERY ONLY - NOT PATHS)",
+        "notes": "CRITICAL CAVEAT: despite the name, this is a technology->host MAPPING list (217k https://host/ entries of sites detected running Rails), NOT a content/path wordlist. Do NOT feed into the path brute-force corpus - it would inject 217k useless hostnames. Useful only to answer 'which hosts run Rails'. Free, attribute Assetnote. (data/technologies/ has no rack/sinatra/ruby file at all.)",
+        "url": "https://wordlists-cdn.assetnote.io/data/technologies/httparchive_rails_2026_08_27.txt"
+      },
+      {
+        "approx": "directory tree; no Ruby-specific file",
+        "name": "fuzzdb - discovery/predictable-filepaths (low Ruby yield)",
+        "notes": "No Ruby/Rails/Rack/Sinatra-specific file exists here (verified); only generic login-file-locations, cms, webservers-appservers. Lowest priority for Ruby. License is more restrictive: dual CC-BY-SA 3.0 / GPLv2 (copyleft/share-alike) - prefer runtime-download over bundling, and keep the license notice if bundled.",
+        "url": "https://github.com/fuzzdb-project/fuzzdb/tree/master/discovery/predictable-filepaths"
+      }
+    ]
+  }
+}

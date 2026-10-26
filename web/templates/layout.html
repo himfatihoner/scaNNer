@@ -502,6 +502,8 @@
                     {{template "page_logs" .}}
                 {{else if eq .Page "leakreport"}}
                     {{template "page_leakreport" .}}
+                {{else if eq .Page "networkhistory"}}
+                    {{template "page_networkhistory" .}}
                 {{else if eq .Page "tools"}}
                     {{template "page_tools" .}}
                 {{else if eq .Page "update"}}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"regexp"
@@ -149,7 +150,7 @@ type sslscanReneg struct {
 // carries the human-readable console output; if the temp file can't be created
 // it falls back to the legacy `--xml=/dev/stdout` (XML on stdout, no console).
 func runSslscan(ctx context.Context, host string, port int, toolTimeout time.Duration, startTLS string) (*sslscanTest, ToolRun, error) {
-	target := fmt.Sprintf("%s:%d", host, port)
+	target := net.JoinHostPort(host, strconv.Itoa(port)) // brackets IPv6: [::1]:443
 	stFlag := sslscanStartTLSFlag(startTLS)
 
 	// Reproducible display command — what an operator would run by hand.
@@ -334,8 +335,14 @@ func runNmapSSL(ctx context.Context, host string, port int, toolTimeout time.Dur
 		"--script", scripts,
 		"-p", strconv.Itoa(port),
 		"-oX", "-",
-		host,
 	}
+	// IPv6 literals need -6 for nmap to scan them. The host itself is safe —
+	// ClassifyInput rejects a leading-dash / metachar host upstream — so no
+	// option-terminator is needed (nmap has no portable "--" end-of-options).
+	if strings.Contains(host, ":") {
+		args = append(args, "-6")
+	}
+	args = append(args, host)
 	// -sV (service/version detection) was removed: it probes the port with the
 	// full version-detection handshake matrix — slow and pointless when we're
 	// running SSL NSE scripts on a known TLS port. At scale (hundreds of hosts ×

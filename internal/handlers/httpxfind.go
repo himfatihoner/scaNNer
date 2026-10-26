@@ -199,20 +199,11 @@ func (h *Handler) addDiscoveredServices(scanID string, result *httpxfind.ScanRes
 	if err != nil || scan == nil {
 		return
 	}
-	wsID := scan.WorkspaceID
-	var listIDs []string
-	if lid := h.ensureTargetList(wsID, "HTTP services (discovered)"); lid != "" {
-		listIDs = []string{lid}
-	}
-	seen := map[string]bool{}
+	urls := make([]string, 0, len(result.Services))
 	for _, svc := range result.Services {
-		val := strings.TrimSpace(svc.URL)
-		if val == "" || seen[val] {
-			continue
-		}
-		seen[val] = true
-		h.db.CreateTargetMulti(wsID, val, models.TargetURL, "discovered via HTTP Service Finder", listIDs)
+		urls = append(urls, svc.URL)
 	}
+	h.promoteWebServiceTargets(scan.WorkspaceID, urls, "discovered via HTTP Service Finder")
 }
 
 func (h *Handler) runHTTPXFind(scanID string, targets []string, mode httpxfind.ScanMode, directHTTP bool, customPorts []int, opts *shared.HTTPOptions, tcpConc, tcpRate int) {

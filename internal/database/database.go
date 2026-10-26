@@ -591,6 +591,30 @@ func (d *DB) migrate() error {
 	d.Exec(`CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit_log(ts)`)
 	d.Exec(`CREATE INDEX IF NOT EXISTS idx_audit_cat ON audit_log(category, ts)`)
 
+	// network_events: operational telemetry for the Network History screen —
+	// VPN drops, killswitch trips, connectivity loss, DNS leaks. GLOBAL (no
+	// workspace_id, no foreign keys). Unlike audit_log this is prunable, not a
+	// compliance trail: AddNetworkEvent deletes rows past NetworkEventRetention.
+	if _, err := d.Exec(`CREATE TABLE IF NOT EXISTS network_events (
+		id               TEXT PRIMARY KEY,
+		ts               DATETIME NOT NULL,
+		event_type       TEXT NOT NULL DEFAULT '',
+		category         TEXT NOT NULL DEFAULT '',
+		severity         TEXT NOT NULL DEFAULT 'info',
+		interface        TEXT NOT NULL DEFAULT '',
+		interface_ip     TEXT NOT NULL DEFAULT '',
+		killswitch_scope TEXT NOT NULL DEFAULT '',
+		vpn_connection   TEXT NOT NULL DEFAULT '',
+		reachable        INTEGER NOT NULL DEFAULT 0,
+		dns_ok           INTEGER NOT NULL DEFAULT 0,
+		scans_affected   INTEGER NOT NULL DEFAULT 0,
+		detail           TEXT NOT NULL DEFAULT ''
+	)`); err != nil {
+		return fmt.Errorf("create network_events: %w", err)
+	}
+	d.Exec(`CREATE INDEX IF NOT EXISTS idx_netevents_ts ON network_events(ts)`)
+	d.Exec(`CREATE INDEX IF NOT EXISTS idx_netevents_cat ON network_events(category, ts)`)
+
 	// Ensure default workspace exists
 	return d.ensureDefaultWorkspace()
 }

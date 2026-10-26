@@ -2,6 +2,7 @@ package direnum
 
 import (
 	"bufio"
+	"compress/gzip"
 	"crypto/rand"
 	"crypto/tls"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"scanner/internal/modules/shared"
 	"sort"
 	"strings"
@@ -288,19 +290,32 @@ func scanTarget(target string, cfg ScanConfig, opts *shared.HTTPOptions, logFn f
 	var extraWords []string
 
 	profiles := resolveProfiles(cfg.Techs)
+	level := int(cfg.Level)
+	var bundledLoaded []string
 	for _, p := range profiles {
 		for _, ext := range p.Extensions {
 			allExts = appendUnique(allExts, ext)
 		}
-		level := int(cfg.Level)
-		for _, wlPath := range p.Wordlists[level] {
-			for _, w := range loadWordlist(wlPath) {
-				allWords[w] = true
-			}
-		}
-		for _, wlPath := range p.LiteralLists[level] {
-			for _, w := range loadWordlist(wlPath) {
+		// Prefer the generated per-language tier list when it's been built. Its
+		// extensions + backup/archive permutations are already baked in, so it
+		// loads verbatim as literal paths and the system word×ext matrix for
+		// this profile is skipped. Falls back to the system SecLists paths when
+		// the bundle is absent (see bundledTierFor / BundleKey).
+		if bundled, ok := bundledTierFor(p.BundleKey, level); ok {
+			for _, w := range loadWordlist(bundled) {
 				literalPaths[w] = true
+			}
+			bundledLoaded = append(bundledLoaded, fmt.Sprintf("%s=t%d", p.ID, level+1))
+		} else {
+			for _, wlPath := range p.Wordlists[level] {
+				for _, w := range loadWordlist(wlPath) {
+					allWords[w] = true
+				}
+			}
+			for _, wlPath := range p.LiteralLists[level] {
+				for _, w := range loadWordlist(wlPath) {
+					literalPaths[w] = true
+				}
 			}
 		}
 		extraWords = append(extraWords, p.ExtraWords...)
@@ -361,6 +376,9 @@ func scanTarget(target string, cfg ScanConfig, opts *shared.HTTPOptions, logFn f
 		levelLabel = "aggressive"
 	}
 	logFn(fmt.Sprintf("[%s] Profiles: %s · Level: %s", target, strings.Join(cfg.Techs, ","), levelLabel))
+	if len(bundledLoaded) > 0 {
+		logFn(fmt.Sprintf("[%s] Bundled tier lists: %s (run scripts/build-direnum-wordlists.sh to (re)build)", target, strings.Join(bundledLoaded, " ")))
+	}
 	if skippedLogout > 0 {
 		logFn(fmt.Sprintf("[%s] Skipped %d logout-related words (session safety)", target, skippedLogout))
 	}
@@ -1424,6 +1442,39 @@ func resolveProfiles(techIDs []string) []*TechProfile {
 	return result
 }
 
+// direnumDataDir returns the directory the generated, bundled tier wordlists
+// live under, honoring the DATA_DIR env override the rest of the app uses
+// (default "data", resolved relative to the working dir like hashcat's bundled
+// lists). Built by scripts/build-direnum-wordlists.sh; gitignored.
+func direnumDataDir() string {
+	d := os.Getenv("DATA_DIR")
+	if d == "" {
+		d = "data"
+	}
+	return filepath.Join(d, "direnum-wordlists")
+}
+
+// bundledTierFor returns the absolute path of the generated tier list for a
+// profile's BundleKey at the given level (0=t1, 1=t2, 2=t3) and whether it
+// exists as a non-empty file. It stats the file directly rather than going
+// through loadWordlist, so an ABSENT bundle (fresh clone that hasn't run the
+// generator) cleanly falls back to the profile's system SecLists paths instead
+// of injecting the 30-word embedded fallback once per missing list.
+func bundledTierFor(key string, level int) (string, bool) {
+	if key == "" {
+		return "", false
+	}
+	p := filepath.Join(direnumDataDir(), fmt.Sprintf("%s-t%d.txt.gz", key, level+1))
+	fi, err := os.Stat(p)
+	if err != nil || fi.IsDir() || fi.Size() == 0 {
+		return "", false
+	}
+	if abs, err := filepath.Abs(p); err == nil {
+		p = abs
+	}
+	return p, true
+}
+
 // embeddedFallbackWords is a tiny fallback wordlist used when the path
 // loadWordlist was asked to open doesn't exist or is empty (audit B69).
 // Without this, a misconfigured /usr/share/seclists path made every
@@ -1452,8 +1503,25 @@ func loadWordlist(path string) []string {
 	}
 	defer f.Close()
 
+	// Bundled per-language tier lists ship gzipped (data/direnum-wordlists/
+	// *.txt.gz) to keep them off the plain-text read path's disk footprint;
+	// transparently decompress so profiles can point at either .txt or .txt.gz.
+	var r io.Reader = f
+	if strings.HasSuffix(path, ".gz") {
+		gz, err := gzip.NewReader(f)
+		if err != nil {
+			log.Printf("direnum: wordlist %q is not valid gzip: %v; using embedded fallback", path, err)
+			return embeddedFallbackWords
+		}
+		defer gz.Close()
+		r = gz
+	}
+
 	var words []string
-	sc := bufio.NewScanner(f)
+	sc := bufio.NewScanner(r)
+	// Bundled 1M/3M-entry lists can carry long paths; raise the line cap well
+	// above bufio's 64 KiB default so a long entry never silently truncates.
+	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	for sc.Scan() {
 		w := strings.TrimSpace(sc.Text())
 		if w != "" && !strings.HasPrefix(w, "#") {

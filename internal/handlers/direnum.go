@@ -60,11 +60,11 @@ func (h *Handler) DirEnumRun(w http.ResponseWriter, r *http.Request) {
 	if len(techs) == 0 {
 		techs = []string{"general"}
 	}
-	if len(techs) > 12 {
-		// Twelve is the number of baked-in TechProfiles; ticking more
-		// than that means the form was tampered with. Truncate so the
-		// scan still runs but doesn't fan out beyond the UI's intent.
-		techs = techs[:12]
+	if len(techs) > len(direnum.AllTechProfiles) {
+		// Ticking more than the number of baked-in TechProfiles means the
+		// form was tampered with. Truncate so the scan still runs but
+		// doesn't fan out beyond the UI's intent.
+		techs = techs[:len(direnum.AllTechProfiles)]
 	}
 
 	level := direnum.LevelNormal
@@ -355,7 +355,6 @@ func (h *Handler) runDirEnum(scanID string, urls []string, cfg direnum.ScanConfi
 		func(done, total int, msg string) {
 			h.db.UpdateScanProgressFull(scanID, done, total, msg)
 		})
-
 
 	resultJSON, _ := json.Marshal(result)
 	h.db.UpdateScanResult(scanID, string(resultJSON))

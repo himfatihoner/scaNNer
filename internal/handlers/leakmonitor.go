@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"scanner/internal/models"
 )
 
 // leakLogPath is <DATA_DIR>/leakwatch.log (where scripts/leakwatch.py writes).
@@ -125,9 +127,19 @@ func (h *Handler) onLeak(ts, detail string) {
 	leakAlert.trip(detail, ts)
 	reason := "DNS leak detected — scan stopped (" + detail + ")"
 	log.Printf("⚠ LEAK detected: %s — cancelling running scans", detail)
+	affected := 0
 	for _, id := range h.scanMgr.CancelAll(reason) {
 		h.db.MarkScanError(id, reason)
+		affected++
 	}
+	// Record the leak even if it cancelled zero scans (a leak detected while
+	// idle still matters), so the Network History log has the full picture.
+	h.recordNetEvent(models.NetworkEvent{
+		EventType:     models.NetEvtDNSLeak,
+		Severity:      models.NetSevCritical,
+		ScansAffected: affected,
+		Detail:        detail,
+	})
 }
 
 // LeakAck clears the header leak banner (admin-only, gated by the /leak-report

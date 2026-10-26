@@ -1009,11 +1009,11 @@ var Infos = map[string]ModuleDoc{
 		},
 		Notes: []string{
 			"paramdisc is intentionally excluded from the suite — per spec it's not production-ready for an unattended chain run. Run it separately on URLs of interest",
-			"URL inputs skip stages 1-3 with a 'skipped: input is URL' annotation; IP-only input is rejected (web suite needs hostnames)",
+			"URL inputs skip stages 1-3 with a 'skipped: input is URL' annotation; IP targets are accepted — WHOIS/DNS enumeration self-skip for them (no registry/subdomain surface) while HTTPX and every URL-level stage probe the IP directly",
 			"Iterative cross-feed terminates early when spider finds nothing new — keeps reasonable bounds on runtime for site maps without many sub-dirs",
 			"Per-stage results embed the native module's results template inline — no special UI for the suite, just stacked module views",
 			"Suite is intentionally NOT modifiable mid-flight — stop button cancels the whole chain. For granular control, run modules individually",
-			"Accepts multiple targets at once (manual list or an imported target list); WHOIS/DNS/HTTP Service Finder (stages 1-3) are skipped only when EVERY target is a URL — a single domain in the mix still triggers full recon, and plain-IP entries are dropped",
+			"Accepts multiple targets at once (manual list or an imported target list); WHOIS/DNS/HTTP Service Finder (stages 1-3) are skipped only when EVERY target is a URL — a single domain in the mix still triggers full recon; plain-IP entries are scanned as web targets (WHOIS/DNS self-skip for them)",
 			"CVE Matcher and WPScan both hard-require Tech Detection — with it disabled they are force-disabled regardless of the checkbox; WPScan additionally only runs when WordPress is detected",
 			"Supports stage-level resume — stages that completed before a connectivity pause are seeded back and skipped on the resume run, while the data-producing stages (DNS/HTTP Service Finder/TechDetect) are reconstructed so later stages still get their input",
 			"A Nuclei run can be reported INCOMPLETE (marked as an error state and the whole suite flagged incomplete) when it hits its time cap or exits abnormally; a 'low'/'info' severity sweep over 50+ hosts is warned up-front as a multi-hour job",

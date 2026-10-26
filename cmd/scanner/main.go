@@ -350,6 +350,10 @@ func main() {
 	// the header banner AND cancels running scans. No-ops if leakwatch isn't
 	// installed. See scripts/LEAKWATCH.md.
 	h.StartLeakMonitor()
+	// Seed the Network History log from pre-existing scan rows + leakwatch.log
+	// once at startup (idempotent via deterministic ids). Backgrounded so the
+	// scan-table sweep never delays serving.
+	go h.BackfillNetworkEvents()
 
 	// Re-arm the outbound-binding killswitch at startup if the user had
 	// previously pinned an interface. The killswitch has two layers:
@@ -392,6 +396,7 @@ func main() {
 						shared.SetGlobalLocalAddr(&net.TCPAddr{IP: ip})
 					}
 				},
+				h.RecordKillswitchEvent,
 			)
 			log.Printf("Killswitch armed: scanner-ns ↔ %s (%s)", s.NetworkInterface, s.NetworkInterfaceIP)
 		}
@@ -505,7 +510,8 @@ func main() {
 	http.HandleFunc("/users/reset-2fa", h.UserResetTwoFactor)
 	http.HandleFunc("/users/permissions", h.UserPermissions)
 	http.HandleFunc("/logs", h.LogsPage)
-	http.HandleFunc("/leak-report", h.LeakReportPage) // admin-only (gated in authorizePath)
+	http.HandleFunc("/leak-report", h.LeakReportPage)         // admin-only (gated in authorizePath)
+	http.HandleFunc("/network-history", h.NetworkHistoryPage) // admin-only (gated in authorizePath)
 	http.HandleFunc("/leak-report/ack", h.LeakAck)    // dismiss the header leak banner (admin)
 
 	// Offline utility toolbox (CyberChef, Comparer, URL codec, ViewState) — any user.

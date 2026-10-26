@@ -907,10 +907,15 @@ func probeHTTP(host string, port int, client *http.Client, opts *shared.HTTPOpti
 // caller can decide whether to count it toward the per-scan error budget.
 // RecordError is NOT called here — see probeHTTP for the rationale.
 func tryScheme(host string, port int, scheme string, client *http.Client, opts *shared.HTTPOptions) (*ServiceResult, error) {
-	url := fmt.Sprintf("%s://%s:%d", scheme, host, port)
-	// Omit default ports in URL display
+	// net.JoinHostPort brackets IPv6 literals ([::1]:8443); IPv4/domain unchanged.
+	url := fmt.Sprintf("%s://%s", scheme, net.JoinHostPort(host, strconv.Itoa(port)))
+	// Omit default ports in URL display (still bracket a bare IPv6 host).
 	if (scheme == "http" && port == 80) || (scheme == "https" && port == 443) {
-		url = fmt.Sprintf("%s://%s", scheme, host)
+		h := host
+		if strings.Contains(h, ":") {
+			h = "[" + h + "]"
+		}
+		url = fmt.Sprintf("%s://%s", scheme, h)
 	}
 
 	req, err := http.NewRequest("GET", url, nil)

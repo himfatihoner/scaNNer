@@ -18,6 +18,14 @@
 /data/cve/
 /data/nvd/
 
+# Generated per-language direnum wordlists — large (hundreds of MB), built
+# locally by scripts/build-direnum-wordlists.sh. Only the generator, the
+# curated scripts/direnum-seeds/*.txt, SOURCES.md and manifest.json ship; the
+# heavy .gz tiers are per-machine and regenerated on demand.
+/data/direnum-wordlists/*.txt.gz
+/data/direnum-wordlists/_synthetic/
+/data/direnum-wordlists/_cache/
+
 # Externally-installed third-party tool binaries (users install these
 # themselves; the Docker image builds them). Do not vendor binaries.
 /tools/*

@@ -1,0 +1,182 @@
+{
+  "built": false,
+  "built_at": null,
+  "caps": [
+    200000,
+    1000000,
+    3000000
+  ],
+  "note": "Nominal manifest — run scripts/build-direnum-wordlists.sh to build the .gz tiers (gitignored) and refresh this with real per-tier counts.",
+  "tiers": {
+    "classicasp": {
+      "t1": {
+        "bytes": null,
+        "file": "classicasp-t1.txt.gz",
+        "words": null
+      },
+      "t2": {
+        "bytes": null,
+        "file": "classicasp-t2.txt.gz",
+        "words": null
+      },
+      "t3": {
+        "bytes": null,
+        "file": "classicasp-t3.txt.gz",
+        "words": null
+      }
+    },
+    "coldfusion": {
+      "t1": {
+        "bytes": null,
+        "file": "coldfusion-t1.txt.gz",
+        "words": null
+      },
+      "t2": {
+        "bytes": null,
+        "file": "coldfusion-t2.txt.gz",
+        "words": null
+      },
+      "t3": {
+        "bytes": null,
+        "file": "coldfusion-t3.txt.gz",
+        "words": null
+      }
+    },
+    "dotnet": {
+      "t1": {
+        "bytes": null,
+        "file": "dotnet-t1.txt.gz",
+        "words": null
+      },
+      "t2": {
+        "bytes": null,
+        "file": "dotnet-t2.txt.gz",
+        "words": null
+      },
+      "t3": {
+        "bytes": null,
+        "file": "dotnet-t3.txt.gz",
+        "words": null
+      }
+    },
+    "general": {
+      "t1": {
+        "bytes": null,
+        "file": "general-t1.txt.gz",
+        "words": null
+      },
+      "t2": {
+        "bytes": null,
+        "file": "general-t2.txt.gz",
+        "words": null
+      },
+      "t3": {
+        "bytes": null,
+        "file": "general-t3.txt.gz",
+        "words": null
+      }
+    },
+    "java": {
+      "t1": {
+        "bytes": null,
+        "file": "java-t1.txt.gz",
+        "words": null
+      },
+      "t2": {
+        "bytes": null,
+        "file": "java-t2.txt.gz",
+        "words": null
+      },
+      "t3": {
+        "bytes": null,
+        "file": "java-t3.txt.gz",
+        "words": null
+      }
+    },
+    "nodejs": {
+      "t1": {
+        "bytes": null,
+        "file": "nodejs-t1.txt.gz",
+        "words": null
+      },
+      "t2": {
+        "bytes": null,
+        "file": "nodejs-t2.txt.gz",
+        "words": null
+      },
+      "t3": {
+        "bytes": null,
+        "file": "nodejs-t3.txt.gz",
+        "words": null
+      }
+    },
+    "perl": {
+      "t1": {
+        "bytes": null,
+        "file": "perl-t1.txt.gz",
+        "words": null
+      },
+      "t2": {
+        "bytes": null,
+        "file": "perl-t2.txt.gz",
+        "words": null
+      },
+      "t3": {
+        "bytes": null,
+        "file": "perl-t3.txt.gz",
+        "words": null
+      }
+    },
+    "php": {
+      "t1": {
+        "bytes": null,
+        "file": "php-t1.txt.gz",
+        "words": null
+      },
+      "t2": {
+        "bytes": null,
+        "file": "php-t2.txt.gz",
+        "words": null
+      },
+      "t3": {
+        "bytes": null,
+        "file": "php-t3.txt.gz",
+        "words": null
+      }
+    },
+    "python": {
+      "t1": {
+        "bytes": null,
+        "file": "python-t1.txt.gz",
+        "words": null
+      },
+      "t2": {
+        "bytes": null,
+        "file": "python-t2.txt.gz",
+        "words": null
+      },
+      "t3": {
+        "bytes": null,
+        "file": "python-t3.txt.gz",
+        "words": null
+      }
+    },
+    "ruby": {
+      "t1": {
+        "bytes": null,
+        "file": "ruby-t1.txt.gz",
+        "words": null
+      },
+      "t2": {
+        "bytes": null,
+        "file": "ruby-t2.txt.gz",
+        "words": null
+      },
+      "t3": {
+        "bytes": null,
+        "file": "ruby-t3.txt.gz",
+        "words": null
+      }
+    }
+  }
+}

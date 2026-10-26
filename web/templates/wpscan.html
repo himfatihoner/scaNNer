@@ -54,6 +54,14 @@
                         </div>
                     </div>
 
+                    <label class="flex items-start gap-2 px-3 py-2 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer hover:border-dark-600">
+                        <input type="checkbox" name="update_db" class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500 focus:ring-0">
+                        <div>
+                            <p class="text-xs font-medium text-dark-200">{{T "Update vulnerability database first"}}{{template "info_icon" (T `Runs wpscan --update before the scan so it uses the freshest fingerprint / vulnerability database. Adds ~10-30s. Off by default — wpscan auto-updates its DB daily on its own, and a stale DB is also refreshed reactively mid-scan.`)}}</p>
+                            <p class="text-[10px] text-dark-500 mt-0.5">{{T "Forces"}} <span class="mono">wpscan --update</span> {{T "up front (bypasses the 24h cache)."}}</p>
+                        </div>
+                    </label>
+
                     <details class="bg-dark-850 border border-dark-700 rounded-lg">
                         <summary class="px-3 py-2 text-xs font-medium text-dark-200 cursor-pointer hover:text-white">{{T "HTTP Options"}}{{template "info_icon" (T `Authentication / WAF bypass options. wpscan supports --cookie-string for session-authenticated WP enums, --http-auth for basic-auth gated staging sites, and free-form --headers for X-Forwarded-For / Authorization tricks. Proxy / UA come from Settings + the standard HTTP options matrix.`)}}</summary>
                         <div class="px-3 pb-3 pt-1 space-y-3">

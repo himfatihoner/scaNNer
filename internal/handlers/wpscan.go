@@ -67,6 +67,11 @@ func (h *Handler) WPScanRun(w http.ResponseWriter, r *http.Request) {
 	maxConcurrent := parsePositiveInt(r.FormValue("max_concurrent"), 0, 16)
 	maxThreads := parsePositiveInt(r.FormValue("max_threads"), 0, 100)
 
+	// Opt-in: force a `wpscan --update` before this scan so it runs against the
+	// freshest vulnerability/fingerprint DB (otherwise wpscan's own daily
+	// auto-update + the reactive stale-retry apply).
+	updateDB := r.FormValue("update_db") == "on"
+
 	cfgMap := map[string]interface{}{"urls": urls, "speed": speed}
 	if hp.Proxy != "" {
 		cfgMap["proxy"] = hp.Proxy
@@ -89,6 +94,9 @@ func (h *Handler) WPScanRun(w http.ResponseWriter, r *http.Request) {
 	if maxThreads > 0 {
 		cfgMap["max_threads"] = maxThreads
 	}
+	if updateDB {
+		cfgMap["update_db"] = true
+	}
 	cfgJSON, _ := json.Marshal(cfgMap)
 	scan, err := h.db.CreateScan(ws.ID, "wpscan", string(cfgJSON), len(urls))
 	if err != nil {
@@ -99,7 +107,7 @@ func (h *Handler) WPScanRun(w http.ResponseWriter, r *http.Request) {
 	if h.queueIfSequential(w, r, scan) {
 		return
 	}
-	go h.runWPScan(scan.ID, urls, speed, hp, maxConcurrent, maxThreads, opts)
+	go h.runWPScan(scan.ID, urls, speed, hp, maxConcurrent, maxThreads, updateDB, opts)
 	http.Redirect(w, r, "/modules/wpscan/results/"+scan.ID, http.StatusSeeOther)
 }
 
@@ -225,7 +233,7 @@ func (h *Handler) WPScanStatus(w http.ResponseWriter, r *http.Request) {
 	h.writeScanStatus(w, scan)
 }
 
-func (h *Handler) runWPScan(scanID string, urls []string, speed wpscan.Speed, hp wpscan.HTTPParams, maxConcurrent, maxThreads int, opts *shared.HTTPOptions) {
+func (h *Handler) runWPScan(scanID string, urls []string, speed wpscan.Speed, hp wpscan.HTTPParams, maxConcurrent, maxThreads int, updateDB bool, opts *shared.HTTPOptions) {
 	if !h.db.MarkRunning(scanID) {
 		return
 	}
@@ -278,6 +286,7 @@ func (h *Handler) runWPScan(scanID string, urls []string, speed wpscan.Speed, hp
 		HTTPParams:    hp,
 		MaxConcurrent: maxConcurrent,
 		MaxThreads:    maxThreads,
+		UpdateDB:      updateDB,
 		Opts:          opts,
 	},
 		func(done int, msg string) { h.db.UpdateScanProgress(scanID, done, msg) },
@@ -298,7 +307,13 @@ func (h *Handler) runWPScan(scanID string, urls []string, speed wpscan.Speed, hp
 	if opts.Ctx.Err() == nil {
 		var errs []string
 		for _, tr := range result.Results {
-			if tr.Error != "" {
+			// "not_wordpress" is a SUCCESSFUL determination (host reachable, just
+			// not WordPress) that only carries an Error string for the results
+			// card — not a hard failure. Counting it here flipped an all-not-WP
+			// run (common, including a single URL) to a red "error" scan that
+			// contradicted the per-target "WordPress not detected" card.
+			// Unreachable/error stay counted — those are genuine failures.
+			if tr.Error != "" && tr.Status != "not_wordpress" {
 				errs = append(errs, tr.Error)
 			}
 		}

@@ -414,6 +414,7 @@ func (h *Handler) dispatchRestart(scanID, module, configJSON string) {
 			HTTPHeaders   []string     `json:"http_headers"`
 			MaxConcurrent int          `json:"max_concurrent"`
 			MaxThreads    int          `json:"max_threads"`
+			UpdateDB      bool         `json:"update_db"`
 		}
 		json.Unmarshal([]byte(configJSON), &c)
 		if c.Speed == "" {
@@ -443,7 +444,7 @@ func (h *Handler) dispatchRestart(scanID, module, configJSON string) {
 		if hp.UserAgent == "" {
 			hp.UserAgent = opts.UserAgent
 		}
-		go h.runWPScan(scanID, c.URLs, c.Speed, hp, c.MaxConcurrent, c.MaxThreads, opts)
+		go h.runWPScan(scanID, c.URLs, c.Speed, hp, c.MaxConcurrent, c.MaxThreads, c.UpdateDB, opts)
 	case "dnsenum":
 		go h.restartDNSEnum(scanID, configJSON)
 	case "nuclei":

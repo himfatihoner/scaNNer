@@ -61,7 +61,7 @@ const dbUpdateCacheTTL = 24 * time.Hour
 // ensureDBUpdated runs `wpscan --update` lazily. If a recent successful update
 // is cached, returns nil immediately. Otherwise re-attempts. Errors are not
 // cached — every scan re-evaluates on the next call. Safe under concurrency.
-func ensureDBUpdated(ctx context.Context, log func(string)) error {
+func ensureDBUpdated(ctx context.Context, log func(string), force bool) error {
 	// Audit B61: bail out if the user already cancelled the scan before we
 	// even reached the (slow) `wpscan --update` step. Returned directly,
 	// never cached, so a cancelled scan can't poison future scans.
@@ -70,9 +70,11 @@ func ensureDBUpdated(ctx context.Context, log func(string)) error {
 	}
 	updateMu.Lock()
 	defer updateMu.Unlock()
-	// Another scan may have just finished a successful update while we
-	// were waiting on the mutex — re-check under the lock.
-	if !updatedAt.IsZero() && time.Since(updatedAt) < dbUpdateCacheTTL {
+	// Another scan may have just finished a successful update while we were
+	// waiting on the mutex — re-check under the lock and skip the (slow)
+	// update when it's still fresh. `force` (the per-scan "update database"
+	// checkbox) overrides the cache so an explicit request always refreshes.
+	if !force && !updatedAt.IsZero() && time.Since(updatedAt) < dbUpdateCacheTTL {
 		return nil
 	}
 	if ctx != nil && ctx.Err() != nil {
@@ -212,9 +214,30 @@ type RawOutput struct {
 	Version      *RawVersion            `json:"version"`
 	MainTheme    *RawTheme              `json:"main_theme"`
 	Plugins      map[string]*RawPlugin  `json:"plugins"`
-	Vulns        []RawVuln              `json:"vulnerabilities"`
-	StopReason   string                 `json:"stop_reason"`
-	ScanAborted  string                 `json:"scan_aborted"`
+	// Enumerated via --enumerate at/cb/dbe/u. wpscan emits each as its own
+	// top-level object (themes keyed by slug like plugins; config_backups and
+	// db_exports keyed by URL; users keyed by username). Previously unmapped,
+	// so everything the scan probed beyond plugins/version/main_theme was
+	// silently dropped — including directly-exploitable config/DB exposures.
+	Themes        map[string]*RawTheme   `json:"themes"`
+	ConfigBackups map[string]*RawFinding `json:"config_backups"`
+	DBExports     map[string]*RawFinding `json:"db_exports"`
+	Users         map[string]*RawUser    `json:"users"`
+	Vulns         []RawVuln              `json:"vulnerabilities"`
+	StopReason    string                 `json:"stop_reason"`
+	ScanAborted   string                 `json:"scan_aborted"`
+}
+
+// RawFinding is the generic wpscan finding body shared by config_backups /
+// db_exports — the exposed URL is the map KEY, so only the key is needed.
+type RawFinding struct {
+	FoundBy    string `json:"found_by"`
+	Confidence int    `json:"confidence"`
+}
+
+// RawUser is one enumerated WordPress user; the map KEY is the username.
+type RawUser struct {
+	ID int `json:"id"`
 }
 
 type RawInteresting struct {
@@ -346,6 +369,10 @@ type Config struct {
 	HTTPParams    HTTPParams
 	MaxConcurrent int // 0 → defaultMaxConcurrent
 	MaxThreads    int // 0 → defaultMaxThreads
+	// UpdateDB forces a `wpscan --update` before the scan (the per-scan
+	// "update vulnerability database" form checkbox), bypassing the 24h cache
+	// so the run uses the freshest fingerprint DB. A failed update is non-fatal.
+	UpdateDB bool
 	// Opts carries the scan's HTTPOptions for the reachability preflight (wpscan
 	// itself shells out). nil is safe — preflight is skipped.
 	Opts *shared.HTTPOptions
@@ -399,6 +426,20 @@ func ScanWithConfig(ctx context.Context, cfg Config, progress ProgressFunc, part
 		defer mu.Unlock()
 		if progress != nil {
 			progress(done, msg)
+		}
+	}
+
+	// Explicit per-scan "update vulnerability database" opt-in (form checkbox):
+	// force a `wpscan --update` up front (bypassing the 24h cache) so the run
+	// uses the freshest fingerprint DB. Non-fatal — on failure we log and scan
+	// with whatever DB is present; the reactive stale-retry still applies per
+	// target. A cancel during the (slow) update aborts the scan cleanly.
+	if cfg.UpdateDB {
+		if err := ensureDBUpdated(ctx, logFn, true); err != nil {
+			if ctx.Err() != nil {
+				return result
+			}
+			logFn("WPScan: database update failed (scanning with existing DB): " + err.Error())
 		}
 	}
 
@@ -589,7 +630,7 @@ func runWPScan(ctx context.Context, target string, speed Speed, apiToken string,
 		if log != nil {
 			log("WPScan database is stale — refreshing before retrying " + target)
 		}
-		if upErr := ensureDBUpdated(ctx, log); upErr != nil {
+		if upErr := ensureDBUpdated(ctx, log, false); upErr != nil {
 			tr.Error = upErr.Error()
 			// Any non-empty Error must carry a Status or the results card
 			// renders an empty body (no "Scan failed" branch fires) and the
@@ -660,6 +701,16 @@ func runWPScan(ctx context.Context, target string, speed Speed, apiToken string,
 		}
 	}
 
+	populateResult(tr, &raw, string(output))
+	return tr
+}
+
+// populateResult maps a successfully-parsed wpscan RawOutput onto tr: abort
+// detection (unreachable / not-WordPress) first, then every findings category.
+// Split out of runWPScan so the pure JSON→findings mapping is unit-testable
+// without spawning the wpscan subprocess. rawOutput is the full (capped)
+// stdout+stderr, consulted only for the no-WP-signal abort-text fallback.
+func populateResult(tr *TargetResult, raw *RawOutput, rawOutput string) {
 	tr.EffectiveURL = raw.EffectiveURL
 
 	// Detect "site unreachable" / "not WordPress" — wpscan signals these via
@@ -668,10 +719,18 @@ func runWPScan(ctx context.Context, target string, speed Speed, apiToken string,
 	if abortReason == "" && raw.StopReason != "" && !strings.EqualFold(raw.StopReason, "finished") {
 		abortReason = raw.StopReason
 	}
-	if abortReason == "" {
-		// Fallback to text matches in raw output (covers cases where wpscan
-		// printed the message before any JSON was emitted).
-		abortReason = detectAbortHint(string(output))
+	if abortReason == "" &&
+		raw.Version == nil && raw.MainTheme == nil &&
+		len(raw.Plugins) == 0 && len(raw.Interesting) == 0 && len(raw.Vulns) == 0 {
+		// Free-text fallback ONLY when the parse produced NO positive WordPress
+		// signal (an abort message that leaked as text before a minimal JSON).
+		// Run over a populated result, a marker substring ("could not connect",
+		// "unable to access", "not running wordpress", …) sitting inside a
+		// vulnerability title/description or an interesting_findings entry would
+		// be mistaken for an abort and silently discard a good scan — worst with
+		// an API token set, which fills in the free-text CVE descriptions. Once
+		// real data has parsed, scan_aborted / stop_reason are authoritative.
+		abortReason = detectAbortHint(rawOutput)
 	}
 	if abortReason != "" {
 		tr.Error = abortReason
@@ -692,7 +751,7 @@ func runWPScan(ctx context.Context, target string, speed Speed, apiToken string,
 			tr.Status = "error"
 		}
 		// No usable scan happened — bail before populating WP-specific fields.
-		return tr
+		return
 	}
 
 	// At this point wpscan completed and confirmed WordPress was detected.
@@ -735,6 +794,52 @@ func runWPScan(ctx context.Context, target string, speed Speed, apiToken string,
 		}
 	}
 
+	// All themes (distinct from main_theme): vulnerable non-active / parent
+	// themes land under the top-level "themes" key. Skip the active theme so
+	// its vulns aren't double-counted against the main_theme block above.
+	for _, t := range raw.Themes {
+		if t == nil || (raw.MainTheme != nil && t.Slug == raw.MainTheme.Slug) {
+			continue
+		}
+		for _, v := range t.Vulnerabilities {
+			tr.Findings = append(tr.Findings, vulnToFinding(v, "theme"))
+		}
+	}
+
+	// Config backups (--enumerate cb, every speed): an exposed wp-config.php
+	// backup leaks DB credentials and is directly exploitable. Map key = URL.
+	for url := range raw.ConfigBackups {
+		tr.Findings = append(tr.Findings, Finding{
+			Severity: "HIGH", Category: "config",
+			Title:       "Exposed wp-config backup",
+			Description: url,
+			References:  []string{url},
+		})
+	}
+
+	// DB exports (--enumerate dbe): an exposed SQL dump leaks the whole DB.
+	for url := range raw.DBExports {
+		tr.Findings = append(tr.Findings, Finding{
+			Severity: "HIGH", Category: "config",
+			Title:       "Exposed database export",
+			Description: url,
+			References:  []string{url},
+		})
+	}
+
+	// Enumerated users (--enumerate u, every speed): feeds brute-force /
+	// password-spray targeting, so surface them as info findings. Map key =
+	// username.
+	for username := range raw.Users {
+		if username = strings.TrimSpace(username); username == "" {
+			continue
+		}
+		tr.Findings = append(tr.Findings, Finding{
+			Severity: "INFO", Category: "info",
+			Title: "Enumerated user: " + username,
+		})
+	}
+
 	// Interesting findings
 	for _, i := range raw.Interesting {
 		tr.Findings = append(tr.Findings, Finding{
@@ -750,8 +855,6 @@ func runWPScan(ctx context.Context, target string, speed Speed, apiToken string,
 	for _, v := range raw.Vulns {
 		tr.Findings = append(tr.Findings, vulnToFinding(v, "core"))
 	}
-
-	return tr
 }
 
 // criticalPatternRe matches vuln titles that describe an unauthenticated /

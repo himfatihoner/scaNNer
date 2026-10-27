@@ -136,6 +136,135 @@ func formErrorMsg(code string) string {
 }
 
 // New creates a new Handler
+// ConfigKV is one display row of a scan's launch configuration, pre-formatted
+// for the default-collapsed "Scan configuration" panel (scan_actions.html).
+type ConfigKV struct {
+	Label string
+	Value string
+}
+
+// sensitiveConfigKey reports whether a config key's value should be redacted in
+// the UI. Most credential fields are already blanked before persisting (e.g.
+// smbenum clears Password), but this is defense in depth so a secret that ever
+// slips into a stored config never renders on the results page.
+func sensitiveConfigKey(k string) bool {
+	k = strings.ToLower(k)
+	for _, s := range []string{"password", "passwd", "secret", "token", "api_key", "apikey", "serper"} {
+		if strings.Contains(k, s) {
+			return true
+		}
+	}
+	return false
+}
+
+// prettyConfigLabel turns a snake/kebab config key into a human label:
+// "max_depth" -> "Max depth", "smart-scan" -> "Smart scan".
+func prettyConfigLabel(k string) string {
+	s := strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(k, "_", " "), "-", " "))
+	if s == "" {
+		return k
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+// capConfigList joins list items with ", " but bounds the output to ~20 items /
+// ~300 chars, appending "+N more" so a 500-entry target/url list stays
+// glanceable in the collapsed panel.
+func capConfigList(parts []string) string {
+	const maxItems, maxChars = 20, 300
+	shown, extra := parts, 0
+	if len(parts) > maxItems {
+		shown = parts[:maxItems]
+		extra = len(parts) - maxItems
+	}
+	s := strings.Join(shown, ", ")
+	if len(s) > maxChars {
+		s = s[:maxChars] + "…"
+	}
+	if extra > 0 {
+		s += fmt.Sprintf(" +%d more", extra)
+	}
+	return s
+}
+
+// formatConfigValue renders one decoded JSON config value as a compact string.
+// Scalars print inline; arrays join (capped); objects fall back to compact JSON.
+func formatConfigValue(v interface{}) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case bool:
+		if t {
+			return "true"
+		}
+		return "false"
+	case float64:
+		// JSON numbers decode to float64; print whole numbers without ".0".
+		if t == math.Trunc(t) {
+			return strconv.FormatInt(int64(t), 10)
+		}
+		return strconv.FormatFloat(t, 'f', -1, 64)
+	case []interface{}:
+		parts := make([]string, 0, len(t))
+		for _, e := range t {
+			parts = append(parts, formatConfigValue(e))
+		}
+		return capConfigList(parts)
+	default:
+		b, err := json.Marshal(v)
+		if err != nil {
+			return fmt.Sprintf("%v", v)
+		}
+		return string(b)
+	}
+}
+
+// scanConfigRows parses a scan's persisted launch-config JSON into sorted,
+// prettified, secret-redacted rows for the "Scan configuration" results panel.
+// Returns nil for empty/unparseable config so the panel hides itself. The
+// config shape varies per module, so this treats it as arbitrary JSON and drops
+// noise (null / empty string / empty array), keeping false/0 (meaningful knobs).
+func scanConfigRows(configJSON string) []ConfigKV {
+	configJSON = strings.TrimSpace(configJSON)
+	if configJSON == "" || configJSON == "{}" {
+		return nil
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal([]byte(configJSON), &m); err != nil || len(m) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	rows := make([]ConfigKV, 0, len(keys))
+	for _, k := range keys {
+		v := m[k]
+		switch t := v.(type) {
+		case nil:
+			continue
+		case string:
+			if strings.TrimSpace(t) == "" {
+				continue
+			}
+		case []interface{}:
+			if len(t) == 0 {
+				continue
+			}
+		}
+		val := formatConfigValue(v)
+		if sensitiveConfigKey(k) {
+			val = "••••"
+		}
+		rows = append(rows, ConfigKV{Label: prettyConfigLabel(k), Value: val})
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	return rows
+}
+
 func New(registry *modules.Registry, db *database.DB, templateDir string) (*Handler, error) {
 	// Translation catalogs live in web/i18n (sibling of the templates dir).
 	i18n.Load(filepath.Join(filepath.Dir(templateDir), "i18n"))
@@ -262,6 +391,10 @@ func New(registry *modules.Registry, db *database.DB, templateDir string) (*Hand
 				}
 				return s.ProgressTotal
 			},
+			// scanConfigRows parses a scan's persisted launch config into
+			// sorted, prettified, secret-redacted rows for the default-collapsed
+			// "Scan configuration" panel shown on every module's results page.
+			"scanConfigRows": scanConfigRows,
 			"dict": func(values ...interface{}) (map[string]interface{}, error) {
 				// Build a map from alternating key/value args. Used by the
 				// advancedweb suite results template to pass synthetic data
@@ -360,8 +493,6 @@ func New(registry *modules.Registry, db *database.DB, templateDir string) (*Hand
 					return "/modules/openredirect/results/" + scan.ID
 				case "cvematch":
 					return "/modules/cvematch/results/" + scan.ID
-				case "graphqlscan":
-					return "/modules/graphqlscan/results/" + scan.ID
 				case "authtest":
 					return "/modules/authtest/results/" + scan.ID
 				case "assetdisc":

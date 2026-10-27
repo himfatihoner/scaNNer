@@ -1,7 +1,7 @@
 # scaNNer
 
 A single-binary, web-UI penetration-testing **scan orchestrator**. One Go binary
-serves a Tailwind/htmx frontend on port **9090** and drives ~35 internal modules
+serves a Tailwind/htmx frontend on port **9090** and drives ~34 internal modules
 that wrap standard offensive tooling (nmap, nuclei, wpscan, hydra, the impacket
 suite, netexec/nxc, subfinder, amass, whatweb, and more), parsing their output
 into structured findings stored in SQLite. Every scan is asynchronous,
@@ -34,7 +34,7 @@ cancellable, and re-runnable from its saved configuration.
 
 ## Features
 
-- **~35 modules** across recon, web, network, and vuln categories, plus an
+- **~34 modules** across recon, web, network, and vuln categories, plus an
   orchestrated multi-stage **Advanced Web** suite.
 - **Multi-user auth & RBAC** — login sessions, an admin-managed
   per-user × per-workspace × per-module permission model, an optional per-user
@@ -90,7 +90,6 @@ note above.
 | Open Redirect | Tests for open-redirect issues. |
 | SSTI Probe | Server-side template injection probing. |
 | Cache & Smuggle | Cache-poisoning / request-smuggling probes. |
-| GraphQL Scanner | GraphQL introspection and checks. |
 | JWT Analyzer | Inspects and tests JSON Web Tokens. |
 | Auth Tester | Authentication-flow weakness checks. |
 | Concurrency Tester | Race-condition / concurrency testing. |

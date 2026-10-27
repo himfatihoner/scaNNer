@@ -314,8 +314,6 @@ func dispatchTargetParser(module, resJSON, target string, scanDate time.Time, sc
 		parseDNSEnumTarget(resJSON, target, scanDate, scanID, emit)
 	case "emailharvest":
 		parseEmailHarvestTarget(resJSON, target, scanDate, scanID, emit)
-	case "graphqlscan":
-		parseGraphQLTarget(resJSON, target, scanDate, scanID, emit)
 	case "hostdiscovery":
 		parseHostDiscoveryTarget(resJSON, target, scanDate, scanID, emit)
 	case "httpmethods":

@@ -636,26 +636,6 @@ func ExportSchema(module string) []ExportSection {
 			}},
 		}
 
-	case "graphqlscan":
-		return []ExportSection{
-			{ID: "endpoints", Label: "Endpoints", Default: true, Columns: []ExportColumn{
-				{ID: "url", Label: "URL", Default: true},
-				{ID: "status", Label: "HTTP", Default: true},
-				{ID: "is_graphql", Label: "GraphQL?", Default: true},
-				{ID: "introspection_on", Label: "Introspection", Default: true},
-				{ID: "schema_type_count", Label: "Schema Types", Default: true},
-				{ID: "query_fields", Label: "Query Fields", Default: false},
-				{ID: "mutation_fields", Label: "Mutation Fields", Default: false},
-			}},
-			{ID: "findings", Label: "GraphQL Findings", Default: true, HasSeverity: true, Columns: []ExportColumn{
-				{ID: "url", Label: "URL", Default: true},
-				{ID: "severity", Label: "Severity", Default: true},
-				{ID: "title", Label: "Title", Default: true},
-				{ID: "detail", Label: "Detail", Default: false},
-				{ID: "evidence", Label: "Evidence", Default: false},
-			}},
-		}
-
 	case "authtest":
 		return []ExportSection{
 			{ID: "findings", Label: "Auth Findings", Default: true, HasSeverity: true, Columns: []ExportColumn{

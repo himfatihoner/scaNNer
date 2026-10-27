@@ -34,7 +34,6 @@ import (
 	"scanner/internal/modules/direnum"
 	"scanner/internal/modules/dnsenum"
 	"scanner/internal/modules/emailharvest"
-	"scanner/internal/modules/graphqlscan"
 	"scanner/internal/modules/hashcat"
 	"scanner/internal/modules/hostdiscovery"
 	"scanner/internal/modules/httpmethods"
@@ -257,7 +256,6 @@ func main() {
 	registry.Register(&corsscan.Module{})
 	registry.Register(&openredirect.Module{})
 	registry.Register(&cvematch.Module{})
-	registry.Register(&graphqlscan.Module{})
 	registry.Register(&authtest.Module{})
 	registry.Register(&assetdisc.Module{})
 	registry.Register(&oob.Module{})
@@ -756,11 +754,6 @@ func main() {
 	http.HandleFunc("/modules/cvematch/results/", h.CVEMatchResults)
 	http.HandleFunc("/modules/cvematch/status/", h.CVEMatchStatus)
 
-	// A5: GraphQL Scanner
-	http.HandleFunc("/modules/graphqlscan", h.GraphQLScanPage)
-	http.HandleFunc("/modules/graphqlscan/run", h.GraphQLScanRun)
-	http.HandleFunc("/modules/graphqlscan/results/", h.GraphQLScanResults)
-	http.HandleFunc("/modules/graphqlscan/status/", h.GraphQLScanStatus)
 
 	// A7: Auth Tester
 	http.HandleFunc("/modules/authtest", h.AuthTestPage)

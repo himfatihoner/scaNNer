@@ -13,7 +13,6 @@ import (
 	"scanner/internal/modules/concurtest"
 	"scanner/internal/modules/corsscan"
 	"scanner/internal/modules/cvematch"
-	"scanner/internal/modules/graphqlscan"
 	"scanner/internal/modules/httpxfind"
 	"scanner/internal/modules/oob"
 	"scanner/internal/modules/openredirect"
@@ -530,10 +529,6 @@ func (h *Handler) dispatchRestart(scanID, module, configJSON string) {
 		var c corsscan.Config
 		json.Unmarshal([]byte(configJSON), &c)
 		go h.runCORSScan(scanID, c, h.BuildHTTPOptionsFromSettings())
-	case "graphqlscan":
-		var c graphqlscan.Config
-		json.Unmarshal([]byte(configJSON), &c)
-		go h.runGraphQLScan(scanID, c, h.BuildHTTPOptionsFromSettings())
 	case "openredirect":
 		var c openredirect.Config
 		json.Unmarshal([]byte(configJSON), &c)

@@ -21,7 +21,6 @@ import (
 	"scanner/internal/modules/direnum"
 	"scanner/internal/modules/dnsenum"
 	"scanner/internal/modules/emailharvest"
-	"scanner/internal/modules/graphqlscan"
 	"scanner/internal/modules/hostdiscovery"
 	"scanner/internal/modules/httpmethods"
 	"scanner/internal/modules/httpxfind"
@@ -213,9 +212,6 @@ func (h *Handler) exportCSV(w http.ResponseWriter, module, result, shortID strin
 		case "corsscan":
 			sections["findings"] = true
 		case "openredirect":
-			sections["findings"] = true
-		case "graphqlscan":
-			sections["endpoints"] = true
 			sections["findings"] = true
 		case "authtest":
 			sections["findings"] = true
@@ -1411,50 +1407,6 @@ func (h *Handler) exportCSV(w http.ResponseWriter, module, result, shortID strin
 					})
 				}
 				_ = tr
-			}
-		}
-
-	case "graphqlscan":
-		var sr graphqlscan.ScanResult
-		json.Unmarshal([]byte(result), &sr)
-		boolStr := func(b bool) string {
-			if b {
-				return "yes"
-			}
-			return "no"
-		}
-		if sections["endpoints"] {
-			writeFilteredCSVHeader(writer, "graphqlscan", "endpoints", columns)
-			for _, e := range sr.Endpoints {
-				writeFilteredCSVRow(writer, "graphqlscan", "endpoints", columns, map[string]string{
-					"url":               e.URL,
-					"status":            fmt.Sprintf("%d", e.Status),
-					"is_graphql":        boolStr(e.IsGraphQL),
-					"introspection_on":  boolStr(e.IntrospectionOn),
-					"schema_type_count": fmt.Sprintf("%d", e.SchemaTypeCount),
-					"query_fields":      strings.Join(e.QueryFields, ","),
-					"mutation_fields":   strings.Join(e.MutationFields, ","),
-				})
-			}
-		}
-		if sections["findings"] {
-			if sections["endpoints"] {
-				writer.Write([]string{})
-			}
-			writeFilteredCSVHeader(writer, "graphqlscan", "findings", columns)
-			for _, e := range sr.Endpoints {
-				for _, f := range e.Findings {
-					if !SeverityAllowed(f.Severity, severities) {
-						continue
-					}
-					writeFilteredCSVRow(writer, "graphqlscan", "findings", columns, map[string]string{
-						"url":      e.URL,
-						"severity": f.Severity,
-						"title":    f.Title,
-						"detail":   f.Detail,
-						"evidence": f.Evidence,
-					})
-				}
 			}
 		}
 
@@ -2716,43 +2668,6 @@ func (h *Handler) exportJSON(w http.ResponseWriter, module, result, shortID stri
 			out["findings"] = rows
 		}
 
-	case "graphqlscan":
-		var sr graphqlscan.ScanResult
-		json.Unmarshal([]byte(result), &sr)
-		if sections["endpoints"] {
-			rows := []map[string]interface{}{}
-			for _, e := range sr.Endpoints {
-				rows = append(rows, map[string]interface{}{
-					"url":               e.URL,
-					"status":            e.Status,
-					"is_graphql":        e.IsGraphQL,
-					"introspection_on":  e.IntrospectionOn,
-					"schema_type_count": e.SchemaTypeCount,
-					"query_fields":      e.QueryFields,
-					"mutation_fields":   e.MutationFields,
-				})
-			}
-			out["endpoints"] = rows
-		}
-		if sections["findings"] {
-			rows := []map[string]interface{}{}
-			for _, e := range sr.Endpoints {
-				for _, f := range e.Findings {
-					if !SeverityAllowed(f.Severity, severities) {
-						continue
-					}
-					rows = append(rows, map[string]interface{}{
-						"url":      e.URL,
-						"severity": f.Severity,
-						"title":    f.Title,
-						"detail":   f.Detail,
-						"evidence": f.Evidence,
-					})
-				}
-			}
-			out["findings"] = rows
-		}
-
 	case "authtest":
 		var sr authtest.ScanResult
 		json.Unmarshal([]byte(result), &sr)
@@ -3106,9 +3021,6 @@ func (h *Handler) exportPDF(w http.ResponseWriter, module, result, shortID strin
 		case "corsscan":
 			sections["findings"] = true
 		case "openredirect":
-			sections["findings"] = true
-		case "graphqlscan":
-			sections["endpoints"] = true
 			sections["findings"] = true
 		case "authtest":
 			sections["findings"] = true

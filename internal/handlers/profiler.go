@@ -50,7 +50,6 @@ var calibSpecs = map[string]calibSpec{
 	"wafdetect":   {targetField: "manual_targets", sweep: []int{5, 10, 20, 40, 80}},
 	"corsscan":    {targetField: "urls", sweep: []int{5, 10, 20, 40, 80}},
 	"httpmethods": {targetField: "urls", sweep: []int{5, 10, 20, 40, 80}},
-	"graphqlscan": {targetField: "urls", sweep: []int{5, 10, 20, 40}},
 	"openredirect": {targetField: "urls", sweep: []int{5, 10, 20, 40, 80}},
 	"httpxfind":   {targetField: "targets", extra: url.Values{"mode": {"quick"}}, sweep: []int{20, 50, 100, 150}},
 	// nuclei: NO nuclei_level in extra — a level preset pins -c to a fixed number

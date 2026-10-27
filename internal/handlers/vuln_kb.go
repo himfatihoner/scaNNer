@@ -430,7 +430,6 @@ var classByModule = map[string]string{
 	"sstiscan":     "ssti",
 	"openredirect": "open-redirect",
 	"cachepoison":  "cache-poisoning",
-	"graphqlscan":  "graphql",
 	"jwt":          "jwt-weakness",
 	"sslscan":      "weak-tls",
 	"secheaders":   "missing-security-header",

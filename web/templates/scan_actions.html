@@ -176,6 +176,31 @@
 </script>
 {{end}}
 
+{{/* Scan configuration — the exact launch parameters this scan ran with,
+     parsed generically from the persisted config JSON via scanConfigRows.
+     Because every module's *_results.html composes this partial, the panel
+     appears on ALL of them. Default-collapsed. Skipped for advancedweb, which
+     renders its own richer typed .ScanConfig panel (so no duplicate). */}}
+{{$cfg := scanConfigRows .Scan.Config}}
+{{if and $cfg (not .ScanConfig)}}
+<details class="mb-5 bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+    <summary class="flex items-center gap-2 px-4 py-2.5 cursor-pointer text-xs uppercase tracking-wider text-dark-400 hover:text-white">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        {{T "Scan configuration"}}
+        <span class="mono text-[10px] text-dark-500">({{len $cfg}})</span>
+        <span class="ml-auto text-[10px] normal-case tracking-normal text-dark-600">{{T "how this scan was run"}}</span>
+    </summary>
+    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 px-4 py-3 border-t border-dark-800 max-h-96 overflow-auto">
+        {{range $cfg}}
+        <div class="flex flex-col">
+            <dt class="text-[10px] uppercase tracking-wider text-dark-500">{{.Label}}</dt>
+            <dd class="mono text-[12px] text-dark-200 break-all" style="overflow-wrap:anywhere">{{.Value}}</dd>
+        </div>
+        {{end}}
+    </dl>
+</details>
+{{end}}
+
 {{/* Command history — every external command the scanner emitted via the
      "$ " convention. Populated by db.UpdateScanProgress, persisted in
      scans.commands. Visible after the scan finishes (the live console

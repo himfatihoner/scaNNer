@@ -2481,5 +2481,7 @@
   "%d hit": "%d isabet",
   "%d hits": "%d isabet",
   "Technologies are still being detected / indexed": "Teknolojiler hâlâ tespit ediliyor / indeksleniyor",
-  "Ports are still being scanned / indexed": "Portlar hâlâ taranıyor / indeksleniyor"
+  "Ports are still being scanned / indexed": "Portlar hâlâ taranıyor / indeksleniyor",
+  "Scan configuration": "Tarama yapılandırması",
+  "how this scan was run": "bu taramanın çalıştırıldığı ayarlar"
 }

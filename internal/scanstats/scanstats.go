@@ -194,30 +194,6 @@ func SeverityHits(module, resultJSON string) int {
 			}
 		}
 		return n
-	case "graphqlscan":
-		// graphqlscan emits {endpoints:[{findings:[{severity:"HIGH"|"MEDIUM"|"LOW"}]}]}
-		// — the generic fallback only walks `results[]`/`findings[]`/bare-array
-		// shapes, so this module needs its own case for Dashboard severity
-		// counts to reflect introspection/GraphiQL/CSRF-over-GET hits.
-		var r struct {
-			Endpoints []struct {
-				Findings []struct {
-					Severity string `json:"severity"`
-				} `json:"findings"`
-			} `json:"endpoints"`
-		}
-		if json.Unmarshal([]byte(resultJSON), &r) != nil {
-			return 0
-		}
-		n := 0
-		for _, e := range r.Endpoints {
-			for _, f := range e.Findings {
-				if severe(f.Severity) {
-					n++
-				}
-			}
-		}
-		return n
 	case "leakscan":
 		// leakscan emits {results:[{hits:[{matches:[{pattern,sample}]}],match_count}]}
 		// — no per-finding severity field, but every regex match is a
@@ -329,7 +305,7 @@ func SeverityHits(module, resultJSON string) int {
 	// previously had to be hand-added to this switch — 18 modules silently
 	// skipped Dashboard severity counts. Generic fallback walks the same
 	// shape any module-shaped scan result would have, so adpentest,
-	// openredirect, graphqlscan, corsscan, authtest, sstiscan,
+	// openredirect, corsscan, authtest, sstiscan,
 	// cachepoison, assetdisc, advancedweb, oob, concurtest, leakscan,
 	// paramdisc, jwt, snmpenum, whoisinfo, emailharvest, direnum,
 	// dnsenum, spider etc. all start counting without code edits.

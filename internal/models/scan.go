@@ -154,8 +154,6 @@ func ModuleDisplayName(module string) string {
 		return "Open Redirect"
 	case "cvematch":
 		return "CVE Matcher"
-	case "graphqlscan":
-		return "GraphQL Scanner"
 	case "authtest":
 		return "Auth Tester"
 	case "assetdisc":

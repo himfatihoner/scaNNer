@@ -36,7 +36,6 @@ var VulnEmitters = map[string]bool{
 	"cvematch":     true,
 	"corsscan":     true,
 	"openredirect": true,
-	"graphqlscan":  true,
 	"authtest":     true,
 	"sstiscan":     true,
 	"cachepoison":  true,
@@ -1131,38 +1130,6 @@ var Infos = map[string]ModuleDoc{
 		},
 	},
 
-	// ========================================================================
-	// GraphQL Scanner (A5)
-	// ========================================================================
-	"graphqlscan": {
-		Summary: "Discovers GraphQL endpoints via 11 well-known paths (/graphql, /graphiql, /v1/graphql, /api/graphql, /query, /playground, etc.), confirms each is GraphQL by issuing a {__typename} probe, then runs 5 abuse tests on confirmed endpoints: introspection (full schema dump), GET-method acceptance (CSRF + cache poisoning), field-name suggestions (schema leak even when introspection is disabled), query batching (rate-limit bypass), alias overload (multi-mutation in one request — auth brute-force amplification). GraphiQL / Playground pages exposed = HIGH finding by itself.",
-		Tools: []ToolRef{
-			{Name: "Go net/http", Desc: "Per-endpoint POST+GET probe loop"},
-		},
-		Phases: []string{
-			"Build candidate endpoint list — user-supplied base URLs × 11 default GraphQL paths (or user's custom override list)",
-			"Per candidate: GET first (detects GraphiQL / Playground browser IDEs)",
-			"POST {__typename} — confirms endpoint speaks GraphQL by presence of 'data' or 'errors' in response",
-			"If confirmed: fire introspection query IntrospectionQuery — schema returned = HIGH finding (disable introspection in prod!)",
-			"Parse schema if returned — extract Query / Mutation / Subscription fields for the report",
-			"Fire GET-form query — /endpoint?query={__typename}. Server accepting this enables CSRF (no Content-Type required → no preflight)",
-			"Fire bad-field query { thisFieldDoesNotExist } — error response with 'Did you mean...' suggestions leaks schema even with introspection off",
-			"Fire batch query [{__typename},{__typename}] — server processing arrays bypasses per-request rate limits",
-			"Fire alias-overload query {a:__typename b:__typename ...} — many aliases in one request amplifies brute-force / auth-burst attacks",
-		},
-		Notes: []string{
-			"Introspection enabled is the #1 GraphQL misconfiguration — Apollo/Hasura/Sangria all ship with introspection ON by default in dev mode and developers forget to flip it for prod",
-			"Field suggestions ('Did you mean...') leak the schema brute-forceable — disable in apollo-server config or set production: true",
-			"Batched queries are the auth-brute force technique — wrap 100 login attempts in one HTTP request to bypass per-IP rate limits",
-			"Alias overload is the same idea — 1000 mutation aliases in 1 request = 1000 mutation invocations × 1 rate-limit token",
-			"GraphiQL exposed on production is a giveaway that introspection is also on — usually go together. Check both",
-		},
-		References: []ReferenceRef{
-			{Label: "OWASP GraphQL Cheat Sheet", URL: "https://cheatsheetseries.owasp.org/cheatsheets/GraphQL_Cheat_Sheet.html"},
-			{Label: "GraphQL Security best-practices (Apollo)", URL: "https://www.apollographql.com/docs/apollo-server/security/cors/"},
-			{Label: "GraphQL Threat Matrix (community)", URL: "https://github.com/nicholasaleks/graphql-threat-matrix"},
-		},
-	},
 
 	// ========================================================================
 	// Auth Tester (A7)

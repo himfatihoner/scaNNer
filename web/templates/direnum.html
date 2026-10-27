@@ -130,6 +130,34 @@
                         <p class="text-[10px] text-dark-600 mt-1.5">{{T `Filesystem paths · loaded with the same parser as tech profiles · # comments skipped · missing files log a warning and fall through to the embedded fallback.`}}</p>
                     </div>
 
+                    <!-- Manual directories/paths. Probed directly before the
+                         wordlist brute force; each path's parent directories
+                         are also seeded into the frontier (deduplicated). -->
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                        <p class="text-xs font-medium text-dark-300 mb-2">
+                            {{T `Manual Directories`}}
+                            {{template "info_icon" (T `Directories or file paths you already know about (one per line, or comma/semicolon/space separated). Each is probed directly, and every parent directory is also added to the scan — e.g. "news/first/example.html" adds /news/ and /news/first/ as scan roots. Deduplicated against everything else so nothing is scanned twice.`)}}
+                        </p>
+                        <textarea name="manual_dirs" rows="2" placeholder="/admin&#10;/api/v1&#10;news/first/example.html"
+                                  class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500 resize-none"></textarea>
+                        <p class="text-[10px] text-dark-600 mt-1.5">{{T `Probed directly · parent directories become scan roots · deduplicated with the wordlist, spider and redirects.`}}</p>
+                    </div>
+
+                    <!-- Web spider (active crawl). Opt-in: crawls the site
+                         (robots/sitemap + links, same FQDN) and feeds every
+                         discovered directory/path into the scan frontier,
+                         deduplicated. Heavier than a plain wordlist run. -->
+                    <div class="bg-dark-850 border border-dark-700 rounded-lg p-3">
+                        <label class="flex items-start gap-2.5 cursor-pointer">
+                            <input type="checkbox" name="spider" value="on"
+                                   class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500">
+                            <div>
+                                <p class="text-xs font-medium text-accent-400">{{T `Web Spider (active crawl)`}}{{template "info_icon" (T `Runs an active same-FQDN crawl (robots/sitemap seeding + link following) alongside the brute force, and also extracts links from every HTML page the scan fetches. Every discovered directory and path — plus its parent directories — is folded into the scan frontier and brute-forced, deduplicated so nothing is hit twice. Heavier and slower; leave off for a pure wordlist run.`)}}</p>
+                                <p class="text-[10px] text-dark-500 mt-0.5">{{T `Crawls links + robots/sitemap, feeds discovered dirs/paths into the scan (same FQDN, deduplicated). Heavier.`}}</p>
+                            </div>
+                        </label>
+                    </div>
+
                     <!-- Recursive scan toggle. When on, after the root-level
                          brute-force finishes we BFS into every found
                          directory and re-run the same wordlist + extensions

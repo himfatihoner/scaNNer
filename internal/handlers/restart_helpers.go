@@ -25,6 +25,8 @@ func (h *Handler) restartDirEnum(scanID, configJSON string) {
 		MaxDepth        int      `json:"max_depth"`
 		ExcludePaths    []string `json:"exclude_paths"`
 		CustomWordlists []string `json:"custom_wordlists"`
+		ManualDirs      []string `json:"manual_dirs"`
+		Spider          bool     `json:"spider"`
 	}
 	json.Unmarshal([]byte(configJSON), &c)
 
@@ -48,6 +50,8 @@ func (h *Handler) restartDirEnum(scanID, configJSON string) {
 	cfg.MaxDepth = c.MaxDepth
 	cfg.ExcludePaths = c.ExcludePaths
 	cfg.CustomWordlists = c.CustomWordlists
+	cfg.ManualDirs = c.ManualDirs
+	cfg.Spider = c.Spider
 
 	// Audit fix: wire up the live per-scan skip set on restart too,
 	// mirroring DirEnumRun. Without this, DirEnumSkip requests during

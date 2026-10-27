@@ -35,6 +35,44 @@
     </p>
 </div>
 
+<!-- Results filter bar (#5). Every input carries a stable id so the live
+     partial-swap (scan_progress.html captureSearchState/restoreSearchState)
+     preserves it across ~4s ticks — so filtering works mid-scan too. -->
+<div class="flex flex-wrap items-end gap-2 mb-4 bg-dark-900 border border-dark-800 rounded-xl px-4 py-3">
+    <div class="flex-1 min-w-[160px]">
+        <label class="block text-[10px] uppercase tracking-wider text-dark-500 mb-1">{{T `Filter path`}}</label>
+        <input type="text" id="direnumF-path" oninput="applyDirenumFilter()" placeholder="{{T `substring, e.g. admin`}}"
+               class="w-full mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+    </div>
+    <div>
+        <label class="block text-[10px] uppercase tracking-wider text-dark-500 mb-1">{{T `Type`}}</label>
+        <select id="direnumF-type" onchange="applyDirenumFilter()"
+                class="bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white focus:outline-none focus:border-accent-500">
+            <option value="">{{T `All`}}</option>
+            <option value="dir">{{T `Directories`}}</option>
+            <option value="file">{{T `Files`}}</option>
+        </select>
+    </div>
+    <div>
+        <label class="block text-[10px] uppercase tracking-wider text-dark-500 mb-1">{{T `Status codes`}}</label>
+        <input type="text" id="direnumF-code" oninput="applyDirenumFilter()" placeholder="200, 301"
+               class="w-24 mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+    </div>
+    <div>
+        <label class="block text-[10px] uppercase tracking-wider text-dark-500 mb-1">{{T `Size min`}}</label>
+        <input type="number" id="direnumF-sizemin" oninput="applyDirenumFilter()" min="0" placeholder="0"
+               class="w-20 mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+    </div>
+    <div>
+        <label class="block text-[10px] uppercase tracking-wider text-dark-500 mb-1">{{T `Size max`}}</label>
+        <input type="number" id="direnumF-sizemax" oninput="applyDirenumFilter()" min="0" placeholder="∞"
+               class="w-20 mono bg-dark-850 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+    </div>
+    <button type="button" onclick="direnumClearFilter()"
+            class="px-3 py-1.5 text-[11px] rounded bg-dark-800 text-dark-300 border border-dark-700 hover:text-white hover:border-accent-500/50 transition-colors">{{T `Clear`}}</button>
+    <span id="direnumFilterCount" class="text-[11px] text-dark-500 ml-auto"></span>
+</div>
+
 <div id="direnumTab-findings">
 {{range $tri, $tr := .Results}}
 {{with $tr}}
@@ -127,6 +165,31 @@
     <div class="px-5 py-4 border-b border-dark-800">
         <span class="mono text-sm font-semibold text-accent-400">{{.URL}}</span>
     </div>
+    {{if .DirScans}}
+    <!-- Live, feroxbuster-style per-directory scan activity (#3). Feeds from
+         the partial snapshot, so it updates in real time while the scan runs. -->
+    <div class="px-5 py-3 border-b border-dark-800 bg-dark-900/40">
+        <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-2">{{T `Live scan activity`}}</p>
+        <div class="flex flex-col gap-1 max-h-56 overflow-y-auto pr-1">
+            {{range .DirScans}}
+            <div class="flex items-center gap-2 text-[11px]">
+                {{if eq .Status "scanning"}}
+                    <span class="inline-flex shrink-0 w-4 h-4 items-center justify-center">{{template "radar_inline" (dict "size" 15)}}</span>
+                {{else if eq .Status "done"}}
+                    <span class="text-success shrink-0 w-4 text-center">✓</span>
+                {{else}}
+                    <span class="text-dark-600 shrink-0 w-4 text-center">○</span>
+                {{end}}
+                <span class="mono text-dark-300 truncate">{{.Prefix}}</span>
+                <span class="ml-auto shrink-0 text-dark-500 mono text-[10px]">
+                    {{if .ReqTotal}}{{.ReqDone}}/{{.ReqTotal}}{{else if .ReqDone}}{{.ReqDone}}{{end}}
+                    {{if .Hits}}· <span class="text-accent-400">{{Tn .Hits `%d hit` `%d hits` .Hits}}</span>{{end}}
+                </span>
+            </div>
+            {{end}}
+        </div>
+    </div>
+    {{end}}
     <div class="max-h-[600px] overflow-y-auto">
         <table id="direnumDirsTable-{{$tri}}" class="w-full">
             <thead class="sticky top-0 bg-dark-900">
@@ -141,6 +204,7 @@
             {{range .Entries}}{{if .IsDir}}
             <tr class="border-b border-dark-800/50 hover:bg-dark-850/50 transition-colors direnum-dir-row"
                 data-path="{{.Path}}"
+                data-type="dir"
                 data-status="{{.StatusCode}}"
                 data-size="{{.Size}}"
                 data-skip-url="{{.URL}}">
@@ -274,6 +338,48 @@
             }).catch(function(){});
     }
     refreshSkipState();
+
+    // ---- Results filtering (#5) ----
+    // Reads the row data-* attributes (path/type/status/size) already emitted
+    // on every findings + directories row and shows/hides. Wired to the filter
+    // bar via oninput/onchange, so it also runs on the restoreSearchState event
+    // replay → the operator's filter survives the live partial swaps.
+    function direnumFVal(id) { var e = document.getElementById(id); return e ? e.value.trim() : ''; }
+    window.applyDirenumFilter = function() {
+        var q = direnumFVal('direnumF-path').toLowerCase();
+        var type = direnumFVal('direnumF-type');
+        var codesRaw = direnumFVal('direnumF-code');
+        var codes = codesRaw ? codesRaw.split(/[\s,;]+/).filter(Boolean) : [];
+        var smin = parseInt(direnumFVal('direnumF-sizemin'), 10); if (isNaN(smin)) smin = null;
+        var smax = parseInt(direnumFVal('direnumF-sizemax'), 10); if (isNaN(smax)) smax = null;
+        var active = !!(q || type || codes.length || smin !== null || smax !== null);
+        var shown = 0, total = 0;
+        document.querySelectorAll('#direnumTab-findings tbody tr[data-path], #direnumTab-directories tbody tr[data-path]').forEach(function(row) {
+            total++;
+            var path = (row.getAttribute('data-path') || '').toLowerCase();
+            var rtype = row.getAttribute('data-type') || '';
+            var status = row.getAttribute('data-status') || '';
+            var size = parseInt(row.getAttribute('data-size') || '0', 10); if (isNaN(size)) size = 0;
+            var ok = true;
+            if (q && path.indexOf(q) === -1) ok = false;
+            if (ok && type && rtype !== type) ok = false;
+            if (ok && codes.length && codes.indexOf(status) === -1) ok = false;
+            if (ok && smin !== null && size < smin) ok = false;
+            if (ok && smax !== null && size > smax) ok = false;
+            row.style.display = ok ? '' : 'none';
+            if (ok) shown++;
+        });
+        var c = document.getElementById('direnumFilterCount');
+        if (c) c.textContent = active ? (shown + ' / ' + total) : '';
+    };
+    window.direnumClearFilter = function() {
+        ['direnumF-path', 'direnumF-code', 'direnumF-sizemin', 'direnumF-sizemax'].forEach(function(id) {
+            var e = document.getElementById(id); if (e) e.value = '';
+        });
+        var t = document.getElementById('direnumF-type'); if (t) t.value = '';
+        window.applyDirenumFilter();
+    };
+    applyDirenumFilter();
 })();
 </script>
 {{end}}

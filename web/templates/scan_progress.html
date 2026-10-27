@@ -79,6 +79,12 @@ function copyScanLog(btn) {
 (function() {
     var scanID = "{{.Scan.ID}}";
     var statusURL = "/modules/{{.Scan.Module}}/status/" + scanID;
+    // Translated status labels so the live badge matches the server's language.
+    var STATUS_LABELS = {
+        done: "{{T "Done"}}", running: "{{T "Running"}}", pending: "{{T "Pending"}}",
+        queued: "{{T "Queued"}}", cancelled: "{{T "Cancelled"}}", error: "{{T "Error"}}",
+        paused: "{{T "Paused"}}"
+    };
     var tick = 0;
     var lastLogged = '';
     var logCount = 0;
@@ -349,24 +355,28 @@ function copyScanLog(btn) {
     function setStatusBadge(status) {
         var holder = document.querySelector('h2.text-xl.font-bold.text-white');
         if (!holder) return;
-        // Remove any existing badge inside the h2
-        holder.querySelectorAll('span').forEach(function(s) {
-            if (/Done|Running|Cancelled|Error/i.test(s.textContent)) s.remove();
-        });
+        // Remove the current status badge by its STABLE class (not by matching
+        // its text — a Turkish "Beklemede" wouldn't match an English regex and
+        // we'd end up with two badges). This is what corrects a scan that the
+        // page rendered as "pending" — because its goroutine's MarkRunning
+        // hadn't committed yet at render — to "Running" as soon as the poll sees
+        // the real status, instead of leaving the stale badge stuck for the
+        // whole run. Covers every module (this panel is shared).
+        holder.querySelectorAll('.scan-status-badge').forEach(function(s) { s.remove(); });
+        var cls = {
+            done: ['text-success', 'bg-success/10'],
+            running: ['text-accent-400', 'bg-accent-600/10', 'scan-pulse'],
+            pending: ['text-accent-400', 'bg-accent-600/10'],
+            queued: ['text-accent-300', 'bg-accent-600/10'],
+            cancelled: ['text-warning', 'bg-warning/10'],
+            error: ['text-danger', 'bg-danger/10'],
+            paused: ['text-warning', 'bg-warning/10']
+        }[status];
+        if (!cls) return;
         var span = document.createElement('span');
-        span.className = 'text-[10px] uppercase px-2 py-1 rounded ml-2';
-        if (status === 'done') {
-            span.classList.add('text-success', 'bg-success/10');
-            span.textContent = 'Done';
-        } else if (status === 'cancelled') {
-            span.classList.add('text-warning', 'bg-warning/10');
-            span.textContent = 'Cancelled';
-        } else if (status === 'error') {
-            span.classList.add('text-danger', 'bg-danger/10');
-            span.textContent = 'Error';
-        } else {
-            return;
-        }
+        span.className = 'scan-status-badge text-[10px] uppercase px-2 py-1 rounded ml-2';
+        cls.forEach(function(c) { span.classList.add(c); });
+        span.textContent = STATUS_LABELS[status] || status;
         holder.appendChild(span);
     }
     function hideProgressPanel() {
@@ -400,6 +410,10 @@ function copyScanLog(btn) {
             return r.json();
         }).then(function(d) {
             if (!d) return; // unauthenticated → redirect already issued
+            // Keep the header badge in sync with the REAL status every tick, so
+            // a page that loaded as "pending" flips to "Running" (and later to
+            // Done/Error) without a reload — the single source of truth.
+            setStatusBadge(d.status);
             var pct = d.percent || 0;
             // Honor monotonic clamp.
             if (pct < lastPct) pct = lastPct;

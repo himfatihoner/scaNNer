@@ -145,6 +145,27 @@ func (h *Handler) DirEnumRun(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Manual directories/paths the operator typed in (one per line; also
+	// accepts comma / semicolon / space separators). Each is probed directly
+	// and its parent directories are seeded into the scan frontier. Capped at
+	// 500 to bound fan-out.
+	var manualDirs []string
+	for _, tok := range strings.FieldsFunc(r.FormValue("manual_dirs"), func(r rune) bool {
+		return r == '\n' || r == '\r' || r == ',' || r == ';' || r == ' ' || r == '\t'
+	}) {
+		p := strings.TrimSpace(tok)
+		if p != "" {
+			manualDirs = append(manualDirs, p)
+		}
+		if len(manualDirs) >= 500 {
+			break
+		}
+	}
+
+	// Web spider: active same-FQDN crawl that feeds discovered paths into the
+	// scan frontier. Heavier, so opt-in (default off in the form).
+	spiderOn := r.FormValue("spider") == "on"
+
 	opts := h.BuildHTTPOptions(r)
 	// applyHTTPTuning reads the http_tuning partial (req_timeout /
 	// max_concurrent), sets opts.Timeout to the override-or-global value,
@@ -162,6 +183,8 @@ func (h *Handler) DirEnumRun(w http.ResponseWriter, r *http.Request) {
 		MaxDepth:        maxDepth,
 		ExcludePaths:    excludePaths,
 		CustomWordlists: customWordlists,
+		ManualDirs:      manualDirs,
+		Spider:          spiderOn,
 	}
 
 	// Audit fix: previous cfgJSON dropped filter_codes / recursive /
@@ -179,6 +202,8 @@ func (h *Handler) DirEnumRun(w http.ResponseWriter, r *http.Request) {
 		"max_depth":        maxDepth,
 		"exclude_paths":    excludePaths,
 		"custom_wordlists": customWordlists,
+		"manual_dirs":      manualDirs,
+		"spider":           spiderOn,
 	})
 	scan, _ := h.db.CreateScan(ws.ID, "direnum", string(cfgJSON), len(urls))
 	// Sequential scanning: if the operator ticked "start after the current

@@ -12,10 +12,13 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"scanner/internal/modules/shared"
+	"scanner/internal/modules/spider"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -67,6 +70,19 @@ type ScanConfig struct {
 	// list of "admin\nbackup\nconfig" + .php/.bak picks up
 	// /admin.php, /admin.bak, /backup.php, etc.
 	CustomWordlists []string
+
+	// ManualDirs are directory/file paths the operator typed into the launch
+	// form (e.g. "/admin", "news/first/x.html"). Each is probed directly and its
+	// ancestor directories are seeded into the scan frontier before the wordlist
+	// brute force starts.
+	ManualDirs []string
+
+	// Spider enables an active same-FQDN web crawl (reusing the spider engine:
+	// robots/sitemap seeding + link following) plus inline link-extraction from
+	// every HTML page the brute force fetches. Discovered directories/paths are
+	// folded into the globally-deduplicated scan frontier, so the brute force
+	// also covers everything the site links to. Heavier — opt-in, default off.
+	Spider bool
 
 	// ResumeCheckpoints seeds a resumed scan (Task 0 lossless resume), keyed
 	// by target URL. When scanTarget finds a checkpoint it skips the completed
@@ -120,6 +136,22 @@ type TargetResult struct {
 	// DirEnumCheckpoint. A finished target, or one paused during recursion
 	// (not losslessly resumable), leaves it nil.
 	Checkpoint *DirEnumCheckpoint `json:"checkpoint,omitempty"`
+
+	// DirScans is the per-directory live scan state (feroxbuster-style): one
+	// entry per directory the frontier processes, with its queued/scanning/done
+	// status + request and hit counts. Surfaced in partial snapshots so the
+	// results page can show which directories are being scanned in real time.
+	DirScans []DirScanState `json:"dir_scans,omitempty"`
+}
+
+// DirScanState is the live status of one directory in the scan frontier,
+// rendered as a feroxbuster-style "scanning /admin/ …" list on the results page.
+type DirScanState struct {
+	Prefix   string `json:"prefix"` // "/" (root) or "/admin/"
+	Status   string `json:"status"` // "queued" | "scanning" | "done"
+	ReqDone  int    `json:"req_done"`
+	ReqTotal int    `json:"req_total"`
+	Hits     int    `json:"hits"`
 }
 
 // DirEnumCheckpoint lets a paused root-level scan continue without re-probing
@@ -257,6 +289,8 @@ func scanTarget(target string, cfg ScanConfig, opts *shared.HTTPOptions, logFn f
 		tr.URL = target
 	}
 	target = strings.TrimRight(target, "/")
+	// Parsed base for same-FQDN resolution (redirect-driven + spider frontier).
+	targetURL, _ := url.Parse(target)
 
 	transport := &http.Transport{
 		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
@@ -509,6 +543,31 @@ func scanTarget(target string, cfg ScanConfig, opts *shared.HTTPOptions, logFn f
 	}
 	var requests []reqItem
 
+	// ---- Unified, globally-deduplicated scan frontier ----
+	// Every path probed — from the wordlist, manual input, the web spider, or
+	// an HTTP redirect — is gated through `seen` so nothing is requested twice.
+	// `pendingDirs`/`pendingLeaves` are the dynamic frontier the BFS drains at
+	// each level: dirs to brute-force into, and one-shot leaf probes.
+	// `visited` is the directory-recursion cycle guard (shared by the BFS and
+	// the derive-from-discovery path). All mutated under `mu` once goroutines
+	// start; the manual seed below runs single-threaded so needs no lock.
+	seen := map[string]bool{}
+	visited := map[string]bool{"/": true}
+	// frontierSeen dedups what the derive-from-discovery sources (manual /
+	// spider / redirect) ADD to the frontier, so a path linked from 50 pages is
+	// enqueued once. It is deliberately separate from `visited` (which is the
+	// BFS queue's own dedup, written only by enqueuePrefix) — conflating the two
+	// would let an adder pre-mark a dir "visited" and make enqueuePrefix skip it.
+	frontierSeen := map[string]bool{}
+	pendingDirs := []string{}
+	pendingLeaves := []reqItem{}
+	spiderBudget := spiderCapFor(cfg)
+
+	// DirScans: feroxbuster-style live per-directory status (#3). dirScanIdx maps
+	// a prefix to its slice index for O(1) upserts.
+	dirScans := []DirScanState{}
+	dirScanIdx := map[string]int{}
+
 	// Normalize and dedupe the user-supplied exclude list. Empty lines
 	// and bare slashes are dropped — "/" as a prefix would mean
 	// "exclude everything". Each pattern is stored without trailing
@@ -555,6 +614,17 @@ func scanTarget(target string, cfg ScanConfig, opts *shared.HTTPOptions, logFn f
 		logFn(fmt.Sprintf("[%s] Exclude paths: %s", target, strings.Join(excludes, " · ")))
 	}
 
+	// isSkipped reports whether the user has marked this path (or an ancestor)
+	// as skipped via the runtime skip endpoint. The absolute URL (target+path)
+	// is the key — exactly what the user clicks in the UI. Shared by the manual
+	// seed, the derive-from-discovery frontier, and the recursive BFS.
+	isSkipped := func(prefix string) bool {
+		if cfg.IsSkipped == nil {
+			return false
+		}
+		return cfg.IsSkipped(target + prefix)
+	}
+
 	addRequest := func(r reqItem) {
 		if matchesExclude(r.path) {
 			return
@@ -599,6 +669,41 @@ func scanTarget(target string, cfg ScanConfig, opts *shared.HTTPOptions, logFn f
 	// ".ext" suffix when it looks like a real extension.
 	for _, p := range literals {
 		addRequest(reqItem{path: "/" + strings.TrimLeft(p, "/"), ext: extractExtFromPath(p)})
+	}
+
+	// ---- Manual directories (#1) ----
+	// Probe every operator-supplied path directly (counted into the root request
+	// budget so the progress bar stays exact) and seed its parent directories —
+	// plus itself when it's a directory — into the frontier so the brute force
+	// also recurses into them. Runs single-threaded here (no goroutines yet).
+	manualSeeded := 0
+	for _, raw := range cfg.ManualDirs {
+		leaf, dirs := splitLeafAndDirs(raw)
+		if leaf == "" || leaf == "/" {
+			continue
+		}
+		for _, d := range dirs {
+			if frontierSeen[d] || matchesExclude(d) || isSkipped(d) {
+				continue
+			}
+			frontierSeen[d] = true
+			pendingDirs = append(pendingDirs, d)
+		}
+		if frontierSeen[leaf] || matchesExclude(leaf) || isSkipped(leaf) {
+			continue
+		}
+		frontierSeen[leaf] = true
+		ext := ""
+		if !strings.HasSuffix(leaf, "/") {
+			ext = extractExtFromPath(leaf)
+		}
+		// Not pre-marked `seen` — the processRequest gate is the sole authority
+		// for `seen`, so it dedupes manual-vs-wordlist on dispatch.
+		requests = append(requests, reqItem{path: leaf, ext: ext})
+		manualSeeded++
+	}
+	if manualSeeded > 0 {
+		logFn(fmt.Sprintf("[%s] Manual: seeded %d path(s) + their parent directories into the frontier", target, manualSeeded))
 	}
 
 	totalReqs := len(requests)
@@ -711,9 +816,113 @@ func scanTarget(target string, cfg ScanConfig, opts *shared.HTTPOptions, logFn f
 			FPCodes:       tr.FPCodes,
 			TotalRequests: tr.TotalRequests,
 			TotalFound:    len(entries),
+			DirScans:      append([]DirScanState(nil), dirScans...),
 		}
 		mu.Unlock()
 		partialFn(snap)
+	}
+
+	// dirScanSet upserts a directory's live status for the feroxbuster-style
+	// view (#3). Caller holds mu. A non-empty status / positive reqTotal updates
+	// the field; a brand-new prefix is appended as queued/scanning.
+	dirScanSet := func(prefix, status string, reqTotal int) {
+		prefix = normSeenKey(prefix)
+		if i, ok := dirScanIdx[prefix]; ok {
+			if status != "" {
+				dirScans[i].Status = status
+			}
+			if reqTotal > 0 {
+				dirScans[i].ReqTotal = reqTotal
+			}
+			return
+		}
+		dirScans = append(dirScans, DirScanState{Prefix: prefix, Status: status, ReqTotal: reqTotal})
+		dirScanIdx[prefix] = len(dirScans) - 1
+	}
+
+	// enqueueDerived folds a discovered leaf + its recurse-into directories into
+	// the frontier, deduped (dirs via `visited`, leaves via the processRequest
+	// `seen` gate on dispatch), honoring exclude/skip. Caller holds mu. Returns
+	// true if anything new was added (so the caller can decrement spiderBudget).
+	enqueueDerived := func(leaf string, dirs []string) bool {
+		added := false
+		for _, d := range dirs {
+			if frontierSeen[d] || matchesExclude(d) || isSkipped(d) {
+				continue
+			}
+			frontierSeen[d] = true
+			pendingDirs = append(pendingDirs, d)
+			added = true
+		}
+		if leaf != "" && leaf != "/" && !frontierSeen[leaf] && !matchesExclude(leaf) && !isSkipped(leaf) {
+			frontierSeen[leaf] = true
+			ext := ""
+			if !strings.HasSuffix(leaf, "/") {
+				ext = extractExtFromPath(leaf)
+			}
+			pendingLeaves = append(pendingLeaves, reqItem{path: leaf, ext: ext})
+			added = true
+		}
+		return added
+	}
+
+	// isSameFQDNHTML reports whether an entry is an HTML page worth scraping for
+	// links (2xx/3xx, text/html). Cross-host is impossible here (we only request
+	// our own target) so only the content-type matters.
+	isSameFQDNHTML := func(e *DirEntry) bool {
+		if e == nil || e.StatusCode >= 400 {
+			return false
+		}
+		return strings.Contains(strings.ToLower(e.ContentType), "text/html")
+	}
+
+	// maybeEnqueueFromEntry applies the always-on redirect expansion (#4/#6) and,
+	// when the spider is enabled, the inline same-FQDN link extraction (#2) to a
+	// freshly-probed entry, folding discoveries into the frontier. The expensive
+	// HTML parse runs OUTSIDE mu; only the small enqueue bookkeeping re-takes it.
+	maybeEnqueueFromEntry := func(entry *DirEntry, body []byte) {
+		if entry == nil {
+			return
+		}
+		// Redirect-driven frontier (#4 new-path, #6 dir promotion) — always on.
+		if entry.StatusCode == 301 || entry.StatusCode == 302 {
+			if loc := sameFQDNPath(entry.RedirectTo, targetURL); loc != "" {
+				selfDir := strings.TrimRight(normSeenKey(entry.Path), "/") + "/"
+				mu.Lock()
+				if loc == selfDir {
+					// #6: /admin -> /admin/ — the path is really a directory.
+					if !frontierSeen[loc] && !matchesExclude(loc) && !isSkipped(loc) {
+						frontierSeen[loc] = true
+						pendingDirs = append(pendingDirs, loc)
+					}
+				} else if spiderBudget > 0 {
+					// #4: redirect to a new path — derive + enqueue it.
+					leaf, dirs := splitLeafAndDirs(loc)
+					if enqueueDerived(leaf, dirs) {
+						spiderBudget--
+					}
+				}
+				mu.Unlock()
+			}
+		}
+		// Inline spider link extraction (#2, opt-in): same-FQDN HTML only.
+		if cfg.Spider && isSameFQDNHTML(entry) && len(body) > 0 {
+			paths := extractSameFQDNPaths(body, targetURL) // regex over body — unlocked
+			if len(paths) == 0 {
+				return
+			}
+			mu.Lock()
+			for _, p := range paths {
+				if spiderBudget <= 0 {
+					break
+				}
+				leaf, dirs := splitLeafAndDirs(p)
+				if enqueueDerived(leaf, dirs) {
+					spiderBudget--
+				}
+			}
+			mu.Unlock()
+		}
 	}
 
 	// Worker closure — extracted so both the initial root-level scan and
@@ -731,8 +940,31 @@ func scanTarget(target string, cfg ScanConfig, opts *shared.HTTPOptions, logFn f
 				return
 			}
 
+			// Global dedup gate (#2 "aynı dizin/dosya tekrar taranmasın"): skip if
+			// this exact path was already dispatched from ANY source (wordlist /
+			// manual / spider / redirect). The dup still counted toward totalReqs,
+			// so compensate done++ + emit to keep the bar monotonic and closing.
+			seenKey := normSeenKey(r.path)
+			mu.Lock()
+			if seen[seenKey] {
+				done++
+				if idx >= 0 && idx < len(rootCompleted) {
+					rootCompleted[idx] = true
+				}
+				if i, ok := dirScanIdx[parentDir(r.path)]; ok {
+					dirScans[i].ReqDone++
+				}
+				mu.Unlock()
+				if emit != nil {
+					emit(0, 1, "")
+				}
+				return
+			}
+			seen[seenKey] = true
+			mu.Unlock()
+
 			fullURL := target + r.path
-			entry := probeURL(client, fullURL, r.path, opts)
+			entry, body := probeURL(client, fullURL, r.path, opts)
 
 			// Locked section as a closure so `defer mu.Unlock()` (audit B29)
 			// guarantees release on every early return AND on a panic. The
@@ -748,6 +980,10 @@ func scanTarget(target string, cfg ScanConfig, opts *shared.HTTPOptions, logFn f
 				// watermark (recursion passes idx=-1 and is not checkpointed).
 				if idx >= 0 && idx < len(rootCompleted) {
 					rootCompleted[idx] = true
+				}
+				// Live per-directory request accounting (#3).
+				if i, ok := dirScanIdx[parentDir(r.path)]; ok {
+					dirScans[i].ReqDone++
 				}
 
 				if entry == nil {
@@ -802,6 +1038,9 @@ func scanTarget(target string, cfg ScanConfig, opts *shared.HTTPOptions, logFn f
 					return false
 				}
 				entries = append(entries, *entry)
+				if i, ok := dirScanIdx[parentDir(r.path)]; ok {
+					dirScans[i].Hits++
+				}
 				opts.ReplayHit("GET", fullURL)
 
 				// Don't let 403s feed the adaptive FP learner — a server
@@ -835,6 +1074,11 @@ func scanTarget(target string, cfg ScanConfig, opts *shared.HTTPOptions, logFn f
 			if emit != nil {
 				emit(0, 1, "")
 			}
+			// Grow the frontier from this response: redirect expansion (#4/#6,
+			// always) + inline spider link extraction (#2, when enabled). Runs
+			// for every probed entry, not just surfaced hits, so a filtered-but-
+			// real HTML page still contributes its links.
+			maybeEnqueueFromEntry(entry, body)
 			if hit {
 				firePartial()
 			}
@@ -895,6 +1139,11 @@ func scanTarget(target string, cfg ScanConfig, opts *shared.HTTPOptions, logFn f
 			emit(0, startIdx, "")
 		}
 	}
+	// Register the root "/" directory in the live view (#3) before dispatch.
+	mu.Lock()
+	dirScanSet("/", "scanning", len(requests))
+	dirScans[dirScanIdx["/"]].ReqDone = startIdx
+	mu.Unlock()
 	rootDispatched := startIdx
 	for i := startIdx; i < len(requests); i++ {
 		if opts.Done() {
@@ -912,6 +1161,10 @@ func scanTarget(target string, cfg ScanConfig, opts *shared.HTTPOptions, logFn f
 		}
 	}
 	wg.Wait()
+	mu.Lock()
+	dirScanSet("/", "done", 0)
+	mu.Unlock()
+	firePartial()
 
 	// If a connectivity pause cut the root level short, snapshot the resume
 	// watermark: the length of the contiguous run of completed requests from
@@ -927,68 +1180,132 @@ func scanTarget(target string, cfg ScanConfig, opts *shared.HTTPOptions, logFn f
 		tr.Checkpoint = &DirEnumCheckpoint{RootWatermark: w}
 	}
 
-	// --- Recursive BFS levels ---
-	// Walk every directory we discovered at depth N and re-run the same
-	// brute-force inside it for depth N+1, up to cfg.MaxDepth. `visited`
-	// guards against cycles (e.g. a host that 200's on every path).
-	if cfg.Recursive && cfg.MaxDepth > 0 && !opts.Done() {
-		// Per-prefix skip check. Treat the absolute URL of a candidate
-		// directory (target + path) as the key — that's exactly the
-		// shape the user clicks on in the UI. Returns true if the user
-		// has marked this dir (or any ancestor of it) as skipped, so
-		// recursion drops it before queueing or before firing requests.
-		isSkipped := func(prefix string) bool {
-			if cfg.IsSkipped == nil {
-				return false
-			}
-			return cfg.IsSkipped(target + prefix)
+	// --- Frontier / recursive BFS levels ---
+	// Walk every directory discovered so far — from the wordlist root, the
+	// manual seeds, HTTP redirects, and (when enabled) the active web spider —
+	// and re-run the brute force inside it, up to maxDepth levels deep. The
+	// dynamic frontier (pendingDirs/pendingLeaves, mu-guarded) is drained at the
+	// top of every level, so discoveries that arrive mid-scan are folded in
+	// automatically and deduped via the target-scope `visited`/`seen`.
+	mu.Lock()
+	frontierPending := len(pendingDirs) > 0 || len(pendingLeaves) > 0
+	mu.Unlock()
+	if ((cfg.Recursive && cfg.MaxDepth > 0) || cfg.Spider || frontierPending) && !opts.Done() {
+		maxDepth := cfg.MaxDepth
+		if maxDepth < 1 {
+			maxDepth = 2 // spider/manual with the Recursive box off still needs depth
 		}
 
-		visited := map[string]bool{"/": true}
 		queue := []string{}
+		skippedAtSeed := 0
+		// enqueuePrefix visited-gates a directory into the live queue and marks
+		// it queued in the feroxbuster-style view (#3).
+		enqueuePrefix := func(raw string) {
+			p := strings.TrimRight(normSeenKey(raw), "/") + "/"
+			if p == "/" || visited[p] {
+				return
+			}
+			visited[p] = true
+			if isSkipped(p) || matchesExclude(p) {
+				skippedAtSeed++
+				return
+			}
+			queue = append(queue, p)
+			mu.Lock()
+			dirScanSet(p, "queued", 0)
+			mu.Unlock()
+		}
+
+		// Seed from root discoveries (dir hits + 403 dirs) and the frontier that
+		// the root brute force + manual seed already accumulated.
 		mu.Lock()
 		seedSnapshot := append([]DirEntry(nil), entries...)
 		forbiddenSeed := append([]string(nil), forbiddenDirs[forbiddenCursor:]...)
 		forbiddenCursor = len(forbiddenDirs)
+		seedDirs := pendingDirs
+		pendingDirs = nil
 		mu.Unlock()
-		skippedAtSeed := 0
 		for _, e := range seedSnapshot {
-			if !e.IsDir {
-				continue
+			if e.IsDir {
+				enqueuePrefix(e.Path)
 			}
-			p := strings.TrimRight(e.Path, "/") + "/"
-			if visited[p] {
-				continue
-			}
-			visited[p] = true
-			if isSkipped(p) || matchesExclude(p) {
-				skippedAtSeed++
-				continue
-			}
-			queue = append(queue, p)
 		}
-		// Add 403-only dirs that the FP filter would otherwise hide.
 		for _, p := range forbiddenSeed {
-			p = strings.TrimRight(p, "/") + "/"
-			if visited[p] {
-				continue
-			}
-			visited[p] = true
-			if isSkipped(p) || matchesExclude(p) {
-				skippedAtSeed++
-				continue
-			}
-			queue = append(queue, p)
+			enqueuePrefix(p)
+		}
+		for _, p := range seedDirs {
+			enqueuePrefix(p)
 		}
 		if skippedAtSeed > 0 {
 			logFn(fmt.Sprintf("[%s] Skip list: dropped %d director%s before recursion", target, skippedAtSeed, pluralY(skippedAtSeed)))
 		}
-		for depth := 1; depth <= cfg.MaxDepth && len(queue) > 0 && !opts.Done(); depth++ {
-			logFn(fmt.Sprintf("[%s] Recursive depth %d: scanning %d sub-director%s", target, depth, len(queue), pluralY(len(queue))))
-			levelRequests := []reqItem{}
-			for _, prefix := range queue {
-				levelRequests = append(levelRequests, buildRequestsForPrefix(prefix)...)
+
+		// Start the active same-FQDN web crawl concurrently (#2). It feeds every
+		// discovered dir/path into the same frontier the BFS drains, deduped.
+		// spiderRunning keeps the drain loop alive across momentarily-empty
+		// rounds until the crawl ends; opts.Ctx cancels it on pause/kill.
+		var spiderRunning atomic.Bool
+		var spiderWG sync.WaitGroup
+		if cfg.Spider {
+			spiderRunning.Store(true)
+			spiderWG.Add(1)
+			go func() {
+				defer spiderWG.Done()
+				defer spiderRunning.Store(false)
+				runSpiderInto(target, cfg, opts, func(p string) {
+					mu.Lock()
+					if spiderBudget > 0 {
+						leaf, dirs := splitLeafAndDirs(p)
+						if enqueueDerived(leaf, dirs) {
+							spiderBudget--
+						}
+					}
+					mu.Unlock()
+				})
+			}()
+			logFn(fmt.Sprintf("[%s] Web spider: active crawl started — feeding discovered paths into the scan frontier", target))
+		}
+
+		for depth := 1; depth <= maxDepth && !opts.Done(); depth++ {
+			// Drain the frontier accumulated since the previous level: directories
+			// to brute-force into + one-shot leaf probes (manual/spider/redirect).
+			mu.Lock()
+			leaves := pendingLeaves
+			pendingLeaves = nil
+			fdirs := pendingDirs
+			pendingDirs = nil
+			mu.Unlock()
+			for _, p := range fdirs {
+				enqueuePrefix(p)
 			}
+
+			if len(queue) == 0 && len(leaves) == 0 {
+				// Nothing to scan this round. If the spider is still crawling,
+				// wait briefly for it to produce work rather than exiting early;
+				// an empty wait round does not consume a depth level.
+				if cfg.Spider && spiderRunning.Load() && !opts.Done() {
+					depth--
+					ctxWait(opts, 400*time.Millisecond)
+					continue
+				}
+				break
+			}
+
+			nDirs := len(queue)
+			logFn(fmt.Sprintf("[%s] Depth %d: scanning %d sub-director%s + %d derived path%s",
+				target, depth, nDirs, pluralY(nDirs), len(leaves), pluralS(len(leaves))))
+
+			// This level's requests: frontier leaves first, then the wordlist×ext
+			// matrix for every queued directory (marked scanning in the view).
+			levelRequests := append([]reqItem(nil), leaves...)
+			for _, prefix := range queue {
+				reqs := buildRequestsForPrefix(prefix)
+				mu.Lock()
+				dirScanSet(prefix, "scanning", len(reqs))
+				mu.Unlock()
+				levelRequests = append(levelRequests, reqs...)
+			}
+
 			mu.Lock()
 			totalReqs += len(levelRequests)
 			tr.TotalRequests = totalReqs
@@ -996,7 +1313,7 @@ func scanTarget(target string, cfg ScanConfig, opts *shared.HTTPOptions, logFn f
 			mu.Unlock()
 			if emit != nil {
 				emit(len(levelRequests), 0,
-					fmt.Sprintf("[%s] depth %d: queued %d sub-paths across %d dirs", target, depth, len(levelRequests), len(queue)))
+					fmt.Sprintf("[%s] depth %d: queued %d paths across %d dirs", target, depth, len(levelRequests), nDirs))
 			}
 
 			var lwg sync.WaitGroup
@@ -1008,10 +1325,8 @@ func scanTarget(target string, cfg ScanConfig, opts *shared.HTTPOptions, logFn f
 					skippedThisLevel += len(levelRequests) - i
 					break
 				}
-				// Re-check on every request — the user may add a skip
-				// mid-level, and we should drop in-flight work for that
-				// prefix immediately rather than waiting for the next
-				// depth boundary.
+				// Re-check on every request — the user may add a skip mid-level,
+				// and in-flight work for that prefix should drop immediately.
 				if isSkipped(ri.path) {
 					skippedThisLevel++
 					continue
@@ -1019,12 +1334,18 @@ func scanTarget(target string, cfg ScanConfig, opts *shared.HTTPOptions, logFn f
 				processRequest(ri, &lwg, -1)
 			}
 			lwg.Wait()
+
+			// Mark this level's directories done in the live view.
+			mu.Lock()
+			for _, prefix := range queue {
+				dirScanSet(prefix, "done", 0)
+			}
+			mu.Unlock()
+
 			if skippedThisLevel > 0 {
 				logFn(fmt.Sprintf("[%s] Skip list: dropped %d in-flight request%s at depth %d", target, skippedThisLevel, pluralS(skippedThisLevel), depth))
-				// Audit fix: bump the done counter (and emit the matching
-				// delta) for every request we skipped or never reached
-				// — they're already counted in totalReqs, so without this
-				// the percentage bar parks short of 100%.
+				// Bump done (+ emit) for every skipped/un-reached request — they
+				// were counted in totalReqs, so the bar would otherwise park short.
 				mu.Lock()
 				done += skippedThisLevel
 				mu.Unlock()
@@ -1033,39 +1354,51 @@ func scanTarget(target string, cfg ScanConfig, opts *shared.HTTPOptions, logFn f
 				}
 			}
 
-			// Collect dir hits added during this level for the next round.
+			// Collect dir hits found this level for the next round.
 			mu.Lock()
 			newSnapshot := append([]DirEntry(nil), entries[prevLen:]...)
 			newForbidden := append([]string(nil), forbiddenDirs[forbiddenCursor:]...)
 			forbiddenCursor = len(forbiddenDirs)
 			mu.Unlock()
-			next := []string{}
+			queue = nil
 			for _, e := range newSnapshot {
-				if !e.IsDir {
-					continue
+				if e.IsDir {
+					enqueuePrefix(e.Path)
 				}
-				p := strings.TrimRight(e.Path, "/") + "/"
-				if visited[p] {
-					continue
-				}
-				visited[p] = true
-				if isSkipped(p) || matchesExclude(p) {
-					continue
-				}
-				next = append(next, p)
 			}
 			for _, p := range newForbidden {
-				p = strings.TrimRight(p, "/") + "/"
-				if visited[p] {
-					continue
-				}
-				visited[p] = true
-				if isSkipped(p) || matchesExclude(p) {
-					continue
-				}
-				next = append(next, p)
+				enqueuePrefix(p)
 			}
-			queue = next
+		}
+
+		// The depth ceiling (or a cancel) ended the loop. Let the spider finish
+		// (it's bounded by MaxPages and opts.Ctx) and give any leaves it produced
+		// after the last level a terminal one-shot probe — directories past the
+		// ceiling are intentionally not brute-forced further.
+		if cfg.Spider {
+			spiderWG.Wait()
+			mu.Lock()
+			tailLeaves := pendingLeaves
+			pendingLeaves = nil
+			pendingDirs = nil
+			mu.Unlock()
+			if len(tailLeaves) > 0 && !opts.Done() {
+				mu.Lock()
+				totalReqs += len(tailLeaves)
+				tr.TotalRequests = totalReqs
+				mu.Unlock()
+				if emit != nil {
+					emit(len(tailLeaves), 0, fmt.Sprintf("[%s] spider: probing %d final derived path(s)", target, len(tailLeaves)))
+				}
+				var fwg sync.WaitGroup
+				for _, ri := range tailLeaves {
+					if opts.Done() {
+						break
+					}
+					processRequest(ri, &fwg, -1)
+				}
+				fwg.Wait()
+			}
 		}
 	}
 
@@ -1107,6 +1440,200 @@ func randomCharsFrom(charset string, n int) string {
 		out[i] = runes[int(buf[i])%len(runes)]
 	}
 	return string(out)
+}
+
+// --- Multi-source frontier helpers (manual dirs / web spider / redirects) ---
+
+// normSeenKey collapses a request path to its global dedup identity. Directory
+// and file variants stay DISTINCT ("/admin" vs "/admin/" vs "/admin.php") — only
+// genuinely identical paths dedup. Ensures one leading slash, collapses "//".
+func normSeenKey(path string) string {
+	if path == "" {
+		return "/"
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	for strings.Contains(path, "//") {
+		path = strings.ReplaceAll(path, "//", "/")
+	}
+	return path
+}
+
+// parentDir returns the directory containing path, trailing-slashed:
+// "/a/b/c.php"->"/a/b/", "/a/b/"->"/a/", "/x"->"/", "/"->"/".
+func parentDir(path string) string {
+	p := strings.TrimRight(normSeenKey(path), "/")
+	i := strings.LastIndex(p, "/")
+	if i <= 0 {
+		return "/"
+	}
+	return p[:i+1]
+}
+
+// ancestorDirs yields the PARENT directory chain of a path, root-to-leaf,
+// trailing-slashed, EXCLUDING "/" (root is always scanned) and the path itself.
+// "/a/b/c.html"->["/a/","/a/b/"]; "/a/b/"->["/a/"]; "/x"->nil; "/x/"->nil.
+func ancestorDirs(path string) []string {
+	trimmed := strings.Trim(normSeenKey(path), "/")
+	if trimmed == "" {
+		return nil
+	}
+	segs := strings.Split(trimmed, "/")
+	n := len(segs) - 1 // always drop the last segment — ancestors never include self
+	var out []string
+	cur := ""
+	for i := 0; i < n; i++ {
+		cur += "/" + segs[i]
+		out = append(out, cur+"/")
+	}
+	return out
+}
+
+// splitLeafAndDirs classifies a raw manual/spider/redirect path into a leaf
+// probe path + the directories to recurse into: its ancestor chain PLUS itself
+// when the path is a directory (trailing slash). So "/news/first/x.html" yields
+// leaf="/news/first/x.html", dirs=["/news/","/news/first/"]; "/news/" yields
+// leaf="/news/", dirs=["/news/"].
+func splitLeafAndDirs(raw string) (leaf string, dirs []string) {
+	leaf = normSeenKey(strings.TrimSpace(raw))
+	dirs = ancestorDirs(leaf)
+	if strings.HasSuffix(leaf, "/") && leaf != "/" {
+		dirs = append(dirs, leaf)
+	}
+	return leaf, dirs
+}
+
+// spiderCapFor bounds how many NEW paths the spider + redirect sources may add
+// to the frontier per target (scaled by level) so a link-rich site can't
+// explode the queue.
+func spiderCapFor(cfg ScanConfig) int {
+	switch cfg.Level {
+	case LevelLight:
+		return 500
+	case LevelAggressive:
+		return 5000
+	default:
+		return 2000
+	}
+}
+
+// hrefRe harvests navigable paths from HTML (href/src/action attribute values).
+var hrefRe = regexp.MustCompile(`(?i)(?:href|src|action)\s*=\s*["']([^"'#>\s]+)`)
+
+// extractSameFQDNPaths parses an HTML body for href/src/action targets, resolves
+// each against base, keeps only same-host (same FQDN) results, and returns
+// cleaned absolute PATHS (query + fragment stripped). direnum-local: tuned to
+// produce navigable paths for parent-directory derivation.
+func extractSameFQDNPaths(body []byte, base *url.URL) []string {
+	if base == nil || len(body) == 0 {
+		return nil
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, m := range hrefRe.FindAllSubmatch(body, -1) {
+		raw := strings.TrimSpace(string(m[1]))
+		if raw == "" {
+			continue
+		}
+		low := strings.ToLower(raw)
+		if strings.HasPrefix(low, "javascript:") || strings.HasPrefix(low, "mailto:") ||
+			strings.HasPrefix(low, "data:") || strings.HasPrefix(low, "tel:") {
+			continue
+		}
+		p := sameFQDNPath(raw, base)
+		if p == "" || seen[p] {
+			continue
+		}
+		seen[p] = true
+		out = append(out, p)
+	}
+	return out
+}
+
+// sameFQDNPath resolves raw against base; if the result is on the SAME host as
+// base it returns its path (query+fragment stripped), else "". Rejects
+// protocol-relative and absolute cross-host links.
+func sameFQDNPath(raw string, base *url.URL) string {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return ""
+	}
+	abs := base.ResolveReference(u)
+	if abs == nil || !strings.EqualFold(abs.Hostname(), base.Hostname()) {
+		return ""
+	}
+	p := abs.EscapedPath()
+	if p == "" {
+		p = "/"
+	}
+	return normSeenKey(p)
+}
+
+// ctxWait blocks for d, or until opts' context is cancelled, whichever comes
+// first. Used by the frontier drain loop to wait on the concurrent spider
+// without busy-spinning or ignoring a pause/kill.
+func ctxWait(opts *shared.HTTPOptions, d time.Duration) {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	var done <-chan struct{}
+	if opts != nil && opts.Ctx != nil {
+		done = opts.Ctx.Done()
+	}
+	select {
+	case <-t.C:
+	case <-done:
+	}
+}
+
+// runSpiderInto runs an active same-FQDN web crawl against target (reusing the
+// spider engine: robots/sitemap seeding + link following) and routes every
+// discovered path to feed(), which the caller folds into the brute-force
+// frontier. Blocks until the crawl ends or opts is cancelled. Page budget and
+// depth scale with the scan level.
+func runSpiderInto(target string, cfg ScanConfig, opts *shared.HTTPOptions, feed func(path string)) {
+	scfg := spider.DefaultConfig()
+	scfg.IncludeSubdomains = false // same FQDN only — matches the brute-force scope
+	if cfg.Timeout > 0 {
+		scfg.Timeout = cfg.Timeout
+	}
+	switch cfg.Level {
+	case LevelLight:
+		scfg.MaxDepth, scfg.MaxPages = 3, 300
+	case LevelAggressive:
+		scfg.MaxDepth, scfg.MaxPages = 6, 1500
+	default:
+		scfg.MaxDepth, scfg.MaxPages = 5, 750
+	}
+	if cfg.MaxDepth > 0 && cfg.MaxDepth < scfg.MaxDepth {
+		scfg.MaxDepth = cfg.MaxDepth
+	}
+
+	seen := map[string]bool{}
+	route := func(res *spider.ScanResult) {
+		if res == nil {
+			return
+		}
+		for _, tr := range res.Results {
+			for _, r := range tr.Resources {
+				if r.Path == "" || seen[r.Path] {
+					continue
+				}
+				seen[r.Path] = true
+				feed(r.Path)
+			}
+			for _, l := range tr.Links {
+				u, err := url.Parse(l)
+				if err != nil || u.Path == "" || seen[u.Path] {
+					continue
+				}
+				seen[u.Path] = true
+				feed(u.Path)
+			}
+		}
+	}
+	res := spider.Scan([]string{target}, scfg, opts, route, func(int, string) {})
+	route(res)
 }
 
 // extractExtFromPath returns the lowercase ".ext" suffix of a literal full
@@ -1352,10 +1879,14 @@ func formatETA(sec int) string {
 	return fmt.Sprintf("%dh %02dm", sec/3600, (sec%3600)/60)
 }
 
-func probeURL(client *http.Client, fullURL, path string, opts *shared.HTTPOptions) *DirEntry {
+// probeURL fetches one path and returns its DirEntry (nil for 404/0/error) plus
+// the response body (goroutine-local, capped at 1 MiB). The body is surfaced so
+// the caller can extract same-FQDN links for the spider frontier WITHOUT a second
+// fetch; it is never stored on the DirEntry or in the result.
+func probeURL(client *http.Client, fullURL, path string, opts *shared.HTTPOptions) (*DirEntry, []byte) {
 	req, err := http.NewRequest("GET", fullURL, nil)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 	if opts != nil {
@@ -1371,7 +1902,7 @@ func probeURL(client *http.Client, fullURL, path string, opts *shared.HTTPOption
 	resp, err := client.Do(req)
 	if err != nil {
 		opts.RecordError(shared.ClassifyError(err))
-		return nil
+		return nil, nil
 	}
 	// Read body to get accurate size (ContentLength may be -1 or unreliable)
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024*1024))
@@ -1379,7 +1910,7 @@ func probeURL(client *http.Client, fullURL, path string, opts *shared.HTTPOption
 
 	// Skip obvious not-found
 	if resp.StatusCode == 404 || resp.StatusCode == 0 {
-		return nil
+		return nil, nil
 	}
 
 	// Build the raw response string ourselves — we've already drained
@@ -1396,7 +1927,7 @@ func probeURL(client *http.Client, fullURL, path string, opts *shared.HTTPOption
 		IsDir:       strings.HasSuffix(path, "/"),
 		RawRequest:  rawReq,
 		RawResponse: rawResp,
-	}
+	}, body
 }
 
 // formatRawResponse rebuilds the wire-format response after we've

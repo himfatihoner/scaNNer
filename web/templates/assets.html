@@ -1,5 +1,5 @@
 {{define "page_assets"}}
-<span id="assetState" data-running="{{if .AssetRunning}}1{{else}}0{{end}}" hidden></span>
+<span id="assetState" data-running="{{if .AssetRunning}}1{{else}}0{{end}}" data-indexing="{{if .AssetIndexBuilding}}1{{else}}0{{end}}" hidden></span>
 <!-- Workspace context -->
 <div class="flex items-center gap-2 text-xs text-dark-500 mb-5">
     <svg class="w-3.5 h-3.5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -184,6 +184,12 @@
                 </td>
                 <td class="px-4 py-3">
                     {{if .PortSummary}}<span class="mono text-[11px] text-accent-300">{{.PortSummary}}</span>
+                    {{else if or (gt .RunningJobs 0) $.AssetIndexBuilding}}
+                    {{/* Ports come from the same background index — show the loader
+                         (not "—") while a scan runs or the index is still building. */}}
+                    <span class="inline-flex items-center text-[11px] text-dark-500" title="{{T `Ports are still being scanned / indexed`}}">
+                        {{template "radar_inline" (dict "size" 16 "msg" "")}}
+                    </span>
                     {{else}}<span class="text-[11px] text-dark-600">—</span>{{end}}
                 </td>
                 <td class="px-4 py-3">
@@ -193,11 +199,14 @@
                         <span class="text-[10px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">{{.}}</span>
                         {{end}}
                     </div>
-                    {{else if gt .RunningJobs 0}}
-                    {{/* A scan is still running on this asset — technologies haven't been
-                         fingerprinted yet. Show our loader in the cell instead of "—" so the
-                         column reads as "pending" rather than "none". */}}
-                    <span class="inline-flex items-center gap-1.5 text-[11px] text-dark-500" title="{{T `Scan running — technologies are still being detected`}}">
+                    {{else if or (gt .RunningJobs 0) $.AssetIndexBuilding}}
+                    {{/* Technologies aren't available yet: either a scan is still
+                         running on this asset, OR the background search/tech index
+                         is still building after a finished scan. Show our loader in
+                         the cell instead of "—" so the column reads as "pending"
+                         rather than "none" — the auto-refresh below swaps in the real
+                         values once the index lands. */}}
+                    <span class="inline-flex items-center gap-1.5 text-[11px] text-dark-500" title="{{T `Technologies are still being detected / indexed`}}">
                         {{template "radar_inline" (dict "size" 16 "msg" "")}}
                         <span class="text-accent-400">{{T "detecting…"}}</span>
                     </span>
@@ -397,12 +406,14 @@ document.addEventListener('DOMContentLoaded', function() {
         bindSortableTable('#assetsTable', { defaultKey: 'last-scanned', defaultDir: 'desc' });
     }
     applyAssetFilter();
-    // Live auto-refresh while any scan is running: assets are derived from the
-    // running-aware background index, so discovered hosts / new tech appear as the
-    // scan progresses. We swap only #assetsTbody when the row set actually changed
-    // (preserving scroll + the active search/type/base-domain filter), and stop
-    // once no scan is running.
-    {{if .AssetRunning}}
+    // Live auto-refresh while any scan is running OR the background search/vuln
+    // index is still building: assets (and their findings/technologies) are
+    // derived from those async indexes, so discovered hosts, new tech and
+    // findings appear as the index lands — even after the scan itself finished.
+    // We swap only #assetsTbody when the row set actually changed (preserving
+    // scroll + the active search/type/base-domain filter) and stop once nothing
+    // is running AND the index has finished building.
+    {{if or .AssetRunning .AssetIndexBuilding}}
     (function(){
         var timer = setInterval(function(){
             fetch(window.location.pathname + window.location.search, {cache:'no-store', credentials:'same-origin'})
@@ -413,6 +424,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     var cur = document.getElementById('assetsTbody');
                     var state = doc.getElementById('assetState');
                     var stillRunning = state && state.getAttribute('data-running') === '1';
+                    var stillIndexing = state && state.getAttribute('data-indexing') === '1';
                     if (fresh && cur) {
                         var freshHTML = fresh.innerHTML;
                         if (window._assetLastHTML === undefined) {
@@ -426,7 +438,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             window.scrollTo(0, sy);
                         }
                     }
-                    if (!stillRunning && timer) { clearInterval(timer); }
+                    if (!stillRunning && !stillIndexing && timer) { clearInterval(timer); }
                 })
                 .catch(function(){ /* transient — retry next tick */ });
         }, 5000);

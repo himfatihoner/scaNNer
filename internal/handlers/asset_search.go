@@ -290,6 +290,18 @@ func (h *Handler) getAssetSearchBlob(workspaceID string, liteScans []models.Scan
 	return current
 }
 
+// assetSearchReady reports whether the workspace's search/tech index is fully
+// built for the CURRENT scan set (fingerprint match, ready, not mid-build). The
+// assets page uses it (with the vuln index's ready flag) to decide whether to
+// keep polling and to show the per-column loader while data is still landing.
+func (h *Handler) assetSearchReady(workspaceID string, liteScans []models.Scan) bool {
+	fp := assetSearchFingerprint(liteScans)
+	assetSearchMu.Lock()
+	defer assetSearchMu.Unlock()
+	idx := assetSearchCache[workspaceID]
+	return idx != nil && idx.ready && idx.fingerprint == fp && !idx.building
+}
+
 // searchFingerprint identifies the scan set so the (vulnerability) index is
 // rebuilt only when scans are added/removed/finish.
 func searchFingerprint(scans []models.Scan) string {

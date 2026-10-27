@@ -2479,5 +2479,7 @@
   "Size max": "Maks boyut",
   "Live scan activity": "Canlı tarama etkinliği",
   "%d hit": "%d isabet",
-  "%d hits": "%d isabet"
+  "%d hits": "%d isabet",
+  "Technologies are still being detected / indexed": "Teknolojiler hâlâ tespit ediliyor / indeksleniyor",
+  "Ports are still being scanned / indexed": "Portlar hâlâ taranıyor / indeksleniyor"
 }

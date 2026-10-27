@@ -296,7 +296,7 @@ func (h *Handler) Assets(w http.ResponseWriter, r *http.Request) {
 	// findings, not just host/port/tech) and record the max severity for the
 	// assets-list severity filter. Keyed by normalized host, same as searchBlob.
 	// Async-safe — returns whatever the background index has built so far.
-	assetVulns, _ := h.getVulnIndex(ws.ID, liteScans)
+	assetVulns, vulnReady := h.getVulnIndex(ws.ID, liteScans)
 	findBlob := map[string]*strings.Builder{}
 	findMaxSev := map[string]int{}
 	findCount := map[string]int{}
@@ -468,6 +468,15 @@ func (h *Handler) Assets(w http.ResponseWriter, r *http.Request) {
 	data["AssetDomain"] = domainCnt
 	data["AssetFQDN"] = fqdnCnt
 	data["AssetRunning"] = runningCnt
+	// AssetIndexBuilding is true while EITHER background index (search/tech or
+	// vuln findings) is still building for the current scan set — even when no
+	// scan is running. The template uses it to (a) keep auto-refreshing so the
+	// rows gain their findings/technologies once the index lands, and (b) show
+	// the loader in columns whose value isn't available yet. Without this, a
+	// just-finished scan left the Technologies column at "—" and the search box
+	// unable to match findings until a manual reload. (vulnReady captured from
+	// getVulnIndex above; searchReady reads the search index's ready flag.)
+	data["AssetIndexBuilding"] = !vulnReady || !h.assetSearchReady(ws.ID, liteScans)
 	// The type filter is now a two-way FQDN/IP tab; FQDN is the default view.
 	filterType := r.URL.Query().Get("type")
 	if filterType == "" {

@@ -42,6 +42,13 @@ type AssetSummary struct {
 	// Technologies are the tech names techdetect fingerprinted on this host,
 	// shown as chips in the assets-list row.
 	Technologies []string
+	// MaxSevRank is the highest finding severity on this asset from the cached
+	// vuln index (4=critical … 1=low, 0=none); FindingCount is how many findings
+	// it has. These let the assets-list severity filter narrow by severity and
+	// (via the search blob) let the search box match finding content, without
+	// loading each asset's findings at render time.
+	MaxSevRank   int
+	FindingCount int
 	// ResolvedIPs are the IP(s) this hostname resolves to (the IPv4 subset of
 	// the resolution cross-reference). Empty for assets that are themselves IPs.
 	ResolvedIPs []string
@@ -284,6 +291,40 @@ func (h *Handler) Assets(w http.ResponseWriter, r *http.Request) {
 	redirectBlob := h.getAssetRedirect(ws.ID)
 	peopleBlob := h.getAssetPeople(ws.ID) // metacollector person intel, keyed by FQDN
 
+	// Per-asset FINDINGS from the cached vuln index: fold finding titles /
+	// severity / CVEs into each asset's search blob (so the search box matches
+	// findings, not just host/port/tech) and record the max severity for the
+	// assets-list severity filter. Keyed by normalized host, same as searchBlob.
+	// Async-safe — returns whatever the background index has built so far.
+	assetVulns, _ := h.getVulnIndex(ws.ID, liteScans)
+	findBlob := map[string]*strings.Builder{}
+	findMaxSev := map[string]int{}
+	findCount := map[string]int{}
+	for i := range assetVulns {
+		v := &assetVulns[i]
+		host := normalizeAsset(v.Host)
+		if host == "" {
+			continue
+		}
+		sb := findBlob[host]
+		if sb == nil {
+			sb = &strings.Builder{}
+			findBlob[host] = sb
+		}
+		sb.WriteString(strings.ToLower(v.Title))
+		sb.WriteByte(' ')
+		sb.WriteString(strings.ToLower(v.Severity))
+		sb.WriteByte(' ')
+		for _, c := range v.CVEs {
+			sb.WriteString(strings.ToLower(c))
+			sb.WriteByte(' ')
+		}
+		if v.SevRank > findMaxSev[host] {
+			findMaxSev[host] = v.SevRank
+		}
+		findCount[host]++
+	}
+
 	// Promote DISCOVERED hosts to first-class assets: any host the background
 	// index saw in scan RESULTS (dnsenum subdomains, httpxfind live services,
 	// resolved IPs, advancedweb suite stages, …) that was never an explicit scan
@@ -366,6 +407,14 @@ func (h *Handler) Assets(w http.ResponseWriter, r *http.Request) {
 
 	for i := range assets {
 		assets[i].Search = searchBlob[assets[i].Value]
+		if sb := findBlob[assets[i].Value]; sb != nil {
+			if assets[i].Search != "" {
+				assets[i].Search += " "
+			}
+			assets[i].Search += sb.String()
+		}
+		assets[i].MaxSevRank = findMaxSev[assets[i].Value]
+		assets[i].FindingCount = findCount[assets[i].Value]
 		assets[i].PortSummary = portsBlob[assets[i].Value]
 		assets[i].Related = relatedBlob[assets[i].Value]
 		assets[i].Technologies = techBlob[assets[i].Value]

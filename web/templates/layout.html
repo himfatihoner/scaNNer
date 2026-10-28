@@ -934,7 +934,7 @@
                 el.insertAdjacentElement('afterend', out);
             }
             var n = (el.value || '').split('\n').filter(function (s) { return s.trim() !== ''; }).length;
-            out.textContent = n === 0 ? '' : n + (n === 1 ? ' hedef' : ' hedef');
+            out.textContent = n === 0 ? '' : n + ' ' + (n === 1 ? '{{T "target"}}' : '{{T "targets"}}');
         }
         function wire(root) {
             (root || document).querySelectorAll('textarea[data-line-count],input[data-line-count]').forEach(function (el) {

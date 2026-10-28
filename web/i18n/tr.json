@@ -2483,5 +2483,16 @@
   "Technologies are still being detected / indexed": "Teknolojiler hâlâ tespit ediliyor / indeksleniyor",
   "Ports are still being scanned / indexed": "Portlar hâlâ taranıyor / indeksleniyor",
   "Scan configuration": "Tarama yapılandırması",
-  "how this scan was run": "bu taramanın çalıştırıldığı ayarlar"
+  "how this scan was run": "bu taramanın çalıştırıldığı ayarlar",
+  "target": "hedef",
+  "last": "son",
+  "deleted": "silinen",
+  "added": "eklenen",
+  "common": "ortak",
+  "Base64 decode failed:": "Base64 çözülemedi:",
+  "more bytes": "bayt daha",
+  "trailing": "sondaki",
+  "bytes may be a MAC/HMAC": "bayt MAC/HMAC olabilir",
+  "no MAC apparent": "MAC yok gibi",
+  "Header decode failed:": "Header çözülemedi:"
 }

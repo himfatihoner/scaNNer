@@ -295,7 +295,7 @@ function cmpRun(){
     document.getElementById('cmpOutB').innerHTML=outB;
     res.hidden=false;
     if(del===0&&ins===0){ sum.textContent='Texts are identical.'; sum.className='text-[11px] text-emerald-400 ml-2'; }
-    else { sum.textContent=del+' silinen · '+ins+' eklenen · '+same+' ortak'; sum.className='text-[11px] text-dark-400 ml-2'; }
+    else { sum.textContent=del+' {{T "deleted"}} · '+ins+' {{T "added"}} · '+same+' {{T "common"}}'; sum.className='text-[11px] text-dark-400 ml-2'; }
 }
 function cmpSwap(){ var a=document.getElementById('cmpA'),b=document.getElementById('cmpB'),t=a.value;a.value=b.value;b.value=t; if(!document.getElementById('cmpResult').hidden)cmpRun(); }
 function cmpClear(){ document.getElementById('cmpA').value='';document.getElementById('cmpB').value='';document.getElementById('cmpResult').hidden=true;document.getElementById('cmpSummary').textContent=''; }
@@ -331,7 +331,7 @@ function vsExtractStrings(b){
     return res;
 }
 function vsDecode(input){
-    var bytes; try{bytes=vsB64(input);}catch(e){return {error:'Base64 çözülemedi: '+e.message};}
+    var bytes; try{bytes=vsB64(input);}catch(e){return {error:'{{T "Base64 decode failed:"}} '+e.message};}
     var out={len:bytes.length};
     if(bytes.length<2){out.error='Too short';return out;}
     var td=new TextDecoder('utf-8',{fatal:false});
@@ -381,7 +381,7 @@ function vsHex(b,limit){
         }
         s+=off+'  '+hex+' '+asc+'\n';
     }
-    if(b.length>limit)s+='… ('+(b.length-limit)+' bayt daha)\n';
+    if(b.length>limit)s+='… ('+(b.length-limit)+' {{T "more bytes"}})\n';
     return s;
 }
 function vsRenderTree(node){
@@ -413,10 +413,10 @@ function vsRun(){
     res.hidden=false;
     if(r.encrypted){
         prot.className='rounded-lg px-3 py-2 text-[12px] bg-yellow-500/10 border border-yellow-500/30 text-yellow-200';
-        prot.innerHTML='🔒 <b>Possibly encrypted / MAC-protected.</b> '+esc(r.note)+' <span class="text-dark-400">('+r.len+' bayt)</span>';
+        prot.innerHTML='🔒 <b>Possibly encrypted / MAC-protected.</b> '+esc(r.note)+' <span class="text-dark-400">('+r.len+' {{T "bytes"}})</span>';
         document.getElementById('vsTree').innerHTML='<span class="text-dark-500">Structure could not be parsed (encrypted). The strings/hex below may still be useful.</span>';
     } else {
-        var macTxt = r.trailing>0 ? (' · sondaki '+r.trailing+' bayt MAC/HMAC olabilir'+(r.trailing===20?' (SHA1)':r.trailing===32?' (SHA256)':'')) : ' · MAC yok gibi';
+        var macTxt = r.trailing>0 ? (' · {{T "trailing"}} '+r.trailing+' {{T "bytes may be a MAC/HMAC"}}'+(r.trailing===20?' (SHA1)':r.trailing===32?' (SHA256)':'')) : ' · {{T "no MAC apparent"}}';
         prot.className='rounded-lg px-3 py-2 text-[12px] bg-emerald-500/10 border border-emerald-500/30 text-emerald-200';
         prot.innerHTML='🔓 <b>Unencrypted</b> (ObjectStateFormatter) · '+r.len+' bytes · '+r.consumed+' bytes decoded'+esc(macTxt)+
             (r.stopped? ' · <span class="text-yellow-300">parsing stopped: '+(r.stopped.token!==undefined?('unknown token 0x'+r.stopped.token.toString(16)+' @'+r.stopped.offset):r.stopped.error)+'</span>':'');
@@ -500,7 +500,7 @@ async function jwtDecode(){
         var hdrStr=new TextDecoder().decode(jB64uDec(parts[0]));
         hdrObj=JSON.parse(hdrStr);
         document.getElementById('jwtHeader').value=JSON.stringify(hdrObj);
-    }catch(e){ jwtSetVerify('bad','Header çözülemedi: '+e.message); return; }
+    }catch(e){ jwtSetVerify('bad','{{T "Header decode failed:"}} '+e.message); return; }
     try{
         document.getElementById('jwtPayload').value=JSON.stringify(JSON.parse(new TextDecoder().decode(jB64uDec(parts[1]))),null,2);
     }catch(e){ /* payload düz base64url olmayabilir; ham göster */ try{document.getElementById('jwtPayload').value=new TextDecoder().decode(jB64uDec(parts[1]));}catch(_){} }

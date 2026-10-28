@@ -38,9 +38,18 @@
             --color-dark-925: #1e1e21;
             --color-dark-950: #18181b;
 
+            /* Full accent ramp. 200/300/700/800 were previously undefined,
+               so ~135 text-accent-300 crumbs (exploit-command copy rows,
+               → arrows) + accent-700/800 hover states emitted NOTHING in
+               dark mode and silently inherited their parent colour. Defining
+               them revives those without touching any template. */
+            --color-accent-200: #bfdbfe;
+            --color-accent-300: #93c5fd;
             --color-accent-400: #60a5fa;
             --color-accent-500: #3b82f6;
             --color-accent-600: #2563eb;
+            --color-accent-700: #1d4ed8;
+            --color-accent-800: #1e40af;
 
             --color-success: #22c55e;
             --color-warning: #eab308;
@@ -50,6 +59,56 @@
                classes; without this token Tailwind emits nothing for them
                and those high-stakes alerts render colorless. Keep defined. */
             --color-error:   #ef4444;
+
+            /* Font tokens. Without --font-sans/--font-mono the `font-mono`
+               and `font-sans` utilities resolve to Tailwind's generic stacks
+               instead of the self-hosted families, so a `font-mono` element
+               and a `.mono` element rendered in two different typefaces.
+               Single source of truth; matches the <style> font-family rules. */
+            --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+            --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+            /* ---- Semantic role layer (Faz 1 foundation) ----
+               The palette above names tokens only by lightness + 3 status
+               colours, so every surface/text/severity decision is re-made at
+               the call site. These semantic roles are the single place those
+               decisions live; templates migrate onto them in later phases.
+               Defining them now emits ZERO css until a class references them
+               (Tailwind v4 JIT), so this is risk-free scaffolding. */
+            --color-canvas:          #18181b;   /* page background        */
+            --color-surface:         #27272a;   /* primary card           */
+            --color-surface-sunken:  #1e1e21;   /* wells, code blocks     */
+            --color-surface-raised:  #313136;   /* nested card / chip      */
+            --color-surface-hover:   #434349;
+            --color-line:            #434349;   /* default border         */
+            --color-line-strong:     #5a5a63;
+            --color-ink:             #ffffff;   /* primary text           */
+            --color-ink-secondary:   #aaacb5;   /* AA secondary on canvas */
+            --color-ink-muted:       #92949e;
+            --color-ink-subtle:      #7f818b;
+
+            /* Severity scale — tokenised so Critical/High/Medium/Low/Info are
+               defined once. Note the two fixes baked in: HIGH gets its own
+               orange tier (previously missing), and LOW is sky — deliberately
+               NOT the blue brand accent, so a low finding never looks like a
+               clickable link. Adopted by _severity.html in a later phase. */
+            --color-sev-critical: #ef4444;
+            --color-sev-high:     #f97316;
+            --color-sev-medium:   #eab308;
+            --color-sev-low:      #38bdf8;
+            --color-sev-info:     #94a3b8;
+
+            /* Categorical ramp (promoted from the dashboard chart palette) so
+               asset-type / technology / module taxonomies stop borrowing the
+               status hues and making neutral categories shout false risk. */
+            --color-cat-1: #60a5fa;
+            --color-cat-2: #a78bfa;
+            --color-cat-3: #34d399;
+            --color-cat-4: #fbbf24;
+            --color-cat-5: #f472b6;
+            --color-cat-6: #22d3ee;
+            --color-cat-7: #fb923c;
+            --color-cat-8: #a3e635;
         }
         /* Tailwind 4 dropped "dark mode by class" defaults; restore the
            explicit selector so our existing toggleTheme() / .light branch
@@ -159,6 +218,35 @@
         html.light .text-accent-500 { color: #1d4ed8 !important; }
         html.light .border-accent-500\/30 { border-color: rgba(37,99,235,0.35) !important; }
         html.light .bg-accent-600\/10 { background-color: rgba(37,99,235,0.10) !important; }
+
+        /* ============================================================
+           LIGHT-MODE STATUS / SEVERITY INK REMAP  (Faz 1 — WCAG fix)
+           The light block above remaps dark/accent/white but had ZERO
+           rules for the raw red/orange/yellow/green/blue/emerald/sky/amber
+           hues. Those classes (severity badges, triage chips, status
+           labels, tinted callouts) kept their dark-tuned 300/400 pastels,
+           which land at 1.1–2.7:1 on the near-white cards — well below
+           WCAG AA on the most scannable text in the app. Remap every
+           status TEXT ink to the -700 shade (≥4.5:1 on #fdfeff). Scope is
+           LIGHT ONLY — the dark /10-tint alerts measure 7.1–9.3:1 and are
+           left untouched. Backgrounds/borders stay as-is (decorative; the
+           dark ink now reads cleanly on the pale tint behind it). */
+        html.light .text-red-300,  html.light .text-red-400,  html.light .text-red-500    { color: #b91c1c !important; }
+        html.light .text-orange-300, html.light .text-orange-400, html.light .text-orange-500 { color: #c2410c !important; }
+        html.light .text-amber-300,  html.light .text-amber-400  { color: #b45309 !important; }
+        html.light .text-yellow-300, html.light .text-yellow-400, html.light .text-yellow-500 { color: #a16207 !important; }
+        html.light .text-green-300,  html.light .text-green-400,  html.light .text-green-500  { color: #15803d !important; }
+        html.light .text-emerald-300, html.light .text-emerald-400 { color: #047857 !important; }
+        html.light .text-blue-300,  html.light .text-blue-400,  html.light .text-blue-500   { color: #1d4ed8 !important; }
+        html.light .text-sky-300,   html.light .text-sky-400                                { color: #0369a1 !important; }
+        /* Semantic status tokens as text — danger/warning/success on the
+           pale canvas also fail (warning #eab308 ≈1.8:1, success ≈2.3:1).
+           Darken the INK only; the /10-/20 tint backgrounds stay. */
+        html.light .text-danger  { color: #b91c1c !important; }
+        html.light .text-error   { color: #b91c1c !important; }
+        html.light .text-warning { color: #a16207 !important; }
+        html.light .text-success { color: #047857 !important; }
+
         /* Pre/code blocks — keep a dark surface so code stays high-contrast. */
         html.light pre.bg-dark-950 { background-color: #0f172a !important; color: #e2e8f0 !important; }
         html.light pre.bg-dark-925 { background-color: #0f172a !important; color: #e2e8f0 !important; }
@@ -285,6 +373,28 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
+
+        /* Reduced-motion. The only prior rule targeted `[attributeName]`
+           (a bogus selector) with `animation:none`, which does nothing to
+           CSS animations OR to SMIL — so a user who asked their OS to
+           reduce motion still got the pulsing bars, hover lifts, and the
+           spinning radar. This global clamp neutralises every CSS
+           animation + transition; the SMIL radars (which CSS cannot stop)
+           are frozen in JS via svg.pauseAnimations() at the loader hook. */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+            .module-card:hover { transform: none !important; }
+        }
+
+        /* Consistent placeholder tone in dark mode (was browser default). */
+        html:not(.light) input::placeholder,
+        html:not(.light) textarea::placeholder { color: #7a7b85; }
+
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #18181b; }
         ::-webkit-scrollbar-thumb { background: #4c4d54; border-radius: 3px; }
@@ -824,14 +934,20 @@
       #appLoader .al-box{display:flex;flex-direction:column;align-items:center;gap:14px;}
       #appLoader .al-radar{filter:drop-shadow(0 8px 26px rgba(57,225,255,0.28));}
       #appLoader .al-msg{margin:0;font-size:13px;letter-spacing:.02em;color:#9fb6d6;}
-      @media (prefers-reduced-motion: reduce){#appLoader .al-radar [attributeName]{animation:none}}
+      /* Reduced motion is handled globally (CSS clamp in the head <style>)
+         plus svg.pauseAnimations() in the loader script below — the SMIL
+         radar can't be stopped by CSS, so there is no media rule here. */
     </style>
     <script>
     (function(){
       var ov=document.getElementById('appLoader'); if(!ov) return;
       var msgEl=ov.querySelector('[data-loader-msg]'); var defMsg=msgEl?msgEl.textContent:'';
       var t=null;
-      function show(msg){ if(msgEl) msgEl.textContent=msg||defMsg; ov.classList.add('show'); ov.setAttribute('aria-hidden','false'); }
+      // Respect the OS "reduce motion" setting: CSS can't stop SMIL, so when
+      // the radar becomes visible we freeze its <animate>/<animateTransform>.
+      var REDUCE = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      function show(msg){ if(msgEl) msgEl.textContent=msg||defMsg; ov.classList.add('show'); ov.setAttribute('aria-hidden','false');
+        if(REDUCE){ var sv=ov.querySelector('svg'); if(sv && sv.pauseAnimations){ try{ sv.pauseAnimations(); }catch(e){} } } }
       function hide(){ clearTimeout(t); ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); }
       // Expose so any script can trigger it for a long async action.
       window.showAppLoader=show; window.hideAppLoader=hide;
@@ -848,6 +964,9 @@
       }, true);
       window.addEventListener('pageshow', hide);           // new page / bfcache back
       document.addEventListener('htmx:responseError', hide);
+      // Freeze every SMIL animation on the page (radar_inline on running-scan
+      // panels, etc.) for reduced-motion users; CSS already clamps the rest.
+      if(REDUCE){ try{ document.querySelectorAll('svg').forEach(function(s){ if(s.pauseAnimations) s.pauseAnimations(); }); }catch(e){} }
     })();
     </script>
 </body>

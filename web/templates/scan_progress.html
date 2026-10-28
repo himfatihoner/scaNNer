@@ -1,6 +1,14 @@
 {{define "scan_progress"}}
 {{/* Reusable running-scan panel with progress bar + Stop button.
      Required data: .Scan, .StatusURL (e.g. "/modules/direnum/status/") */}}
+{{/* Status guard (Faz 0): render the live panel + poller ONLY while the
+     scan is actually in flight. Several results pages compose this partial
+     unconditionally, so a COMPLETED scan of a module whose results page
+     doesn't re-render (openredirect/ssti/assetdisc/authtest/cachepoison/
+     corsscan …) used to show a stuck "Scan in progress" spinner forever.
+     Guarding inside the partial fixes every such page at once and is
+     idempotent with the pages that already guard the include externally. */}}
+{{if or (eq (print .Scan.Status) "running") (eq (print .Scan.Status) "pending")}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl p-6 mb-6">
     <div class="flex items-start gap-4">
         <div class="shrink-0">{{template "radar_inline" (dict "size" 46 "msg" "")}}</div>
@@ -475,4 +483,5 @@ function copyScanLog(btn) {
     }, 2000);
 })();
 </script>
+{{end}}{{/* end status guard */}}
 {{end}}

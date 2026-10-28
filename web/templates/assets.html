@@ -225,7 +225,7 @@
                     <span class="mono text-sm text-dark-200">{{.ScanCount}}</span>
                 </td>
                 <td class="px-4 py-3">
-                    <span class="mono text-xs text-dark-400">{{.LastScanned.Format "2006-01-02 15:04"}}</span>
+                    <span class="mono text-xs text-dark-400">{{if not .LastScanned.IsZero}}{{.LastScanned.Format "2006-01-02 15:04"}}{{else}}—{{end}}</span>
                 </td>
                 <td class="px-4 py-3">
                     {{if gt .RunningJobs 0}}

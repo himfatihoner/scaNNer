@@ -452,6 +452,29 @@
         html.light .btn-secondary:hover:not([disabled]) { background: #b8c0cd; color: #1a1f2a; }
         html.light .btn-ghost { color: #5a6477; }
         html.light .btn-ghost:hover:not([disabled]) { background: rgba(0,0,0,0.05); color: #1a1f2a; }
+
+        /* ===========================================================
+           GLOBAL KEYBOARD FOCUS RING
+           255 elements carry `focus:outline-none`, which strips the
+           browser's focus outline for MOUSE users but also leaves
+           keyboard users with no visible focus at all. :focus-visible
+           only matches keyboard/programmatic focus (never a mouse
+           click), so this restores a clear ring for keyboard nav
+           without the "box on every click" that outline-none was
+           added to avoid. Implemented as box-shadow (not outline),
+           because the outline-none utilities would otherwise win on
+           specificity. Form fields are excluded — they already show a
+           focus indicator (border/ring), so they'd double-ring. */
+        a:focus-visible, button:focus-visible, summary:focus-visible,
+        [role="button"]:focus-visible, [role="tab"]:focus-visible,
+        [role="link"]:focus-visible, [tabindex]:focus-visible,
+        label.cursor-pointer:focus-visible {
+            outline: none;
+            /* box-shadow (not outline) so the outline-none utilities don't
+               win on specificity; it automatically follows each element's
+               own border-radius, so no shape change on focus. */
+            box-shadow: 0 0 0 2px rgba(96,165,250,0.95);
+        }
     </style>
 </head>
 <body class="h-full bg-dark-950 text-dark-200">

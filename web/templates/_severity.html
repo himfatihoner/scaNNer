@@ -30,7 +30,7 @@
     {{if eq $s "CRITICAL"}}bg-red-500/20 text-red-300
     {{else if eq $s "HIGH"}}bg-orange-500/20 text-orange-300
     {{else if eq $s "MEDIUM"}}bg-yellow-500/20 text-yellow-300
-    {{else if eq $s "LOW"}}bg-blue-500/20 text-blue-300
+    {{else if eq $s "LOW"}}bg-sky-500/20 text-sky-300
     {{else if eq $s "INFO"}}bg-dark-700 text-dark-300
     {{else if eq $s "INFORMATIONAL"}}bg-dark-700 text-dark-300
     {{else}}bg-dark-700 text-dark-400{{end}}">{{$s}}</span>
@@ -53,14 +53,14 @@
     {{if eq $s "CRITICAL"}}border-red-900/50
     {{else if eq $s "HIGH"}}border-orange-900/50
     {{else if eq $s "MEDIUM"}}border-yellow-900/50
-    {{else if eq $s "LOW"}}border-blue-900/50
+    {{else if eq $s "LOW"}}border-sky-900/50
     {{else if eq $s "INFO"}}border-dark-800
     {{else}}border-dark-800{{end}}">
     <p class="text-xs uppercase tracking-wider mb-1
         {{if eq $s "CRITICAL"}}text-red-400
         {{else if eq $s "HIGH"}}text-orange-400
         {{else if eq $s "MEDIUM"}}text-yellow-400
-        {{else if eq $s "LOW"}}text-blue-400
+        {{else if eq $s "LOW"}}text-sky-400
         {{else if eq $s "INFO"}}text-dark-400
         {{else}}text-dark-500{{end}}">{{.Label}}</p>
     <p class="text-2xl font-bold
@@ -68,7 +68,7 @@
             {{if eq $s "CRITICAL"}}text-red-400
             {{else if eq $s "HIGH"}}text-orange-400
             {{else if eq $s "MEDIUM"}}text-yellow-400
-            {{else if eq $s "LOW"}}text-blue-400
+            {{else if eq $s "LOW"}}text-sky-400
             {{else if eq $s "INFO"}}text-dark-300
             {{else}}text-white{{end}}
         {{else}}text-dark-600{{end}}">{{.Count}}</p>
@@ -119,7 +119,7 @@
     {{if eq $s "CRITICAL"}}bg-red-500/15 text-red-300
     {{else if eq $s "HIGH"}}bg-orange-500/15 text-orange-300
     {{else if eq $s "MEDIUM"}}bg-yellow-500/15 text-yellow-300
-    {{else if eq $s "LOW"}}bg-blue-500/15 text-blue-300
+    {{else if eq $s "LOW"}}bg-sky-500/15 text-sky-300
     {{else}}bg-dark-700 text-dark-300{{end}}">{{.Label}}: {{.Count}}</span>
 {{end}}
 {{end}}

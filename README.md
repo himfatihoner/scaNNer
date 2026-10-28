@@ -117,6 +117,9 @@ Get the code:
 
 ```bash
 git clone https://github.com/himfatihoner/scaNNer.git
+```
+
+```bash
 cd scaNNer
 ```
 

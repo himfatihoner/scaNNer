@@ -71,15 +71,15 @@ var categoryOrder = []struct{ Name, Icon string }{
 // TargetFinding is one distinct discovery for a target, aggregated across every
 // scan that observed it.
 type TargetFinding struct {
-	SevRank   int       // 4=critical … 1=low, 0=info, -1=no severity (recon fact)
-	Severity  string    // "CRITICAL"… or "" for recon facts
-	Category  string    // one of the Cat* constants
-	Module    string    // provenance label ("nuclei", "sslscan", "nuclei via advancedweb")
-	Title     string    // one-line summary
-	Detail    string    // longer text / evidence (optional)
-	Locus     string    // where: "443/tcp", "https://x/admin", "svc_sql@CORP", ""
-	ScanID    string    // owning scan of the most-recent sighting (for the link)
-	ScanURL   string    // "/modules/<mod>/results/<id>" of that scan
+	SevRank   int    // 4=critical … 1=low, 0=info, -1=no severity (recon fact)
+	Severity  string // "CRITICAL"… or "" for recon facts
+	Category  string // one of the Cat* constants
+	Module    string // provenance label ("nuclei", "sslscan", "nuclei via advancedweb")
+	Title     string // one-line summary
+	Detail    string // longer text / evidence (optional)
+	Locus     string // where: "443/tcp", "https://x/admin", "svc_sql@CORP", ""
+	ScanID    string // owning scan of the most-recent sighting (for the link)
+	ScanURL   string // "/modules/<mod>/results/<id>" of that scan
 	FirstSeen time.Time
 	LastSeen  time.Time
 	Count     int // how many scans saw it
@@ -123,14 +123,14 @@ type TargetFindingSet struct {
 //
 // Parser contract (tf_<module>.go):
 //
-//	func parseXxxTarget(resJSON, target string, scanDate time.Time, scanID string, emit func(targetRaw, time.Time))
+//		func parseXxxTarget(resJSON, target string, scanDate time.Time, scanID string, emit func(targetRaw, time.Time))
 //
-//   - resJSON  = the scan's Result column (module's own ScanResult JSON).
-//   - target   = the normalized asset key (normalizeAsset output) to filter to.
-//   - scanDate = default detection time; pass it to emit unless the result
-//     carries a better per-item timestamp (assetdisc, oob).
-//   - scanID   = owning scan id (used by emit for the link; parser ignores it).
-//   - emit     = call once per finding: emit(targetRaw{...}, scanDate).
+//	  - resJSON  = the scan's Result column (module's own ScanResult JSON).
+//	  - target   = the normalized asset key (normalizeAsset output) to filter to.
+//	  - scanDate = default detection time; pass it to emit unless the result
+//	    carries a better per-item timestamp (assetdisc, oob).
+//	  - scanID   = owning scan id (used by emit for the link; parser ignores it).
+//	  - emit     = call once per finding: emit(targetRaw{...}, scanDate).
 //
 // Set Module on every raw. Use CatVuln only for confirmed issues that carry a
 // severity; put configuration weaknesses in CatHeaders and recon facts in their
@@ -272,6 +272,42 @@ func (h *Handler) extractTargetFindings(target string, scans []models.Scan) Targ
 		items := catMap[c.Name]
 		if len(items) == 0 {
 			continue
+		}
+		// Collapse visual duplicates inside an informational box. The agg key
+		// above includes Module, so the same fact reported by two modules (e.g.
+		// "WordPress" from both techdetect and wpscan) survives as two entries —
+		// but a category chip renders only Title (+ date), not the module, so it
+		// would read as the same name twice. Fold items that share Title+Locus
+		// (case-insensitive) into one, summing the sighting count, widening the
+		// first/last-seen span and keeping the highest severity. CatVuln is not
+		// routed here (it drives the top table, which does show the module).
+		if len(items) > 1 {
+			merged := make([]TargetFinding, 0, len(items))
+			seen := map[string]int{} // Title+Locus key -> index into merged
+			for _, it := range items {
+				k := strings.ToLower(strings.TrimSpace(it.Title)) + "\x00" + strings.ToLower(strings.TrimSpace(it.Locus))
+				if idx, ok := seen[k]; ok {
+					m := &merged[idx]
+					m.Count += it.Count
+					if it.FirstSeen.Before(m.FirstSeen) {
+						m.FirstSeen = it.FirstSeen
+					}
+					if it.LastSeen.After(m.LastSeen) {
+						m.LastSeen = it.LastSeen
+						m.ScanID, m.ScanURL = it.ScanID, it.ScanURL
+					}
+					if it.SevRank > m.SevRank {
+						m.SevRank, m.Severity = it.SevRank, it.Severity
+					}
+					if m.Detail == "" && it.Detail != "" {
+						m.Detail = it.Detail
+					}
+					continue
+				}
+				seen[k] = len(merged)
+				merged = append(merged, it)
+			}
+			items = merged
 		}
 		sort.SliceStable(items, func(i, j int) bool {
 			if items[i].SevRank != items[j].SevRank {

@@ -622,20 +622,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
         {{/* ---- Informational category boxes; each chip carries its last-seen date (hover for first/last + detail) ---- */}}
         {{if .Categories}}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6">
             {{range .Categories}}
             <div{{if or (eq .Name "SMB / AD") (eq .Name "Credentials & Secrets")}} class="md:col-span-2"{{end}}>
-                <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-2">{{.Icon}} {{.Name}} ({{len .Items}})</p>
-                <div class="flex flex-wrap gap-1">
+                <p class="flex items-center gap-1.5 text-xs font-bold text-accent-300 uppercase tracking-wider mb-2.5 pb-1.5 border-b border-accent-500/20">
+                    <span class="text-sm leading-none">{{.Icon}}</span>
+                    <span>{{.Name}}</span>
+                    <span class="ml-0.5 text-[11px] font-semibold text-dark-400 normal-case">({{len .Items}})</span>
+                </p>
+                <div class="flex flex-wrap gap-1.5">
                     {{range .Items}}
-                    <span class="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border
-                        {{if eq .Category "Credentials & Secrets"}}text-danger bg-danger/10 border-danger/20
-                        {{else if eq .Category "WAF"}}text-warning bg-warning/10 border-warning/20
-                        {{else if eq .Category "Headers / Web-Misconfig"}}text-warning bg-warning/5 border-warning/20
-                        {{else}}text-dark-200 bg-dark-850 border-dark-700{{end}}"
+                    <span class="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-md border
+                        {{if eq .Category "Credentials & Secrets"}}text-danger bg-danger/10 border-danger/30
+                        {{else if eq .Category "WAF"}}text-warning bg-warning/10 border-warning/30
+                        {{else if eq .Category "Headers / Web-Misconfig"}}text-warning bg-warning/10 border-warning/25
+                        {{else}}text-dark-100 bg-dark-800 border-dark-600{{end}}"
                         title="{{T `first`}} {{.FirstSeen.Format "2006-01-02"}} &middot; {{T `last`}} {{.LastSeen.Format "2006-01-02"}}{{if gt .Count 1}} &middot; {{T `seen`}} &times;{{.Count}}{{end}}{{if .Detail}} &mdash; {{.Detail}}{{end}}">
                         <span class="mono break-all">{{.Title}}</span>
-                        <span class="text-[9px] text-dark-500 whitespace-nowrap">{{.LastSeen.Format "01-02"}}</span>
+                        <span class="text-[10px] text-dark-400 whitespace-nowrap">{{.LastSeen.Format "01-02"}}</span>
                     </span>
                     {{end}}
                 </div>

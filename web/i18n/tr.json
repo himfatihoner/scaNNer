@@ -2494,5 +2494,6 @@
   "trailing": "sondaki",
   "bytes may be a MAC/HMAC": "bayt MAC/HMAC olabilir",
   "no MAC apparent": "MAC yok gibi",
-  "Header decode failed:": "Header çözülemedi:"
+  "Header decode failed:": "Header çözülemedi:",
+  "Scan progress": "Tarama ilerlemesi"
 }

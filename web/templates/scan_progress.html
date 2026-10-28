@@ -16,7 +16,7 @@
             <div class="flex items-center justify-between gap-3 mb-2">
                 <div class="min-w-0 flex-1">
                     <p class="text-sm font-semibold text-white">{{T "Scan in progress"}}</p>
-                    <p id="progressMsg" class="text-xs text-dark-400 mt-0.5 truncate" title="">{{T "Initializing — first results in a few seconds"}}</p>
+                    <p id="progressMsg" role="status" aria-live="polite" class="text-xs text-dark-400 mt-0.5 truncate" title="">{{T "Initializing — first results in a few seconds"}}</p>
                 </div>
                 <form action="/scans/stop/" method="POST" onsubmit="return confirm('Stop this scan and abort all in-flight requests?')">
                     <input type="hidden" name="id" value="{{.Scan.ID}}">
@@ -30,7 +30,7 @@
                 <span id="progressLabel" class="text-[11px] text-dark-500 mono">0 / {{.Scan.ProgressTotal}}</span>
                 <span id="progressPct" class="text-[11px] font-medium text-accent-400">0%</span>
             </div>
-            <div class="w-full h-2 bg-dark-800 rounded-full overflow-hidden">
+            <div id="progressTrack" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="{{T "Scan progress"}}" class="w-full h-2 bg-dark-800 rounded-full overflow-hidden">
                 {{/* Initial 5% + animate-pulse so the bar is visible
                      during the first ~2s gap between scan-start and
                      the first progress poll returning real data. The
@@ -38,7 +38,7 @@
                      class as soon as the backend reports done > 0. */}}
                 <div id="progressBar" class="h-full bg-accent-500 rounded-full transition-all duration-500 ease-out animate-pulse" style="width: 5%"></div>
             </div>
-            <p id="progressWarning" class="hidden mt-2 text-[11px] text-warning"></p>
+            <p id="progressWarning" role="alert" aria-live="assertive" class="hidden mt-2 text-[11px] text-warning"></p>
         </div>
     </div>
 
@@ -427,6 +427,7 @@ function copyScanLog(btn) {
             if (pct < lastPct) pct = lastPct;
             lastPct = pct;
             var bar = document.getElementById('progressBar');
+            var track = document.getElementById('progressTrack');
             var pctEl = document.getElementById('progressPct');
             var labelEl = document.getElementById('progressLabel');
             if (bar) {
@@ -439,6 +440,16 @@ function copyScanLog(btn) {
                 } else {
                     bar.style.width = pct + '%';
                     bar.classList.remove('animate-pulse','opacity-50');
+                }
+            }
+            // Keep the ARIA progressbar in sync with the visual bar: an
+            // indeterminate scan drops aria-valuenow (per ARIA spec) so AT
+            // announces "busy" rather than a false percentage.
+            if (track) {
+                if (d.indeterminate) {
+                    track.removeAttribute('aria-valuenow');
+                } else {
+                    track.setAttribute('aria-valuenow', pct);
                 }
             }
             if (pctEl) {

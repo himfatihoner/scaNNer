@@ -239,6 +239,9 @@
         html.light .text-emerald-300, html.light .text-emerald-400 { color: #047857 !important; }
         html.light .text-blue-300,  html.light .text-blue-400,  html.light .text-blue-500   { color: #1d4ed8 !important; }
         html.light .text-sky-300,   html.light .text-sky-400                                { color: #0369a1 !important; }
+        /* violet = the "Assigned" triage state (reserved OFF severity so it
+           never collides with LOW, which now owns sky). AA on near-white. */
+        html.light .text-violet-300, html.light .text-violet-400 { color: #6d28d9 !important; }
         /* Semantic status tokens as text — danger/warning/success on the
            pale canvas also fail (warning #eab308 ≈1.8:1, success ≈2.3:1).
            Darken the INK only; the /10-/20 tint backgrounds stay. */
@@ -474,6 +477,46 @@
                win on specificity; it automatically follows each element's
                own border-radius, so no shape change on focus. */
             box-shadow: 0 0 0 2px rgba(96,165,250,0.95);
+        }
+
+        /* Text selection — a visible accent wash in both themes (was the
+           browser default, near-invisible on the dark canvas). */
+        ::selection { background: rgba(59,130,246,0.32); }
+
+        /* ===========================================================
+           PRINT STYLESHEET  (Faz 5 gap — there was none)
+           scaNNer is report-centric but Ctrl+P printed the dark canvas,
+           the sidebar, the UI zoom and clipped every scrollable table.
+           Strip the app chrome, flatten to a white page with dark text
+           on neutral surfaces, undo the zoom, and let scroll containers
+           expand so nothing is cut off. Severity/status hues are kept
+           (a printed report needs its risk colours). */
+        @media print {
+            aside, header, #appLoader, .no-print { display: none !important; }
+            html, body { height: auto !important; overflow: visible !important; zoom: 1 !important; }
+            body { background: #fff !important; color: #111 !important; }
+            main { overflow: visible !important; height: auto !important; padding: 0 !important; }
+            .bg-dark-950, .bg-dark-925, .bg-dark-900, .bg-dark-850, .bg-dark-800, .bg-dark-700 { background: #fff !important; }
+            .text-white, .text-dark-100, .text-dark-200, .text-dark-300,
+            .text-dark-400, .text-dark-500, .text-dark-600 { color: #111 !important; }
+            .border-dark-950, .border-dark-900, .border-dark-850, .border-dark-800, .border-dark-700 { border-color: #cbd3df !important; }
+            [class*="overflow-"], [class*="max-h-"] { overflow: visible !important; max-height: none !important; }
+            pre, code, .mono { white-space: pre-wrap !important; word-break: break-word; }
+            pre.bg-dark-950, pre.bg-dark-925 { background: #f4f6f9 !important; color: #111 !important; }
+            /* Severity/status inks → AA on white paper regardless of the
+               on-screen theme (a dark-mode print would otherwise keep the
+               pale 300/400 pastels on the white page). */
+            .text-red-300,.text-red-400,.text-red-500,.text-danger,.text-error{color:#b91c1c!important}
+            .text-orange-300,.text-orange-400,.text-orange-500{color:#c2410c!important}
+            .text-amber-300,.text-amber-400{color:#b45309!important}
+            .text-yellow-300,.text-yellow-400,.text-yellow-500,.text-warning{color:#a16207!important}
+            .text-green-300,.text-green-400,.text-green-500{color:#15803d!important}
+            .text-emerald-300,.text-emerald-400,.text-success{color:#047857!important}
+            .text-blue-300,.text-blue-400,.text-blue-500,.text-accent-300,.text-accent-400{color:#1d4ed8!important}
+            .text-sky-300,.text-sky-400{color:#0369a1!important}
+            .text-violet-300,.text-violet-400{color:#6d28d9!important}
+            a { text-decoration: underline; }
+            * { box-shadow: none !important; }
         }
     </style>
 </head>

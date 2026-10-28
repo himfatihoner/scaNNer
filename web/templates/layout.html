@@ -45,6 +45,11 @@
             --color-success: #22c55e;
             --color-warning: #eab308;
             --color-danger:  #ef4444;
+            /* Alias of danger. Several templates (adpentest_results.html,
+               settings.html incl. the killswitch-OFF warning) use *-error
+               classes; without this token Tailwind emits nothing for them
+               and those high-stakes alerts render colorless. Keep defined. */
+            --color-error:   #ef4444;
         }
         /* Tailwind 4 dropped "dark mode by class" defaults; restore the
            explicit selector so our existing toggleTheme() / .light branch
@@ -285,6 +290,20 @@
         ::-webkit-scrollbar-thumb { background: #4c4d54; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #696a74; }
 
+        /* ===========================================================
+           DARK-MODE CONTRAST FLOOR
+           dark-400/500/600 are used for *meaningful* text (table th,
+           metadata, timestamps, labels) 1800+ times, but on the dark
+           canvas dark-500 (#696a74) is ~3.4:1 and dark-600 ~2.6:1 —
+           both below WCAG AA (4.5:1), which reads as "faded / in
+           shadow". Lift ONLY the text usage (text-*) to clear/near-AA,
+           without touching bg-dark-500 (42x) or border-dark-600 (153x)
+           surfaces. Guarded to dark mode so the light-theme block
+           (which remaps these for the pale canvas) is untouched. */
+        html:not(.light) .text-dark-400 { color: #aaacb5 !important; }
+        html:not(.light) .text-dark-500 { color: #92949e !important; }
+        html:not(.light) .text-dark-600 { color: #7f818b !important; }
+
         /* Button size + variant scale (Pillar 5). Before this, every
            button instance carried its own ad-hoc class string — submit
            buttons used `px-5 py-2.5 text-sm`, the → Burp pill used
@@ -307,8 +326,8 @@
         .btn { display: inline-flex; align-items: center; gap: 0.5rem; justify-content: center; border-radius: 0.5rem; transition: background-color 150ms, color 150ms, border-color 150ms; font-weight: 500; }
         .btn[disabled] { opacity: 0.4; cursor: not-allowed; }
 
-        .btn-sm { padding: 0.25rem 0.5rem;   font-size: 0.625rem; }
-        .btn-md { padding: 0.5rem 0.75rem;   font-size: 0.75rem;  }
+        .btn-sm { padding: 0.3rem 0.6rem;    font-size: 0.75rem;   }
+        .btn-md { padding: 0.5rem 0.85rem;   font-size: 0.8125rem; }
         .btn-lg { padding: 0.625rem 1rem;    font-size: 0.875rem; font-weight: 500; }
 
         .btn-primary   { background: #2563eb; color: #fff; }

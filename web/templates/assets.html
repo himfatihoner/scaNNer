@@ -188,7 +188,7 @@
                     {{/* Ports come from the same background index — show the loader
                          (not "—") while a scan runs or the index is still building. */}}
                     <span class="inline-flex items-center text-[11px] text-dark-500" title="{{T `Ports are still being scanned / indexed`}}">
-                        {{template "radar_inline" (dict "size" 16 "msg" "")}}
+                        <svg class="w-3.5 h-3.5 animate-spin text-accent-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
                     </span>
                     {{else}}<span class="text-[11px] text-dark-600">—</span>{{end}}
                 </td>
@@ -207,7 +207,7 @@
                          rather than "none" — the auto-refresh below swaps in the real
                          values once the index lands. */}}
                     <span class="inline-flex items-center gap-1.5 text-[11px] text-dark-500" title="{{T `Technologies are still being detected / indexed`}}">
-                        {{template "radar_inline" (dict "size" 16 "msg" "")}}
+                        <svg class="w-3.5 h-3.5 animate-spin text-accent-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
                         <span class="text-accent-400">{{T "detecting…"}}</span>
                     </span>
                     {{else}}<span class="text-[11px] text-dark-600">—</span>{{end}}

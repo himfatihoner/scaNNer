@@ -121,6 +121,17 @@ type DirEntry struct {
 type FPSignature struct {
 	Code  int     `json:"code"`
 	Sizes []int64 `json:"sizes"` // body sizes that consistently return this code
+	// Soft-404 length BAND. When the server answers random (nonexistent) paths
+	// with a non-404 "soft 404" whose body length VARIES across a range — e.g. it
+	// echoes the requested path, so a longer path yields a longer body and no
+	// single size repeats enough to land in Sizes — we record that code and the
+	// full [BandMin,BandMax] length range. A later hit with BandCode is then a
+	// false positive only when its length falls INSIDE the band, so a real page
+	// of a clearly different length still surfaces (unlike filtering every
+	// response with the code). BandCode == 0 means no band was detected.
+	BandCode int   `json:"band_code,omitempty"`
+	BandMin  int64 `json:"band_min,omitempty"`
+	BandMax  int64 `json:"band_max,omitempty"`
 }
 
 type TargetResult struct {
@@ -443,7 +454,9 @@ func scanTarget(target string, cfg ScanConfig, opts *shared.HTTPOptions, logFn f
 			tr.FPCodes = map[string]FPSignature{}
 		}
 		for _, sig := range tr.FPCodes {
-			if sig.Code != -1 {
+			// Mirror the fresh-calibration guard: a soft-404 code with a length
+			// band is NOT blunt-filtered (the band governs it in the scan filter).
+			if sig.Code != -1 && sig.Code != sig.BandCode {
 				filterCodes[sig.Code] = true
 			}
 			for _, sz := range sig.Sizes {
@@ -497,7 +510,11 @@ func scanTarget(target string, cfg ScanConfig, opts *shared.HTTPOptions, logFn f
 		}
 		for ext, sig := range fpSigs {
 			tr.FPCodes[ext] = sig
-			if sig.Code != -1 {
+			// Don't blunt-filter the soft-404 code globally when it has a length
+			// band — the per-extension band (checked in the scan filter) drops
+			// only in-range hits, so out-of-band real pages with that code still
+			// surface. A code with no band is filtered wholesale as before.
+			if sig.Code != -1 && sig.Code != sig.BandCode {
 				filterCodes[sig.Code] = true
 			}
 			for _, sz := range sig.Sizes {
@@ -517,6 +534,9 @@ func scanTarget(target string, cfg ScanConfig, opts *shared.HTTPOptions, logFn f
 					szs = append(szs, fmt.Sprintf("%d", s))
 				}
 				parts = append(parts, fmt.Sprintf("sizes: [%s]", strings.Join(szs, ", ")))
+			}
+			if sig.BandCode != 0 {
+				parts = append(parts, fmt.Sprintf("soft-404 band: HTTP %d len %d–%d", sig.BandCode, sig.BandMin, sig.BandMax))
 			}
 			logFn(fmt.Sprintf("[%s] FP calibrated: %s → %s", target, label, strings.Join(parts, " · ")))
 		}
@@ -1010,7 +1030,16 @@ func scanTarget(target string, cfg ScanConfig, opts *shared.HTTPOptions, logFn f
 				}
 				if cfg.SmartScan && !is403 {
 					if sig, ok := tr.FPCodes[r.ext]; ok {
-						if sig.Code != -1 && entry.StatusCode == sig.Code {
+						// Soft-404 length band takes precedence over a blunt code
+						// match: a same-code hit is a false positive only when its
+						// body length is inside the observed soft-404 band, so a
+						// real page of a clearly different length still surfaces.
+						if sig.BandCode != 0 && entry.StatusCode == sig.BandCode {
+							if entry.Size >= sig.BandMin && entry.Size <= sig.BandMax {
+								filteredCount++
+								return false
+							}
+						} else if sig.Code != -1 && entry.StatusCode == sig.Code {
 							filteredCount++
 							return false
 						}
@@ -1723,6 +1752,10 @@ func calibrateFP(client *http.Client, target string, extensions []string, opts *
 	}
 	lengths := []int{3, 12, 50, 100, 250, 500, 1000, 2000}
 	const perBucket = 8
+	// typicalLenMax bounds which probe lengths feed the soft-404 LENGTH band:
+	// only short/medium segments (≤ this) — the class real wordlist entries fall
+	// in — so the band reflects realistic requests, not the extreme long probes.
+	const typicalLenMax = 100
 	totalProbes := len(charsets) * len(lengths) * len(shapes) * perBucket
 
 	for _, ext := range testExts {
@@ -1731,6 +1764,12 @@ func calibrateFP(client *http.Client, target string, extensions []string, opts *
 			defer wg.Done()
 			codes := map[int]int{}
 			sizesByCode := map[int]map[int64]int{}
+			// typicalSizesByCode holds sizes only for SHORT/MEDIUM probe lengths
+			// (≤ typicalLenMax) — the length class real wordlist entries fall in.
+			// The soft-404 band is derived from these so an extreme 2000-char
+			// probe (atypical of a real request) can't balloon the band and
+			// swallow a genuine, larger page.
+			typicalSizesByCode := map[int]map[int64]int{}
 
 			var innerWg sync.WaitGroup
 			for _, cs := range charsets {
@@ -1788,6 +1827,12 @@ func calibrateFP(client *http.Client, target string, extensions []string, opts *
 									sizesByCode[resp.StatusCode] = map[int64]int{}
 								}
 								sizesByCode[resp.StatusCode][bodySize]++
+								if length <= typicalLenMax {
+									if typicalSizesByCode[resp.StatusCode] == nil {
+										typicalSizesByCode[resp.StatusCode] = map[int64]int{}
+									}
+									typicalSizesByCode[resp.StatusCode][bodySize]++
+								}
 								mu.Unlock()
 							}(cs, ln, sh)
 						}
@@ -1838,7 +1883,51 @@ func calibrateFP(client *http.Client, target string, extensions []string, opts *
 				sig.Code = maxCode
 			}
 
-			if sig.Code != -1 || len(sig.Sizes) > 0 {
+			// Soft-404 length BAND. probeURL drops real 404s, so a NON-404 code
+			// the server returns for our random (nonexistent) paths is a soft 404.
+			// When such a code appears across a substantial share of probes (≥ ⅓),
+			// record the full body-length RANGE it produced. This catches soft
+			// 404s whose body echoes the requested path (each probe a slightly
+			// different size, none repeating enough to reach sig.Sizes above), and
+			// the filter then drops a same-code hit only when its length is inside
+			// the band — so a real page of a clearly different length still
+			// surfaces instead of being blunt-filtered by code alone.
+			// Detection uses the FULL distribution (is this code a broad soft
+			// 404?), but the band RANGE is taken from the TYPICAL (short/medium)
+			// sizes so the band stays realistic.
+			softCode, softCount := 0, 0
+			for code, sizeCounts := range sizesByCode {
+				if code == 404 || code == 0 {
+					continue
+				}
+				tot := 0
+				for _, c := range sizeCounts {
+					tot += c
+				}
+				if tot > softCount {
+					softCount, softCode = tot, code
+				}
+			}
+			if softCode != 0 && totalProbes > 0 && softCount*3 >= totalProbes {
+				bandSizes := typicalSizesByCode[softCode]
+				if len(bandSizes) == 0 {
+					bandSizes = sizesByCode[softCode]
+				}
+				var mn, mx int64 = -1, -1
+				for size := range bandSizes {
+					if mn < 0 || size < mn {
+						mn = size
+					}
+					if size > mx {
+						mx = size
+					}
+				}
+				if mn >= 0 {
+					sig.BandCode, sig.BandMin, sig.BandMax = softCode, mn, mx
+				}
+			}
+
+			if sig.Code != -1 || len(sig.Sizes) > 0 || sig.BandCode != 0 {
 				mu.Lock()
 				result[extension] = sig
 				mu.Unlock()

@@ -514,6 +514,23 @@ func (h *Handler) buildAssetSearchIndex(workspaceID, fp string, ids [][2]string)
 		}
 	}
 
+	// Fold each asset's resolved IPs + related hosts into its search blob so the
+	// assets-list search box matches an asset by an IP it resolves to (and, for an
+	// IP asset, by a hostname behind it) — not only by its own value/ports/tech.
+	// `related` already contains both the IPv4 set and the cross-referenced hosts,
+	// so one append covers both directions. Covers resolution-only assets that had
+	// no port/tech tokens (absent from perAsset) by creating the blob entry here.
+	for asset, rel := range related {
+		if len(rel) == 0 {
+			continue
+		}
+		if existing := blob[asset]; existing != "" {
+			blob[asset] = existing + " " + strings.Join(rel, " ")
+		} else {
+			blob[asset] = strings.Join(rel, " ")
+		}
+	}
+
 	assetSearchMu.Lock()
 	idx := assetSearchCache[workspaceID]
 	if idx == nil {

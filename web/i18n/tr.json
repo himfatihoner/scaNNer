@@ -2532,5 +2532,21 @@
   "No CORS misconfiguration detected on this URL.": "Bu URL'de CORS yanlış yapılandırması tespit edilmedi.",
   "finding(s)": "bulgu",
   "%d CORS finding(s) across %d URL(s)": "%[2]d URL genelinde %[1]d CORS bulgusu",
-  "One full URL per line. https:// prepended if missing.": "Her satıra bir tam URL. Eksikse https:// eklenir."
+  "One full URL per line. https:// prepended if missing.": "Her satıra bir tam URL. Eksikse https:// eklenir.",
+  "Open Redirect": "Açık Yönlendirme",
+  "Fuzz known redirect-candidate parameters with external-host payloads and 10+ bypass variants.": "Bilinen yönlendirme-aday parametrelerini dış-host yükleri ve 10+ atlatma varyantıyla fuzz'lar.",
+  "Full URLs to probe (paths kept). https:// prepended if missing.": "Taranacak tam URL'ler (yollar korunur). Eksikse https:// eklenir.",
+  "Extra Parameters": "Ek Parametreler",
+  "Comma-separated. Tested IN ADDITION TO the default set.": "Virgülle ayrılmış. Varsayılan kümeye EK OLARAK test edilir.",
+  "Defaults:": "Varsayılanlar:",
+  "Evil Host": "Kötü Host",
+  "Sentinel host the Location header should redirect to. Default works in most labs; change to your own collaborator for stealth.": "Location başlığının yönlenmesi gereken sentinel host. Varsayılan çoğu lab'da çalışır; gizlilik için kendi collaborator'ınızla değiştirin.",
+  "Stop testing a parameter on first hit": "İlk isabette parametreyi test etmeyi durdur",
+  "Probe Open Redirects": "Açık Yönlendirmeleri Tara",
+  "%d open-redirect hit(s) across %d probes / %d URL(s)": "%[3]d URL / %[2]d sonda genelinde %[1]d açık yönlendirme isabeti",
+  "probes": "sonda",
+  "hit(s)": "isabet",
+  "Payload:": "Yük:",
+  "Probe URL:": "Sonda URL'si:",
+  "No redirect parameter accepted external-host payloads.": "Hiçbir yönlendirme parametresi dış-host yüklerini kabul etmedi."
 }

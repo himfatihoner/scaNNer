@@ -103,6 +103,7 @@
 <div id="assetsView">
 {{if .Assets}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
     <table id="assetsTable" class="w-full text-sm">
         <thead class="bg-dark-850 border-b border-dark-800 text-left">
             <tr>
@@ -241,6 +242,7 @@
             {{end}}
         </tbody>
     </table>
+    </div>
 </div>
 {{else}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center justify-center">

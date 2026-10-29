@@ -2515,5 +2515,22 @@
   "How many targets/requests run in parallel for THIS scan. Higher = faster but noisier / heavier on fragile targets. Blank = inherit from Settings.": "BU tarama için kaç hedef/isteğin paralel çalışacağı. Yüksek = daha hızlı ama daha gürültülü / kırılgan hedeflerde daha ağır. Boş = Ayarlar'dan devral.",
   "Cap on requests per second for THIS scan. 0 = unlimited. Blank = inherit from Settings.": "BU tarama için saniye başına istek üst sınırı. 0 = sınırsız. Boş = Ayarlar'dan devral.",
   "Blank = inherit the global Web defaults (Settings). Overrides apply to this scan only.": "Boş = genel Web varsayılanlarını devral (Ayarlar). Geçersiz kılmalar yalnızca bu taramaya uygulanır.",
-  "inherit": "devral"
+  "inherit": "devral",
+  "CORS Misconfig": "CORS Yanlış Yapılandırma",
+  "Probe Origin reflection, null-origin trust, subdomain/regex bypasses, and wildcard-with-credentials.": "Origin yansımasını, null-origin güvenini, alt alan adı/regex atlatmalarını ve kimlik bilgili wildcard'ı sınar.",
+  "Tests fired per URL": "URL başına çalıştırılan testler",
+  "Arbitrary origin reflection": "Rastgele origin yansıması",
+  "evil.<host> subdomain trust": "evil.<host> alt alan güveni",
+  "Suffix/prefix attach (regex bypass)": "Sonek/önek ekleme (regex atlatma)",
+  "http vs https swap": "http vs https değişimi",
+  "Comma injection in Origin": "Origin'de virgül enjeksiyonu",
+  "Trailing-dot, look-alike chars": "Sondaki nokta, benzer karakterler",
+  "Start CORS Probe": "CORS Taramasını Başlat",
+  "Scan #": "Tarama #",
+  "Send to configured proxy": "Yapılandırılmış proxy'ye gönder",
+  "Origin sent:": "Gönderilen Origin:",
+  "No CORS misconfiguration detected on this URL.": "Bu URL'de CORS yanlış yapılandırması tespit edilmedi.",
+  "finding(s)": "bulgu",
+  "%d CORS finding(s) across %d URL(s)": "%[2]d URL genelinde %[1]d CORS bulgusu",
+  "One full URL per line. https:// prepended if missing.": "Her satıra bir tam URL. Eksikse https:// eklenir."
 }

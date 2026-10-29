@@ -4,23 +4,23 @@
     <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('svg').classList.toggle('rotate-180')"
             class="flex items-center gap-2 text-xs text-dark-400 hover:text-accent-400 transition-colors mb-2">
         <svg class="w-3 h-3 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-        Custom Headers & Cookies
+        {{T "Custom Headers & Cookies"}}
     </button>
     <div class="hidden space-y-3 bg-dark-850 border border-dark-700 rounded-lg p-3">
         <!-- Headers -->
         <div>
             <div class="flex items-center justify-between mb-1.5">
-                <label class="text-[11px] text-dark-400 uppercase tracking-wider">Headers{{template "info_icon" "Custom HTTP headers to send with every request (e.g. Authorization, X-API-Key). Global User-Agent and proxy settings also apply automatically."}}</label>
-                <button type="button" onclick="addHeaderRow(this)" class="text-[10px] text-accent-400 hover:text-accent-300">+ Add</button>
+                <label class="text-[11px] text-dark-400 uppercase tracking-wider">{{T "Headers"}}{{template "info_icon" (T `Custom HTTP headers to send with every request (e.g. Authorization, X-API-Key). Global User-Agent and proxy settings also apply automatically.`)}}</label>
+                <button type="button" onclick="addHeaderRow(this)" class="text-[10px] text-accent-400 hover:text-accent-300">{{T "+ Add"}}</button>
             </div>
             <div class="space-y-1.5" id="headerRows">
                 <div class="flex gap-1.5 items-center">
                     <div class="relative flex-1">
-                        <input type="text" name="header_name" placeholder="Header name" list="headerPresetNames"
+                        <input type="text" name="header_name" placeholder="{{T "Header name"}}" list="headerPresetNames"
                                class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                     </div>
                     <div class="relative flex-[2]">
-                        <input type="text" name="header_value" placeholder="Value"
+                        <input type="text" name="header_value" placeholder="{{T "Value"}}"
                                class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                     </div>
                     <button type="button" onclick="this.parentElement.remove()" class="text-dark-600 hover:text-danger shrink-0">
@@ -30,7 +30,7 @@
             </div>
             <!-- Presets -->
             <div class="mt-2">
-                <p class="text-[10px] text-dark-500 mb-1">Quick add:</p>
+                <p class="text-[10px] text-dark-500 mb-1">{{T "Quick add:"}}</p>
                 <div class="flex flex-wrap gap-1">
                     <button type="button" onclick="addPresetHeader('Authorization','Bearer ')" class="text-[9px] px-1.5 py-0.5 rounded bg-dark-800 text-dark-400 hover:text-accent-400 hover:bg-dark-700">Bearer Token</button>
                     <button type="button" onclick="addPresetHeader('X-API-Key','')" class="text-[9px] px-1.5 py-0.5 rounded bg-dark-800 text-dark-400 hover:text-accent-400 hover:bg-dark-700">API Key</button>
@@ -49,17 +49,17 @@
         <!-- Cookies -->
         <div>
             <div class="flex items-center justify-between mb-1.5">
-                <label class="text-[11px] text-dark-400 uppercase tracking-wider">Cookies{{template "info_icon" "Custom cookies to send with every request. Useful for authenticated scans."}}</label>
-                <button type="button" onclick="addCookieRow(this)" class="text-[10px] text-accent-400 hover:text-accent-300">+ Add</button>
+                <label class="text-[11px] text-dark-400 uppercase tracking-wider">{{T "Cookies"}}{{template "info_icon" (T `Custom cookies to send with every request. Useful for authenticated scans.`)}}</label>
+                <button type="button" onclick="addCookieRow(this)" class="text-[10px] text-accent-400 hover:text-accent-300">{{T "+ Add"}}</button>
             </div>
             <div class="space-y-1.5" id="cookieRows">
                 <div class="flex gap-1.5 items-center">
                     <div class="relative flex-1">
-                        <input type="text" name="cookie_name" placeholder="Cookie name" list="cookiePresetNames"
+                        <input type="text" name="cookie_name" placeholder="{{T "Cookie name"}}" list="cookiePresetNames"
                                class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                     </div>
                     <div class="relative flex-[2]">
-                        <input type="text" name="cookie_value" placeholder="Value"
+                        <input type="text" name="cookie_value" placeholder="{{T "Value"}}"
                                class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                     </div>
                     <button type="button" onclick="this.parentElement.remove()" class="text-dark-600 hover:text-danger shrink-0">
@@ -68,7 +68,7 @@
                 </div>
             </div>
             <div class="mt-2">
-                <p class="text-[10px] text-dark-500 mb-1">Quick add:</p>
+                <p class="text-[10px] text-dark-500 mb-1">{{T "Quick add:"}}</p>
                 <div class="flex flex-wrap gap-1">
                     <button type="button" onclick="addPresetCookie('session','')" class="text-[9px] px-1.5 py-0.5 rounded bg-dark-800 text-dark-400 hover:text-accent-400 hover:bg-dark-700">session</button>
                     <button type="button" onclick="addPresetCookie('PHPSESSID','')" class="text-[9px] px-1.5 py-0.5 rounded bg-dark-800 text-dark-400 hover:text-accent-400 hover:bg-dark-700">PHPSESSID</button>
@@ -122,14 +122,14 @@ function addHeaderRow() {
     var container = document.getElementById('headerRows');
     var row = document.createElement('div');
     row.className = 'flex gap-1.5 items-center';
-    row.innerHTML = '<div class="relative flex-1"><input type="text" name="header_name" placeholder="Header name" list="headerPresetNames" class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"></div><div class="relative flex-[2]"><input type="text" name="header_value" placeholder="Value" class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"></div><button type="button" onclick="this.parentElement.remove()" class="text-dark-600 hover:text-danger shrink-0"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>';
+    row.innerHTML = '<div class="relative flex-1"><input type="text" name="header_name" placeholder="{{T "Header name"}}" list="headerPresetNames" class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"></div><div class="relative flex-[2]"><input type="text" name="header_value" placeholder="{{T "Value"}}" class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"></div><button type="button" onclick="this.parentElement.remove()" class="text-dark-600 hover:text-danger shrink-0"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>';
     container.appendChild(row);
 }
 function addCookieRow() {
     var container = document.getElementById('cookieRows');
     var row = document.createElement('div');
     row.className = 'flex gap-1.5 items-center';
-    row.innerHTML = '<div class="relative flex-1"><input type="text" name="cookie_name" placeholder="Cookie name" list="cookiePresetNames" class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"></div><div class="relative flex-[2]"><input type="text" name="cookie_value" placeholder="Value" class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"></div><button type="button" onclick="this.parentElement.remove()" class="text-dark-600 hover:text-danger shrink-0"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>';
+    row.innerHTML = '<div class="relative flex-1"><input type="text" name="cookie_name" placeholder="{{T "Cookie name"}}" list="cookiePresetNames" class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"></div><div class="relative flex-[2]"><input type="text" name="cookie_value" placeholder="{{T "Value"}}" class="w-full mono bg-dark-900 border border-dark-700 rounded px-2 py-1.5 text-[11px] text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"></div><button type="button" onclick="this.parentElement.remove()" class="text-dark-600 hover:text-danger shrink-0"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>';
     container.appendChild(row);
 }
 function addPresetHeader(name, value) {

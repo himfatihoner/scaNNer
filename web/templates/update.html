@@ -7,9 +7,7 @@
 
     {{$u := .Update}}
     {{if not $u.Available}}
-    <div class="rounded-xl border border-warning/40 bg-warning/10 px-5 py-4 text-sm text-warning">
-        {{T `In-app updates aren't available here: %s` $u.Reason}}
-    </div>
+    {{template "callout" (dict "tone" "warning" "text" (T `In-app updates aren't available here: %s` $u.Reason) "class" "text-sm")}}
     <p class="text-xs text-dark-500 mt-3">{{T `Updates require running from a git checkout of the project with an`}} <span class="font-mono">origin</span> {{T `remote, plus`}} <span class="font-mono">git</span> {{T `and the Go toolchain installed.`}}</p>
     {{else}}
 
@@ -23,14 +21,14 @@
             <button id="checkBtn" onclick="checkUpdate()" class="rounded-lg bg-dark-700 hover:bg-dark-600 text-white text-sm font-medium px-4 py-2.5">{{T `Check for updates`}}</button>
         </div>
         {{if not $u.Clean}}
-        <div class="mt-4 rounded-lg border border-warning/40 bg-warning/10 px-4 py-2.5 text-xs text-warning">{{T `The working tree has local changes — updates are blocked until they're committed, stashed, or reset.`}}</div>
+        {{template "callout" (dict "tone" "warning" "text" (T `The working tree has local changes — updates are blocked until they're committed, stashed, or reset.`) "class" "mt-4")}}
         {{end}}
     </div>
 
     <div id="result" class="hidden bg-dark-900 border border-dark-800 rounded-xl p-5 mb-5"></div>
 
     <div id="applyWrap" class="hidden">
-        {{if $u.ScansRunning}}<div class="mb-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-2.5 text-xs text-warning">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T `Scans are running. Applying an update stops them and restarts the app.`}}</div>{{end}}
+        {{if $u.ScansRunning}}{{template "callout" (dict "tone" "warning" "icon" "triangle-alert" "text" (T `Scans are running. Applying an update stops them and restarts the app.`) "class" "mb-3")}}{{end}}
 
         <div id="sudoWrap" class="hidden mb-3 rounded-lg border border-accent-500/40 bg-accent-600/5 px-4 py-3">
             <p class="text-xs text-dark-200 font-medium mb-1">{{T `This update changes system integration (service · capabilities · installer).`}}</p>

@@ -8,7 +8,7 @@
         </div>
     </div>
 
-    {{if .Saved}}<div class="mb-4 rounded-lg border border-success/40 bg-success/10 px-4 py-3 text-sm text-success">{{T "Permissions saved."}}</div>{{end}}
+    {{if .Saved}}{{template "callout" (dict "tone" "success" "text" (T "Permissions saved.") "class" "mb-4")}}{{end}}
 
     {{if .Target.IsAdmin}}
     <div class="rounded-xl border border-accent-600/40 bg-accent-600/10 px-5 py-4 text-sm text-accent-300">{{T `%s is an administrator and can run every module in every workspace. Change their role on the Users page to scope access.` .Target.Username}}</div>

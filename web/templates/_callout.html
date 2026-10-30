@@ -1,0 +1,26 @@
+{{/*
+    Shared tinted-callout partial for SIMPLE notices (one tone + a line of text,
+    optionally an icon + a bold title). Dedupes the hand-rolled "bg-TONE/10
+    border border-TONE/30 rounded-lg …" boxes into one styled surface.
+
+    Usage:
+      {{template "callout" (dict "tone" "warning" "text" (T "Not calibrated yet."))}}
+      {{template "callout" (dict "tone" "danger" "icon" "triangle-alert" "title" (T "Killswitch is OFF") "text" (T "Traffic uses the default route."))}}
+      {{template "callout" (dict "tone" "success" "text" "…" "class" "mb-4")}}
+
+    tone: danger | warning | success | info | (anything else = neutral)
+    text: a STRING (rendered + escaped). Rich bodies with their own markup,
+          buttons or multiple elements do NOT fit this partial — keep those inline.
+    icon:  optional Lucide icon name (see internal/handlers/icons.go)
+    title: optional bold heading string
+    class: optional extra classes (e.g. margin: "mb-4")
+*/}}
+{{define "callout"}}
+{{- $tc := "bg-dark-800 border-dark-700 text-dark-300" -}}
+{{- if eq .tone "danger" -}}{{- $tc = "bg-danger/10 border-danger/30 text-danger" -}}
+{{- else if eq .tone "warning" -}}{{- $tc = "bg-warning/10 border-warning/30 text-warning" -}}
+{{- else if eq .tone "success" -}}{{- $tc = "bg-success/10 border-success/30 text-success" -}}
+{{- else if eq .tone "info" -}}{{- $tc = "bg-accent-500/10 border-accent-500/30 text-accent-200" -}}
+{{- end -}}
+<div class="flex items-start gap-2 rounded-lg border px-4 py-2.5 text-xs {{$tc}}{{if .class}} {{.class}}{{end}}">{{if .icon}}{{icon .icon "w-4 h-4 mt-0.5 shrink-0"}}{{end}}<div class="min-w-0">{{if .title}}<p class="font-semibold mb-0.5">{{.title}}</p>{{end}}{{.text}}</div></div>
+{{end}}

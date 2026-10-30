@@ -32,7 +32,7 @@
                     <label class="flex items-center gap-2 text-xs text-dark-300">
                         <input type="checkbox" name="test_smuggle" checked class="rounded border-dark-600 bg-dark-800 text-accent-500"> {{T "HTTP smuggling probes (CL.TE / TE.CL / TE.TE)"}}
                     </label>
-                    <p class="text-[10px] text-warning bg-warning/5 border border-warning/30 rounded p-2 mt-2">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T "Smuggling probes use raw TCP. They may briefly stall connections on vulnerable servers and could affect legit traffic — pentest on authorized targets only."}}</p>
+                    {{template "callout" (dict "tone" "warning" "icon" "triangle-alert" "text" (T "Smuggling probes use raw TCP. They may briefly stall connections on vulnerable servers and could affect legit traffic — pentest on authorized targets only.") "class" "mt-2")}}
                 </div>
                 {{template "http_options" .}}
                 {{template "http_tuning" (dict "TuneConcHint" $.TuneConcHint "TuneTimeoutHint" "12")}}

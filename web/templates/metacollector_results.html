@@ -43,10 +43,7 @@
 </div>
 
 {{if .Stopped}}
-<div class="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 mb-4">
-    <div class="text-[11px] uppercase tracking-wider text-warning mb-1">{{T "Search stopped early"}}</div>
-    <p class="text-xs text-warning">{{.Stopped}}</p>
-</div>
+{{template "callout" (dict "tone" "warning" "title" (T "Search stopped early") "text" .Stopped "class" "mb-4")}}
 {{end}}
 
 {{if .Warnings}}

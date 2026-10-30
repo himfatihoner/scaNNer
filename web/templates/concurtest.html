@@ -18,9 +18,7 @@
         <div class="bg-dark-900 border border-dark-800 rounded-xl p-5">
             <h3 class="text-sm font-semibold text-white mb-4">{{T "New Test"}}</h3>
 
-            <div class="bg-warning/10 border border-warning/30 rounded-lg p-3 mb-4">
-                <p class="text-[11px] text-warning font-medium">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T "This module deliberately stresses the target. A default run sends ~3 000 requests per target. Only run against systems you own or have explicit authorization to load-test."}}</p>
-            </div>
+            {{template "callout" (dict "tone" "warning" "icon" "triangle-alert" "text" (T "This module deliberately stresses the target. A default run sends ~3 000 requests per target. Only run against systems you own or have explicit authorization to load-test.") "class" "mb-4")}}
 
             <form action="/modules/concurtest/run" method="POST">
                 <div class="space-y-5">

@@ -339,7 +339,7 @@
                 {{if .Tuned}}<span class="text-[10px] uppercase text-success bg-success/10 px-2 py-0.5 rounded">{{T "tuned"}}</span>{{else}}<span class="text-[10px] uppercase text-warning bg-warning/10 px-2 py-0.5 rounded">{{T "stock"}}</span>{{end}}
             </h3>
             <p class="text-xs text-dark-400 mb-3">{{T "OS network-stack limits the adaptive per-module concurrency works within. Widening the ephemeral-port range and shortening"}} <span class="mono">tcp_fin_timeout</span> {{T `prevents "the network fills up" under heavy scans. Applies system-wide; per-module concurrency recomputes automatically on the next scan.`}}</p>
-            {{if .OK}}<p class="text-[11px] text-success bg-success/10 border border-success/20 rounded px-3 py-2 mb-3">{{icon "check" "w-3.5 h-3.5 mr-1"}}{{T "Applied. New limits are live."}}</p>{{end}}
+            {{if .OK}}{{template "callout" (dict "tone" "success" "icon" "check" "text" (T "Applied. New limits are live.") "class" "mb-3")}}{{end}}
             {{if .Err}}<p class="text-[11px] text-error bg-error/10 border border-error/20 rounded px-3 py-2 mb-3 mono break-words">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{.Err}}</p>{{end}}
             {{if not .Available}}
             <div class="text-[11px] text-dark-300 bg-dark-950 border border-dark-800 rounded-lg px-3 py-2.5 mb-3">

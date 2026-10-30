@@ -90,10 +90,7 @@
 
                     <p class="text-[11px] text-dark-500">{{T "Concurrency capped at 4 parallel hydra processes regardless of the Settings value (each hydra already spawns Threads parallel logins)."}}</p>
 
-                    <div class="flex items-start gap-2 px-3 py-2 bg-warning/5 border border-warning/20 rounded-lg">
-                        <svg class="w-4 h-4 text-warning mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
-                        <p class="text-[11px] text-dark-400">{{T `Only run against systems you're authorized to test. Brute force generates real failed-login traffic.`}}</p>
-                    </div>
+                    {{template "callout" (dict "tone" "warning" "icon" "triangle-alert" "text" (T `Only run against systems you're authorized to test. Brute force generates real failed-login traffic.`))}}
                 </div>
                 {{template "queue_option" .}}
                 <button type="submit" class="w-full mt-5 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors flex items-center justify-center gap-2">

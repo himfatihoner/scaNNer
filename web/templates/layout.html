@@ -431,11 +431,12 @@
     </style>
 </head>
 <body class="h-full bg-dark-950 text-dark-200">
+    <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:z-[100] focus:top-3 focus:left-3 focus:px-3 focus:py-2 focus:rounded-lg focus:bg-accent-600 focus:text-white focus:text-sm focus:shadow-lg">{{T "Skip to content"}}</a>
     <div class="flex h-full">
         {{template "sidebar" .}}
         <div class="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">
             {{template "header" .}}
-            <main class="flex-1 min-w-0 overflow-y-auto p-6">
+            <main id="main" class="flex-1 min-w-0 overflow-y-auto p-6">
                 {{template "module_info" .}}
                 {{if eq .Page "dashboard"}}
                     {{template "dashboard" .}}

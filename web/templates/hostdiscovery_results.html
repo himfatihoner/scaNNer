@@ -1,10 +1,10 @@
 {{define "page_hostdiscovery_results"}}
 <div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
-    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <a href="/modules" class="hover:text-accent-400 transition-colors">{{T "Modules"}}</a>
     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-    <a href="/modules/hostdiscovery" class="hover:text-accent-400 transition-colors">Host Discovery</a>
+    <a href="/modules/hostdiscovery" class="hover:text-accent-400 transition-colors">{{T "Host Discovery"}}</a>
     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-    <span class="text-dark-200">Results</span>
+    <span class="text-dark-200">{{T "Results"}}</span>
 </div>
 {{template "scan_actions" .}}
 
@@ -20,19 +20,19 @@
 {{define "hostdiscovery_results_inner"}}
 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
     <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
-        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">Hosts Up</p>
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">{{T "Hosts Up"}}</p>
         <p class="text-2xl font-bold {{if .UpHosts}}text-success{{else}}text-dark-600{{end}}">{{.UpHosts}}</p>
     </div>
     <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
-        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">Hosts Down</p>
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">{{T "Hosts Down"}}</p>
         <p class="text-2xl font-bold {{if .DownHosts}}text-danger{{else}}text-dark-600{{end}}">{{.DownHosts}}</p>
     </div>
     <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
-        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">ICMP Filtered</p>
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">{{T "ICMP Filtered"}}</p>
         <p class="text-2xl font-bold {{if .FilteredHosts}}text-warning{{else}}text-dark-600{{end}}">{{.FilteredHosts}}</p>
     </div>
     <div class="bg-dark-900 border border-dark-800 rounded-xl p-4 text-center">
-        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">Open Ports</p>
+        <p class="text-xs text-dark-500 uppercase tracking-wider mb-1">{{T "Open Ports"}}</p>
         <p class="text-2xl font-bold {{if .TotalPorts}}text-accent-400{{else}}text-dark-600{{end}}">{{.TotalPorts}}</p>
     </div>
 </div>
@@ -41,20 +41,20 @@
 <!-- Filter / sort bar. Port filter narrows the table to hosts that have a
      specific TCP/UDP port open — useful for spotting "all SSH boxes" etc. -->
 <div class="flex flex-wrap items-center gap-2 mb-3">
-    <input id="hdSearch" type="search" placeholder="Search target / IP / hostname..."
+    <input id="hdSearch" type="search" placeholder="{{T `Search target / IP / hostname...`}}"
            oninput="applyHDFilter()"
            class="w-72 mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"/>
-    <input id="hdPortFilter" type="search" placeholder="Port (e.g. 22, 80, 443)"
+    <input id="hdPortFilter" type="search" placeholder="{{T `Port (e.g. 22, 80, 443)`}}"
            oninput="applyHDFilter()"
            class="w-44 mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500"/>
     <select id="hdStateFilter" onchange="applyHDFilter()"
             class="bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
-        <option value="">All states</option>
-        <option value="up">Up</option>
-        <option value="filtered">ICMP Filtered</option>
-        <option value="firewall">Potential Firewall</option>
-        <option value="down">Down</option>
-        <option value="error">Error</option>
+        <option value="">{{T "All states"}}</option>
+        <option value="up">{{T "Up"}}</option>
+        <option value="filtered">{{T "ICMP Filtered"}}</option>
+        <option value="firewall">{{T "Potential Firewall"}}</option>
+        <option value="down">{{T "Down"}}</option>
+        <option value="error">{{T "Error"}}</option>
     </select>
     <span id="hdResultCount" class="ml-auto text-[11px] text-dark-500"></span>
 </div>
@@ -63,12 +63,12 @@
     <table id="hdTable" class="w-full text-sm">
         <thead class="bg-dark-850 border-b border-dark-800 text-left">
             <tr>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="target" data-sort-type="string">Target</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="target" data-sort-type="string">{{T "Target"}}</th>
                 <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="ip-num" data-sort-type="number">IP</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="host" data-sort-type="string">Hostname</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="state" data-sort-type="string">State</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="opencount" data-sort-type="number">Open</th>
-                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">Ports</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="host" data-sort-type="string">{{T "Hostname"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="state" data-sort-type="string">{{T "State"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="opencount" data-sort-type="number">{{T "Open"}}</th>
+                <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold">{{T "Ports"}}</th>
             </tr>
         </thead>
         <tbody id="hdTbody" class="divide-y divide-dark-800">
@@ -85,11 +85,11 @@
                 <td class="px-4 py-2.5 mono text-xs text-dark-200 align-top">{{if .IP}}{{.IP}}{{else}}—{{end}}</td>
                 <td class="px-4 py-2.5 mono text-[11px] text-dark-400 align-top">{{if .Host}}{{.Host}}{{else}}—{{end}}</td>
                 <td class="px-4 py-2.5 align-top">
-                    {{if and .Error (not .HostUp)}}<span class="text-[10px] uppercase tracking-wider text-danger bg-danger/10 px-2 py-0.5 rounded" title="{{.Error}}">Error</span>
-                    {{else if .SuspectedFirewall}}<span class="text-[10px] uppercase tracking-wider text-warning bg-warning/10 px-2 py-0.5 rounded" title="nmap reported {{.FirewalledCount}}+ open ports — likely a firewall reflecting probes">Potential FW</span>
-                    {{else if not .HostUp}}<span class="text-[10px] uppercase tracking-wider text-danger bg-danger/10 px-2 py-0.5 rounded">Down</span>
-                    {{else if .IcmpFiltered}}<span class="text-[10px] uppercase tracking-wider text-warning bg-warning/10 px-2 py-0.5 rounded">ICMP Filt.</span>
-                    {{else}}<span class="text-[10px] uppercase tracking-wider text-success bg-success/10 px-2 py-0.5 rounded">Up</span>{{end}}
+                    {{if and .Error (not .HostUp)}}<span class="text-[10px] uppercase tracking-wider text-danger bg-danger/10 px-2 py-0.5 rounded" title="{{.Error}}">{{T "Error"}}</span>
+                    {{else if .SuspectedFirewall}}<span class="text-[10px] uppercase tracking-wider text-warning bg-warning/10 px-2 py-0.5 rounded" title="{{T `nmap reported %d+ open ports — likely a firewall reflecting probes` .FirewalledCount}}">{{T "Potential FW"}}</span>
+                    {{else if not .HostUp}}<span class="text-[10px] uppercase tracking-wider text-danger bg-danger/10 px-2 py-0.5 rounded">{{T "Down"}}</span>
+                    {{else if .IcmpFiltered}}<span class="text-[10px] uppercase tracking-wider text-warning bg-warning/10 px-2 py-0.5 rounded">{{T "ICMP Filt."}}</span>
+                    {{else}}<span class="text-[10px] uppercase tracking-wider text-success bg-success/10 px-2 py-0.5 rounded">{{T "Up"}}</span>{{end}}
                 </td>
                 <td class="px-4 py-2.5 mono text-xs align-top">
                     {{if .SuspectedFirewall}}<span class="text-warning">+{{.FirewalledCount}}<span class="text-[10px] text-dark-500">?</span></span>
@@ -97,9 +97,9 @@
                 </td>
                 <td class="px-4 py-2.5 align-top">
                     {{if .SuspectedFirewall}}
-                    <span class="text-[11px] text-warning bg-warning/10 border border-warning/30 px-2 py-1 rounded" title="Run portservice on this IP to verify which (if any) of these are real services.">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}+{{.FirewalledCount}} open ports — potential firewall (further scan skipped)</span>
+                    <span class="text-[11px] text-warning bg-warning/10 border border-warning/30 px-2 py-1 rounded" title="{{T `Run portservice on this IP to verify which (if any) of these are real services.`}}">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T "+%d open ports — potential firewall (further scan skipped)" .FirewalledCount}}</span>
                     {{else if .Error}}
-                    <span class="text-[11px] text-danger bg-danger/10 border border-danger/30 px-2 py-1 rounded" title="{{.Error}}">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}nmap error: {{.Error}}</span>
+                    <span class="text-[11px] text-danger bg-danger/10 border border-danger/30 px-2 py-1 rounded" title="{{.Error}}">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T "nmap error:"}} {{.Error}}</span>
                     {{else if .Ports}}
                     <div class="flex flex-wrap gap-1 max-w-[520px]">
                         {{range .Ports}}{{if eq .State "open"}}
@@ -148,7 +148,7 @@ function applyHDFilter() {
 
 {{if not .Results}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
-    <p class="text-sm">{{if eq (print .Scan.Status) "running"}}Waiting for first results...{{else}}No results available{{end}}</p>
+    <p class="text-sm">{{if eq (print .Scan.Status) "running"}}{{T "Waiting for first results..."}}{{else}}{{T "No results available"}}{{end}}</p>
 </div>
 {{end}}
 {{end}}

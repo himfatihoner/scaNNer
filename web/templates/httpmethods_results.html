@@ -1,10 +1,10 @@
 {{define "page_httpmethods_results"}}
 <div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
-    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <a href="/modules" class="hover:text-accent-400 transition-colors">{{T "Modules"}}</a>
     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-    <a href="/modules/httpmethods" class="hover:text-accent-400 transition-colors">HTTP Method Tester</a>
+    <a href="/modules/httpmethods" class="hover:text-accent-400 transition-colors">{{T "HTTP Method Tester"}}</a>
     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-    <span class="text-dark-200">Results</span>
+    <span class="text-dark-200">{{T "Results"}}</span>
 </div>
 {{template "scan_actions" .}}
 
@@ -24,11 +24,11 @@
      so a missing/nil value short-circuits the comparison instead of
      panicking `gt: invalid type for comparison`. */}}
 {{if and .DangerousCount (gt .DangerousCount 0)}}
-<p class="text-sm text-danger mb-4">{{.DangerousCount}} dangerous method/variant(s) allowed</p>
+<p class="text-sm text-danger mb-4">{{T "%d dangerous method/variant(s) allowed" .DangerousCount}}</p>
 {{end}}
 {{if .Results}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl mb-4 overflow-hidden">
-    {{template "empty_toggle" (dict "Scope" "httpmethods-targets" "ContainerSel" "#httpMethodsGroups" "Group" "aw-suite" "Label" "Hide URLs with no dangerous methods")}}
+    {{template "empty_toggle" (dict "Scope" "httpmethods-targets" "ContainerSel" "#httpMethodsGroups" "Group" "aw-suite" "Label" (T `Hide URLs with no dangerous methods`))}}
     <div id="httpMethodsGroups" class="max-h-[600px] overflow-y-auto p-3 space-y-3">
 {{end}}
 {{range $tIdx, $tr := .Results}}
@@ -41,12 +41,12 @@
         <table class="w-full">
             <thead>
                 <tr class="border-b border-dark-800">
-                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Method</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">{{T "Method"}}</th>
                     <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Content-Type</th>
-                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Status</th>
-                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Result</th>
-                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Size</th>
-                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Response Type</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">{{T "Status"}}</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">{{T "Result"}}</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">{{T "Size"}}</th>
+                    <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">{{T "Response Type"}}</th>
                     <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">Allow</th>
                 </tr>
             </thead>
@@ -83,10 +83,10 @@
                             {{if $m.Dangerous}}
                             <span class="inline-flex items-center gap-1 text-[11px] text-danger">
                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
-                                Dangerous
+                                {{T "Dangerous"}}
                             </span>
                             {{else}}
-                            <span class="text-[11px] text-success">Allowed</span>
+                            <span class="text-[11px] text-success">{{T "Allowed"}}</span>
                             {{end}}
                         {{else if eq $m.Status "Error"}}
                         <span class="text-[11px] text-dark-500" title="{{$m.Error}}">{{$m.Error}}</span>
@@ -115,6 +115,6 @@
 {{end}}
 
 {{if not .Results}}
-<div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500"><p class="text-sm">{{if eq (print .Scan.Status) "running"}}Waiting for first results...{{else}}No results{{end}}</p></div>
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500"><p class="text-sm">{{if eq (print .Scan.Status) "running"}}{{T "Waiting for first results..."}}{{else}}{{T "No results"}}{{end}}</p></div>
 {{end}}
 {{end}}

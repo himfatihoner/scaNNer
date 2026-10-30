@@ -114,7 +114,7 @@
         </form>
         {{end}}
 
-        <form action="/scans/delete/" method="POST" class="inline" onsubmit="return confirm('Delete this scan permanently? Its findings are also removed from the Vulnerabilities page and assets. Export first if you need them.')">
+        <form action="/scans/delete/" method="POST" class="inline" onsubmit="return confirm('{{T "Delete this scan permanently? Its findings are also removed from the Vulnerabilities page and assets. Export first if you need them."}}')">
             <input type="hidden" name="id" value="{{.Scan.ID}}">
             <button type="submit"
                     class="flex items-center justify-center w-9 h-9 text-dark-500 hover:text-danger bg-dark-850 border border-dark-700 hover:border-danger/40 rounded-lg transition-colors"

@@ -493,7 +493,7 @@ function hcCalc() {
     if (sumMult === 0) sumMult = 1; // no rules → plain wordlist ×1
     var passNote = nRules > 1 ? (' across ' + nRules + ' passes') : '';
     var customWL = document.querySelector('input[name=wordlist_custom]').value.trim();
-    if (customWL) { out.textContent = 'your custom list × ' + hcHuman(sumMult) + ' rule variants' + passNote + (customRule ? ' (+ custom rule)' : ''); return; }
+    if (customWL) { out.textContent = '{{T "your custom list × "}}' + hcHuman(sumMult) + '{{T " rule variants"}}' + passNote + (customRule ? '{{T " (+ custom rule)"}}' : ''); return; }
     var sel = document.getElementById('wlSelect');
     var words = 0;
     if (sel && sel.selectedOptions[0]) words = parseInt(sel.selectedOptions[0].dataset.words||'0',10) || 0;

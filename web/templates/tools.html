@@ -406,7 +406,7 @@ function vsRun(){
     if(r.error){
         res.hidden=false;
         prot.className='rounded-lg px-3 py-2 text-[12px] bg-red-500/10 border border-red-500/30 text-red-300';
-        prot.textContent='Hata: '+r.error;
+        prot.textContent='{{T "Error: "}}'+r.error;
         document.getElementById('vsTree').innerHTML=''; document.getElementById('vsStrings').innerHTML=''; document.getElementById('vsHex').textContent='';
         return;
     }

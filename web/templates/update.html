@@ -101,15 +101,15 @@ function applyUpdate(){
     if(privileged){
         var pwEl=document.getElementById('sudoPw');
         var pw=pwEl.value;
-        if(!pw){ alert('Enter your sudo password to apply this system update.'); pwEl.focus(); return; }
-        if(!confirm('This applies a SYSTEM update — it re-runs the installer as root and restarts the app. Running scans will be stopped. Continue?')) return;
+        if(!pw){ alert('{{T "Enter your sudo password to apply this system update."}}'); pwEl.focus(); return; }
+        if(!confirm('{{T "This applies a SYSTEM update — it re-runs the installer as root and restarts the app. Running scans will be stopped. Continue?"}}')) return;
         pwEl.value=''; // wipe the field the instant we read it
         var fd=new FormData(); fd.append('sudo_password', pw); pw=null;
         showApplying('Applying system update…');
         sendApply('/update/apply-privileged', fd);
         return;
     }
-    if(!confirm('This pulls the latest code, rebuilds, and RESTARTS the app. Running scans will be stopped. Continue?')) return;
+    if(!confirm('{{T "This pulls the latest code, rebuilds, and RESTARTS the app. Running scans will be stopped. Continue?"}}')) return;
     showApplying('Pulling and rebuilding…');
     sendApply('/update/apply', null);
 }
@@ -124,7 +124,7 @@ function sendApply(url, body){
     fetch(url,opt).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j}})}).then(function(x){
         if(!x.ok || x.j.error){
             document.getElementById('applying').classList.add('hidden');
-            alert('Update failed:\n\n'+(x.j.error||'unknown error'));
+            alert('{{T "Update failed:"}}\n\n'+(x.j.error||'{{T "unknown error"}}'));
             return;
         }
         if(x.j.restarting){
@@ -132,7 +132,7 @@ function sendApply(url, body){
             waitForRestart();
         } else {
             document.getElementById('applying').classList.add('hidden');
-            alert(x.j.message||'Done.'); location.reload();
+            alert(x.j.message||'{{T "Done."}}'); location.reload();
         }
     }).catch(function(){
         // The connection likely dropped because the app is restarting — poll.

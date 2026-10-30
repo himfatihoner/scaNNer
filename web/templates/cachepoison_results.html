@@ -1,10 +1,10 @@
 {{define "page_cachepoison_results"}}
 <div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
-    <a href="/modules" class="hover:text-accent-400 transition-colors">Modules</a>
+    <a href="/modules" class="hover:text-accent-400 transition-colors">{{T "Modules"}}</a>
     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-    <a href="/modules/cachepoison" class="hover:text-accent-400 transition-colors">Cache & Smuggle</a>
+    <a href="/modules/cachepoison" class="hover:text-accent-400 transition-colors">{{T "Cache & Smuggle"}}</a>
     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-    <span class="text-dark-200">Results</span>
+    <span class="text-dark-200">{{T "Results"}}</span>
 </div>
 {{template "scan_actions" .}}
 {{template "scan_progress" .}}
@@ -12,12 +12,12 @@
 {{end}}
 
 {{define "cachepoison_results_inner"}}
-<p class="text-sm text-dark-400 mb-4">{{.TotalFindings}} finding(s) across {{.TotalProbes}} probes / {{len .Results}} URL(s)</p>
+<p class="text-sm text-dark-400 mb-4">{{T "%d finding(s) across %d probes / %d URL(s)" .TotalFindings .TotalProbes (len .Results)}}</p>
 {{range .Results}}
 <div class="bg-dark-900 border {{if .Findings}}border-warning/30{{else}}border-dark-800{{end}} rounded-xl mb-4 overflow-hidden">
     <div class="px-5 py-3 border-b border-dark-800 flex items-center justify-between">
         <span class="mono text-sm text-accent-400">{{.URL}}</span>
-        <span class="text-xs text-dark-500">{{.Tested}} probes</span>
+        <span class="text-xs text-dark-500">{{T "%d probes" .Tested}}</span>
     </div>
     {{if .Error}}<div class="px-5 py-2 text-xs text-danger">{{.Error}}</div>{{end}}
     {{if .Findings}}
@@ -46,7 +46,7 @@
         </div>
         {{end}}
     </div>
-    {{else}}<div class="px-5 py-3 text-xs text-success">{{icon "check" "w-3.5 h-3.5 mr-1"}}No cache poisoning or smuggling signals detected.</div>{{end}}
+    {{else}}<div class="px-5 py-3 text-xs text-success">{{icon "check" "w-3.5 h-3.5 mr-1"}}{{T "No cache poisoning or smuggling signals detected."}}</div>{{end}}
 </div>
 {{end}}
 {{end}}

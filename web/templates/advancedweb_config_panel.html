@@ -49,11 +49,11 @@
             <svg class="w-4 h-4 text-accent-400 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
             </svg>
-            <span class="text-sm font-semibold text-white">Scan Configuration</span>
+            <span class="text-sm font-semibold text-white">{{T "Scan Configuration"}}</span>
             <span class="text-[10px] text-dark-500 mono">·</span>
-            <span class="text-[10px] text-dark-400">{{len $targets}} target{{if ne (len $targets) 1}}s{{end}} · {{$enabledCount}} stage{{if ne $enabledCount 1}}s{{end}}</span>
+            <span class="text-[10px] text-dark-400">{{Tn (len $targets) "%d target" "%d targets" (len $targets)}} · {{Tn $enabledCount "%d stage" "%d stages" $enabledCount}}</span>
         </div>
-        <span class="text-[10px] text-dark-500 group-open:hidden">click to expand</span>
+        <span class="text-[10px] text-dark-500 group-open:hidden">{{T "click to expand"}}</span>
     </summary>
     <div class="px-4 pb-4 pt-2 border-t border-dark-800 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-[12px]">
 
@@ -61,12 +61,12 @@
              hitting?" question. Long lists are scrollable in-place
              instead of pushing the panel down. */}}
         <div class="md:col-span-2">
-            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1.5">Targets ({{len $targets}})</p>
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1.5">{{T "Targets"}} ({{len $targets}})</p>
             <div class="max-h-32 overflow-y-auto bg-dark-850 rounded p-2 space-y-0.5">
                 {{range $targets}}
                 <p class="mono text-[11px] text-accent-300 break-all">{{.}}</p>
                 {{else}}
-                <p class="text-[11px] text-dark-500 italic">(none recorded)</p>
+                <p class="text-[11px] text-dark-500 italic">{{T "(none recorded)"}}</p>
                 {{end}}
             </div>
         </div>
@@ -75,7 +75,7 @@
              shape at a glance. Disabled stages are grayed out so they
              don't disappear (the user knows what wasn't enabled too). */}}
         <div class="md:col-span-2">
-            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1.5">Stages</p>
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1.5">{{T "Stages"}}</p>
             <div class="flex flex-wrap gap-1.5">
                 {{/* Enabled stages first — accent-tinted chips. */}}
                 {{if $cfg.EnableWhois}}<span class="text-[10px] mono px-2 py-0.5 rounded bg-accent-600/15 text-accent-300 border border-accent-500/30">WHOIS</span>{{end}}
@@ -111,18 +111,18 @@
              panel stays focused on what's deliberately tuned. */}}
         {{if $cfg.EnableDNSEnum}}
         <div>
-            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1.5">DNS Enum</p>
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1.5">{{T "DNS Enum"}}</p>
             <p class="text-[11px] text-dark-200">
                 {{if $cfg.DNSEnumSpeed}}<span class="mono">speed={{$cfg.DNSEnumSpeed}}</span>{{end}}
                 {{if $cfg.DNSEnumMaxDepth}}<span class="mono ml-2">depth={{$cfg.DNSEnumMaxDepth}}</span>{{end}}
-                {{if and (not $cfg.DNSEnumSpeed) (not $cfg.DNSEnumMaxDepth)}}<span class="text-dark-500 italic">defaults</span>{{end}}
+                {{if and (not $cfg.DNSEnumSpeed) (not $cfg.DNSEnumMaxDepth)}}<span class="text-dark-500 italic">{{T "defaults"}}</span>{{end}}
             </p>
         </div>
         {{end}}
 
         {{if $cfg.EnableHTTPXFind}}
         <div>
-            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1.5">HTTP Service Finder</p>
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1.5">{{T "HTTP Service Finder"}}</p>
             <p class="text-[11px] text-dark-200">
                 <span class="mono">mode={{if $cfg.HTTPXMode}}{{$cfg.HTTPXMode}}{{else}}common{{end}}</span>
                 {{if $cfg.HTTPXConcurrency}}<span class="mono ml-2">concurrency={{$cfg.HTTPXConcurrency}}</span>{{end}}
@@ -144,7 +144,7 @@
             <p class="text-[11px] text-dark-200">
                 {{if $cfg.SpiderMaxDepth}}<span class="mono">max-depth={{$cfg.SpiderMaxDepth}}</span>{{end}}
                 {{if $cfg.SpiderMaxPages}}<span class="mono ml-2">max-pages={{$cfg.SpiderMaxPages}}</span>{{end}}
-                {{if and (not $cfg.SpiderMaxDepth) (not $cfg.SpiderMaxPages)}}<span class="text-dark-500 italic">defaults</span>{{end}}
+                {{if and (not $cfg.SpiderMaxDepth) (not $cfg.SpiderMaxPages)}}<span class="text-dark-500 italic">{{T "defaults"}}</span>{{end}}
             </p>
         </div>
         {{end}}
@@ -158,7 +158,7 @@
                     {{else if eq . "high"}}bg-orange-500/15 text-orange-300
                     {{else if eq . "medium"}}bg-yellow-500/15 text-yellow-300
                     {{else if eq . "low"}}bg-blue-500/15 text-blue-300
-                    {{else}}bg-dark-700 text-dark-300{{end}}">{{.}}</span>{{else}}<span class="text-[11px] text-dark-500 italic">all severities (default)</span>{{end}}
+                    {{else}}bg-dark-700 text-dark-300{{end}}">{{.}}</span>{{else}}<span class="text-[11px] text-dark-500 italic">{{T "all severities (default)"}}</span>{{end}}
             </div>
             <p class="text-[11px] text-dark-200 mt-1"><span class="mono">level={{if $cfg.NucleiLevel}}{{$cfg.NucleiLevel}}{{else}}normal{{end}}</span></p>
         </div>
@@ -166,7 +166,7 @@
 
         {{if $cfg.EnableTechDetect}}
         <div>
-            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1.5">Tech Detection</p>
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-1.5">{{T "Tech Detection"}}</p>
             <p class="text-[11px] text-dark-200"><span class="mono">whatweb={{if $cfg.TechDetectAggressive}}aggressive (-a 3){{else}}passive (fast){{end}}</span></p>
         </div>
         {{end}}
@@ -184,7 +184,7 @@
             <p class="text-[11px] text-dark-200">
                 {{if $cfg.SecHeadersMethods}}<span class="mono">methods={{range $i, $m := $cfg.SecHeadersMethods}}{{if $i}},{{end}}{{$m}}{{end}}</span>{{end}}
                 {{if $cfg.SecHeadersOverride}}<span class="mono ml-2 text-warning">override</span>{{end}}
-                {{if and (not $cfg.SecHeadersMethods) (not $cfg.SecHeadersOverride)}}<span class="text-dark-500 italic">auto-derived</span>{{end}}
+                {{if and (not $cfg.SecHeadersMethods) (not $cfg.SecHeadersOverride)}}<span class="text-dark-500 italic">{{T "auto-derived"}}</span>{{end}}
             </p>
         </div>
         {{end}}

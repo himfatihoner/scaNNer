@@ -11,7 +11,6 @@
 {{if or (eq (print .Scan.Status) "running") (eq (print .Scan.Status) "pending")}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl p-6 mb-6">
     <div class="flex items-start gap-4">
-        <div class="shrink-0">{{template "radar_inline" (dict "size" 46 "msg" "")}}</div>
         <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between gap-3 mb-2">
                 <div class="min-w-0 flex-1">

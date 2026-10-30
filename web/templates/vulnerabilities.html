@@ -105,7 +105,8 @@
 
 {{if .Vulns}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
-    <table id="vulnTable" class="w-full text-sm">
+    <div class="overflow-x-auto">
+    <table id="vulnTable" class="w-full text-sm min-w-[72rem]">
         <thead class="bg-dark-850 border-b border-dark-800 text-left">
             <tr>
                 <th class="px-3 py-3 w-8"><input type="checkbox" id="vulnSelectAll" onclick="toggleSelectAllVisible(this)" class="align-middle cursor-pointer accent-emerald-500" title="{{T `Select all visible`}}"></th>
@@ -182,6 +183,7 @@
             {{end}}
         </tbody>
     </table>
+    </div>
 </div>
 {{else}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
@@ -221,7 +223,8 @@
     <button type="button" id="deleteSelectedBtn" onclick="deleteArchivedSelected('{{.ActiveTab}}')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white" title="{{T `Permanently remove the selected findings from every view. Cannot be undone.`}}">🗑 {{T "Delete"}} (<span id="archDelCount">0</span>)</button>
 </div>
 <div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
-    <table id="archTable" class="w-full text-sm">
+    <div class="overflow-x-auto">
+    <table id="archTable" class="w-full text-sm min-w-[68rem]">
         <thead class="bg-dark-850 border-b border-dark-800 text-left">
             <tr>
                 <th class="px-3 py-3 w-8"><input type="checkbox" onclick="toggleArchiveSelectAll(this)" class="align-middle cursor-pointer accent-emerald-500" title="{{T `Select all`}}"></th>
@@ -274,6 +277,7 @@
             {{end}}
         </tbody>
     </table>
+    </div>
 </div>
 {{else}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
@@ -526,20 +530,13 @@ function applyVulnFilter() {
     var c=document.getElementById('vulnResultCount'); if(c) c.textContent=vis+' / '+rows.length+' shown';
 }
 document.addEventListener('DOMContentLoaded', function(){
-{{if ne .ActiveTab ""}}
-    if(window.bindSortableTable) bindSortableTable('#archTable',{defaultKey:'sev',defaultDir:'desc'});
-    refreshArchSelCount();
-    return;
-{{end}}
-    if(window.bindSortableTable) bindSortableTable('#vulnTable',{defaultKey:'sev',defaultDir:'desc'});
-    applyVulnFilter();
-    refreshSelCount();
-    // The toolbar export dropdowns live inside <main> (overflow-y-auto) and the
-    // content column (overflow-hidden); when the toolbar wraps, a right-aligned
-    // panel can extend past the left edge and be clipped — reading as "hidden
-    // behind the sidebar". On open, lift the panel to position:fixed (viewport-
-    // anchored, high z-index) so it escapes the clip; on close, restore it.
-    document.querySelectorAll('details.vexport-top').forEach(function(d){
+    // Fixed-anchor lift for every export/action dropdown (toolbar + per-row).
+    // The tables now scroll horizontally via an overflow-x-auto wrapper, which
+    // makes the wrapper's overflow-y compute to auto and would clip a downward-
+    // opening menu. On open, lift the panel to position:fixed (viewport-anchored,
+    // high z-index) so it escapes the clip; restore on close. Covers the Active
+    // tab AND the triage tabs (bound before the early return below).
+    document.querySelectorAll('details.vexport').forEach(function(d){
         d.addEventListener('toggle', function(){
             var panel=d.querySelector(':scope > div');
             var sum=d.querySelector(':scope > summary');
@@ -556,6 +553,16 @@ document.addEventListener('DOMContentLoaded', function(){
             }
         });
     });
+{{if ne .ActiveTab ""}}
+    if(window.bindSortableTable) bindSortableTable('#archTable',{defaultKey:'sev',defaultDir:'desc'});
+    refreshArchSelCount();
+    return;
+{{end}}
+    if(window.bindSortableTable) bindSortableTable('#vulnTable',{defaultKey:'sev',defaultDir:'desc'});
+    applyVulnFilter();
+    refreshSelCount();
+    // (Dropdown fixed-anchor lift is bound above for every details.vexport,
+    //  which includes the .vexport-top toolbar menus.)
     // Restore scroll after a full reload (used only for the empty→table
     // structural transition below) so the table doesn't jump to the top.
     try { var _y = sessionStorage.getItem('vulnScrollY'); if (_y !== null) { window.scrollTo(0, parseInt(_y, 10) || 0); sessionStorage.removeItem('vulnScrollY'); } } catch(e){}

@@ -56,6 +56,11 @@
 <!-- Scans Table -->
 <div id="scanContent" class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
 {{template "scans_inner" .}}
+<script>
+function scnSelAll(cb){document.querySelectorAll('.scn-cb').forEach(function(x){var tr=x.closest('tr');if(!tr||tr.style.display!=='none')x.checked=cb.checked;});scnSelUpd();}
+function scnSelUpd(){var c=[].filter.call(document.querySelectorAll('.scn-cb'),function(x){return x.checked;}).length;var e=document.getElementById('scnSelCount');if(e)e.textContent=c;var b=document.getElementById('scnBulkBar');if(b)b.classList.toggle('hidden',c===0);}
+function scnBulk(action){var ids=[].filter.call(document.querySelectorAll('.scn-cb'),function(x){return x.checked;}).map(function(x){return x.value;});if(!ids.length)return;var msg=action==='delete'?'{{T `Delete the selected scans? Their findings are also removed from Vulnerabilities and assets.`}}':'{{T `Archive the selected scans?`}}';if(!confirm(msg))return;Promise.all(ids.map(function(id){var fd=new FormData();fd.append('id',id);return fetch('/scans/'+action+'/',{method:'POST',body:fd,credentials:'same-origin'});})).then(function(){location.reload();}).catch(function(){location.reload();});}
+</script>
 </div>
 
 <script>
@@ -132,10 +137,16 @@ document.addEventListener('DOMContentLoaded', function() {
 {{end}}
 
 {{define "scans_inner"}}
+    <div id="scnBulkBar" class="hidden flex items-center gap-2 mb-3 px-3 py-2 bg-dark-850 border border-dark-700 rounded-lg">
+        <span class="text-xs text-dark-300"><span id="scnSelCount">0</span> {{T "selected"}}</span>
+        <button type="button" onclick="scnBulk('archive')" class="ml-auto text-xs px-3 py-1.5 rounded-lg bg-dark-700 hover:bg-dark-600 text-dark-200 inline-flex items-center gap-1.5">{{icon "archive" "w-3.5 h-3.5"}}{{T "Archive"}}</button>
+        <button type="button" onclick="scnBulk('delete')" class="text-xs px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white inline-flex items-center gap-1.5">{{icon "trash-2" "w-3.5 h-3.5"}}{{T "Delete selected"}}</button>
+    </div>
     <div class="overflow-x-auto">
     <table class="w-full">
         <thead>
             <tr class="border-b border-dark-800">
+                <th class="px-5 py-3 w-8"><input type="checkbox" onclick="scnSelAll(this)" aria-label="{{T `Select all`}}" class="rounded border-dark-600 bg-dark-800 text-accent-500"></th>
                 <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="id" data-sort-type="string">{{T "Scan ID"}}</th>
                 <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="module" data-sort-type="string">{{T "Module"}}</th>
                 <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider" data-sort-key="status" data-sort-type="string">{{T "Status"}}</th>
@@ -157,6 +168,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 data-targets="{{scanTargetCount .}}"
                 data-createdat="{{.CreatedAt.Unix}}"
                 data-duration="{{if and .StartedAt .FinishedAt}}{{printf "%.0f" (.FinishedAt.Sub (deref .StartedAt)).Seconds}}{{else}}0{{end}}">
+                <td class="px-5 py-3" onclick="event.stopPropagation()"><input type="checkbox" class="scn-cb rounded border-dark-600 bg-dark-800 text-accent-500" value="{{.ID}}" onchange="scnSelUpd()"></td>
                 <td class="px-5 py-3">
                     <a href="{{scanResultsURL .}}" class="mono text-sm text-accent-400 hover:text-accent-300 transition-colors">
                         {{.ID | printf "%.8s"}}

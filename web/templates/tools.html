@@ -9,16 +9,16 @@
     </div>
 
     <!-- Tabs -->
-    <div class="flex flex-wrap gap-1 border-b border-dark-800 mb-4">
-        <button type="button" data-tab="cyberchef" class="tools-tab px-4 py-2 text-sm font-medium border-b-2 border-accent-500 text-white">CyberChef</button>
-        <button type="button" data-tab="comparer"  class="tools-tab px-4 py-2 text-sm font-medium border-b-2 border-transparent text-dark-400 hover:text-white">Comparer</button>
-        <button type="button" data-tab="urlcodec"  class="tools-tab px-4 py-2 text-sm font-medium border-b-2 border-transparent text-dark-400 hover:text-white">URL Encode / Decode</button>
-        <button type="button" data-tab="viewstate" class="tools-tab px-4 py-2 text-sm font-medium border-b-2 border-transparent text-dark-400 hover:text-white">ViewState Decoder</button>
-        <button type="button" data-tab="jwt"       class="tools-tab px-4 py-2 text-sm font-medium border-b-2 border-transparent text-dark-400 hover:text-white">JWT</button>
+    <div role="tablist" aria-label="{{T `Tools`}}" class="flex flex-wrap gap-1 border-b border-dark-800 mb-4">
+        <button type="button" role="tab" aria-selected="false" id="tab-cyberchef" aria-controls="panel-cyberchef" data-tab="cyberchef" class="tools-tab px-4 py-2 text-sm font-medium border-b-2 border-accent-500 text-white">CyberChef</button>
+        <button type="button" role="tab" aria-selected="false" id="tab-comparer" aria-controls="panel-comparer" data-tab="comparer"  class="tools-tab px-4 py-2 text-sm font-medium border-b-2 border-transparent text-dark-400 hover:text-white">Comparer</button>
+        <button type="button" role="tab" aria-selected="false" id="tab-urlcodec" aria-controls="panel-urlcodec" data-tab="urlcodec"  class="tools-tab px-4 py-2 text-sm font-medium border-b-2 border-transparent text-dark-400 hover:text-white">URL Encode / Decode</button>
+        <button type="button" role="tab" aria-selected="false" id="tab-viewstate" aria-controls="panel-viewstate" data-tab="viewstate" class="tools-tab px-4 py-2 text-sm font-medium border-b-2 border-transparent text-dark-400 hover:text-white">ViewState Decoder</button>
+        <button type="button" role="tab" aria-selected="false" id="tab-jwt" aria-controls="panel-jwt" data-tab="jwt"       class="tools-tab px-4 py-2 text-sm font-medium border-b-2 border-transparent text-dark-400 hover:text-white">JWT</button>
     </div>
 
     <!-- ===================== CyberChef ===================== -->
-    <section data-panel="cyberchef">
+    <section role="tabpanel" id="panel-cyberchef" aria-labelledby="tab-cyberchef" data-panel="cyberchef">
         {{if .CyberChefReady}}
         <div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
             <div class="flex items-center justify-between px-4 py-2 border-b border-dark-800">
@@ -37,7 +37,7 @@
     </section>
 
     <!-- ===================== Comparer ===================== -->
-    <section data-panel="comparer" hidden>
+    <section role="tabpanel" id="panel-comparer" aria-labelledby="tab-comparer" data-panel="comparer" hidden>
         <div class="flex flex-wrap items-center gap-3 mb-3">
             <span class="text-[11px] text-dark-500">{{T "Compare two texts — differences are highlighted (similar to Burp Comparer)."}}</span>
             <div class="ml-auto flex items-center gap-1 text-[11px]">
@@ -76,7 +76,7 @@
     </section>
 
     <!-- ===================== URL codec ===================== -->
-    <section data-panel="urlcodec" hidden>
+    <section role="tabpanel" id="panel-urlcodec" aria-labelledby="tab-urlcodec" data-panel="urlcodec" hidden>
         <div class="grid grid-cols-1 gap-3">
             <div>
                 <label class="block text-[11px] text-dark-500 mb-1">{{T "Input"}}</label>
@@ -101,7 +101,7 @@
     </section>
 
     <!-- ===================== ViewState ===================== -->
-    <section data-panel="viewstate" hidden>
+    <section role="tabpanel" id="panel-viewstate" aria-labelledby="tab-viewstate" data-panel="viewstate" hidden>
         <div class="grid grid-cols-1 gap-3">
             <div>
                 <label class="block text-[11px] text-dark-500 mb-1">__VIEWSTATE (Base64)</label>
@@ -135,7 +135,7 @@
     </section>
 
     <!-- ===================== JWT ===================== -->
-    <section data-panel="jwt" hidden>
+    <section role="tabpanel" id="panel-jwt" aria-labelledby="tab-jwt" data-panel="jwt" hidden>
         <p class="text-[11px] text-dark-500 mb-3">{{T "JSON Web Token encode / decode (similar to jwt.io). Signing + verification happen in the browser with WebCrypto — the key/secret never leaves."}}</p>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <!-- Encoded -->
@@ -217,6 +217,7 @@
             var on=t.getAttribute('data-tab')===name;
             t.classList.toggle('border-accent-500',on); t.classList.toggle('text-white',on);
             t.classList.toggle('border-transparent',!on); t.classList.toggle('text-dark-400',!on);
+            t.setAttribute('aria-selected', on ? 'true' : 'false');
         });
         panels.forEach(function(p){ p.hidden = p.getAttribute('data-panel')!==name; });
         if(name==='cyberchef'){

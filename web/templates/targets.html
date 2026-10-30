@@ -14,7 +14,7 @@
         <p class="text-sm text-dark-400 mt-1">{{T "Manage scan targets for this workspace"}}</p>
     </div>
     <div class="flex items-center gap-2">
-        <button onclick="document.getElementById('bulkImportModal').classList.remove('hidden')"
+        <button onclick="awModalOpen('bulkImportModal')"
                 class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent-600 hover:bg-accent-500 rounded-lg transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
@@ -141,7 +141,7 @@
         </form>
     </span>
     {{end}}
-    <button type="button" onclick="document.getElementById('newListModal').classList.remove('hidden')"
+    <button type="button" onclick="awModalOpen('newListModal')"
             class="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-dark-850 border border-dashed border-dark-600 text-dark-300 hover:text-accent-400 hover:border-accent-500/50 transition-colors">
         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"/></svg>
         {{T "New List"}}
@@ -327,7 +327,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- Add / Bulk Import Targets Modal — single entry point that handles both
      a single target and multi-line / file-upload bulk import. -->
-<div id="bulkImportModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+<div id="bulkImportModal" role="dialog" aria-modal="true" class="aw-modal hidden fixed inset-0 z-50 flex items-center justify-center">
     <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="document.getElementById('bulkImportModal').classList.add('hidden')"></div>
     <div class="relative bg-dark-900 border border-dark-800 rounded-xl w-full max-w-lg mx-4 p-6 shadow-2xl">
         <div class="flex items-center justify-between mb-5">
@@ -430,7 +430,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <!-- Standalone "+ New List" modal — created from the chip strip. -->
-<div id="newListModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+<div id="newListModal" role="dialog" aria-modal="true" class="aw-modal hidden fixed inset-0 z-50 flex items-center justify-center">
     <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="document.getElementById('newListModal').classList.add('hidden')"></div>
     <div class="relative bg-dark-900 border border-dark-800 rounded-xl w-full max-w-md mx-4 p-6 shadow-2xl">
         <div class="flex items-center justify-between mb-5">
@@ -469,7 +469,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <!-- Per-target "Manage categories" modal — populated by openCategoryEditor(). -->
-<div id="categoryEditorModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+<div id="categoryEditorModal" role="dialog" aria-modal="true" class="aw-modal hidden fixed inset-0 z-50 flex items-center justify-center">
     <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="document.getElementById('categoryEditorModal').classList.add('hidden')"></div>
     <div class="relative bg-dark-900 border border-dark-800 rounded-xl w-full max-w-md mx-4 p-6 shadow-2xl">
         <div class="flex items-center justify-between mb-4">
@@ -517,7 +517,7 @@ function openCategoryEditor(btn) {
     });
     var nn = document.querySelector('#categoryEditorModal input[name=new_list_name]');
     if (nn) nn.value = '';
-    document.getElementById('categoryEditorModal').classList.remove('hidden');
+    awModalOpen('categoryEditorModal');
 }
 // Filter the "add existing targets" picker inside the New List modal.
 function filterNewListTargets(q) {

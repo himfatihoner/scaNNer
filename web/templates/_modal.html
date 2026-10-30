@@ -24,12 +24,12 @@
 
 {{define "modal_open"}}
 {{$size := .Size}}{{if not $size}}{{$size = "max-w-2xl"}}{{end}}
-<div id="{{.ID}}"
+<div id="{{.ID}}" role="dialog" aria-modal="true" aria-labelledby="{{.ID}}-title"
      class="aw-modal hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
      onclick="if(event.target===this)awModalClose(this)">
     <div class="bg-dark-900 border border-dark-700 rounded-xl w-full {{$size}} mx-4 max-h-[90vh] flex flex-col">
         <div class="flex items-center justify-between px-5 py-3 border-b border-dark-800">
-            <h3 class="text-base font-semibold text-white">{{.Title}}</h3>
+            <h3 id="{{.ID}}-title" class="text-base font-semibold text-white">{{.Title}}</h3>
             <button type="button" onclick="awModalClose(this)"
                     class="text-dark-500 hover:text-white text-xl leading-none px-2"
                     aria-label="{{T `Close`}}">×</button>

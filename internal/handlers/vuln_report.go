@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-pdf/fpdf"
 )
@@ -354,6 +355,90 @@ func sanitizeReportForPDF(rep VulnReport) VulnReport {
 
 // ---- PDF renderer (fpdf + bundled DejaVu UTF-8 fonts for Turkish) ----
 
+// vulnReportCover draws a branded cover + severity summary as page 1 of a
+// multi-finding report (client-ready deliverable). Single-finding reports skip
+// it. Reuses severityRGB/severityLabel so colours + names match the UI.
+func vulnReportCover(pdf *fpdf.Fpdf, reports []VulnReport, lang string) {
+	en := strings.EqualFold(lang, "en")
+	pdf.AddPage()
+	// brand band
+	pdf.SetFillColor(17, 24, 39)
+	pdf.Rect(0, 0, 210, 48, "F")
+	pdf.SetFont("DejaVu", "B", 11)
+	pdf.SetTextColor(147, 197, 253)
+	pdf.SetXY(15, 17)
+	pdf.CellFormat(0, 6, "scaNNer", "", 1, "L", false, 0, "")
+	pdf.SetFont("DejaVu", "B", 22)
+	pdf.SetTextColor(255, 255, 255)
+	pdf.SetXY(15, 25)
+	title := "ZAFİYET RAPORU"
+	if en {
+		title = "VULNERABILITY REPORT"
+	}
+	pdf.CellFormat(0, 12, title, "", 1, "L", false, 0, "")
+	// date
+	pdf.SetXY(15, 60)
+	pdf.SetFont("DejaVu", "", 10)
+	pdf.SetTextColor(107, 114, 128)
+	dl := "Tarih: "
+	if en {
+		dl = "Date: "
+	}
+	pdf.CellFormat(0, 6, dl+time.Now().Format("2006-01-02"), "", 1, "L", false, 0, "")
+	pdf.Ln(10)
+	// summary heading
+	pdf.SetX(15)
+	pdf.SetFont("DejaVu", "B", 14)
+	pdf.SetTextColor(17, 24, 39)
+	st := "Özet"
+	if en {
+		st = "Summary"
+	}
+	pdf.CellFormat(0, 8, st, "", 1, "L", false, 0, "")
+	pdf.Ln(2)
+	counts := map[int]int{}
+	for _, r := range reports {
+		counts[r.SevRank]++
+	}
+	pdf.SetX(15)
+	pdf.SetFont("DejaVu", "", 11)
+	pdf.SetTextColor(55, 65, 81)
+	tl := "Toplam bulgu: "
+	if en {
+		tl = "Total findings: "
+	}
+	pdf.CellFormat(0, 7, tl+fmt.Sprint(len(reports)), "", 1, "L", false, 0, "")
+	pdf.Ln(2)
+	for rank := 4; rank >= 1; rank-- {
+		rr, gg, bb := severityRGB(rank)
+		y := pdf.GetY()
+		pdf.SetFillColor(rr, gg, bb)
+		pdf.Rect(15, y+1.3, 5, 5, "F")
+		pdf.SetXY(23, y)
+		pdf.SetFont("DejaVu", "", 11)
+		pdf.SetTextColor(55, 65, 81)
+		pdf.CellFormat(55, 7.5, severityLabel(rank, lang), "", 0, "L", false, 0, "")
+		pdf.SetFont("DejaVu", "B", 11)
+		pdf.CellFormat(0, 7.5, fmt.Sprint(counts[rank]), "", 1, "L", false, 0, "")
+	}
+	pdf.Ln(3)
+	if total := len(reports); total > 0 {
+		x := 15.0
+		y := pdf.GetY()
+		for rank := 4; rank >= 1; rank-- {
+			if counts[rank] == 0 {
+				continue
+			}
+			w := 180.0 * float64(counts[rank]) / float64(total)
+			rr, gg, bb := severityRGB(rank)
+			pdf.SetFillColor(rr, gg, bb)
+			pdf.Rect(x, y, w, 6, "F")
+			x += w
+		}
+	}
+	pdf.SetTextColor(17, 24, 39)
+}
+
 func buildVulnPDF(reports []VulnReport, lang string) ([]byte, error) {
 	l := labelsFor(lang)
 	pdf := fpdf.New("P", "mm", "A4", "")
@@ -377,6 +462,9 @@ func buildVulnPDF(reports []VulnReport, lang string) ([]byte, error) {
 
 	const contentW = 190.0 // A4 width 210 - 2*10 margins
 
+	if len(reports) > 1 {
+		vulnReportCover(pdf, reports, lang)
+	}
 	for _, rep := range reports {
 		rep = sanitizeReportForPDF(rep) // fpdf rejects code points > U+FFFF
 

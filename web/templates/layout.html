@@ -367,7 +367,7 @@
         }
         .module-card:hover {
             border-color: #3b82f6;
-            transform: translateY(-2px);
+            background: rgba(255, 255, 255, 0.025);
         }
         .scan-pulse {
             animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -477,6 +477,13 @@
                win on specificity; it automatically follows each element's
                own border-radius, so no shape change on focus. */
             box-shadow: 0 0 0 2px rgba(96,165,250,0.95);
+        }
+        /* Form fields: a softer Stripe-style translucent focus ring that layers
+           over the existing border-color flip (the flip alone was the weakest
+           affordance). :focus-visible matches text inputs on click and keyboard. */
+        input:focus-visible, select:focus-visible, textarea:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.22);
         }
 
         /* Text selection — a visible accent wash in both themes (was the

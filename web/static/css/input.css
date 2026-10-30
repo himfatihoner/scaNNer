@@ -1,0 +1,96 @@
+/*
+ * scaNNer stylesheet SOURCE (Tailwind v4, CSS-first config).
+ *
+ * The app serves the COMPILED output at web/static/css/app.css — a static,
+ * cacheable file linked once — instead of running the 275 KB browser-JIT
+ * (tailwindcss) on every page load and htmx swap. That removes the biggest
+ * perceived-latency cost AND the first-paint "columns fit then shift" restyle
+ * flash, because the stylesheet is complete before the first paint.
+ *
+ * REBUILD app.css after editing any template or the tokens below:
+ *     node scripts/build-css.mjs
+ * (self-contained: uses the bundled engine at scripts/tailwind-engine.js +
+ *  chromium, no npm / no network). Where a Tailwind CLI is installed instead:
+ *     tailwindcss -i web/static/css/input.css -o web/static/css/app.css --minify
+ */
+@import "tailwindcss";
+@source "../../templates";
+@source "../js";
+
+/* Tailwind 4 dropped "dark mode by class"; restore the explicit .light selector
+   so toggleTheme() / the .light branch keeps working without an HTML
+   data-attribute migration. */
+@custom-variant dark (&:where(:not(.light), :not(.light) *));
+
+@theme {
+    --color-dark-50:  #f5f5f6;
+    --color-dark-100: #e6e6e8;
+    --color-dark-200: #cfd0d4;
+    --color-dark-300: #adaeb5;
+    --color-dark-400: #84858f;
+    --color-dark-500: #696a74;
+    --color-dark-600: #5a5a63;
+    --color-dark-700: #4c4d54;
+    --color-dark-800: #434349;
+    --color-dark-850: #313136;
+    --color-dark-900: #27272a;
+    --color-dark-925: #1e1e21;
+    --color-dark-950: #18181b;
+
+    /* Full accent ramp (200/300/700/800 revive ~135 previously-dead hover/crumb states). */
+    --color-accent-200: #bfdbfe;
+    --color-accent-300: #93c5fd;
+    --color-accent-400: #60a5fa;
+    --color-accent-500: #3b82f6;
+    --color-accent-600: #2563eb;
+    --color-accent-700: #1d4ed8;
+    --color-accent-800: #1e40af;
+
+    --color-success: #22c55e;
+    --color-warning: #eab308;
+    --color-danger:  #ef4444;
+    /* Alias of danger — several templates use *-error classes (killswitch-OFF
+       warning, adpentest). Without it those high-stakes alerts render colorless. */
+    --color-error:   #ef4444;
+
+    /* Font tokens — single source of truth for font-sans/font-mono utilities so
+       a font-mono element and a .mono element resolve to the same family. */
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+    /* Semantic role layer (Faz 1 foundation) — the single place surface/text
+       decisions live; templates migrate onto them in later phases. Emits zero
+       CSS until referenced. */
+    --color-canvas:          #18181b;
+    --color-surface:         #27272a;
+    --color-surface-sunken:  #1e1e21;
+    --color-surface-raised:  #313136;
+    --color-surface-hover:   #434349;
+    --color-line:            #434349;
+    --color-line-strong:     #5a5a63;
+    --color-ink:             #ffffff;
+    --color-ink-secondary:   #aaacb5;
+    --color-ink-muted:       #92949e;
+    --color-ink-subtle:      #7f818b;
+
+    /* Severity scale — Critical/High/Medium/Low/Info defined once. HIGH has its
+       own orange tier; LOW is sky (deliberately NOT the blue brand accent, so a
+       low finding never looks like a clickable link). */
+    --color-sev-critical: #ef4444;
+    --color-sev-high:     #f97316;
+    --color-sev-medium:   #eab308;
+    --color-sev-low:      #38bdf8;
+    --color-sev-info:     #94a3b8;
+
+    /* Categorical ramp (promoted from the dashboard chart palette) so
+       asset-type / technology / module taxonomies stop borrowing the status
+       hues and making neutral categories shout false risk. */
+    --color-cat-1: #60a5fa;
+    --color-cat-2: #a78bfa;
+    --color-cat-3: #34d399;
+    --color-cat-4: #fbbf24;
+    --color-cat-5: #f472b6;
+    --color-cat-6: #22d3ee;
+    --color-cat-7: #fb923c;
+    --color-cat-8: #a3e635;
+}

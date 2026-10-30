@@ -465,13 +465,13 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="flex items-start gap-4">
             <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-accent-500/30 to-accent-700/20 border border-accent-500/30 flex items-center justify-center">
                 {{if eq .Asset.Type "ipv4"}}
-                <span class="text-2xl">🖥️</span>
+                {{icon "server" "w-7 h-7 text-accent-200"}}
                 {{else if eq .Asset.Type "domain"}}
-                <span class="text-2xl">🌐</span>
+                {{icon "globe" "w-7 h-7 text-accent-200"}}
                 {{else if eq .Asset.Type "fqdn"}}
-                <span class="text-2xl">🔗</span>
+                {{icon "link" "w-7 h-7 text-accent-200"}}
                 {{else}}
-                <span class="text-2xl">📦</span>
+                {{icon "package" "w-7 h-7 text-accent-200"}}
                 {{end}}
             </div>
             <div>
@@ -562,7 +562,7 @@ document.addEventListener('DOMContentLoaded', function() {
         {{/* ---- Severity-sorted vulnerability table (each row carries first/last detection date + scan link) ---- */}}
         {{if .Vulns}}
         <div>
-            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-2">🚨 {{T "Vulnerabilities (%d)" (len .Vulns)}}</p>
+            <p class="text-[10px] text-dark-500 uppercase tracking-wider mb-2">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T "Vulnerabilities (%d)" (len .Vulns)}}</p>
             <div class="border border-dark-800 rounded-lg overflow-hidden">
                 <div class="max-h-[460px] overflow-y-auto overflow-x-auto">
                 <table class="w-full" id="targetVulnTable">

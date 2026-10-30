@@ -339,8 +339,8 @@
                 {{if .Tuned}}<span class="text-[10px] uppercase text-success bg-success/10 px-2 py-0.5 rounded">{{T "tuned"}}</span>{{else}}<span class="text-[10px] uppercase text-warning bg-warning/10 px-2 py-0.5 rounded">{{T "stock"}}</span>{{end}}
             </h3>
             <p class="text-xs text-dark-400 mb-3">{{T "OS network-stack limits the adaptive per-module concurrency works within. Widening the ephemeral-port range and shortening"}} <span class="mono">tcp_fin_timeout</span> {{T `prevents "the network fills up" under heavy scans. Applies system-wide; per-module concurrency recomputes automatically on the next scan.`}}</p>
-            {{if .OK}}<p class="text-[11px] text-success bg-success/10 border border-success/20 rounded px-3 py-2 mb-3">✓ {{T "Applied. New limits are live."}}</p>{{end}}
-            {{if .Err}}<p class="text-[11px] text-error bg-error/10 border border-error/20 rounded px-3 py-2 mb-3 mono break-words">⚠ {{.Err}}</p>{{end}}
+            {{if .OK}}<p class="text-[11px] text-success bg-success/10 border border-success/20 rounded px-3 py-2 mb-3">{{icon "check" "w-3.5 h-3.5 mr-1"}}{{T "Applied. New limits are live."}}</p>{{end}}
+            {{if .Err}}<p class="text-[11px] text-error bg-error/10 border border-error/20 rounded px-3 py-2 mb-3 mono break-words">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{.Err}}</p>{{end}}
             {{if not .Available}}
             <div class="text-[11px] text-dark-300 bg-dark-950 border border-dark-800 rounded-lg px-3 py-2.5 mb-3">
                 <p class="text-warning font-semibold mb-1">{{T "Re-tune helper not installed — run the one-time installer:"}}</p>
@@ -406,7 +406,7 @@
             {{if or .KillswitchPrivilegeError .KillswitchSetupError}}
             <div class="bg-error/10 border border-error/30 rounded-lg p-3 mb-4 space-y-3">
                 <div>
-                    <p class="text-[11px] text-error font-semibold mb-1.5">⚠ {{T "Killswitch is OFF — scan traffic will use the system default route"}}</p>
+                    <p class="text-[11px] text-error font-semibold mb-1.5">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T "Killswitch is OFF — scan traffic will use the system default route"}}</p>
                     {{if .KillswitchPrivilegeError}}
                     <p class="text-[10px] text-dark-300 mb-1">{{T "Privilege probe failed:"}}</p>
                     <p class="text-[10px] text-dark-400 mono bg-dark-950 border border-dark-800 rounded px-2 py-1.5 mb-2">{{.KillswitchPrivilegeError}}</p>
@@ -423,7 +423,7 @@
                      a down interface up, so the installer/setcap guidance must
                      not show here. */}}
                 <div class="bg-warning/5 border border-warning/30 rounded p-3">
-                    <p class="text-[11px] text-warning font-semibold mb-1.5">⚠ {{T "The pinned interface is down or unavailable"}}</p>
+                    <p class="text-[11px] text-warning font-semibold mb-1.5">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T "The pinned interface is down or unavailable"}}</p>
                     <p class="text-[10px] text-dark-400">{{T "Nothing is wrong with the killswitch itself — the interface it's bound to just isn't up right now, so it refuses to route scans anywhere. That's exactly the leak it exists to prevent."}}</p>
                     <p class="text-[10px] text-dark-300 mt-1.5">{{T "Fix: bring the interface up — reconnect your VPN so"}} <span class="mono">tun0</span> {{T "comes back up — or pick an interface that's up in the dropdown below, then click Save. The killswitch arms automatically once the interface is up. No restart, no sudo."}}</p>
                 </div>
@@ -433,7 +433,7 @@
                      runs as root — that is the supported fix now (the old
                      "sudo ./scanner" workaround is retired). */}}
                 <div class="bg-warning/5 border border-warning/30 rounded p-3">
-                    <p class="text-[11px] text-warning font-semibold mb-1.5">⚠ {{T "The service can't build the killswitch namespace — run the installer"}}</p>
+                    <p class="text-[11px] text-warning font-semibold mb-1.5">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T "The service can't build the killswitch namespace — run the installer"}}</p>
                     <p class="text-[10px] text-dark-400">{{T "Building the network namespace needs CAP_NET_ADMIN, CAP_NET_RAW and CAP_SYS_ADMIN. The installer wires these onto the systemd service via AmbientCapabilities (plus the /run/netns tmpfiles rule and the ip_forward sysctl), so scanner keeps running as your normal user — never root:"}}</p>
                     <code class="block bg-dark-950 border border-dark-800 rounded px-2 py-1.5 text-[11px] text-accent-300 mono select-all mt-1.5">sudo scripts/install.sh</code>
                     <p class="text-[10px] text-dark-500 mt-1.5">{{T "Then reload this page. Already installed? Re-run it — it rewrites the unit, reloads systemd and restarts the service. Verify with"}} <span class="mono">systemctl show scanner -p AmbientCapabilities</span> {{T "(expect all three caps)."}}</p>
@@ -462,9 +462,9 @@
                         {{end}}
                     </select>
                     {{if .KillswitchActive}}
-                    <p class="text-[10px] text-success mt-1">⛓ {{T "Killswitch armed — namespace"}} <span class="mono">scanner-ns</span> {{T "bridged to"}} <span class="mono">{{.Settings.NetworkInterface}}</span> ({{.Settings.NetworkInterfaceIP}})</p>
+                    <p class="text-[10px] text-success mt-1">{{icon "link" "w-3.5 h-3.5 mr-1"}}{{T "Killswitch armed — namespace"}} <span class="mono">scanner-ns</span> {{T "bridged to"}} <span class="mono">{{.Settings.NetworkInterface}}</span> ({{.Settings.NetworkInterfaceIP}})</p>
                     {{else if .Settings.NetworkInterface}}
-                    <p class="text-[10px] text-warning mt-1">⚠ {{T "Interface pinned but namespace is not active — check privileges and reload"}}</p>
+                    <p class="text-[10px] text-warning mt-1">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T "Interface pinned but namespace is not active — check privileges and reload"}}</p>
                     {{else}}
                     <p class="text-[10px] text-dark-600 mt-1">{{T "Default mode — scans use the OS-chosen interface (no binding)."}}</p>
                     {{end}}
@@ -477,7 +477,7 @@
                         <div>bridge:&nbsp;&nbsp;&nbsp;&nbsp; <span class="text-white">scanner0 (10.200.0.1)</span> ↔ <span class="text-white">scanner1 (10.200.0.2)</span></div>
                         <div>egress:&nbsp;&nbsp;&nbsp;&nbsp; <span class="text-white">{{.Settings.NetworkInterface}} ({{.Settings.NetworkInterfaceIP}})</span></div>
                         <div>iptables:&nbsp;&nbsp; {{T "tagged"}} <span class="text-white">scaNNer-killswitch</span></div>
-                        <div>health:&nbsp;&nbsp;&nbsp;&nbsp; <span class="text-success">✓ {{T "monitored every 2s"}}</span></div>
+                        <div>health:&nbsp;&nbsp;&nbsp;&nbsp; <span class="text-success">{{icon "check" "w-3.5 h-3.5 mr-1"}}{{T "monitored every 2s"}}</span></div>
                     </div>
                     {{else}}
                     <p class="text-[11px] text-dark-400 mb-1.5">{{T "How the killswitch works"}}</p>
@@ -503,7 +503,7 @@
                         <input type="radio" name="killswitch_scope" value="all_traffic" {{if eq .Settings.KillswitchScope "all_traffic"}}checked{{end}} class="mt-0.5 w-4 h-4 border-dark-600 bg-dark-850 text-warning focus:ring-0">
                         <span class="text-[11px] text-dark-300 leading-snug">
                             <span class="text-warning">{{T "All application traffic"}}</span> — {{T "every connection scaNNer makes (including DNS) exits through the VPN or is dropped. The strictest leak protection."}}
-                            <span class="block mt-1 text-[10px] text-warning/90">⚠ {{T "If the VPN can't reach e-mail (SMTP) or NTP servers, e-mail 2FA codes and TOTP clock sync may break → new logins can be blocked. Your current open session won't drop (the web UI is exempt, you can revert). Only enable this if you know what you're doing."}}</span>
+                            <span class="block mt-1 text-[10px] text-warning/90">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T "If the VPN can't reach e-mail (SMTP) or NTP servers, e-mail 2FA codes and TOTP clock sync may break → new logins can be blocked. Your current open session won't drop (the web UI is exempt, you can revert). Only enable this if you know what you're doing."}}</span>
                         </span>
                     </label>
                 </div>
@@ -1000,7 +1000,7 @@
                 <div class="bg-dark-950 border border-dark-800 rounded-lg px-3 py-2"><p class="text-dark-500 uppercase tracking-wide mb-0.5">{{T "Offset"}}</p><p class="mono {{if .Skewed}}text-danger{{else}}text-success{{end}}">{{.OffsetHuman}}</p></div>
                 <div class="bg-dark-950 border border-dark-800 rounded-lg px-3 py-2"><p class="text-dark-500 uppercase tracking-wide mb-0.5">{{T "Last check"}}</p><p class="mono text-white">{{if .Checked}}{{.Checked}}{{else}}—{{end}}</p></div>
             </div>
-            {{if .Skewed}}<p class="text-[11px] text-danger mb-3">⚠ {{T "Clock offset exceeds 30 s — authenticator logins may start failing. Fix host NTP, or set/verify a server below."}}</p>{{end}}
+            {{if .Skewed}}<p class="text-[11px] text-danger mb-3">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T "Clock offset exceeds 30 s — authenticator logins may start failing. Fix host NTP, or set/verify a server below."}}</p>{{end}}
             {{end}}
 
             <div class="{{if .HasRunning}}opacity-50 pointer-events-none{{end}}">
@@ -1098,8 +1098,8 @@
             <div class="text-[11px] text-dark-500 max-w-md">
                 <p class="text-dark-300 font-semibold mb-1">VACUUM</p>
                 <p>{{T "Rebuilds the SQLite file to reclaim space from deleted rows. Safe but slow on a large DB (minutes for 1+ GB). Block the process — don't run during active scans."}}</p>
-                {{if eq .VacuumResult "done"}}<p class="text-success mt-1">✓ {{T "VACUUM completed."}}</p>{{end}}
-                {{if eq .VacuumResult "error"}}<p class="text-danger mt-1">✗ {{T "VACUUM failed — see server log."}}</p>{{end}}
+                {{if eq .VacuumResult "done"}}<p class="text-success mt-1">{{icon "check" "w-3.5 h-3.5 mr-1"}}{{T "VACUUM completed."}}</p>{{end}}
+                {{if eq .VacuumResult "error"}}<p class="text-danger mt-1">{{icon "x" "w-3.5 h-3.5 mr-1"}}{{T "VACUUM failed — see server log."}}</p>{{end}}
             </div>
             <form action="/settings/vacuum" method="POST" onsubmit="return confirm('{{T `Run VACUUM now? This blocks the server for the duration. Make sure no scans are running.`}}');">
                 <button type="submit" {{if .HasRunning}}disabled{{end}}

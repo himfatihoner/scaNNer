@@ -6,13 +6,13 @@
 {{if .CapModule}}
 <div class="mb-4 flex flex-wrap items-center gap-2 text-[11px]">
     {{if .CapMeasured}}
-    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-success/10 text-success border border-success/20">✓ {{T "Concurrency calibrated · auto %s" .CapRecommended}}</span>
+    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-success/10 text-success border border-success/20">{{icon "check" "w-3.5 h-3.5 mr-1"}}{{T "Concurrency calibrated · auto %s" .CapRecommended}}</span>
     <span class="text-dark-500">{{T "Optimal parallelism was measured on this machine."}}</span>
     {{else if .CapWired}}
-    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-warning/10 text-warning border border-warning/20">⚠ {{T "Not yet calibrated · auto %s" .CapRecommended}}</span>
+    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-warning/10 text-warning border border-warning/20">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T "Not yet calibrated · auto %s" .CapRecommended}}</span>
     <span class="text-dark-500">{{T "Using a conservative default — run module calibration to tune it."}}</span>
     {{else}}
-    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-dark-700/60 text-dark-400 border border-dark-700">○ {{T "Network-tier default — per-module calibration deferred"}}</span>
+    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-dark-700/60 text-dark-400 border border-dark-700">{{icon "circle" "w-3.5 h-3.5 mr-1"}}{{T "Network-tier default — per-module calibration deferred"}}</span>
     <span class="text-dark-500">{{T "Concurrency stays at the conservative Settings value until calibrated."}}</span>
     {{end}}
 </div>

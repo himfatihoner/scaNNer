@@ -239,6 +239,12 @@ func (d *DB) RegisterFailedLogin(id string, threshold int, lockFor time.Duration
 }
 
 // ClearLoginFailures resets the password-failure state on a successful login.
+// UnlockUser clears any login/2FA lockout (admin action), leaving last_login_at untouched.
+func (d *DB) UnlockUser(id string) error {
+	_, err := d.Exec(`UPDATE users SET failed_login_count = 0, login_locked_until = NULL, failed_2fa_count = 0, twofa_locked_until = NULL, updated_at = ? WHERE id = ?`, time.Now(), id)
+	return err
+}
+
 func (d *DB) ClearLoginFailures(id string) {
 	d.Exec(`UPDATE users SET failed_login_count = 0, login_locked_until = NULL, last_login_at = ? WHERE id = ?`,
 		time.Now(), id)

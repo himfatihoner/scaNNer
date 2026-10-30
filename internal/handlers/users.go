@@ -160,6 +160,23 @@ func (h *Handler) UserResetTwoFactor(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/users", http.StatusSeeOther)
 }
 
+// UserUnlock clears a login / 2FA lockout on an account.
+func (h *Handler) UserUnlock(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Redirect(w, r, "/users", http.StatusSeeOther)
+		return
+	}
+	id := r.FormValue("id")
+	target, err := h.db.GetUserByID(id)
+	if err != nil {
+		http.Redirect(w, r, "/users?error="+"No such user.", http.StatusSeeOther)
+		return
+	}
+	h.db.UnlockUser(id)
+	h.audit(r, h.currentUser(r), models.AuditAdmin, "user.unlock", target.Username)
+	http.Redirect(w, r, "/users", http.StatusSeeOther)
+}
+
 // UserDelete removes a user.
 func (h *Handler) UserDelete(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {

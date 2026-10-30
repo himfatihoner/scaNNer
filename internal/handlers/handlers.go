@@ -291,6 +291,7 @@ func New(registry *modules.Registry, db *database.DB, templateDir string) (*Hand
 			"isVulnEmitter":     modules.IsVulnEmitter,
 			// icon renders an inline SVG (Lucide) by name; see internal/handlers/icons.go.
 			"icon": renderIcon,
+			"userLocked": func(u models.User) bool { n := time.Now(); return u.LoginLocked(n) || u.TwoFactorLocked(n) },
 			// assetKey is the bare, scheme-stripped host used as the /assets/<key>
 			// path — linking with a raw "https://host" would put "://" in the URL
 			// path, which net/http path-cleans into a broken "/assets/https:/host".

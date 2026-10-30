@@ -506,6 +506,7 @@ func main() {
 	http.HandleFunc("/users/delete", h.UserDelete)
 	http.HandleFunc("/users/reset-password", h.UserResetPassword)
 	http.HandleFunc("/users/reset-2fa", h.UserResetTwoFactor)
+	http.HandleFunc("/users/unlock", h.UserUnlock)
 	http.HandleFunc("/users/permissions", h.UserPermissions)
 	http.HandleFunc("/logs", h.LogsPage)
 	http.HandleFunc("/leak-report", h.LeakReportPage)         // admin-only (gated in authorizePath)

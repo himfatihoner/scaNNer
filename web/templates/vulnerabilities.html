@@ -145,7 +145,7 @@
                 data-host="{{.Host}}"
                 data-module="{{.Module}}"
                 data-search="{{.ID}} {{.Host}} {{.Product}} {{.Title}} {{.Module}} {{.Tool}} {{range .CVEs}}{{.}} {{end}}"
-                onclick="toggleVulnDetail(event, this)">
+                onclick="toggleVulnDetail(event, this)" tabindex="0" role="button" onkeydown="if((event.key==='Enter'||event.key===' ')&&event.target===this){event.preventDefault();toggleVulnDetail(event,this);}">
                 <td class="px-3 py-2.5"><input type="checkbox" class="vuln-cb align-middle cursor-pointer accent-emerald-500" value="{{.ID}}" onclick="onVulnCbClick(event)"></td>
                 <td class="px-4 py-2.5 whitespace-nowrap"><span class="mono text-[10px] text-dark-400" data-sort-val="{{.ID}}">{{.ID}}</span></td>
                 <td class="px-4 py-2.5 whitespace-nowrap"><span class="mono text-[10px] px-1.5 py-0.5 rounded ring-1 ring-inset
@@ -250,7 +250,7 @@
         </thead>
         <tbody id="archTbody" class="divide-y divide-dark-800">
             {{range $rows}}
-            <tr class="arch-row hover:bg-dark-850/60 cursor-pointer" data-sev="{{.SevRank}}" data-id="{{.ID}}" data-row-pair="{{.ID}}" data-search="{{.ID}} {{.Host}} {{.Product}} {{.Title}} {{.Module}} {{range .CVEs}}{{.}} {{end}}" onclick="toggleVulnDetail(event, this)">
+            <tr class="arch-row hover:bg-dark-850/60 cursor-pointer" data-sev="{{.SevRank}}" data-id="{{.ID}}" data-row-pair="{{.ID}}" data-search="{{.ID}} {{.Host}} {{.Product}} {{.Title}} {{.Module}} {{range .CVEs}}{{.}} {{end}}" onclick="toggleVulnDetail(event, this)" tabindex="0" role="button" onkeydown="if((event.key==='Enter'||event.key===' ')&&event.target===this){event.preventDefault();toggleVulnDetail(event,this);}">
                 <td class="px-3 py-2.5"><input type="checkbox" class="arch-cb align-middle cursor-pointer accent-emerald-500" value="{{.ID}}" onclick="event.stopPropagation(); refreshArchSelCount()"></td>
                 <td class="px-4 py-2.5 whitespace-nowrap"><span class="mono text-[10px] px-1.5 py-0.5 rounded ring-1 ring-inset
                     {{if eq .SevRank 4}}bg-red-500/20 text-red-300 ring-red-500/30

@@ -49,6 +49,7 @@
                         <span class="font-medium">{{.Username}}</span>
                         {{if .IsAdmin}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-accent-600/20 text-accent-400 uppercase tracking-wide">admin</span>{{end}}
                         {{if not .IsActive}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-danger/20 text-danger uppercase tracking-wide">{{T "disabled"}}</span>{{end}}
+                        {{if userLocked .}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 uppercase tracking-wide inline-flex items-center">{{icon "lock" "w-3 h-3 mr-0.5"}}{{T "locked"}}</span>{{end}}
                     </div>
                     <div class="text-xs text-dark-400 truncate">
                         {{if .Email}}{{.Email}} · {{end}}
@@ -80,6 +81,7 @@
                             </form>
                             <div class="border-t border-dark-800 mt-3 pt-3 flex flex-wrap gap-2">
                                 <form method="POST" action="/users/reset-password"><input type="hidden" name="id" value="{{.ID}}"><button class="text-xs rounded-lg border border-dark-700 hover:border-warning px-2.5 py-1.5">{{T "Reset password"}}</button></form>
+                                {{if userLocked .}}<form method="POST" action="/users/unlock"><input type="hidden" name="id" value="{{.ID}}"><button class="text-xs rounded-lg border border-amber-500/50 text-amber-300 hover:bg-amber-500/10 px-2.5 py-1.5 inline-flex items-center">{{icon "unlock" "w-3 h-3 mr-1"}}{{T "Unlock"}}</button></form>{{end}}
                                 <form method="POST" action="/users/reset-2fa"><input type="hidden" name="id" value="{{.ID}}"><button class="text-xs rounded-lg border border-dark-700 hover:border-warning px-2.5 py-1.5">{{T "Reset 2FA"}}</button></form>
                                 <form method="POST" action="/users/delete" onsubmit="return confirm('Delete user {{.Username}}? Their scans remain; audit logs are preserved.');"><input type="hidden" name="id" value="{{.ID}}"><button class="text-xs rounded-lg border border-danger/50 text-danger hover:bg-danger/10 px-2.5 py-1.5">{{T "Delete"}}</button></form>
                             </div>

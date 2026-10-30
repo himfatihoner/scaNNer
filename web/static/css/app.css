@@ -952,6 +952,7 @@
 }
   .bg-green-400 { background-color: var(--color-green-400); }
   .bg-orange-400 { background-color: var(--color-orange-400); }
+  .bg-orange-500 { background-color: var(--color-orange-500); }
   .bg-orange-500\/5 {
   background-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 5%, transparent);
   @supports (color: color-mix(in lab, red, red)) {
@@ -992,6 +993,7 @@
 }
 }
   .bg-red-400 { background-color: var(--color-red-400); }
+  .bg-red-500 { background-color: var(--color-red-500); }
   .bg-red-500\/5 {
   background-color: color-mix(in srgb, oklch(0.637 0.237 25.331) 5%, transparent);
   @supports (color: color-mix(in lab, red, red)) {
@@ -1029,6 +1031,7 @@
   background-color: color-mix(in oklab, var(--color-rose-500) 15%, transparent);
 }
 }
+  .bg-sky-500 { background-color: var(--color-sky-500); }
   .bg-sky-500\/15 {
   background-color: color-mix(in srgb, oklch(0.685 0.169 237.323) 15%, transparent);
   @supports (color: color-mix(in lab, red, red)) {
@@ -1124,6 +1127,7 @@
 }
 }
   .bg-yellow-400 { background-color: var(--color-yellow-400); }
+  .bg-yellow-500 { background-color: var(--color-yellow-500); }
   .bg-yellow-500\/5 {
   background-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 5%, transparent);
   @supports (color: color-mix(in lab, red, red)) {

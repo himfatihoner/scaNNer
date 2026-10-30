@@ -648,7 +648,13 @@ html.light {
             var x1 = cx + r * Math.cos(startAngle), y1 = cy + r * Math.sin(startAngle);
             var x2 = cx + r * Math.cos(endAngle),   y2 = cy + r * Math.sin(endAngle);
             var largeArc = (endAngle - startAngle) > Math.PI ? 1 : 0;
-            html += '<path d="M ' + x1 + ' ' + y1 + ' A ' + r + ' ' + r + ' 0 ' + largeArc + ' 1 ' + x2 + ' ' + y2 + '" fill="none" stroke="' + (colors[k] || '#6b7280') + '" stroke-width="' + sw + '"/>';
+            if (frac >= 0.9999) {
+                // Single status is ~100% — an A-arc back to its start point is
+                // degenerate and paints nothing (blank ring); draw a full circle.
+                html += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + (colors[k] || '#6b7280') + '" stroke-width="' + sw + '"/>';
+            } else {
+                html += '<path d="M ' + x1 + ' ' + y1 + ' A ' + r + ' ' + r + ' 0 ' + largeArc + ' 1 ' + x2 + ' ' + y2 + '" fill="none" stroke="' + (colors[k] || '#6b7280') + '" stroke-width="' + sw + '"/>';
+            }
             startAngle = endAngle;
         }
         html += '<text x="' + cx + '" y="' + (cy - 2) + '" text-anchor="middle" font-size="22" font-weight="700" fill="currentColor">' + total + '</text>';

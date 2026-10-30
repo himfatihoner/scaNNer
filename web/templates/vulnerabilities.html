@@ -72,6 +72,18 @@
     <span id="vulnResultCount" class="ml-auto text-[11px] text-dark-500"></span>
     {{end}}
 </div>
+{{if or .VCrit .VHigh .VMed .VLow}}
+{{/* Risk-shape bar: segment width ∝ count, so "2 Critical" vs "400 Low" reads at
+     a glance instead of looking identical to the equal-size filter chips above.
+     Widths set in JS (flexGrow from data-c) to dodge html/template CSS sanitizing. */}}
+<div id="sevShapeBar" class="flex h-2 rounded-full overflow-hidden bg-dark-850 mb-4" role="img" aria-label="{{T "Severity mix"}}: {{.VCrit}} critical / {{.VHigh}} high / {{.VMed}} medium / {{.VLow}} low">
+    <div class="bg-red-500" data-c="{{.VCrit}}" title="Critical {{.VCrit}}"></div>
+    <div class="bg-orange-500" data-c="{{.VHigh}}" title="High {{.VHigh}}"></div>
+    <div class="bg-yellow-500" data-c="{{.VMed}}" title="Medium {{.VMed}}"></div>
+    <div class="bg-sky-500" data-c="{{.VLow}}" title="Low {{.VLow}}"></div>
+</div>
+<script>(function(){var b=document.getElementById('sevShapeBar');if(!b)return;b.querySelectorAll('[data-c]').forEach(function(s){var c=+s.getAttribute('data-c')||0;if(c){s.style.flexGrow=c;s.style.minWidth='3px';}else{s.style.display='none';}});})();</script>
+{{end}}
 
 {{if not .VulnReady}}
 <div class="mb-4 flex items-center gap-2 bg-accent-600/10 border border-accent-500/30 rounded-lg px-4 py-2.5 text-xs text-accent-200">

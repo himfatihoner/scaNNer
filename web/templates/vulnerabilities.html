@@ -136,11 +136,11 @@
                 onclick="toggleVulnDetail(event, this)">
                 <td class="px-3 py-2.5"><input type="checkbox" class="vuln-cb align-middle cursor-pointer accent-emerald-500" value="{{.ID}}" onclick="onVulnCbClick(event)"></td>
                 <td class="px-4 py-2.5 whitespace-nowrap"><span class="mono text-[10px] text-dark-400" data-sort-val="{{.ID}}">{{.ID}}</span></td>
-                <td class="px-4 py-2.5 whitespace-nowrap"><span class="mono text-[10px] px-1.5 py-0.5 rounded
-                    {{if eq .SevRank 4}}bg-red-500/20 text-red-300
-                    {{else if eq .SevRank 3}}bg-orange-500/20 text-orange-300
-                    {{else if eq .SevRank 2}}bg-yellow-500/20 text-yellow-300
-                    {{else}}bg-sky-500/20 text-sky-300{{end}}">{{.Severity}}</span></td>
+                <td class="px-4 py-2.5 whitespace-nowrap"><span class="mono text-[10px] px-1.5 py-0.5 rounded ring-1 ring-inset
+                    {{if eq .SevRank 4}}bg-red-500/20 text-red-300 ring-red-500/30
+                    {{else if eq .SevRank 3}}bg-orange-500/20 text-orange-300 ring-orange-500/30
+                    {{else if eq .SevRank 2}}bg-yellow-500/20 text-yellow-300 ring-yellow-500/30
+                    {{else}}bg-sky-500/20 text-sky-300 ring-sky-500/30{{end}}">{{.Severity}}</span></td>
                 <td class="px-4 py-2.5"><span class="vuln-caret inline-block text-dark-500 mr-1 transition-transform select-none">▸</span><span class="inline-block max-w-[26rem] truncate align-bottom text-[12px] text-white" title="{{.Title}}">{{.Title}}</span>{{if gt .Count 1}} <span class="text-[10px] text-dark-500">×{{.Count}}</span>{{end}}</td>
                 <td class="px-4 py-2.5" data-sort-val="{{.Host}}">{{if .Host}}<a href="/assets/{{assetKey .Host}}" onclick="event.stopPropagation()" class="mono text-[11px] text-accent-400 hover:text-accent-300 break-all" title="{{T `Go to this asset's page`}}">{{.Host}}</a>{{else}}<span class="text-dark-600 text-[11px]" title="{{T `No host/URL was associated with this finding (e.g. a manual product-version CVE lookup). The software is shown in the Software column.`}}">—</span>{{end}}</td>
                 <td class="px-4 py-2.5" data-sort-val="{{.Product}}">{{if .Product}}<span class="text-[11px] text-dark-200 break-all">{{.Product}}</span>{{else}}<span class="text-dark-600 text-[11px]">—</span>{{end}}</td>
@@ -240,11 +240,11 @@
             {{range $rows}}
             <tr class="arch-row hover:bg-dark-850/60 cursor-pointer" data-sev="{{.SevRank}}" data-id="{{.ID}}" data-row-pair="{{.ID}}" data-search="{{.ID}} {{.Host}} {{.Product}} {{.Title}} {{.Module}} {{range .CVEs}}{{.}} {{end}}" onclick="toggleVulnDetail(event, this)">
                 <td class="px-3 py-2.5"><input type="checkbox" class="arch-cb align-middle cursor-pointer accent-emerald-500" value="{{.ID}}" onclick="event.stopPropagation(); refreshArchSelCount()"></td>
-                <td class="px-4 py-2.5 whitespace-nowrap"><span class="mono text-[10px] px-1.5 py-0.5 rounded
-                    {{if eq .SevRank 4}}bg-red-500/20 text-red-300
-                    {{else if eq .SevRank 3}}bg-orange-500/20 text-orange-300
-                    {{else if eq .SevRank 2}}bg-yellow-500/20 text-yellow-300
-                    {{else}}bg-sky-500/20 text-sky-300{{end}}">{{.Severity}}</span></td>
+                <td class="px-4 py-2.5 whitespace-nowrap"><span class="mono text-[10px] px-1.5 py-0.5 rounded ring-1 ring-inset
+                    {{if eq .SevRank 4}}bg-red-500/20 text-red-300 ring-red-500/30
+                    {{else if eq .SevRank 3}}bg-orange-500/20 text-orange-300 ring-orange-500/30
+                    {{else if eq .SevRank 2}}bg-yellow-500/20 text-yellow-300 ring-yellow-500/30
+                    {{else}}bg-sky-500/20 text-sky-300 ring-sky-500/30{{end}}">{{.Severity}}</span></td>
                 <td class="px-4 py-2.5"><span class="vuln-caret inline-block text-dark-500 mr-1 transition-transform select-none">▸</span><span class="inline-block max-w-[26rem] truncate align-bottom text-[12px] text-dark-200" title="{{.Title}}">{{.Title}}</span>{{if gt .Count 1}} <span class="text-[10px] text-dark-500">×{{.Count}}</span>{{end}}</td>
                 <td class="px-4 py-2.5">{{if .Host}}<a href="/assets/{{assetKey .Host}}" onclick="event.stopPropagation()" class="mono text-[11px] text-accent-400 hover:text-accent-300 break-all" title="{{T `Go to this asset's page`}}">{{.Host}}</a>{{else}}<span class="text-dark-600 text-[11px]">—</span>{{end}}</td>
                 <td class="px-4 py-2.5">{{if .Product}}<span class="text-[11px] text-dark-300 break-all">{{.Product}}</span>{{else}}<span class="text-dark-600 text-[11px]">—</span>{{end}}</td>

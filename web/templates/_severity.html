@@ -26,14 +26,14 @@
     when the row is dense. Same paddings/sizes everywhere.
 */}}
 {{$s := upper (print .)}}
-<span class="shrink-0 px-2 py-0.5 text-[10px] font-bold uppercase rounded
-    {{if eq $s "CRITICAL"}}bg-red-500/20 text-red-300
-    {{else if eq $s "HIGH"}}bg-orange-500/20 text-orange-300
-    {{else if eq $s "MEDIUM"}}bg-yellow-500/20 text-yellow-300
-    {{else if eq $s "LOW"}}bg-sky-500/20 text-sky-300
-    {{else if eq $s "INFO"}}bg-dark-700 text-dark-300
-    {{else if eq $s "INFORMATIONAL"}}bg-dark-700 text-dark-300
-    {{else}}bg-dark-700 text-dark-400{{end}}">{{$s}}</span>
+<span class="shrink-0 px-2 py-0.5 text-[10px] font-bold uppercase rounded ring-1 ring-inset
+    {{if eq $s "CRITICAL"}}bg-red-500/20 text-red-300 ring-red-500/30
+    {{else if eq $s "HIGH"}}bg-orange-500/20 text-orange-300 ring-orange-500/30
+    {{else if eq $s "MEDIUM"}}bg-yellow-500/20 text-yellow-300 ring-yellow-500/30
+    {{else if eq $s "LOW"}}bg-sky-500/20 text-sky-300 ring-sky-500/30
+    {{else if eq $s "INFO"}}bg-dark-700 text-dark-300 ring-dark-600
+    {{else if eq $s "INFORMATIONAL"}}bg-dark-700 text-dark-300 ring-dark-600
+    {{else}}bg-dark-700 text-dark-400 ring-dark-600{{end}}">{{$s}}</span>
 {{end}}
 
 {{define "severity_card"}}

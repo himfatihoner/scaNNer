@@ -51,8 +51,11 @@ for (const d of SCAN_DIRS) walk(path.join(ROOT, d), files);
 // delimiters break cleanly, but KEEP []()/:.%-#!* inside tokens so arbitrary
 // values (max-w-[26rem]), variants (hover:, lg:) and opacity (/50) survive.
 const tokens = new Set();
+let pxCount = 0;
 for (const f of files) {
-  for (const tok of fs.readFileSync(f, 'utf8').split(/[\s"'`=<>{}]+/)) {
+  const txt = fs.readFileSync(f, 'utf8');
+  pxCount += (txt.match(/text-\[[0-9]+px\]/g) || []).length;
+  for (const tok of txt.split(/[\s"'`=<>{}]+/)) {
     if (tok && tok.length < 120) tokens.add(tok.replace(/"/g, ''));
   }
 }
@@ -102,3 +105,7 @@ const header = '/* GENERATED FILE — do not edit by hand.\n'
 fs.writeFileSync(OUT, header + css);
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log('wrote', OUT, '—', css.length, 'bytes from', files.length, 'files /', toks.length, 'candidates');
+// Debt guard: ~1770 arbitrary text-[Npx] sizes ignore the rem type scale — don't let it grow.
+const PX_BASELINE = 1775;
+if (pxCount > PX_BASELINE) console.warn('WARN text-[Npx] grew to ' + pxCount + ' (baseline ' + PX_BASELINE + ') — prefer the rem type scale, not arbitrary px');
+else console.log('text-[Npx]: ' + pxCount + ' / baseline ' + PX_BASELINE + ' OK');

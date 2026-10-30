@@ -34,13 +34,13 @@
         {{range .VulnModules}}<option value="{{.}}">{{moduleDisplayName .}}</option>{{end}}
     </select>
     {{if .Vulns}}
-    <button type="button" id="rescanSelectedBtn" onclick="rescanSelected()" class="ml-auto opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-accent-600/10 text-accent-300 border border-accent-500/30 hover:bg-accent-600/20" title="{{T `Re-run the source scan of each selected finding, scoped to its asset, to re-verify it. Findings the rescan no longer detects are moved to Archive automatically.`}}">⟳ {{T "Rescan Selected"}} (<span id="rescanSelCount">0</span>)</button>
-    <button type="button" id="fixedSelectedBtn" onclick="statusSelectedActive('fixed')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/20" title="{{T `Send the selected findings to the Fixed tab (mark as fixed).`}}">✓ {{T "Fixed"}} (<span id="fixedSelCount">0</span>)</button>
-    <button type="button" id="fpSelectedBtn" onclick="statusSelectedActive('false_positive')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-yellow-500/10 text-yellow-300 border border-yellow-500/30 hover:bg-yellow-500/20" title="{{T `Send the selected findings to the False Positive tab.`}}">⚠ {{T "False Positive"}} (<span id="fpSelCount">0</span>)</button>
-    <button type="button" id="assignSelectedBtn" onclick="statusSelectedActive('assigned')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-violet-500/10 text-violet-300 border border-violet-500/30 hover:bg-violet-500/20" title="{{T `Mark the selected findings as forwarded/assigned and send them to the Assigned tab.`}}">➤ {{T "Assigned"}} (<span id="assignSelCount">0</span>)</button>
-    <button type="button" id="archiveSelectedBtn" onclick="archiveSelected('archive')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-dark-700 hover:bg-dark-600 text-dark-200" title="{{T `Move the selected findings to the Archive tab.`}}">🗄 {{T "Archive"}}</button>
+    <button type="button" id="rescanSelectedBtn" onclick="rescanSelected()" class="ml-auto opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-accent-600/10 text-accent-300 border border-accent-500/30 hover:bg-accent-600/20" title="{{T `Re-run the source scan of each selected finding, scoped to its asset, to re-verify it. Findings the rescan no longer detects are moved to Archive automatically.`}}">{{icon "rotate-cw" "w-3.5 h-3.5 mr-1"}}{{T "Rescan Selected"}} (<span id="rescanSelCount">0</span>)</button>
+    <button type="button" id="fixedSelectedBtn" onclick="statusSelectedActive('fixed')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/20" title="{{T `Send the selected findings to the Fixed tab (mark as fixed).`}}">{{icon "check" "w-3.5 h-3.5 mr-1"}}{{T "Fixed"}} (<span id="fixedSelCount">0</span>)</button>
+    <button type="button" id="fpSelectedBtn" onclick="statusSelectedActive('false_positive')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-yellow-500/10 text-yellow-300 border border-yellow-500/30 hover:bg-yellow-500/20" title="{{T `Send the selected findings to the False Positive tab.`}}">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T "False Positive"}} (<span id="fpSelCount">0</span>)</button>
+    <button type="button" id="assignSelectedBtn" onclick="statusSelectedActive('assigned')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-violet-500/10 text-violet-300 border border-violet-500/30 hover:bg-violet-500/20" title="{{T `Mark the selected findings as forwarded/assigned and send them to the Assigned tab.`}}">{{icon "send" "w-3.5 h-3.5 mr-1"}}{{T "Assigned"}} (<span id="assignSelCount">0</span>)</button>
+    <button type="button" id="archiveSelectedBtn" onclick="archiveSelected('archive')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-dark-700 hover:bg-dark-600 text-dark-200" title="{{T `Move the selected findings to the Archive tab.`}}">{{icon "archive" "w-3.5 h-3.5 mr-1"}}{{T "Archive"}}</button>
     <details id="exportSelectedMenu" class="vexport vexport-top relative opacity-50 pointer-events-none">
-        <summary class="cursor-pointer list-none select-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white">☑ {{T "Export Selected"}} (<span id="selCount">0</span>)</summary>
+        <summary class="cursor-pointer list-none select-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white">{{icon "download" "w-3.5 h-3.5 mr-1"}}{{T "Export Selected"}} (<span id="selCount">0</span>)</summary>
         <div class="absolute right-0 z-20 mt-1 w-52 bg-dark-850 border border-dark-700 rounded-lg shadow-xl p-1 text-[11px]">
             <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-dark-500">{{T "Single file (combined)"}}</div>
             <a href="javascript:void(0)" onclick="exportSelected('pdf','tr')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "PDF · Turkish"}}</a>
@@ -54,7 +54,7 @@
         </div>
     </details>
     <details class="vexport vexport-top relative">
-        <summary class="cursor-pointer list-none select-none text-xs px-3 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white">⤓ {{T "Export All"}}</summary>
+        <summary class="cursor-pointer list-none select-none text-xs px-3 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white">{{icon "download" "w-3.5 h-3.5 mr-1"}}{{T "Export All"}}</summary>
         <div class="absolute right-0 z-20 mt-1 w-52 bg-dark-850 border border-dark-700 rounded-lg shadow-xl p-1 text-[11px]">
             <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-dark-500">{{T "Single file (combined)"}}</div>
             <a href="javascript:void(0)" onclick="exportAllURL('pdf','tr')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "PDF · Turkish"}}</a>
@@ -94,7 +94,7 @@
     {{end}}
     {{range .RescanResults}}
     <div class="rescan-result-row flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] transition-opacity duration-700 {{if eq .Outcome "gone"}}bg-amber-500/10 border border-amber-500/30{{else}}bg-emerald-500/10 border border-emerald-500/30{{end}}">
-        <span class="{{if eq .Outcome "gone"}}text-amber-300{{else}}text-emerald-300{{end}}">{{if eq .Outcome "gone"}}🗄{{else}}✓{{end}}</span>
+        <span class="{{if eq .Outcome "gone"}}text-amber-300{{else}}text-emerald-300{{end}}">{{if eq .Outcome "gone"}}{{icon "archive" "w-3.5 h-3.5"}}{{else}}{{icon "check" "w-3.5 h-3.5"}}{{end}}</span>
         <span class="text-white truncate">{{.Vuln.Title}}</span>
         {{if .Vuln.Host}}<a href="/assets/{{assetKey .Vuln.Host}}" class="mono text-[11px] text-accent-400 hover:text-accent-300">{{.Vuln.Host}}</a>{{end}}
         <span class="{{if eq .Outcome "gone"}}text-amber-200{{else}}text-emerald-200{{end}}">— {{if eq .Outcome "gone"}}{{T "Rescan: no longer detected → moved to Archive"}}{{else}}{{T "Rescan: re-confirmed (still present)"}}{{end}}</span>
@@ -154,17 +154,17 @@
                 <td class="px-4 py-2.5 whitespace-nowrap text-right sticky right-0 z-10 bg-dark-900 border-l border-dark-800">
                     <div class="inline-flex items-center justify-end gap-1">
                         <details class="vexport relative inline-block">
-                            <summary class="inline-flex items-center gap-1 cursor-pointer list-none select-none text-[11px] px-2 py-1 rounded-md border border-dark-600 text-dark-200 hover:bg-dark-700 transition-colors">⚙ {{T "Actions"}} ▾</summary>
+                            <summary class="inline-flex items-center gap-1 cursor-pointer list-none select-none text-[11px] px-2 py-1 rounded-md border border-dark-600 text-dark-200 hover:bg-dark-700 transition-colors">{{icon "settings" "w-3 h-3"}}{{T "Actions"}}{{icon "chevron-down" "w-3 h-3 opacity-60"}}</summary>
                             <div class="absolute right-0 z-10 mt-1 w-44 bg-dark-850 border border-dark-700 rounded-lg shadow-xl p-1 text-[11px] text-left">
                                 <button type="button" onclick="event.stopPropagation(); rescanVulns(['{{.ID}}'], this)" {{if .Rescanning}}disabled{{end}} class="rescan-btn w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-dark-800 transition-colors {{if .Rescanning}}text-emerald-300{{else}}text-accent-300{{end}}" title="{{if .Rescanning}}{{T `Rescan in progress — verifying this finding…`}}{{else}}{{T `Rescan this finding's asset to re-verify it; if the rescan no longer detects it, it moves to Archive.`}}{{end}}"><span class="rescan-spin inline-block {{if .Rescanning}}scan-pulse{{end}}">⟳</span> {{if .Rescanning}}{{T "Rescanning…"}}{{else}}{{T "Rescan"}}{{end}}</button>
-                                <button type="button" onclick="event.stopPropagation(); statusVulns(['{{.ID}}'],'fixed','active')" class="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-dark-800 text-emerald-300 transition-colors" title="{{T `Send this finding to the Fixed tab.`}}">✓ {{T "Fixed"}}</button>
-                                <button type="button" onclick="event.stopPropagation(); statusVulns(['{{.ID}}'],'false_positive','active')" class="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-dark-800 text-yellow-300 transition-colors" title="{{T `Send this finding to the False Positive tab.`}}">⚠ {{T "False Positive"}}</button>
-                                <button type="button" onclick="event.stopPropagation(); statusVulns(['{{.ID}}'],'assigned','active')" class="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-dark-800 text-violet-300 transition-colors" title="{{T `Mark this finding as forwarded/assigned and send it to the Assigned tab.`}}">➤ {{T "Assigned"}}</button>
-                                <button type="button" onclick="event.stopPropagation(); archiveVulns(['{{.ID}}'],'archive')" class="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-dark-800 text-dark-200 transition-colors" title="{{T `Move this finding to the Archive tab.`}}">🗄 {{T "Archive"}}</button>
+                                <button type="button" onclick="event.stopPropagation(); statusVulns(['{{.ID}}'],'fixed','active')" class="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-dark-800 text-emerald-300 transition-colors" title="{{T `Send this finding to the Fixed tab.`}}">{{icon "check" "w-3.5 h-3.5"}}{{T "Fixed"}}</button>
+                                <button type="button" onclick="event.stopPropagation(); statusVulns(['{{.ID}}'],'false_positive','active')" class="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-dark-800 text-yellow-300 transition-colors" title="{{T `Send this finding to the False Positive tab.`}}">{{icon "triangle-alert" "w-3.5 h-3.5"}}{{T "False Positive"}}</button>
+                                <button type="button" onclick="event.stopPropagation(); statusVulns(['{{.ID}}'],'assigned','active')" class="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-dark-800 text-violet-300 transition-colors" title="{{T `Mark this finding as forwarded/assigned and send it to the Assigned tab.`}}">{{icon "send" "w-3.5 h-3.5"}}{{T "Assigned"}}</button>
+                                <button type="button" onclick="event.stopPropagation(); archiveVulns(['{{.ID}}'],'archive')" class="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-dark-800 text-dark-200 transition-colors" title="{{T `Move this finding to the Archive tab.`}}">{{icon "archive" "w-3.5 h-3.5"}}{{T "Archive"}}</button>
                             </div>
                         </details>
                         <details class="vexport relative inline-block">
-                            <summary class="inline-flex items-center gap-1 cursor-pointer list-none select-none text-[11px] px-2 py-1 rounded-md border border-accent-500/30 text-accent-300 hover:bg-accent-600/20 transition-colors">⤓ {{T "Export"}}</summary>
+                            <summary class="inline-flex items-center gap-1 cursor-pointer list-none select-none text-[11px] px-2 py-1 rounded-md border border-accent-500/30 text-accent-300 hover:bg-accent-600/20 transition-colors">{{icon "download" "w-3.5 h-3.5 mr-1"}}{{T "Export"}}</summary>
                             <div class="absolute right-0 z-10 mt-1 w-36 bg-dark-850 border border-dark-700 rounded-lg shadow-xl p-1 text-[11px] text-left">
                                 <a href="/vulnerabilities/export?id={{.ID}}&format=pdf&lang=tr" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "PDF · Turkish"}}</a>
                                 <a href="/vulnerabilities/export?id={{.ID}}&format=pdf&lang=en" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "PDF · English"}}</a>
@@ -216,11 +216,11 @@
         {{else}}{{T "Findings marked as false positive. Reopen returns them to the Active tab."}}{{end}}
     </span>
     {{if $isArch}}
-    <button type="button" id="restoreSelectedBtn" onclick="archiveSelected('unarchive')" class="ml-auto opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white" title="{{T `Move the selected findings back to the Active tab.`}}">↺ {{T "Restore"}} (<span id="archSelCount">0</span>)</button>
+    <button type="button" id="restoreSelectedBtn" onclick="archiveSelected('unarchive')" class="ml-auto opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white" title="{{T `Move the selected findings back to the Active tab.`}}">{{icon "rotate-ccw" "w-3.5 h-3.5 mr-1"}}{{T "Restore"}} (<span id="archSelCount">0</span>)</button>
     {{else}}
-    <button type="button" id="restoreSelectedBtn" onclick="reopenSelectedTriage('{{.ActiveTab}}')" class="ml-auto opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white" title="{{T `Reopen the selected findings — returns them to the Active tab.`}}">↺ {{T "Reopen"}} (<span id="archSelCount">0</span>)</button>
+    <button type="button" id="restoreSelectedBtn" onclick="reopenSelectedTriage('{{.ActiveTab}}')" class="ml-auto opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white" title="{{T `Reopen the selected findings — returns them to the Active tab.`}}">{{icon "rotate-ccw" "w-3.5 h-3.5 mr-1"}}{{T "Reopen"}} (<span id="archSelCount">0</span>)</button>
     {{end}}
-    <button type="button" id="deleteSelectedBtn" onclick="deleteArchivedSelected('{{.ActiveTab}}')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white" title="{{T `Permanently remove the selected findings from every view. Cannot be undone.`}}">🗑 {{T "Delete"}} (<span id="archDelCount">0</span>)</button>
+    <button type="button" id="deleteSelectedBtn" onclick="deleteArchivedSelected('{{.ActiveTab}}')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white" title="{{T `Permanently remove the selected findings from every view. Cannot be undone.`}}">{{icon "trash-2" "w-3.5 h-3.5 mr-1"}}{{T "Delete"}} (<span id="archDelCount">0</span>)</button>
 </div>
 <div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
     <div class="overflow-x-auto">
@@ -248,11 +248,11 @@
                 <td class="px-4 py-2.5"><span class="vuln-caret inline-block text-dark-500 mr-1 transition-transform select-none">▸</span><span class="inline-block max-w-[26rem] truncate align-bottom text-[12px] text-dark-200" title="{{.Title}}">{{.Title}}</span>{{if gt .Count 1}} <span class="text-[10px] text-dark-500">×{{.Count}}</span>{{end}}</td>
                 <td class="px-4 py-2.5">{{if .Host}}<a href="/assets/{{assetKey .Host}}" onclick="event.stopPropagation()" class="mono text-[11px] text-accent-400 hover:text-accent-300 break-all" title="{{T `Go to this asset's page`}}">{{.Host}}</a>{{else}}<span class="text-dark-600 text-[11px]">—</span>{{end}}</td>
                 <td class="px-4 py-2.5">{{if .Product}}<span class="text-[11px] text-dark-300 break-all">{{.Product}}</span>{{else}}<span class="text-dark-600 text-[11px]">—</span>{{end}}</td>
-                <td class="px-4 py-2.5">{{if $isArch}}<span class="text-[11px] text-dark-500 break-all">{{if .ArchiveReason}}{{.ArchiveReason}}{{else}}{{T "Archived"}}{{end}}</span>{{else if eq $.ActiveTab "fixed"}}<span class="text-[11px] text-emerald-400">✓ {{T "Fixed"}}</span>{{else if eq $.ActiveTab "assigned"}}<span class="text-[11px] text-violet-400">➤ {{T "Assigned"}}</span>{{else}}<span class="text-[11px] text-yellow-400">⚠ {{T "False positive"}}</span>{{end}}</td>
+                <td class="px-4 py-2.5">{{if $isArch}}<span class="text-[11px] text-dark-500 break-all">{{if .ArchiveReason}}{{.ArchiveReason}}{{else}}{{T "Archived"}}{{end}}</span>{{else if eq $.ActiveTab "fixed"}}<span class="text-[11px] text-emerald-400">{{icon "check" "w-3 h-3 mr-0.5"}}{{T "Fixed"}}</span>{{else if eq $.ActiveTab "assigned"}}<span class="text-[11px] text-violet-400">{{icon "send" "w-3 h-3 mr-0.5"}}{{T "Assigned"}}</span>{{else}}<span class="text-[11px] text-yellow-400">{{icon "triangle-alert" "w-3 h-3 mr-0.5"}}{{T "False positive"}}</span>{{end}}</td>
                 <td class="px-4 py-2.5 whitespace-nowrap text-right sticky right-0 z-10 bg-dark-900 border-l border-dark-800">
                     <div class="inline-flex items-center justify-end gap-2">
                         <details class="vexport relative inline-block">
-                            <summary class="inline-flex items-center gap-1 cursor-pointer list-none select-none text-[11px] px-2 py-1 rounded-md border border-accent-500/30 text-accent-300 hover:bg-accent-600/20 transition-colors">⤓ {{T "Export"}}</summary>
+                            <summary class="inline-flex items-center gap-1 cursor-pointer list-none select-none text-[11px] px-2 py-1 rounded-md border border-accent-500/30 text-accent-300 hover:bg-accent-600/20 transition-colors">{{icon "download" "w-3.5 h-3.5 mr-1"}}{{T "Export"}}</summary>
                             <div class="absolute right-0 z-10 mt-1 w-36 bg-dark-850 border border-dark-700 rounded-lg shadow-xl p-1 text-[11px] text-left">
                                 <a href="/vulnerabilities/export?id={{.ID}}&format=pdf&lang=tr" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "PDF · Turkish"}}</a>
                                 <a href="/vulnerabilities/export?id={{.ID}}&format=pdf&lang=en" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "PDF · English"}}</a>
@@ -261,11 +261,11 @@
                             </div>
                         </details>
                         {{if $isArch}}
-                        <button type="button" onclick="event.stopPropagation(); archiveVulns(['{{.ID}}'],'unarchive')" class="text-[11px] text-emerald-400 hover:text-emerald-300" title="{{T `Move this finding back to the Active tab.`}}">↺ {{T "Restore"}}</button>
+                        <button type="button" onclick="event.stopPropagation(); archiveVulns(['{{.ID}}'],'unarchive')" class="text-[11px] text-emerald-400 hover:text-emerald-300" title="{{T `Move this finding back to the Active tab.`}}">{{icon "rotate-ccw" "w-3 h-3 mr-0.5"}}{{T "Restore"}}</button>
                         {{else}}
-                        <button type="button" onclick="event.stopPropagation(); statusVulns(['{{.ID}}'],'open','{{$.ActiveTab}}')" class="text-[11px] text-emerald-400 hover:text-emerald-300" title="{{T `Reopen — returns it to the Active tab.`}}">↺ {{T "Reopen"}}</button>
+                        <button type="button" onclick="event.stopPropagation(); statusVulns(['{{.ID}}'],'open','{{$.ActiveTab}}')" class="text-[11px] text-emerald-400 hover:text-emerald-300" title="{{T `Reopen — returns it to the Active tab.`}}">{{icon "rotate-ccw" "w-3 h-3 mr-0.5"}}{{T "Reopen"}}</button>
                         {{end}}
-                        <button type="button" onclick="event.stopPropagation(); deleteArchivedVulns(['{{.ID}}'],'{{$.ActiveTab}}')" class="text-[11px] text-red-400 hover:text-red-300" title="{{T `Permanently remove this finding from every view. Cannot be undone.`}}">🗑 {{T "Delete"}}</button>
+                        <button type="button" onclick="event.stopPropagation(); deleteArchivedVulns(['{{.ID}}'],'{{$.ActiveTab}}')" class="text-[11px] text-red-400 hover:text-red-300" title="{{T `Permanently remove this finding from every view. Cannot be undone.`}}">{{icon "trash-2" "w-3 h-3 mr-0.5"}}{{T "Delete"}}</button>
                     </div>
                 </td>
             </tr>

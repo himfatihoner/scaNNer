@@ -20,7 +20,7 @@
 <details class="mt-2 bg-dark-900/60 border border-dark-700/60 rounded"
          {{if or .URL .Idx}}data-raw-key="{{.URL}}|{{.Method}}|{{.Idx}}"{{end}}>
     <summary class="cursor-pointer px-2 py-1 text-[10px] font-medium text-dark-300 hover:text-white select-none flex items-center justify-between gap-2">
-        <span>📋 Raw HTTP</span>
+        <span class="inline-flex items-center gap-1.5">{{icon "clipboard" "w-3.5 h-3.5"}}Raw HTTP</span>
         {{if .URL}}
         <button type="button" onclick="event.preventDefault();event.stopPropagation();sendToBurp('{{.URL}}'{{if .Method}}, '{{.Method}}'{{end}})"
                 title="Send this request to the configured proxy (Burp Repeater)"

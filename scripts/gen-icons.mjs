@@ -62,7 +62,7 @@ func renderIcon(name string, class ...string) template.HTML {
 \t\tcls = class[0]
 \t}
 \treturn template.HTML(fmt.Sprintf(
-\t\t\`<svg class=%q viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">%s</svg>\`,
+\t\t\`<svg class=%q style="vertical-align:-0.125em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">%s</svg>\`,
 \t\tcls, inner))
 }
 `;

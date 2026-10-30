@@ -256,9 +256,9 @@ html.light {
             { color: COL.orange, values: col('fin_wait2'), name: 'closing' }
         ], {});
         lc(document.getElementById('perfLoadChart'), [
-            { color: COL.red, values: col('load1'), name: 'run queue (1m)' },
+            { color: COL.red, values: col('load1').map(function(v){ return L.cores ? v / L.cores * 100 : v; }), name: 'run queue (% of cores)' },
             { color: COL.blue, values: col('cpu_busy'), name: 'CPU %' }
-        ], {});
+        ], { fixedMax: 100 });
         lc(document.getElementById('perfTputChart'), [
             { color: COL.green, values: col('throughput'), name: 'completed /s' },
             { color: COL.red, values: col('err_rate'), name: 'errors /s' }
@@ -560,11 +560,11 @@ html.light {
     var TGREEN  = T('--chart-green');
 
     // Build per-chart series specs once so resize re-renders use the same shape.
-    // Traffic chart now combines per-day (blue, gradient fill) and cumulative
-    // (purple line) into one panel.
+    // Traffic chart shows per-day request volume. The cumulative running total was
+    // dropped: on one shared linear axis it dwarfed and flattened the per-day signal
+    // (the actionable one); the grand total lives in the KPI tiles.
     var trafficSeries  = [
-        { name: 'Per day',     color: TBLUE,   values: data.daily_requests       },
-        { name: 'Cumulative',  color: TPURPLE, values: data.daily_requests_cumul }
+        { name: 'Per day',     color: TBLUE,   values: data.daily_requests       }
     ];
     var findingsSeries = [
         { name: 'Scans',  color: TBLUE,   values: data.daily_scans  },

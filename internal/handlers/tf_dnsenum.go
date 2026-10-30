@@ -30,7 +30,7 @@ import (
 //	subdomains[].subdomain        -> CatSubdomains  (recon, SevRank -1, cap 150)
 //	nameservers[]                 -> CatEmailRecon  (recon, SevRank -1)
 //	reverse_dns[]                 -> CatEmailRecon  (recon, SevRank -1)
-//	axfr_records (if non-empty)   -> CatHeaders     "Zone transfer (AXFR) allowed" MEDIUM SevRank 2
+//	axfr_records (if non-empty)   -> CatVuln        "Zone transfer (AXFR) allowed" HIGH SevRank 3
 //	crtsh_certs[]                 -> CatTLS         (recon, SevRank -1)
 //
 // scanID is part of the signature but ignored here — the engine links findings.
@@ -145,7 +145,7 @@ func parseDNSEnumTarget(resJSON, target string, scanDate time.Time, scanID strin
 			if len(nsSet) > 0 {
 				detail += " from " + strings.Join(nsSet, ", ")
 			}
-			push(CatHeaders, "Zone transfer (AXFR) allowed", detail, domain, "MEDIUM", 2)
+			push(CatVuln, "Zone transfer (AXFR) allowed", detail, domain, "HIGH", 3)
 		}
 
 		// crt.sh certificates -> CatTLS (recon fact).

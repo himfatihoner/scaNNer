@@ -466,7 +466,7 @@
                     {{else if .Settings.NetworkInterface}}
                     <p class="text-[10px] text-warning mt-1">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T "Interface pinned but namespace is not active — check privileges and reload"}}</p>
                     {{else}}
-                    <p class="text-[10px] text-dark-600 mt-1">{{T "Default mode — scans use the OS-chosen interface (no binding)."}}</p>
+                    <p class="text-[10px] text-amber-500/80 mt-1">{{icon "triangle-alert" "w-3 h-3 mr-1"}}{{T "Default mode — scans use the OS-chosen interface (no binding)."}}</p>
                     {{end}}
                 </div>
                 <div>
@@ -846,36 +846,40 @@
                 {{T "API Keys"}}
             </h3>
             <p class="text-xs text-dark-500 mb-4">{{T "Modules read these keys at scan time. Leave a field blank to disable that integration — affected modules will show a warning instead."}}</p>
-            <div class="space-y-3">
+            <label class="inline-flex items-center gap-1.5 text-[11px] text-dark-400 mb-3 cursor-pointer select-none hover:text-dark-200">
+                <input type="checkbox" class="accent-accent-500" onchange="var t=this.checked?'text':'password';document.querySelectorAll('#apiKeysBox input').forEach(function(i){i.type=t;});">
+                {{icon "eye" "w-3.5 h-3.5"}}{{T "Show keys"}}
+            </label>
+            <div id="apiKeysBox" class="space-y-3">
                 <div>
                     <label class="block text-xs text-dark-400 mb-1.5">{{T "WPScan API Token"}} <span class="text-[10px] text-dark-500 normal-case">{{T "— enriches WPScan with WPVulnDB vulnerability details. WPScan still runs without it."}}</span></label>
-                    <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="wpscan_api_key" value="{{.Settings.WPScanAPIKey}}" placeholder="{{T `get one free at wpscan.com (33-char token)`}}"
+                    <input type="password" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" name="wpscan_api_key" value="{{.Settings.WPScanAPIKey}}" placeholder="{{T `get one free at wpscan.com (33-char token)`}}"
                            class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                 </div>
                 <div>
                     <label class="block text-xs text-dark-400 mb-1.5">{{T "Have I Been Pwned API Key"}} <span class="text-[10px] text-dark-500 normal-case">{{T "— premium per-account breach checks. Domain-level checks work without a key."}}</span></label>
-                    <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="hibp_api_key" value="{{.Settings.HIBPAPIKey}}" placeholder="{{T `hibp-api-key (paid)`}}"
+                    <input type="password" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" name="hibp_api_key" value="{{.Settings.HIBPAPIKey}}" placeholder="{{T `hibp-api-key (paid)`}}"
                            class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                 </div>
                 <div>
                     <label class="block text-xs text-dark-400 mb-1.5">{{T "GitHub Personal Access Token"}} <span class="text-[10px] text-dark-500 normal-case">{{T "— required for the GitHub Leak Scanner module (raises rate limits 60→5000/hr)."}}</span></label>
-                    <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="github_token" value="{{.Settings.GitHubToken}}" placeholder="{{T `ghp_... (classic, public_repo scope is enough)`}}"
+                    <input type="password" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" name="github_token" value="{{.Settings.GitHubToken}}" placeholder="{{T `ghp_... (classic, public_repo scope is enough)`}}"
                            class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                 </div>
                 <div>
                     <label class="block text-xs text-dark-400 mb-1.5">{{T "Shodan API Key"}} <span class="text-[10px] text-dark-500 normal-case">{{T "— reserved for future Shodan integration."}}</span></label>
-                    <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="shodan_api_key" value="{{.Settings.ShodanAPIKey}}" placeholder="{{T `optional`}}"
+                    <input type="password" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" name="shodan_api_key" value="{{.Settings.ShodanAPIKey}}" placeholder="{{T `optional`}}"
                            class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs text-dark-400 mb-1.5">{{T "Censys API ID"}}</label>
-                        <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="censys_id" value="{{.Settings.CensysID}}" placeholder="{{T `optional`}}"
+                        <input type="password" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" name="censys_id" value="{{.Settings.CensysID}}" placeholder="{{T `optional`}}"
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                     </div>
                     <div>
                         <label class="block text-xs text-dark-400 mb-1.5">{{T "Censys API Secret"}}</label>
-                        <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="censys_secret" value="{{.Settings.CensysSecret}}" placeholder="{{T `optional`}}"
+                        <input type="password" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" name="censys_secret" value="{{.Settings.CensysSecret}}" placeholder="{{T `optional`}}"
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                     </div>
                 </div>
@@ -926,7 +930,7 @@
                     </div>
                     <div>
                         <label class="block text-xs text-dark-400 mb-1.5">{{T "Password"}} <span class="text-[10px] text-dark-500 normal-case">{{T "— optional"}}</span></label>
-                        <input type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" style="-webkit-text-security:disc;" name="smtp_password" value="" placeholder="{{if .Settings.SMTPPassword}}{{T `•••••• saved — blank keeps it`}}{{else}}{{T `leave blank if none`}}{{end}}"
+                        <input type="password" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" spellcheck="false" name="smtp_password" value="" placeholder="{{if .Settings.SMTPPassword}}{{T `•••••• saved — blank keeps it`}}{{else}}{{T `leave blank if none`}}{{end}}"
                                class="w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
                         {{if .Settings.SMTPPassword}}
                         <label class="flex items-center gap-1.5 mt-1.5 text-[11px] text-dark-500 cursor-pointer">

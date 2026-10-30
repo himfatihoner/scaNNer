@@ -1330,6 +1330,12 @@
   color: color-mix(in oklab, var(--color-amber-400) 70%, transparent);
 }
 }
+  .text-amber-500\/80 {
+  color: color-mix(in srgb, oklch(0.769 0.188 70.08) 80%, transparent);
+  @supports (color: color-mix(in lab, red, red)) {
+  color: color-mix(in oklab, var(--color-amber-500) 80%, transparent);
+}
+}
   .text-blue-300 { color: var(--color-blue-300); }
   .text-blue-400 { color: var(--color-blue-400); }
   .text-blue-500 { color: var(--color-blue-500); }

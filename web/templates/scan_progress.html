@@ -371,17 +371,17 @@ function copyScanLog(btn) {
         // whole run. Covers every module (this panel is shared).
         holder.querySelectorAll('.scan-status-badge').forEach(function(s) { s.remove(); });
         var cls = {
-            done: ['text-success', 'bg-success/10'],
-            running: ['text-accent-400', 'bg-accent-600/10', 'scan-pulse'],
-            pending: ['text-accent-400', 'bg-accent-600/10'],
-            queued: ['text-accent-300', 'bg-accent-600/10'],
-            cancelled: ['text-warning', 'bg-warning/10'],
-            error: ['text-danger', 'bg-danger/10'],
-            paused: ['text-warning', 'bg-warning/10']
+            done: ['text-success', 'bg-success/10', 'ring-success/30'],
+            running: ['text-accent-400', 'bg-accent-600/10', 'scan-pulse', 'ring-accent-500/30'],
+            pending: ['text-accent-400', 'bg-accent-600/10', 'ring-accent-500/30'],
+            queued: ['text-accent-300', 'bg-accent-600/10', 'ring-accent-500/30'],
+            cancelled: ['text-warning', 'bg-warning/10', 'ring-warning/30'],
+            error: ['text-danger', 'bg-danger/10', 'ring-danger/30'],
+            paused: ['text-warning', 'bg-warning/10', 'ring-warning/30']
         }[status];
         if (!cls) return;
         var span = document.createElement('span');
-        span.className = 'scan-status-badge text-[10px] uppercase px-2 py-1 rounded ml-2';
+        span.className = 'scan-status-badge text-[10px] uppercase px-2 py-1 rounded ml-2 ring-1 ring-inset';
         cls.forEach(function(c) { span.classList.add(c); });
         span.textContent = STATUS_LABELS[status] || status;
         holder.appendChild(span);

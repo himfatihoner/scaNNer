@@ -135,7 +135,7 @@
                 data-last-scanned="{{if not .LastScanned.IsZero}}{{.LastScanned.Unix}}{{else}}0{{end}}">
                 <td class="px-4 py-3">
                     <div class="flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full {{if eq .Type "ipv4"}}bg-success{{else if eq .Type "domain"}}bg-warning{{else if eq .Type "fqdn"}}bg-danger{{else}}bg-dark-500{{end}}"></span>
+                        <span class="w-2 h-2 rounded-full {{if eq .Type "ipv4"}}bg-cyan-500{{else if eq .Type "domain"}}bg-violet-500{{else if eq .Type "fqdn"}}bg-pink-500{{else}}bg-dark-500{{end}}"></span>
                         <a href="/assets/{{.Value}}" class="inline-block max-w-[18rem] truncate align-bottom mono text-sm text-dark-100 hover:text-accent-400 transition-colors" title="{{.Value}}">{{.Value}}</a>
                         {{if .InWorkspace}}
                         <span class="text-[9px] uppercase tracking-wider text-accent-300 bg-accent-500/10 border border-accent-500/20 px-1.5 py-0.5 rounded">{{T "In WS"}}</span>
@@ -147,11 +147,11 @@
                 </td>
                 <td class="px-4 py-3">
                     {{if eq .Type "ipv4"}}
-                    <span class="text-[10px] uppercase tracking-wider text-success bg-success/10 px-2 py-0.5 rounded">IPv4</span>
+                    <span class="text-[10px] uppercase tracking-wider text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded">IPv4</span>
                     {{else if eq .Type "domain"}}
-                    <span class="text-[10px] uppercase tracking-wider text-warning bg-warning/10 px-2 py-0.5 rounded">Domain</span>
+                    <span class="text-[10px] uppercase tracking-wider text-violet-300 bg-violet-500/10 px-2 py-0.5 rounded">Domain</span>
                     {{else if eq .Type "fqdn"}}
-                    <span class="text-[10px] uppercase tracking-wider text-danger bg-danger/10 px-2 py-0.5 rounded">FQDN</span>
+                    <span class="text-[10px] uppercase tracking-wider text-pink-300 bg-pink-500/10 px-2 py-0.5 rounded">FQDN</span>
                     {{else}}
                     <span class="text-[10px] uppercase tracking-wider text-dark-400 bg-dark-800 px-2 py-0.5 rounded">{{.Type}}</span>
                     {{end}}
@@ -478,11 +478,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 <h2 class="text-xl font-bold text-white mono mb-1">{{.Asset.Value}}</h2>
                 <div class="flex flex-wrap items-center gap-2">
                     {{if eq .Asset.Type "ipv4"}}
-                    <span class="text-[10px] uppercase tracking-wider text-success bg-success/10 px-2 py-0.5 rounded">IPv4</span>
+                    <span class="text-[10px] uppercase tracking-wider text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded">IPv4</span>
                     {{else if eq .Asset.Type "domain"}}
-                    <span class="text-[10px] uppercase tracking-wider text-warning bg-warning/10 px-2 py-0.5 rounded">Domain</span>
+                    <span class="text-[10px] uppercase tracking-wider text-violet-300 bg-violet-500/10 px-2 py-0.5 rounded">Domain</span>
                     {{else if eq .Asset.Type "fqdn"}}
-                    <span class="text-[10px] uppercase tracking-wider text-danger bg-danger/10 px-2 py-0.5 rounded">FQDN</span>
+                    <span class="text-[10px] uppercase tracking-wider text-pink-300 bg-pink-500/10 px-2 py-0.5 rounded">FQDN</span>
                     {{else}}
                     <span class="text-[10px] uppercase tracking-wider text-dark-300 bg-dark-800 px-2 py-0.5 rounded">{{.Asset.Type}}</span>
                     {{end}}

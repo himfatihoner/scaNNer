@@ -724,6 +724,8 @@
   "Delete": "Sil",
   "Delete list (members stay, just unassigned)": "Listeyi sil (üyeler kalır, yalnızca ataması kaldırılır)",
   "Delete or archive offenders, then run VACUUM to reclaim disk.": "Sorunlu kayıtları silin veya arşivleyin, ardından disk alanını geri kazanmak için VACUUM çalıştırın.",
+  "Delete selected": "Seçilenleri sil",
+  "Delete the selected targets? Their scans and findings are kept.": "Seçili hedefler silinsin mi? Taramaları ve bulguları korunur.",
   "Delete this scan": "Bu taramayı sil",
   "Delete this scan permanently? Its findings are also removed from the Vulnerabilities page and assets. Export first if you need them.": "Bu taramayı kalıcı olarak sil? Bulguları Zafiyetler sayfasından ve asset'lerden de kaldırılır. Gerekiyorsa önce dışa aktar.",
   "Delete this scan permanently? Its result AND its findings (Vulnerabilities page, assets) will be lost — Export first if you need them.": "Bu tarama kalıcı olarak silinsin mi? Sonucu VE bulguları (Zafiyetler sayfası, varlıklar) kaybolacak — ihtiyacınız varsa önce Dışa Aktarın.",

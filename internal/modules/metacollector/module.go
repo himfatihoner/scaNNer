@@ -21,4 +21,4 @@ func (m *Module) Description() string {
 		"emails, servers, dates, GPS) with exiftool. Requires a Serper API key in Settings."
 }
 func (m *Module) Category() string { return "recon" }
-func (m *Module) Icon() string     { return "📄" }
+func (m *Module) Icon() string     { return "file-text" }

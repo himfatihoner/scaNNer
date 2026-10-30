@@ -9,4 +9,4 @@ func (m *Module) Description() string {
 	return "Test 15 HTTP methods — GET, HEAD, POST, PUT, DELETE, PATCH, OPTIONS, TRACE, CONNECT plus WebDAV (PROPFIND, MKCOL, COPY, MOVE, LOCK, UNLOCK) — against target URLs across content-type variants (30 probes per URL) and detect allowed/dangerous methods."
 }
 func (m *Module) Category() string { return "web" }
-func (m *Module) Icon() string     { return "📡" }
+func (m *Module) Icon() string     { return "list" }

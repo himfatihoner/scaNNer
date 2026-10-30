@@ -8,4 +8,4 @@ func (m *Module) Description() string {
 	return "Probe CORS handling for origin reflection, null-origin trust, arbitrary-subdomain regex bypass, and Access-Control-Allow-Credentials with wildcard."
 }
 func (m *Module) Category() string { return "web" }
-func (m *Module) Icon() string     { return "🌍" }
+func (m *Module) Icon() string     { return "arrow-left-right" }

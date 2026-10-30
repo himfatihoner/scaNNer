@@ -8,4 +8,4 @@ func (m *Module) Description() string {
 	return "Detect Web Application Firewalls using header analysis, cookie inspection, error page fingerprinting, and payload-based probing."
 }
 func (m *Module) Category() string { return "recon" }
-func (m *Module) Icon() string     { return "🛡️" }
+func (m *Module) Icon() string     { return "shield" }

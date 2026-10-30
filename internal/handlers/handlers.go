@@ -289,6 +289,8 @@ func New(registry *modules.Registry, db *database.DB, templateDir string) (*Hand
 			"targetTypeLabel":   func(t models.TargetType) string { return i18n.T(lang, models.TargetTypeLabel(t)) },
 			"moduleDisplayName": func(m string) string { return i18n.T(lang, models.ModuleDisplayName(m)) },
 			"isVulnEmitter":     modules.IsVulnEmitter,
+			// icon renders an inline SVG (Lucide) by name; see internal/handlers/icons.go.
+			"icon": renderIcon,
 			// assetKey is the bare, scheme-stripped host used as the /assets/<key>
 			// path — linking with a raw "https://host" would put "://" in the URL
 			// path, which net/http path-cleans into a broken "/assets/https:/host".

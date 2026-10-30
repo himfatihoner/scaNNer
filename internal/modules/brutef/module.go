@@ -8,4 +8,4 @@ func (m *Module) Description() string {
 	return "Hydra-powered credential brute-force across ten services (SSH, FTP, RDP, SMB, MSSQL, MySQL, PostgreSQL, VNC, LDAP, Telnet). Pick protocol, supply username and password lists, and let it stream successful logins as they're found."
 }
 func (m *Module) Category() string { return "network" }
-func (m *Module) Icon() string     { return "🔑" }
+func (m *Module) Icon() string     { return "hammer" }

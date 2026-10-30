@@ -8,4 +8,4 @@ func (m *Module) Description() string {
 	return "Crawl websites to discover paths, directories, files, and endpoints by recursively following links, scripts, forms, and resource references."
 }
 func (m *Module) Category() string { return "web" }
-func (m *Module) Icon() string     { return "🕷️" }
+func (m *Module) Icon() string     { return "waypoints" }

@@ -8,4 +8,4 @@ func (m *Module) Description() string {
 	return "Probe login flows for username enumeration, weak credential acceptance, password reset token entropy, and session fixation."
 }
 func (m *Module) Category() string { return "web" }
-func (m *Module) Icon() string     { return "🔐" }
+func (m *Module) Icon() string     { return "shield-check" }

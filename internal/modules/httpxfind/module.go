@@ -9,4 +9,4 @@ func (m *Module) Description() string {
 	return "Discover HTTP/HTTPS services on targets. Scan common ports or all ports to find web servers, capture response details."
 }
 func (m *Module) Category() string { return "recon" }
-func (m *Module) Icon() string     { return "🌐" }
+func (m *Module) Icon() string     { return "globe" }

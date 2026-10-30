@@ -101,8 +101,8 @@
         {{end}}
         <div class="flex items-start justify-between mb-3">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-lg {{if $vuln}}bg-rose-500/15{{else}}bg-accent-600/20{{end}} flex items-center justify-center text-xl">
-                    {{.Icon}}
+                <div class="w-10 h-10 rounded-lg {{if $vuln}}bg-rose-500/15 text-rose-300{{else}}bg-accent-600/20 text-accent-300{{end}} flex items-center justify-center">
+                    {{icon .Icon "w-5 h-5"}}
                 </div>
                 <div>
                     <h4 class="text-sm font-semibold text-white group-hover:text-accent-400 transition-colors">{{.DisplayName}}</h4>

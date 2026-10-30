@@ -18,4 +18,4 @@ func (m *Module) Description() string {
 // credential tooling (brutef) under the Network filter — it has no network
 // traffic of its own, but that's where operators look for it.
 func (m *Module) Category() string { return "network" }
-func (m *Module) Icon() string     { return "🔓" }
+func (m *Module) Icon() string     { return "unlock" }

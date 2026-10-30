@@ -498,6 +498,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             </div>
         </div>
+        <details class="relative shrink-0">
+            <summary class="cursor-pointer list-none inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-accent-600 hover:bg-accent-500 text-white">{{icon "radar" "w-3.5 h-3.5"}}{{T "Scan with…"}}</summary>
+            <div class="absolute right-0 mt-1 w-56 bg-dark-850 border border-dark-700 rounded-lg shadow-xl p-1 z-20 text-[11px]">
+                <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-dark-500">{{T "Pre-fills the target"}}</div>
+                {{if eq .Asset.Type "ipv4"}}
+                <a href="/modules/portservice?target={{.Asset.Value}}" class="block px-2 py-1.5 rounded hover:bg-dark-800 text-dark-200">{{moduleDisplayName "portservice"}}</a>
+                <a href="/modules/hostdiscovery?target={{.Asset.Value}}" class="block px-2 py-1.5 rounded hover:bg-dark-800 text-dark-200">{{moduleDisplayName "hostdiscovery"}}</a>
+                <a href="/modules/smbenum?target={{.Asset.Value}}" class="block px-2 py-1.5 rounded hover:bg-dark-800 text-dark-200">{{moduleDisplayName "smbenum"}}</a>
+                <a href="/modules/snmpenum?target={{.Asset.Value}}" class="block px-2 py-1.5 rounded hover:bg-dark-800 text-dark-200">{{moduleDisplayName "snmpenum"}}</a>
+                {{else}}
+                <a href="/modules/httpxfind?target={{.Asset.Value}}" class="block px-2 py-1.5 rounded hover:bg-dark-800 text-dark-200">{{moduleDisplayName "httpxfind"}}</a>
+                <a href="/modules/wafdetect?target={{.Asset.Value}}" class="block px-2 py-1.5 rounded hover:bg-dark-800 text-dark-200">{{moduleDisplayName "wafdetect"}}</a>
+                <a href="/modules/sslscan?target={{.Asset.Value}}" class="block px-2 py-1.5 rounded hover:bg-dark-800 text-dark-200">{{moduleDisplayName "sslscan"}}</a>
+                <a href="/modules/whoisinfo?target={{.Asset.Value}}" class="block px-2 py-1.5 rounded hover:bg-dark-800 text-dark-200">{{moduleDisplayName "whoisinfo"}}</a>
+                <a href="/modules/portservice?target={{.Asset.Value}}" class="block px-2 py-1.5 rounded hover:bg-dark-800 text-dark-200">{{moduleDisplayName "portservice"}}</a>
+                {{end}}
+            </div>
+        </details>
     </div>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div class="bg-dark-900/60 border border-dark-800 rounded-lg p-3">

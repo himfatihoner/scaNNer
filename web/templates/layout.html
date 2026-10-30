@@ -619,6 +619,20 @@
     {{template "empty_toggle_script" .}}
     {{template "modal_script" .}}
 
+    <script>
+    // Pre-fill a module form target from ?target= (the asset "Scan with…" links
+    // point here) so the operator can launch a scan against an asset without
+    // retyping it. Fills only an empty field; the user still clicks Run (no auto-scan).
+    (function(){
+      try{
+        var t=new URLSearchParams(location.search).get('target');
+        if(!t) return;
+        var el=document.querySelector('textarea[name=manual_targets], input[name=target], textarea[name=targets], input[name=targets]');
+        if(el && !String(el.value||'').trim()){ el.value=t; el.focus(); }
+      }catch(e){}
+    })();
+    </script>
+
     <!-- Send-to-Burp on-demand helper. Result templates render a small
          button on each finding row that calls sendToBurp(url, method).
          Routes through /scans/send-to-burp which uses the user's

@@ -307,11 +307,12 @@ func New(registry *modules.Registry, db *database.DB, templateDir string) (*Hand
 			// moduleIcon looks up the icon (emoji) from the registry so scans
 			// list / dashboards stay in sync as new modules are added. Falls
 			// back to "🧩" for unknown modules.
-			"moduleIcon": func(name string) string {
+			"moduleIcon": func(name string) template.HTML {
+				icon := "package"
 				if m, ok := registry.Get(name); ok {
-					return m.Icon()
+					icon = m.Icon()
 				}
-				return "🧩"
+				return renderIcon(icon, "w-4 h-4 text-dark-300")
 			},
 			"divf": func(a, b float64) float64 {
 				if b == 0 {

@@ -8,7 +8,7 @@
 
 <div class="flex items-start justify-between mb-6">
     <div>
-        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">⚡</span> Concurrency Tester</h2>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">{{icon "zap" "w-3.5 h-3.5"}}</span> Concurrency Tester</h2>
         <p class="text-sm text-dark-400 mt-1">Probe a target's practical concurrency limit using a ramp test, sustained-load test, and burst test.</p>
     </div>
 </div>
@@ -19,7 +19,7 @@
             <h3 class="text-sm font-semibold text-white mb-4">New Test</h3>
 
             <div class="bg-warning/10 border border-warning/30 rounded-lg p-3 mb-4">
-                <p class="text-[11px] text-warning font-medium">⚠ This module deliberately stresses the target. A default run sends ~3 000 requests per target. Only run against systems you own or have explicit authorization to load-test.</p>
+                <p class="text-[11px] text-warning font-medium">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}This module deliberately stresses the target. A default run sends ~3 000 requests per target. Only run against systems you own or have explicit authorization to load-test.</p>
             </div>
 
             <form action="/modules/concurtest/run" method="POST">

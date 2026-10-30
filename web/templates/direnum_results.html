@@ -126,8 +126,8 @@
                                 class="ml-2 text-[9px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/30 hover:bg-orange-500/20">→ Burp</button>
                     </td>
                     <td class="px-5 py-2">
-                        {{if .IsDir}}<span class="text-[11px] text-accent-400">📁 {{T `dir`}}</span>
-                        {{else}}<span class="text-[11px] text-success">📄 {{T `file`}}</span>{{end}}
+                        {{if .IsDir}}<span class="text-[11px] text-accent-400">{{icon "folder" "w-3.5 h-3.5 mr-1"}}{{T `dir`}}</span>
+                        {{else}}<span class="text-[11px] text-success">{{icon "file-text" "w-3.5 h-3.5 mr-1"}}{{T `file`}}</span>{{end}}
                     </td>
                     <td class="px-5 py-2">
                         <span class="mono text-[11px] px-1.5 py-0.5 rounded
@@ -176,7 +176,7 @@
                 {{if eq .Status "scanning"}}
                     <span class="inline-flex shrink-0 w-4 h-4 items-center justify-center">{{template "radar_inline" (dict "size" 15)}}</span>
                 {{else if eq .Status "done"}}
-                    <span class="text-success shrink-0 w-4 text-center">✓</span>
+                    <span class="text-success shrink-0 w-4 text-center">{{icon "check" "w-3.5 h-3.5"}}</span>
                 {{else}}
                     <span class="text-dark-600 shrink-0 w-4 text-center">○</span>
                 {{end}}

@@ -30,7 +30,7 @@
     <div id="result" class="hidden bg-dark-900 border border-dark-800 rounded-xl p-5 mb-5"></div>
 
     <div id="applyWrap" class="hidden">
-        {{if $u.ScansRunning}}<div class="mb-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-2.5 text-xs text-warning">⚠ {{T `Scans are running. Applying an update stops them and restarts the app.`}}</div>{{end}}
+        {{if $u.ScansRunning}}<div class="mb-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-2.5 text-xs text-warning">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T `Scans are running. Applying an update stops them and restarts the app.`}}</div>{{end}}
 
         <div id="sudoWrap" class="hidden mb-3 rounded-lg border border-accent-500/40 bg-accent-600/5 px-4 py-3">
             <p class="text-xs text-dark-200 font-medium mb-1">{{T `This update changes system integration (service · capabilities · installer).`}}</p>

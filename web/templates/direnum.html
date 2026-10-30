@@ -7,7 +7,7 @@
 </div>
 <div class="flex items-start justify-between mb-6">
     <div>
-        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">📂</span> Directory Enumerator</h2>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">{{icon "folder-open" "w-3.5 h-3.5"}}</span> Directory Enumerator</h2>
         <p class="text-sm text-dark-400 mt-1">{{T `Technology-aware directory and file brute-forcing with smart false-positive filtering`}}</p>
     </div>
 </div>
@@ -187,7 +187,7 @@
                                 </select>
                             </div>
                         </div>
-                        <p class="text-[10px] text-warning mt-2 hidden" id="direnum-depth-warn">⚠ {{T `Each extra level can multiply request volume by the number of dirs found at the previous level. Enable Smart Scan to keep noise down.`}}</p>
+                        <p class="text-[10px] text-warning mt-2 hidden" id="direnum-depth-warn">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T `Each extra level can multiply request volume by the number of dirs found at the previous level. Enable Smart Scan to keep noise down.`}}</p>
                         <script>
                         (function() {
                             var cb = document.getElementById('direnum-recursive');

@@ -155,7 +155,7 @@ function tdShowEvidence(btn) {
 {{if .AutoCVEMatch}}
 <div class="bg-dark-900 border border-rose-500/30 rounded-xl mb-4">
     <div class="flex items-center gap-3 px-5 py-3 border-b border-dark-800">
-        <span class="text-rose-300 text-lg">🩻</span>
+        <span class="text-rose-300 text-lg">{{icon "scan-line" "w-3.5 h-3.5"}}</span>
         <div class="flex-1">
             <p class="text-sm font-semibold text-white">{{T "CVE Matcher"}}
                 {{if .CVEMatches}}<span class="text-[10px] mono px-1.5 py-0.5 rounded bg-success/20 text-success ml-1">{{T "%d matches" (len .CVEMatches)}}</span>

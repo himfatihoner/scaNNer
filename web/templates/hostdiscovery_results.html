@@ -97,9 +97,9 @@
                 </td>
                 <td class="px-4 py-2.5 align-top">
                     {{if .SuspectedFirewall}}
-                    <span class="text-[11px] text-warning bg-warning/10 border border-warning/30 px-2 py-1 rounded" title="Run portservice on this IP to verify which (if any) of these are real services.">⚠ +{{.FirewalledCount}} open ports — potential firewall (further scan skipped)</span>
+                    <span class="text-[11px] text-warning bg-warning/10 border border-warning/30 px-2 py-1 rounded" title="Run portservice on this IP to verify which (if any) of these are real services.">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}+{{.FirewalledCount}} open ports — potential firewall (further scan skipped)</span>
                     {{else if .Error}}
-                    <span class="text-[11px] text-danger bg-danger/10 border border-danger/30 px-2 py-1 rounded" title="{{.Error}}">⚠ nmap error: {{.Error}}</span>
+                    <span class="text-[11px] text-danger bg-danger/10 border border-danger/30 px-2 py-1 rounded" title="{{.Error}}">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}nmap error: {{.Error}}</span>
                     {{else if .Ports}}
                     <div class="flex flex-wrap gap-1 max-w-[520px]">
                         {{range .Ports}}{{if eq .State "open"}}

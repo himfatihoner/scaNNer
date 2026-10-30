@@ -78,7 +78,7 @@
     </div>
     {{if .DNSAuth}}
     <div class="px-5 pb-5">
-        <h4 class="text-xs font-semibold text-dark-400 uppercase tracking-wider mb-2">📬 {{T "DNS Authentication"}}{{if .DNSAuth.MailProvider}} <span class="ml-1 text-[10px] text-accent-400 normal-case tracking-normal">· {{.DNSAuth.MailProvider}}</span>{{end}}</h4>
+        <h4 class="text-xs font-semibold text-dark-400 uppercase tracking-wider mb-2">{{icon "inbox" "w-3.5 h-3.5 mr-1"}}{{T "DNS Authentication"}}{{if .DNSAuth.MailProvider}} <span class="ml-1 text-[10px] text-accent-400 normal-case tracking-normal">· {{.DNSAuth.MailProvider}}</span>{{end}}</h4>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <!-- MX -->
             <div class="bg-dark-850 rounded-lg p-3">
@@ -142,7 +142,7 @@
 
     {{if or .Breaches .BreachError}}
     <div class="px-5 pb-5">
-        <h4 class="text-xs font-semibold text-dark-400 uppercase tracking-wider mb-2">🔓 {{T "HIBP Domain Breaches"}}{{if .Breaches}} ({{len .Breaches}}){{end}}</h4>
+        <h4 class="text-xs font-semibold text-dark-400 uppercase tracking-wider mb-2">{{icon "unlock" "w-3.5 h-3.5 mr-1"}}{{T "HIBP Domain Breaches"}}{{if .Breaches}} ({{len .Breaches}}){{end}}</h4>
         {{if .BreachError}}
         <p class="text-[11px] text-warning mb-2">{{.BreachError}}</p>
         {{end}}
@@ -150,7 +150,7 @@
         <div class="space-y-1.5">
             {{range .Breaches}}
             <div class="flex items-start gap-3 px-3 py-2 bg-danger/5 border border-danger/20 rounded-lg">
-                <span class="text-danger mt-0.5">⚠</span>
+                <span class="text-danger mt-0.5">{{icon "triangle-alert" "w-3.5 h-3.5"}}</span>
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 flex-wrap">
                         <p class="text-sm font-medium text-white">{{.Title}}</p>
@@ -169,7 +169,7 @@
             {{end}}
         </div>
         {{else if not .BreachError}}
-        <p class="text-[11px] text-success">✓ {{T "no recorded breaches for this domain"}}</p>
+        <p class="text-[11px] text-success">{{icon "check" "w-3.5 h-3.5 mr-1"}}{{T "no recorded breaches for this domain"}}</p>
         {{end}}
     </div>
     {{end}}

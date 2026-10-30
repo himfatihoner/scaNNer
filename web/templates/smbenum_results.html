@@ -38,9 +38,9 @@
     <div class="px-5 py-4 border-b border-dark-800 flex items-center justify-between">
         <div class="flex items-center gap-3">
             {{if not .SMBPortOpen}}
-            <span class="w-7 h-7 rounded-lg bg-danger/20 flex items-center justify-center text-sm">✕</span>
+            <span class="w-7 h-7 rounded-lg bg-danger/20 flex items-center justify-center text-sm">{{icon "x" "w-3.5 h-3.5"}}</span>
             {{else}}
-            <span class="w-7 h-7 rounded-lg bg-success/20 flex items-center justify-center text-sm">📁</span>
+            <span class="w-7 h-7 rounded-lg bg-success/20 flex items-center justify-center text-sm">{{icon "folder" "w-3.5 h-3.5"}}</span>
             {{end}}
             <div>
                 <span class="mono text-sm font-semibold text-accent-400">{{.Target}}</span>

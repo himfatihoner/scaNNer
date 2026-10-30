@@ -9,7 +9,7 @@
      why this module is heavier than Host Discovery. -->
 <div class="bg-gradient-to-br from-accent-600/10 via-dark-900 to-dark-900 border border-accent-500/30 rounded-xl p-6 mb-6">
     <div class="flex items-start gap-4">
-        <div class="w-12 h-12 rounded-lg bg-accent-600/20 border border-accent-500/30 flex items-center justify-center text-2xl shrink-0">🛰️</div>
+        <div class="w-12 h-12 rounded-lg bg-accent-600/20 border border-accent-500/30 flex items-center justify-center text-2xl shrink-0">{{icon "satellite" "w-3.5 h-3.5"}}</div>
         <div class="flex-1">
             <h2 class="text-xl font-bold text-white">{{T "Advanced Host Scanner"}}</h2>
             <p class="text-sm text-dark-300 mt-1">{{T "Nessus-style deep scan: parallel port discovery → firewall detection → version-aware NSE scripts → banner grab → Nuclei vulnerability sweep."}}</p>
@@ -234,7 +234,7 @@
                                 <div>
                                     <p class="text-xs font-medium text-dark-200">{{T "Deep — adds intrusive + fuzzer + exploit categories"}}</p>
                                     <p class="text-[11px] text-dark-500 mt-0.5">{{T "Fires all of NSE's vuln/exploit scripts. Some scripts may temporarily crash the service, and NIDS alarms will very likely fire. 10+ minutes per host."}}</p>
-                                    <p class="text-[10px] text-warning mt-0.5 mono">⚠ {{T "adds: intrusive, fuzzer, exploit · still excludes: external, dos"}}</p>
+                                    <p class="text-[10px] text-warning mt-0.5 mono">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T "adds: intrusive, fuzzer, exploit · still excludes: external, dos"}}</p>
                                 </div>
                             </label>
                         </div>
@@ -272,7 +272,7 @@
                             <div>
                                 <p class="text-xs font-medium text-dark-200">{{T "Also run UDP scan (-sU)"}}{{template "info_icon" (T `Adds an nmap -sU pass alongside the TCP discovery passes. Catches DNS (53/udp), SNMP (161), NTP (123), DHCP (67), TFTP (69), NetBIOS (137/138), VPN gateways. Requires root/CAP_NET_RAW. Significantly slower than TCP.`)}}</p>
                                 <p class="text-[11px] text-dark-500 mt-0.5">{{T "Catches DNS, SNMP, NTP, NetBIOS, VPN services that TCP scan misses."}}</p>
-                                <p class="text-[10px] text-warning mt-0.5">⚠ {{T "Slow — nmap rate-limits UDP to ~1pps per closed port. A /24 can take 30+ minutes. Needs root privileges."}}</p>
+                                <p class="text-[10px] text-warning mt-0.5">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T "Slow — nmap rate-limits UDP to ~1pps per closed port. A /24 can take 30+ minutes. Needs root privileges."}}</p>
                             </div>
                         </label>
                     </div>

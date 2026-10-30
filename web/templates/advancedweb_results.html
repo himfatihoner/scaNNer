@@ -86,11 +86,11 @@
             </div>
             <div class="flex flex-col items-end gap-2">
                 {{if eq (print .Scan.Status) "done"}}
-                    <span class="text-[11px] px-2.5 py-1 rounded-full bg-success/15 text-success border border-success/30 font-medium">✓ {{T "Completed"}}</span>
+                    <span class="text-[11px] px-2.5 py-1 rounded-full bg-success/15 text-success border border-success/30 font-medium">{{icon "check" "w-3.5 h-3.5 mr-1"}}{{T "Completed"}}</span>
                 {{else if eq (print .Scan.Status) "running"}}
                     <span class="text-[11px] px-2.5 py-1 rounded-full bg-accent-500/15 text-accent-300 border border-accent-500/30 font-medium scan-pulse">⟳ {{T "Running"}}</span>
                 {{else if eq (print .Scan.Status) "error"}}
-                    <span class="text-[11px] px-2.5 py-1 rounded-full bg-danger/15 text-danger border border-danger/30 font-medium">✗ {{T "Error"}}</span>
+                    <span class="text-[11px] px-2.5 py-1 rounded-full bg-danger/15 text-danger border border-danger/30 font-medium">{{icon "x" "w-3.5 h-3.5 mr-1"}}{{T "Error"}}</span>
                 {{else if eq (print .Scan.Status) "cancelled"}}
                     <span class="text-[11px] px-2.5 py-1 rounded-full bg-warning/15 text-warning border border-warning/30 font-medium">⊘ {{T "Cancelled"}}</span>
                 {{end}}
@@ -329,9 +329,9 @@ function awScrollToStage(ev, stageKey) {
                     <div class="flex items-center gap-2 flex-wrap">
                         <span class="text-[10px] uppercase tracking-wider text-dark-500 font-mono">Stage {{add $idx 1}}</span>
                         <span class="text-sm font-semibold text-white">{{$displayName}}</span>
-                        {{if eq $status "done"}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-success/15 text-success">✓ {{T "done"}}</span>
+                        {{if eq $status "done"}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-success/15 text-success">{{icon "check" "w-3.5 h-3.5 mr-1"}}{{T "done"}}</span>
                         {{else if eq $status "running"}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-accent-500/15 text-accent-300">⟳ {{T "running"}}</span>
-                        {{else if eq $status "error"}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-danger/15 text-danger">✗ {{T "error"}}</span>
+                        {{else if eq $status "error"}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-danger/15 text-danger">{{icon "x" "w-3.5 h-3.5 mr-1"}}{{T "error"}}</span>
                         {{else if eq $status "skipped"}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-warning/15 text-warning">⤼ {{T "skipped"}}</span>
                         {{else if eq $status "disabled"}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-dark-800 text-dark-400">{{T "off"}}</span>
                         {{else}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-dark-800 text-dark-400">{{$status}}</span>

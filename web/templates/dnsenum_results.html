@@ -272,7 +272,7 @@
 
     {{if .AXFRRecords}}
     <div class="px-5 pb-5">
-        <h4 class="text-xs font-semibold text-warning uppercase tracking-wider mb-2">⚠ {{T "Zone Transfer Succeeded (%d records)" (len .AXFRRecords)}}</h4>
+        <h4 class="text-xs font-semibold text-warning uppercase tracking-wider mb-2">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T "Zone Transfer Succeeded (%d records)" (len .AXFRRecords)}}</h4>
         <div class="bg-dark-850 rounded-lg overflow-hidden">
             <table class="w-full">
                 <thead><tr class="border-b border-dark-700">

@@ -7,7 +7,7 @@
 </div>
 <div class="flex items-start justify-between mb-6">
     <div>
-        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">🔓</span> Hashcat</h2>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">{{icon "unlock" "w-3.5 h-3.5"}}</span> Hashcat</h2>
         <p class="text-sm text-dark-400 mt-1">Crack password hashes locally. Search the algorithm by name, pick famous rule sets and wordlists (or a brute-force mask), and cap how much CPU it uses.</p>
     </div>
 </div>
@@ -42,7 +42,7 @@
                         <div id="modeResults" class="hidden mt-1 max-h-56 overflow-y-auto bg-dark-950 border border-dark-700 rounded-lg divide-y divide-dark-800"></div>
                         <div id="modeChosen" class="hidden mt-2 flex items-center justify-between gap-2 px-3 py-2 bg-accent-600/10 border border-accent-500/40 rounded-lg">
                             <span class="text-xs text-accent-200 mono" id="modeChosenLabel"></span>
-                            <button type="button" onclick="hcClearMode()" class="text-dark-400 hover:text-white text-xs">✕</button>
+                            <button type="button" onclick="hcClearMode()" class="text-dark-400 hover:text-white text-xs">{{icon "x" "w-3.5 h-3.5"}}</button>
                         </div>
                         <input type="hidden" name="mode_id" id="modeId" value=""/>
                         <input type="hidden" name="mode_name" id="modeName" value=""/>

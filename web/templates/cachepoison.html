@@ -7,7 +7,7 @@
 </div>
 <div class="flex items-start justify-between mb-6">
     <div>
-        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">💥</span> Cache Poisoning & HTTP Smuggling</h2>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">{{icon "bomb" "w-3.5 h-3.5"}}</span> Cache Poisoning & HTTP Smuggling</h2>
         <p class="text-sm text-dark-400 mt-1">Probe X-Forwarded-Host / Host-override reflection (cache poisoning) and CL.TE / TE.CL / TE.TE smuggling.</p>
     </div>
 </div>
@@ -32,7 +32,7 @@
                     <label class="flex items-center gap-2 text-xs text-dark-300">
                         <input type="checkbox" name="test_smuggle" checked class="rounded border-dark-600 bg-dark-800 text-accent-500"> HTTP smuggling probes (CL.TE / TE.CL / TE.TE)
                     </label>
-                    <p class="text-[10px] text-warning bg-warning/5 border border-warning/30 rounded p-2 mt-2">⚠ Smuggling probes use raw TCP. They may briefly stall connections on vulnerable servers and could affect legit traffic — pentest on authorized targets only.</p>
+                    <p class="text-[10px] text-warning bg-warning/5 border border-warning/30 rounded p-2 mt-2">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}Smuggling probes use raw TCP. They may briefly stall connections on vulnerable servers and could affect legit traffic — pentest on authorized targets only.</p>
                 </div>
                 {{template "http_options" .}}
                 {{template "http_tuning" (dict "TuneConcHint" $.TuneConcHint "TuneTimeoutHint" "12")}}

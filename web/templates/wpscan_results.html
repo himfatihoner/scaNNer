@@ -36,13 +36,13 @@
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
                 {{if eq .Status "unreachable"}}
-                <span class="w-7 h-7 rounded-lg bg-danger/20 flex items-center justify-center text-sm">📡</span>
+                <span class="w-7 h-7 rounded-lg bg-danger/20 flex items-center justify-center text-sm">{{icon "radio" "w-3.5 h-3.5"}}</span>
                 {{else if eq .Status "not_wordpress"}}
-                <span class="w-7 h-7 rounded-lg bg-warning/20 flex items-center justify-center text-sm">❓</span>
+                <span class="w-7 h-7 rounded-lg bg-warning/20 flex items-center justify-center text-sm">{{icon "circle-help" "w-3.5 h-3.5"}}</span>
                 {{else if eq .Status "error"}}
-                <span class="w-7 h-7 rounded-lg bg-danger/20 flex items-center justify-center text-sm">⚠</span>
+                <span class="w-7 h-7 rounded-lg bg-danger/20 flex items-center justify-center text-sm">{{icon "triangle-alert" "w-3.5 h-3.5"}}</span>
                 {{else if .IsWordPress}}
-                <span class="w-7 h-7 rounded-lg bg-success/20 flex items-center justify-center text-sm">✓</span>
+                <span class="w-7 h-7 rounded-lg bg-success/20 flex items-center justify-center text-sm">{{icon "check" "w-3.5 h-3.5"}}</span>
                 {{end}}
                 <span class="mono text-sm font-semibold text-accent-400">{{.URL}}</span>
             </div>

@@ -7,7 +7,7 @@
 </div>
 <div class="flex items-start justify-between mb-4">
     <div>
-        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">📡</span> OOB Collaborator <span class="text-[11px] mono px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 normal-case font-medium">LOCAL ONLY</span></h2>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">{{icon "radio" "w-3.5 h-3.5"}}</span> OOB Collaborator <span class="text-[11px] mono px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 normal-case font-medium">LOCAL ONLY</span></h2>
         <p class="text-sm text-dark-400 mt-1">Built-in HTTP listener for SSRF/XXE/blind-XSS/SSTI proof callbacks. Local-listener-based — works only when the TARGET can reach scaNNer's host.</p>
     </div>
 </div>
@@ -20,12 +20,12 @@
             <p class="font-semibold text-amber-200 mb-1.5">Read before use — this module needs network reachability</p>
             <p class="text-amber-100/90 mb-2">scaNNer opens a local HTTP listener. For the target server to call back, it must be able to reach this listener's IP:port. That means:</p>
             <ul class="space-y-1 ml-5 text-amber-100/80 list-disc">
-                <li><span class="text-amber-200">✓ Works</span> when scaNNer runs on the same LAN as the target (internal pentest, CTF, lab)</li>
-                <li><span class="text-amber-200">✓ Works</span> when scaNNer is on a VPS / cloud host with a public IP and the listen port is firewall-open</li>
-                <li><span class="text-amber-200">✓ Works</span> when you've port-forwarded the listener through a VPN tunnel (Tailscale, WireGuard, ngrok HTTP)</li>
-                <li><span class="text-red-300">✗ DOES NOT work</span> from your laptop on residential NAT — outbound-only, target can't reach you</li>
-                <li><span class="text-red-300">✗ NO DNS authority</span> — XXE / blind-SSRF via subdomain queries won't surface here (no DNS server)</li>
-                <li><span class="text-red-300">✗ NO HTTPS</span> — modern targets may refuse to fetch plain-HTTP callbacks (mixed-content / strict TLS policies)</li>
+                <li><span class="text-amber-200">{{icon "check" "w-3.5 h-3.5 mr-1"}}Works</span> when scaNNer runs on the same LAN as the target (internal pentest, CTF, lab)</li>
+                <li><span class="text-amber-200">{{icon "check" "w-3.5 h-3.5 mr-1"}}Works</span> when scaNNer is on a VPS / cloud host with a public IP and the listen port is firewall-open</li>
+                <li><span class="text-amber-200">{{icon "check" "w-3.5 h-3.5 mr-1"}}Works</span> when you've port-forwarded the listener through a VPN tunnel (Tailscale, WireGuard, ngrok HTTP)</li>
+                <li><span class="text-red-300">{{icon "x" "w-3.5 h-3.5 mr-1"}}DOES NOT work</span> from your laptop on residential NAT — outbound-only, target can't reach you</li>
+                <li><span class="text-red-300">{{icon "x" "w-3.5 h-3.5 mr-1"}}NO DNS authority</span> — XXE / blind-SSRF via subdomain queries won't surface here (no DNS server)</li>
+                <li><span class="text-red-300">{{icon "x" "w-3.5 h-3.5 mr-1"}}NO HTTPS</span> — modern targets may refuse to fetch plain-HTTP callbacks (mixed-content / strict TLS policies)</li>
             </ul>
             <p class="mt-3 text-amber-100/90">
                 <strong class="text-amber-200">For real public-target engagements, use:</strong>

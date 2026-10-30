@@ -49,7 +49,7 @@
 
                 {{if .User.TwoFactorEnrolled}}
                     <div class="flex items-center justify-between">
-                        <span class="text-sm text-success">✓ {{T "Enabled"}} — {{if eq .User.TwoFactorMethod "totp"}}{{T "authenticator app"}}{{else}}{{T "e-mail codes"}}{{end}}</span>
+                        <span class="text-sm text-success">{{icon "check" "w-3.5 h-3.5 mr-1"}}{{T "Enabled"}} — {{if eq .User.TwoFactorMethod "totp"}}{{T "authenticator app"}}{{else}}{{T "e-mail codes"}}{{end}}</span>
                         {{if not .User.TwoFactorRequired}}
                         <form method="POST" action="/account/2fa">
                             <input type="hidden" name="action" value="disable">

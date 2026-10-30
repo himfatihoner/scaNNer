@@ -34,7 +34,7 @@
     <div class="px-5 py-4 border-b border-dark-800">
         <div class="flex items-center justify-between gap-3 flex-wrap">
             <div class="flex items-center gap-3">
-                <span class="w-7 h-7 rounded-lg {{if $tr.CrackedSecret}}bg-danger/20{{else}}bg-accent-500/20{{end}} flex items-center justify-center text-sm">🔑</span>
+                <span class="w-7 h-7 rounded-lg {{if $tr.CrackedSecret}}bg-danger/20{{else}}bg-accent-500/20{{end}} flex items-center justify-center text-sm">{{icon "key-round" "w-3.5 h-3.5"}}</span>
                 <div>
                     <p class="text-sm font-semibold text-white">Token #{{add $i 1}}</p>
                     {{if $tr.Algorithm}}<p class="text-[11px] text-dark-500 mt-0.5 mono uppercase">alg: {{$tr.Algorithm}}{{if $tr.AttemptCount}} · {{$tr.AttemptCount}} candidates tried{{end}}</p>{{end}}

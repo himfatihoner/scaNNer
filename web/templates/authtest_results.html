@@ -45,7 +45,7 @@
         {{end}}
     </div>
     {{else}}
-    <div class="px-5 py-3 text-xs text-success">✓ No clear auth misconfiguration found with the supplied credentials.</div>
+    <div class="px-5 py-3 text-xs text-success">{{icon "check" "w-3.5 h-3.5 mr-1"}}No clear auth misconfiguration found with the supplied credentials.</div>
     {{end}}
 
     {{if .Attempts}}

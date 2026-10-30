@@ -32,7 +32,7 @@
     <div class="flex items-center justify-between px-5 py-4 border-b border-dark-800">
         <div class="flex items-center gap-3">
             {{if .WAFDetected}}
-            <span class="w-8 h-8 rounded-lg bg-warning/20 flex items-center justify-center text-sm">🛡️</span>
+            <span class="w-8 h-8 rounded-lg bg-warning/20 flex items-center justify-center text-sm">{{icon "shield" "w-3.5 h-3.5"}}</span>
             {{else if .Reachable}}
             <span class="w-8 h-8 rounded-lg bg-success/20 flex items-center justify-center">
                 <svg class="w-4 h-4 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>

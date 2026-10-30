@@ -4,7 +4,7 @@
 <div id="leakBanner" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-danger text-white px-6 py-2.5 flex items-center justify-between gap-4 text-sm">
     <div class="flex items-center gap-2 min-w-0">
         <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M4.93 19h14.14a2 2 0 001.74-2.99l-7.07-12a2 2 0 00-3.48 0l-7.07 12A2 2 0 004.93 19z"/></svg>
-        <span class="font-semibold shrink-0">⚠ {{T "DNS LEAK detected"}}</span>
+        <span class="font-semibold shrink-0">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T "DNS LEAK detected"}}</span>
         <span class="text-white/80 truncate">{{T "— running scans stopped. See the Leak Report for details."}}</span>
     </div>
     <div class="flex items-center gap-3 shrink-0">

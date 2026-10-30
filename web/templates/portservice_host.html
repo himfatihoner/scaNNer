@@ -45,7 +45,7 @@
                     {{if .Host.PingReachable}}<span class="text-[10px] text-dark-500">{{T "ping"}} ✓</span>{{end}}
                 </div>
                 {{if .Host.SuspectedFirewall}}
-                <p class="text-xs text-warning mt-2">⚠ {{T "%d+ ports reflected as open by phase-1 — only common ports were deep-scanned." .Host.FirewalledCount}}</p>
+                <p class="text-xs text-warning mt-2">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T "%d+ ports reflected as open by phase-1 — only common ports were deep-scanned." .Host.FirewalledCount}}</p>
                 {{end}}
             </div>
         </div>
@@ -140,7 +140,7 @@
                     <code class="mono text-[11px] text-dark-300">{{.HTTPResp.URL}}</code>
                 </div>
                 {{if .HTTPResp.Error}}
-                <p class="text-[11px] text-danger">⚠ {{.HTTPResp.Error}}</p>
+                <p class="text-[11px] text-danger">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{.HTTPResp.Error}}</p>
                 {{else}}
                 <div class="flex flex-wrap items-center gap-3">
                     <span class="mono text-xs px-2 py-1 rounded border

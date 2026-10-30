@@ -118,14 +118,14 @@
 
         {{if .Emails}}
         <details class="bg-dark-850 border border-dark-800 rounded-lg">
-            <summary class="cursor-pointer px-4 py-2 text-xs text-white flex items-center gap-2">✉️ {{T `Emails`}} <span class="mono text-[10px] px-1.5 py-0.5 rounded bg-accent-500/15 text-accent-300">{{len .Emails}}</span></summary>
+            <summary class="cursor-pointer px-4 py-2 text-xs text-white flex items-center gap-2">{{icon "mail" "w-3.5 h-3.5 mr-1"}}{{T `Emails`}} <span class="mono text-[10px] px-1.5 py-0.5 rounded bg-accent-500/15 text-accent-300">{{len .Emails}}</span></summary>
             <div class="px-4 pb-3 max-h-48 overflow-auto space-y-0.5">{{range .Emails}}<div class="mono text-[11px] text-dark-200 select-all">{{.}}</div>{{end}}</div>
         </details>
         {{end}}
 
         {{if .Forms}}
         <details class="bg-dark-850 border border-dark-800 rounded-lg">
-            <summary class="cursor-pointer px-4 py-2 text-xs text-white flex items-center gap-2">📝 {{T `Forms`}} <span class="mono text-[10px] px-1.5 py-0.5 rounded bg-accent-500/15 text-accent-300">{{len .Forms}}</span></summary>
+            <summary class="cursor-pointer px-4 py-2 text-xs text-white flex items-center gap-2">{{icon "square-pen" "w-3.5 h-3.5 mr-1"}}{{T `Forms`}} <span class="mono text-[10px] px-1.5 py-0.5 rounded bg-accent-500/15 text-accent-300">{{len .Forms}}</span></summary>
             <div class="px-4 pb-3 max-h-64 overflow-auto space-y-2">
                 {{range .Forms}}
                 <div class="border border-dark-700 rounded p-2">
@@ -140,7 +140,7 @@
 
         {{if .Comments}}
         <details class="bg-dark-850 border border-dark-800 rounded-lg">
-            <summary class="cursor-pointer px-4 py-2 text-xs text-white flex items-center gap-2">💬 {{T `HTML Comments`}} <span class="mono text-[10px] px-1.5 py-0.5 rounded bg-accent-500/15 text-accent-300">{{len .Comments}}</span></summary>
+            <summary class="cursor-pointer px-4 py-2 text-xs text-white flex items-center gap-2">{{icon "message-square" "w-3.5 h-3.5 mr-1"}}{{T `HTML Comments`}} <span class="mono text-[10px] px-1.5 py-0.5 rounded bg-accent-500/15 text-accent-300">{{len .Comments}}</span></summary>
             <div class="px-4 pb-3 max-h-64 overflow-auto space-y-1.5">
                 {{range .Comments}}
                 <div class="border border-dark-700 rounded p-2">

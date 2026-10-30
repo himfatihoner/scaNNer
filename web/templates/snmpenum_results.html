@@ -31,7 +31,7 @@
 
 {{if .Warnings}}
 <div class="mb-6 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3">
-    <p class="text-[10px] uppercase tracking-wider text-warning mb-1.5">⚠ {{T "Warnings"}}</p>
+    <p class="text-[10px] uppercase tracking-wider text-warning mb-1.5">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T "Warnings"}}</p>
     <ul class="list-disc list-inside text-[11px] text-warning space-y-0.5">
         {{range .Warnings}}<li>{{.}}</li>{{end}}
     </ul>
@@ -42,7 +42,7 @@
 <div class="bg-dark-900 border {{if .ValidCommunities}}border-warning/30{{else}}border-dark-800{{end}} rounded-xl mb-4 overflow-hidden">
     <div class="px-5 py-4 border-b border-dark-800 flex items-center justify-between">
         <div class="flex items-center gap-3">
-            <span class="w-7 h-7 rounded-lg {{if .ValidCommunities}}bg-warning/20{{else}}bg-dark-700{{end}} flex items-center justify-center text-sm">📶</span>
+            <span class="w-7 h-7 rounded-lg {{if .ValidCommunities}}bg-warning/20{{else}}bg-dark-700{{end}} flex items-center justify-center text-sm">{{icon "signal" "w-3.5 h-3.5"}}</span>
             <div>
                 <span class="mono text-sm font-semibold text-accent-400">{{.Target}}</span>
                 {{if .SystemName}}<p class="text-[11px] text-dark-400 mt-0.5">{{.SystemName}}</p>{{end}}

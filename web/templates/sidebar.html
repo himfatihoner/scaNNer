@@ -165,7 +165,7 @@
             <span class="sidebar-label text-success">Killswitch: <span class="mono">{{.KillswitchInterface}}</span></span>
             {{else if .KillswitchInterface}}
             <span class="w-2 h-2 rounded-full bg-warning shrink-0 sidebar-pulse"></span>
-            <span class="sidebar-label text-warning">⚠ {{T "Killswitch off"}} — <span class="mono">{{.KillswitchInterface}}</span> {{T "pinned"}}</span>
+            <span class="sidebar-label text-warning">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{T "Killswitch off"}} — <span class="mono">{{.KillswitchInterface}}</span> {{T "pinned"}}</span>
             {{else}}
             <span class="w-2 h-2 rounded-full bg-dark-500 shrink-0"></span>
             <span class="sidebar-label text-dark-400">Killswitch: <span class="text-dark-500">{{T "off"}}</span></span>

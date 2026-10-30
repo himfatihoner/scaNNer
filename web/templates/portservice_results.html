@@ -172,7 +172,7 @@
                 <td class="px-4 py-2.5 align-middle">
                     {{if .SuspectedFirewall}}
                     <div class="flex items-center gap-2 mb-1">
-                        <span class="text-[11px] text-warning bg-warning/10 border border-warning/30 px-2 py-1 rounded">⚠ +{{T "%d ports filtered — potential firewall" .FirewalledCount}}</span>
+                        <span class="text-[11px] text-warning bg-warning/10 border border-warning/30 px-2 py-1 rounded">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}+{{T "%d ports filtered — potential firewall" .FirewalledCount}}</span>
                         <span class="text-[10px] text-dark-500">{{Tn (len .Ports) "%d verified service kept" "%d verified services kept" (len .Ports)}}</span>
                     </div>
                     {{end}}
@@ -233,7 +233,7 @@
                                     {{if gt $info 0}}<span class="mono text-[10px] text-dark-400 bg-dark-800 border border-dark-700 px-1.5 py-0.5 rounded">I:{{$info}}</span>{{end}}
                                 </span>
                             {{end}}
-                            {{if .SuspectedFirewall}}<span class="text-[11px] text-warning">⚠ +{{T "%d firewalled" .FirewalledCount}}</span>{{end}}
+                            {{if .SuspectedFirewall}}<span class="text-[11px] text-warning">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}+{{T "%d firewalled" .FirewalledCount}}</span>{{end}}
                         </div>
                         <!-- Right: deep-link to the per-host page -->
                         <a href="/modules/portservice/results/{{$.Scan.ID}}/host/{{if .IP}}{{.IP}}{{else}}{{.Target}}{{end}}?tab=vulns"
@@ -270,7 +270,7 @@
                     {{if .Warnings}}
                     <div class="mt-2 space-y-0.5">
                         {{range .Warnings}}
-                        <p class="text-[11px] text-warning">⚠ {{.}}</p>
+                        <p class="text-[11px] text-warning">{{icon "triangle-alert" "w-3.5 h-3.5 mr-1"}}{{.}}</p>
                         {{end}}
                     </div>
                     {{end}}

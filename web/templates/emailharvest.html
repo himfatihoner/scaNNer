@@ -7,7 +7,7 @@
 </div>
 <div class="flex items-start justify-between mb-6">
     <div>
-        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">📧</span> {{T "Email Harvester"}}</h2>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><span class="text-2xl">{{icon "mail" "w-3.5 h-3.5"}}</span> {{T "Email Harvester"}}</h2>
         <p class="text-sm text-dark-400 mt-1">{{T "Harvests emails, hosts, and IPs from public sources via theHarvester."}}</p>
     </div>
 </div>
@@ -58,7 +58,7 @@
                             <input type="checkbox" name="hibp_check" checked class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500">
                             <div>
                                 <p class="text-xs font-medium text-dark-200">{{T "HIBP Domain Breach Check"}}{{template "info_icon" (T `Queries Have I Been Pwned's free /breaches?domain= endpoint to list every breach involving the target domain.`)}}</p>
-                                <p class="text-[10px] text-dark-500 mt-0.5">{{T "Domain-level check is free and works without a key."}} {{if .HasHIBPKey}}<span class="text-success">✓ {{T "HIBP key configured"}}</span> {{T "— sent on the /breaches request."}}{{else}}{{T "A key can be added in"}} <a href="/settings" class="text-accent-400 hover:underline">{{T "Settings"}}</a> {{T "(per-account lookups not enabled by default — HIBP's free-tier rate-limit makes them slow)."}}{{end}}</p>
+                                <p class="text-[10px] text-dark-500 mt-0.5">{{T "Domain-level check is free and works without a key."}} {{if .HasHIBPKey}}<span class="text-success">{{icon "check" "w-3.5 h-3.5 mr-1"}}{{T "HIBP key configured"}}</span> {{T "— sent on the /breaches request."}}{{else}}{{T "A key can be added in"}} <a href="/settings" class="text-accent-400 hover:underline">{{T "Settings"}}</a> {{T "(per-account lookups not enabled by default — HIBP's free-tier rate-limit makes them slow)."}}{{end}}</p>
                             </div>
                         </label>
                     </div>

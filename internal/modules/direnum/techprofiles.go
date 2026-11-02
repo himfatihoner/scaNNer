@@ -34,6 +34,16 @@ type TechProfile struct {
 // AllTechProfiles is the full list the user can select
 var AllTechProfiles = []TechProfile{
 	{
+		// "critical" is a curated, cross-stack list of the highest-value paths
+		// (.env + backups, .git/config, wp-config.php.bak, Spring actuators,
+		// admin panels, cloud credentials, DB dumps, CI/CD secrets, …). It ships
+		// in-repo at data/direnum-wordlists/critical.txt and is loaded verbatim
+		// as literal paths at EVERY scan level (see scanner.go's profile loop).
+		// Deliberately NO Extensions (they would pollute the shared word×ext
+		// matrix used by the other selected profiles) and no system lists.
+		ID: "critical", Name: "Critical Paths (all stacks)",
+	},
+	{
 		ID: "php", Name: "PHP", BundleKey: "php",
 		Extensions: []string{".php", ".php5", ".php7", ".phtml", ".phar", ".inc", ".phps"},
 		Wordlists: [3][]string{

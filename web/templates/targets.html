@@ -190,7 +190,10 @@
                 data-createdat="{{.CreatedAt.Unix}}">
                 <td class="px-5 py-3" onclick="event.stopPropagation()"><input type="checkbox" class="tgt-cb rounded border-dark-600 bg-dark-800 text-accent-500" value="{{.ID}}" data-value="{{.Value}}" onchange="tgtSelUpd()"></td>
                 <td class="px-5 py-3">
-                    <span class="mono text-sm text-white">{{.Value}}</span>
+                    <a href="{{browseURL .Value}}" target="_blank" rel="noopener noreferrer"
+                       onclick="event.stopPropagation()"
+                       class="mono text-sm text-accent-300 hover:text-accent-200 hover:underline inline-flex items-center gap-1.5 break-all"
+                       title="{{T `Open target in a new tab`}}">{{.Value}}{{icon "external-link" "w-3 h-3 opacity-50 shrink-0"}}</a>
                 </td>
                 <td class="px-5 py-3">
                     {{if eq (print .Type) "ipv4"}}

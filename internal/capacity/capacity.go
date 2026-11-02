@@ -144,6 +144,21 @@ func ProfileFor(module string) Profile {
 		}
 		return p
 	}
+	// direnum override: a pure Go-HTTP directory brute. The operator wants its
+	// concurrency ceiling lifted off the conservative socket_light default
+	// (MaxSafe 64, CPU-pinned to ~300) so Recommend scales with the box's real
+	// port/CPU/FD budget. MaxSafe is raised to 1000 — the auto/"blank" default
+	// now lands in the hundreds on a tuned box instead of a flat 64. An explicit
+	// max_concurrent in the launch form still overrides this verbatim (uncapped),
+	// and the runtime port-pressure throttle + memory governor remain the safety
+	// backstop against real resource exhaustion.
+	if module == "direnum" {
+		return Profile{
+			Module: module, Class: ClassSocketLight, Dominant: "ports",
+			PortsPerConc: 8, CPUFracPerConc: 0.01, FDsPerConc: 1.0,
+			MeasuredFin: baseFin, MaxSafe: 1000, MinConc: 8,
+		}
+	}
 	class, ok := moduleClass[module]
 	if !ok {
 		class = ClassSocketLight

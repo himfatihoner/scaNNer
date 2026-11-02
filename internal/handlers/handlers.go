@@ -296,6 +296,21 @@ func New(registry *modules.Registry, db *database.DB, templateDir string) (*Hand
 			// path — linking with a raw "https://host" would put "://" in the URL
 			// path, which net/http path-cleans into a broken "/assets/https:/host".
 			"assetKey": normalizeAsset,
+			// browseURL turns a target's stored value into a browsable absolute
+			// URL for the Targets list, so a bare subdomain / IP / FQDN renders as
+			// a clickable link (https:// prefixed) instead of inert text; a value
+			// that already carries a scheme is used verbatim.
+			"browseURL": func(val string) string {
+				v := strings.TrimSpace(val)
+				if v == "" {
+					return "#"
+				}
+				low := strings.ToLower(v)
+				if strings.HasPrefix(low, "http://") || strings.HasPrefix(low, "https://") {
+					return v
+				}
+				return "https://" + v
+			},
 			// vulnID computes the stable report ID for a finding so the same ID
 			// shows on the Vulnerabilities page and the per-asset findings.
 			"vulnID": vulnID,

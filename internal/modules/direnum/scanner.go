@@ -341,6 +341,25 @@ func scanTarget(target string, cfg ScanConfig, opts *shared.HTTPOptions, logFn f
 		for _, ext := range p.Extensions {
 			allExts = appendUnique(allExts, ext)
 		}
+		// "critical": the curated, cross-stack high-value list shipped in-repo at
+		// data/direnum-wordlists/critical.txt. Loaded verbatim as literal paths at
+		// EVERY scan level (no word×ext matrix, no system SecLists). Each line is
+		// already a complete path, so it joins literalPaths directly. If the file
+		// is missing (a broken deploy), skip it cleanly rather than injecting the
+		// generic embedded fallback loadWordlist would otherwise substitute.
+		if p.ID == "critical" {
+			cp := filepath.Join(direnumDataDir(), "critical.txt")
+			if fi, err := os.Stat(cp); err == nil && !fi.IsDir() && fi.Size() > 0 {
+				n := 0
+				for _, w := range loadWordlist(cp) {
+					literalPaths[w] = true
+					n++
+				}
+				bundledLoaded = append(bundledLoaded, fmt.Sprintf("critical=%d", n))
+			}
+			extraWords = append(extraWords, p.ExtraWords...)
+			continue
+		}
 		// Prefer the generated per-language tier list when it's been built. Its
 		// extensions + backup/archive permutations are already baked in, so it
 		// loads verbatim as literal paths and the system word×ext matrix for

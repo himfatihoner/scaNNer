@@ -399,6 +399,15 @@ func (h *Handler) ensureTargetList(wsID, name string) string {
 // is left untouched (keeps its categories) and only genuinely new subdomains
 // are added. Grouped under a per-parent-domain category ("<domain> subdomains")
 // so the discovered set is easy to find.
+//
+// Each subdomain is added THREE ways under the same category: the bare host
+// (models.TargetFQDN/Domain — for non-web modules: port scan, DNS, SMB…) AND
+// its https:// + http:// URL forms (models.TargetURL). The URL forms make the
+// subdomain selectable under the module target picker's https / http
+// sub-sections (splitByScheme files scheme-prefixed values there, each with its
+// own select-all) — exactly how discovered HTTP services surface, so after a
+// DNS Enum you can pick every subdomain's http(s) URL straight from any web
+// module's target picker. No template change.
 func (h *Handler) addDiscoveredSubdomains(scanID string, result *dnsenum.ScanResult) {
 	scan, err := h.db.GetScan(scanID)
 	if err != nil || scan == nil {
@@ -422,6 +431,12 @@ func (h *Handler) addDiscoveredSubdomains(scanID string, result *dnsenum.ScanRes
 				t = models.TargetDomain
 			}
 			h.db.CreateTargetMulti(wsID, val, t, "discovered via DNS Enum", listIDs)
+			// Also expose the subdomain as selectable http(s):// URLs so it shows
+			// up under the target picker's https / http sub-sections in every
+			// module form (mirrors discovered HTTP services). The bare host above
+			// stays for non-web modules.
+			h.db.CreateTargetMulti(wsID, "https://"+val, models.TargetURL, "discovered via DNS Enum", listIDs)
+			h.db.CreateTargetMulti(wsID, "http://"+val, models.TargetURL, "discovered via DNS Enum", listIDs)
 		}
 	}
 }

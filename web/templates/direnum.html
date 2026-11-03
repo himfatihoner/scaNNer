@@ -195,6 +195,35 @@
                             cb.addEventListener('change', function() {
                                 warn.classList.toggle('hidden', !cb.checked);
                             });
+
+                            // "Critical Paths" is a fixed, self-contained list: selecting it
+                            // locks (disables + clears) the other tech profiles and the scan
+                            // level — its contents and length don't vary by level. Deselecting
+                            // it restores everything. Disabled controls aren't submitted, so the
+                            // backend receives techs=critical alone.
+                            var crit = document.querySelector('input[name="techs"][value="critical"]');
+                            function direnumCriticalSync() {
+                                if (!crit) return;
+                                var on = crit.checked;
+                                document.querySelectorAll('input[name="techs"]').forEach(function(x) {
+                                    if (x === crit) return;
+                                    x.disabled = on;
+                                    if (on) x.checked = false;
+                                    var l = x.closest('label');
+                                    if (l) { l.classList.toggle('opacity-40', on); l.classList.toggle('pointer-events-none', on); }
+                                });
+                                document.querySelectorAll('input[name="level"]').forEach(function(r) {
+                                    r.disabled = on;
+                                    var l = r.closest('label');
+                                    if (l) { l.classList.toggle('opacity-40', on); l.classList.toggle('pointer-events-none', on); }
+                                });
+                            }
+                            if (crit) {
+                                document.querySelectorAll('input[name="techs"]').forEach(function(x) {
+                                    x.addEventListener('change', direnumCriticalSync);
+                                });
+                                direnumCriticalSync();
+                            }
                         })();
                         </script>
                     </div>

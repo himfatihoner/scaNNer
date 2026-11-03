@@ -2729,6 +2729,11 @@
   grid-template-columns: repeat(6, minmax(0px, 1fr));
 }
 }
+  .lg\:flex-row {
+  @media (width >= 64rem) {
+  flex-direction: row;
+}
+}
   .xl\:grid-cols-3 {
   @media (width >= 80rem) {
   grid-template-columns: repeat(3, minmax(0px, 1fr));

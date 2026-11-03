@@ -58,6 +58,32 @@
     </div>
 </div>
 
+{{/* Technology breakdown donuts — computed client-side from the CURRENT
+     filtered/visible asset set (see renderAssetCharts). Click a slice to
+     filter the table to that technology. */}}
+{{if .Assets}}
+<style>
+#assetCharts{--chart-blue:#60a5fa;--chart-purple:#a78bfa;--chart-orange:#f97316;--chart-green:#22c55e;--chart-pink:#ec4899;--chart-yellow:#eab308;--chart-red:#ef4444;--chart-gray:#a3a3a3;}
+html.light #assetCharts{--chart-blue:#2563eb;--chart-purple:#7c3aed;--chart-orange:#ea580c;--chart-green:#16a34a;--chart-pink:#db2777;--chart-yellow:#ca8a04;--chart-red:#dc2626;--chart-gray:#6b7280;}
+</style>
+<div id="assetCharts" class="bg-dark-900 border border-dark-800 rounded-xl p-5 mb-6">
+    <div class="flex items-center justify-between mb-4">
+        <p class="text-xs text-dark-500 uppercase tracking-wider">{{T "Technology breakdown"}}</p>
+        <span id="assetTechFilterChip" class="hidden items-center gap-1.5 text-[11px]"></span>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+            <p class="text-[11px] text-dark-400 mb-2">{{T "By technology"}}</p>
+            <div id="assetTechDonut"></div>
+        </div>
+        <div>
+            <p class="text-[11px] text-dark-400 mb-2">{{T "Web server types"}}</p>
+            <div id="assetServerDonut"></div>
+        </div>
+    </div>
+</div>
+{{end}}
+
 {{/* Asset-list strip + "New list" modal were removed — assets are now
      purely the read-only set of things any scan has touched. No user-
      curated grouping; the type tabs and search box below remain. */}}
@@ -132,7 +158,8 @@
                 data-live="{{.LiveStatus}}"
                 data-scans="{{.ScanCount}}"
                 data-running="{{.RunningJobs}}"
-                data-last-scanned="{{if not .LastScanned.IsZero}}{{.LastScanned.Unix}}{{else}}0{{end}}">
+                data-last-scanned="{{if not .LastScanned.IsZero}}{{.LastScanned.Unix}}{{else}}0{{end}}"
+                data-tech="{{range .Technologies}}{{lower .}}|{{end}}">
                 <td class="px-4 py-3">
                     <div class="flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full {{if eq .Type "ipv4"}}bg-cyan-500{{else if eq .Type "domain"}}bg-violet-500{{else if eq .Type "fqdn"}}bg-pink-500{{else}}bg-dark-500{{end}}"></span>
@@ -339,6 +366,105 @@ function _activeBaseDomain() {
     var active = document.querySelector('.asset-bd-chip.bg-accent-600');
     return active ? (active.getAttribute('data-basedomain') || '') : '';
 }
+// ---- Technology donut charts: computed from the CURRENT filtered/visible
+//      asset set; click a slice (or legend row) to filter the table to that
+//      technology (click the active one again to clear). ----
+var assetActiveTech = '';
+// Web-server tech names, mirroring techdetect's CatServer fingerprints, so the
+// "web server types" donut counts only real web servers (tech category isn't
+// carried to the assets page — we match by name here).
+var ASSET_SERVER_SET = {'nginx':1,'apache':1,'apache httpd':1,'caddy':1,'cherokee':1,'envoy':1,'gunicorn':1,'jetty':1,'kestrel':1,'lighttpd':1,'litespeed':1,'microsoft iis':1,'openresty':1,'phusion passenger':1,'puma':1,'tomcat':1,'traefik':1,'unicorn':1,'uwsgi':1,'wildfly':1};
+var TXT_OTHER = "{{T `Other`}}";
+var TXT_FILTER = "{{T `Filter`}}";
+var TXT_NOTECH = "{{T `No technologies in this view`}}";
+function _assetChartVar(name) {
+    var el = document.getElementById('assetCharts');
+    if (!el) return '#888';
+    return (getComputedStyle(el).getPropertyValue(name) || '').trim() || '#888';
+}
+function _assetPalette() {
+    return [ _assetChartVar('--chart-blue'), _assetChartVar('--chart-green'), _assetChartVar('--chart-orange'),
+             _assetChartVar('--chart-purple'), _assetChartVar('--chart-pink'), _assetChartVar('--chart-yellow'),
+             '#06b6d4', _assetChartVar('--chart-red'), '#84cc16', '#14b8a6', '#f59e0b', '#8b5cf6' ];
+}
+function _jsStr(s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+function _htmlEsc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function assetTechSlice(name) { assetActiveTech = (assetActiveTech === name) ? '' : name; applyAssetFilter(); }
+function assetClearTech() { assetActiveTech = ''; applyAssetFilter(); }
+// Draw one donut (+ legend) from slices [{name,count,clickable?}] into elId.
+function _assetDonut(elId, slices, pal) {
+    var el = document.getElementById(elId);
+    if (!el) return;
+    var total = 0, i;
+    for (i = 0; i < slices.length; i++) total += slices[i].count;
+    if (total === 0) { el.innerHTML = '<p class="text-[11px] text-dark-600 py-6 text-center">' + _htmlEsc(TXT_NOTECH) + '</p>'; return; }
+    var size = 170, cx = size/2, cy = size/2, r = 66, sw = 20;
+    var html = '<div class="flex flex-col lg:flex-row items-center gap-4">';
+    html += '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">';
+    html += '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="currentColor" stroke-opacity="0.08" stroke-width="'+sw+'"/>';
+    var startAngle = -Math.PI/2, gap = 0.012;
+    for (i = 0; i < slices.length; i++) {
+        var frac = slices[i].count / Math.max(total, 1);
+        var color = pal[i % pal.length];
+        var active = slices[i].name === assetActiveTech;
+        var w = active ? sw + 6 : sw;
+        var clickable = slices[i].clickable !== false;
+        var click = clickable ? ' style="cursor:pointer" onclick="assetTechSlice(\''+_jsStr(slices[i].name)+'\')"' : '';
+        if (frac >= 0.9999) {
+            html += '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+color+'" stroke-width="'+w+'"'+click+'/>';
+            continue;
+        }
+        var endAngle = startAngle + Math.max(frac*Math.PI*2 - gap, 0.001);
+        var x1 = cx + r*Math.cos(startAngle), y1 = cy + r*Math.sin(startAngle);
+        var x2 = cx + r*Math.cos(endAngle),   y2 = cy + r*Math.sin(endAngle);
+        var largeArc = (endAngle - startAngle) > Math.PI ? 1 : 0;
+        html += '<path d="M '+x1+' '+y1+' A '+r+' '+r+' 0 '+largeArc+' 1 '+x2+' '+y2+'" fill="none" stroke="'+color+'" stroke-width="'+w+'" stroke-linecap="butt"'+click+'/>';
+        startAngle = endAngle + gap;
+    }
+    html += '<text x="'+cx+'" y="'+(cy-2)+'" text-anchor="middle" font-size="22" font-weight="700" fill="currentColor">'+total+'</text>';
+    html += '<text x="'+cx+'" y="'+(cy+15)+'" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.55">'+(assetActiveTech ? _htmlEsc(assetActiveTech) : 'assets')+'</text>';
+    html += '</svg>';
+    html += '<div class="flex-1 grid grid-cols-1 gap-y-1 w-full min-w-0">';
+    for (i = 0; i < slices.length; i++) {
+        var pct = total > 0 ? (slices[i].count/total*100) : 0;
+        var lc = pal[i % pal.length];
+        var la = slices[i].name === assetActiveTech;
+        var lk = slices[i].clickable !== false;
+        var lclick = lk ? ' style="cursor:pointer" onclick="assetTechSlice(\''+_jsStr(slices[i].name)+'\')"' : '';
+        html += '<div class="flex items-center gap-2 px-1 rounded '+(la?'bg-accent-600/10':'')+'"'+lclick+'>';
+        html += '<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:'+lc+'"></span>';
+        html += '<span class="text-xs '+(la?'text-accent-300':'text-dark-200')+' truncate min-w-0 flex-1">'+_htmlEsc(slices[i].name)+'</span>';
+        html += '<span class="mono text-[11px] text-dark-400 shrink-0">'+slices[i].count+'</span>';
+        html += '<span class="mono text-[10px] text-dark-500 shrink-0">('+pct.toFixed(0)+'%)</span>';
+        html += '</div>';
+    }
+    html += '</div></div>';
+    el.innerHTML = html;
+}
+// Build both donuts + the active-filter chip from the visible-set tech tally.
+function renderAssetCharts(techCounts) {
+    if (!document.getElementById('assetCharts')) return;
+    var pal = _assetPalette();
+    var arr = [], k;
+    for (k in techCounts) { if (techCounts.hasOwnProperty(k)) arr.push({name: k, count: techCounts[k]}); }
+    arr.sort(function(a, b) { return b.count - a.count || (a.name < b.name ? -1 : 1); });
+    var techSlices = arr.slice(0, 8);
+    if (arr.length > 8) {
+        var rest = 0; for (var j = 8; j < arr.length; j++) rest += arr[j].count;
+        if (rest > 0) techSlices.push({name: TXT_OTHER, count: rest, clickable: false});
+    }
+    _assetDonut('assetTechDonut', techSlices, pal);
+    _assetDonut('assetServerDonut', arr.filter(function(x) { return ASSET_SERVER_SET[x.name]; }), pal);
+    var chip = document.getElementById('assetTechFilterChip');
+    if (chip) {
+        if (assetActiveTech) {
+            chip.innerHTML = '<span class="text-dark-400">'+_htmlEsc(TXT_FILTER)+':</span> <span class="text-accent-300 mono">'+_htmlEsc(assetActiveTech)+'</span> <button type="button" onclick="assetClearTech()" class="text-dark-500 hover:text-danger ml-0.5" aria-label="clear">✕</button>';
+            chip.classList.remove('hidden'); chip.classList.add('inline-flex');
+        } else {
+            chip.classList.add('hidden'); chip.classList.remove('inline-flex');
+        }
+    }
+}
 function applyAssetFilter() {
     var q = (document.getElementById('assetSearch').value || '').toLowerCase().trim();
     var statusFilter = document.getElementById('assetStatusFilter').value;
@@ -372,6 +498,7 @@ function applyAssetFilter() {
     if (!tbody) return;
     var rows = Array.prototype.slice.call(tbody.querySelectorAll('.asset-row'));
     var visible = 0;
+    var techCounts = {};
     rows.forEach(function(row) {
         var v = (row.getAttribute('data-value') || '').toLowerCase();
         var t = (row.getAttribute('data-type') || '').toLowerCase();
@@ -394,12 +521,24 @@ function applyAssetFilter() {
         // Base domain: exact-match the row's registrable domain (blank chip = All).
         var rowBd = (row.getAttribute('data-basedomain') || '').toLowerCase();
         var matchBaseDomain = !bd || rowBd === bd;
-        var show = matchSearch && matchStatus && matchSev && matchType && matchBaseDomain;
+        // Technology slice-filter: "" = all; else the row's data-tech must carry the token.
+        var techStr = (row.getAttribute('data-tech') || '');
+        var matchTech = !assetActiveTech || ('|' + techStr).indexOf('|' + assetActiveTech + '|') !== -1;
+        var show = matchSearch && matchStatus && matchSev && matchType && matchBaseDomain && matchTech;
         row.style.display = show ? '' : 'none';
-        if (show) visible++;
+        if (show) {
+            visible++;
+            // Tally this visible asset's technologies — the donut charts reflect
+            // the current filtered/visible set.
+            var parts = techStr.split('|');
+            for (var ti = 0; ti < parts.length; ti++) {
+                if (parts[ti]) techCounts[parts[ti]] = (techCounts[parts[ti]] || 0) + 1;
+            }
+        }
     });
     var counter = document.getElementById('assetResultCount');
     if (counter) counter.textContent = visible + ' / ' + rows.length + ' shown';
+    renderAssetCharts(techCounts);
 }
 document.addEventListener('DOMContentLoaded', function() {
     if (window.bindSortableTable) {

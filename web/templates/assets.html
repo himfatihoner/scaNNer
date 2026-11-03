@@ -185,10 +185,11 @@
                 </td>
                 <td class="px-4 py-3">
                     {{if .PortSummary}}<span class="mono text-[11px] text-accent-300">{{.PortSummary}}</span>
-                    {{else if or (gt .RunningJobs 0) $.AssetIndexBuilding}}
-                    {{/* Ports come from the same background index — show the loader
-                         (not "—") while a scan runs or the index is still building. */}}
-                    <span class="inline-flex items-center text-[11px] text-dark-500" title="{{T `Ports are still being scanned / indexed`}}">
+                    {{else if gt .RunningJobs 0}}
+                    {{/* A scan is actively running on this asset, so ports are still
+                         landing — show the loader. Idle assets with no ports show
+                         "—"; a just-finished scan fills in via the auto-refresh below. */}}
+                    <span class="inline-flex items-center text-[11px] text-dark-500" title="{{T `A scan is running on this asset — ports appear when it finishes`}}">
                         <svg class="w-3.5 h-3.5 animate-spin text-accent-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
                     </span>
                     {{else}}<span class="text-[11px] text-dark-600">—</span>{{end}}
@@ -200,16 +201,13 @@
                         <span class="text-[10px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">{{.}}</span>
                         {{end}}
                     </div>
-                    {{else if or (gt .RunningJobs 0) $.AssetIndexBuilding}}
-                    {{/* Technologies aren't available yet: either a scan is still
-                         running on this asset, OR the background search/tech index
-                         is still building after a finished scan. Show our loader in
-                         the cell instead of "—" so the column reads as "pending"
-                         rather than "none" — the auto-refresh below swaps in the real
-                         values once the index lands. */}}
-                    <span class="inline-flex items-center gap-1.5 text-[11px] text-dark-500" title="{{T `Technologies are still being detected / indexed`}}">
+                    {{else if gt .RunningJobs 0}}
+                    {{/* A scan is actively running on this asset, so technologies are
+                         still landing — show the loader. Idle assets with none show
+                         "—"; a just-finished scan fills in via the auto-refresh below. */}}
+                    <span class="inline-flex items-center gap-1.5 text-[11px] text-dark-500" title="{{T `A scan is running on this asset — technologies appear when it finishes`}}">
                         <svg class="w-3.5 h-3.5 animate-spin text-accent-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-                        <span class="text-accent-400">{{T "detecting…"}}</span>
+                        <span class="text-accent-400">{{T "loading…"}}</span>
                     </span>
                     {{else}}<span class="text-[11px] text-dark-600">—</span>{{end}}
                 </td>

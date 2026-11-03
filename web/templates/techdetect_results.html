@@ -69,6 +69,10 @@
                 <div id="tdEvMethodNote" class="text-[11px] text-dark-400 mt-1"></div>
             </div>
             <div>
+                <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-1">{{T "Reliability"}}</p>
+                <p id="tdEvConfidence" class="text-[11px]"></p>
+            </div>
+            <div>
                 <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-1">{{T "Matching signal (the evidence)"}}</p>
                 <pre id="tdEvEvidence" class="mono text-[11px] text-dark-200 bg-dark-950 border border-dark-800 rounded p-3 whitespace-pre-wrap break-all"></pre>
             </div>
@@ -124,6 +128,7 @@ function tdShowEvidence(btn) {
     var status   = btn.getAttribute('data-status') || '';
     var req      = btn.getAttribute('data-raw-request') || '';
     var resp     = btn.getAttribute('data-raw-response') || '';
+    var confidence = btn.getAttribute('data-confidence') || '';
     document.getElementById('tdEvName').textContent     = name;
     document.getElementById('tdEvVersion').textContent  = version || '(no version)';
     document.getElementById('tdEvCategory').textContent = category;
@@ -140,6 +145,17 @@ function tdShowEvidence(btn) {
         note = 'Detection origin not annotated for this entry.';
     }
     document.getElementById('tdEvMethodNote').textContent = note;
+    var cEl = document.getElementById('tdEvConfidence');
+    if (confidence === 'high') {
+        cEl.textContent = '{{T `high — a discriminating signal matched (vendor header, specific cookie, meta generator, or script/link host)`}}';
+        cEl.className = 'text-[11px] text-success';
+    } else if (confidence === 'medium') {
+        cEl.textContent = '{{T `medium — only a body substring matched, which can occasionally coincide`}}';
+        cEl.className = 'text-[11px] text-warning';
+    } else {
+        cEl.textContent = '{{T `not recorded`}}';
+        cEl.className = 'text-[11px] text-dark-400';
+    }
     document.getElementById('tdEvEvidence').textContent = evidence || '(no evidence string recorded — older scans before this column existed)';
     document.getElementById('tdEvTarget').textContent   = url;
     document.getElementById('tdEvStatus').textContent   = status || '?';
@@ -230,6 +246,7 @@ function tdShowEvidence(btn) {
                     data-version="{{.Version}}"
                     data-category="{{.Category}}"
                     data-source="{{.Source}}"
+                    data-confidence="{{.Confidence}}"
                     data-evidence="{{.Evidence}}"
                     data-target-url="{{$tr.URL}}"
                     data-status="{{$tr.StatusCode}}"
@@ -253,6 +270,8 @@ function tdShowEvidence(btn) {
                     {{if .Version}}<span class="text-[10px] text-dark-400 ml-1">{{.Version}}</span>{{end}}
                 </div>
                 <span class="text-[9px] text-dark-500 bg-dark-800 px-1.5 py-0.5 rounded">{{.Category}}</span>
+                <span class="text-[9px] px-1.5 py-0.5 rounded {{if eq .Source "whatweb"}}bg-purple-500/15 text-purple-300{{else}}bg-accent-500/15 text-accent-300{{end}}" title="{{.Source}}">{{if eq .Source "whatweb"}}whatweb{{else}}scaNNer{{end}}</span>
+                {{if .Confidence}}<span class="w-1.5 h-1.5 rounded-full shrink-0 {{if eq .Confidence "high"}}bg-success{{else if eq .Confidence "medium"}}bg-warning{{else}}bg-dark-500{{end}}" title="{{if eq .Confidence "high"}}{{T `high confidence`}}{{else if eq .Confidence "medium"}}{{T `medium confidence`}}{{else}}{{.Confidence}}{{end}}"></span>{{end}}
             </button>
             {{end}}
         </div>
@@ -267,6 +286,7 @@ function tdShowEvidence(btn) {
                         <th class="text-left px-3 py-2 text-[10px] text-dark-500 uppercase">{{T "Version"}}</th>
                         <th class="text-left px-3 py-2 text-[10px] text-dark-500 uppercase">{{T "Category"}}</th>
                         <th class="text-left px-3 py-2 text-[10px] text-dark-500 uppercase">{{T "Source"}}</th>
+                        <th class="text-left px-3 py-2 text-[10px] text-dark-500 uppercase">{{T "Reliability"}}</th>
                     </tr></thead>
                     <tbody>
                     {{range .Technologies}}
@@ -274,7 +294,8 @@ function tdShowEvidence(btn) {
                         <td class="px-3 py-1.5 text-xs text-white">{{.Name}}</td>
                         <td class="px-3 py-1.5 text-xs text-dark-400 mono">{{if .Version}}{{.Version}}{{else}}-{{end}}</td>
                         <td class="px-3 py-1.5 text-[11px] text-dark-500">{{.Category}}</td>
-                        <td class="px-3 py-1.5 text-[11px] text-dark-500">{{.Source}}</td>
+                        <td class="px-3 py-1.5 text-[11px] text-dark-500" title="{{.Source}}">{{if eq .Source "whatweb"}}whatweb{{else}}scaNNer{{end}}</td>
+                        <td class="px-3 py-1.5 text-[11px]"><span class="{{if eq .Confidence "high"}}text-success{{else if eq .Confidence "medium"}}text-warning{{else}}text-dark-500{{end}}">{{if eq .Confidence "high"}}{{T `high confidence`}}{{else if eq .Confidence "medium"}}{{T `medium confidence`}}{{else}}—{{end}}</span></td>
                     </tr>
                     {{end}}
                     </tbody>

@@ -28,7 +28,8 @@ type Fingerprint struct {
 	Name       string
 	Category   TechCategory
 	Headers    map[string]string // header -> value contains
-	Cookies    []string          // cookie name contains
+	Cookies    []string          // SPECIFIC cookie name contains — strong, fires a hit alone
+	WeakCookies []string         // generic/shared cookies (PHPSESSID, JSESSIONID, session…) — corroborate a body match only, never fire alone
 	BodyMatch  []string          // HTML body contains
 	MetaMatch  map[string]string // <meta name=X content contains Y>
 	ScriptSrc  []string          // <script src contains
@@ -67,7 +68,7 @@ var Fingerprints = []Fingerprint{
 	{Name: "Rails", Category: CatFramework, Headers: map[string]string{"X-Powered-By": "Phusion Passenger"}, Cookies: []string{"_rails_", "_session_id"}},
 	{Name: "Express.js", Category: CatFramework, Headers: map[string]string{"X-Powered-By": "Express"}},
 	{Name: "ASP.NET", Category: CatFramework, Headers: map[string]string{"X-Powered-By": "ASP.NET", "X-AspNet-Version": ""}, Cookies: []string{"ASP.NET_SessionId"}},
-	{Name: "Spring", Category: CatFramework, Cookies: []string{"JSESSIONID"}, Headers: map[string]string{"X-Application-Context": ""}},
+	{Name: "Spring", Category: CatFramework, WeakCookies: []string{"JSESSIONID"}, Headers: map[string]string{"X-Application-Context": ""}},
 	{Name: "Flask", Category: CatFramework, Headers: map[string]string{"Server": "Werkzeug"}},
 
 	// --- Web Servers ---
@@ -89,7 +90,7 @@ var Fingerprints = []Fingerprint{
 	{Name: "Python", Category: CatLanguage, Headers: map[string]string{"Server": "Python"}, HeaderOnly: true},
 
 	// --- JavaScript Libraries ---
-	{Name: "jQuery", Category: CatJS, BodyMatch: []string{"jquery.min.js", "jquery.js", "jquery-"}},
+	{Name: "jQuery", Category: CatJS, BodyMatch: []string{"jquery.min.js", "jquery.js", "jquery-"}, ScriptSrc: []string{"jquery"}},
 	{Name: "Bootstrap", Category: CatUI, BodyMatch: []string{"bootstrap.min.css", "bootstrap.min.js", "bootstrap.css"}},
 	{Name: "Tailwind CSS", Category: CatUI, BodyMatch: []string{"tailwindcss", "tailwind.min.css"}},
 	{Name: "Font Awesome", Category: CatFont, BodyMatch: []string{"font-awesome", "fontawesome"}},
@@ -167,18 +168,18 @@ var Fingerprints = []Fingerprint{
 	{Name: "Backbone.js", Category: CatFramework, BodyMatch: []string{"backbone.js", "backbone.min.js"}},
 	{Name: "Knockout.js", Category: CatFramework, BodyMatch: []string{"knockout.js", "knockout-", "data-bind="}},
 	{Name: "Meteor", Category: CatFramework, BodyMatch: []string{"meteor.js", "meteor-deps"}},
-	{Name: "Symfony", Category: CatFramework, Headers: map[string]string{"X-Powered-By": "Symfony", "X-Debug-Token": ""}, Cookies: []string{"PHPSESSID"}, BodyMatch: []string{"sf-toolbar", "_profiler/"}},
+	{Name: "Symfony", Category: CatFramework, Headers: map[string]string{"X-Powered-By": "Symfony", "X-Debug-Token": ""}, WeakCookies: []string{"PHPSESSID"}, BodyMatch: []string{"sf-toolbar", "_profiler/"}},
 	{Name: "CodeIgniter", Category: CatFramework, Cookies: []string{"ci_session"}},
 	{Name: "CakePHP", Category: CatFramework, Cookies: []string{"CAKEPHP"}},
-	{Name: "Yii", Category: CatFramework, Cookies: []string{"YII_CSRF_TOKEN", "PHPSESSID"}, BodyMatch: []string{"/assets/yii"}},
+	{Name: "Yii", Category: CatFramework, Cookies: []string{"YII_CSRF_TOKEN"}, WeakCookies: []string{"PHPSESSID"}, BodyMatch: []string{"/assets/yii"}},
 	{Name: "Phoenix", Category: CatFramework, Cookies: []string{"_phoenix_key"}, Headers: map[string]string{"X-Phoenix": ""}},
 	{Name: "Sails.js", Category: CatFramework, Headers: map[string]string{"X-Powered-By": "Sails"}},
 	{Name: "Hapi", Category: CatFramework, Headers: map[string]string{"X-Powered-By": "Hapi"}},
 	{Name: "Koa", Category: CatFramework, Headers: map[string]string{"X-Powered-By": "Koa"}},
 	{Name: "FastAPI", Category: CatFramework, Headers: map[string]string{"server": "uvicorn"}, BodyMatch: []string{"/docs#operation", "/openapi.json", "swagger-ui"}},
-	{Name: "Flask", Category: CatFramework, Headers: map[string]string{"server": "Werkzeug"}, Cookies: []string{"session"}},
+	{Name: "Flask", Category: CatFramework, Headers: map[string]string{"server": "Werkzeug"}, WeakCookies: []string{"session"}},
 	{Name: "Tornado", Category: CatFramework, Headers: map[string]string{"server": "TornadoServer"}},
-	{Name: "Spring", Category: CatFramework, Headers: map[string]string{"X-Application-Context": ""}, Cookies: []string{"JSESSIONID"}, BodyMatch: []string{"spring-boot"}},
+	{Name: "Spring", Category: CatFramework, Headers: map[string]string{"X-Application-Context": ""}, WeakCookies: []string{"JSESSIONID"}, BodyMatch: []string{"spring-boot"}},
 	{Name: "Struts", Category: CatFramework, BodyMatch: []string{"struts/dojo", "/struts/"}},
 	{Name: "ASP.NET", Category: CatFramework, Headers: map[string]string{"X-AspNet-Version": "", "X-AspNetMvc-Version": ""}, Cookies: []string{"ASP.NET_SessionId"}, BodyMatch: []string{"__VIEWSTATE", "__EVENTTARGET"}},
 	// ASP.NET Core is signalled ONLY by the ".AspNetCore" cookie. The
@@ -398,56 +399,116 @@ var Fingerprints = []Fingerprint{
 
 // MatchFingerprint checks if a fingerprint matches the response
 func MatchFingerprint(fp *Fingerprint, headers map[string]string, cookies []string, body string) bool {
-	hit, _ := MatchFingerprintWithEvidence(fp, headers, cookies, body, strings.ToLower(body))
+	hit, _, _ := MatchFingerprintWithEvidence(fp, headers, cookies, body, strings.ToLower(body))
 	return hit
 }
 
-// MatchFingerprintWithEvidence is the explanatory version of MatchFingerprint
-// — returns the same boolean plus a short human-readable string describing
-// the exact signal that triggered the match. UI surfaces this when the user
-// clicks a tech chip to investigate. Returns ("", false) when nothing matches.
+// MatchFingerprintWithEvidence is the explanatory matcher. It returns whether
+// the fingerprint matched, a short human-readable description of the signal
+// that triggered it (surfaced in the UI so the pentester can verify it isn't a
+// false positive), and a confidence tier:
+//
+//	"high"   — a discriminating signal matched: a vendor header, a SPECIFIC
+//	           cookie, a <meta generator>, a <script src>/<link href> host, or
+//	           a body substring corroborated by a (generic) WeakCookie.
+//	"medium" — only a body substring matched (can occasionally coincide).
+//
+// Generic/shared cookies (PHPSESSID, JSESSIONID, "session", …) live in
+// fp.WeakCookies and NEVER fire a hit on their own — a bare PHPSESSID means
+// "PHP", not "Yii"/"Symfony". They only corroborate a body match, lifting it
+// from medium to high. This is what stops the OR-matcher from inventing a
+// specific framework out of a generic language/container cookie.
 //
 // lowerBody must equal strings.ToLower(body); callers compute it once per
-// target and reuse it across the ~260-entry fingerprint loop to avoid
-// ~130 MB of throwaway byte churn per target.
-func MatchFingerprintWithEvidence(fp *Fingerprint, headers map[string]string, cookies []string, body, lowerBody string) (bool, string) {
-	// Header match (any one match = true).
+// target and reuse it across the fingerprint loop.
+func MatchFingerprintWithEvidence(fp *Fingerprint, headers map[string]string, cookies []string, body, lowerBody string) (bool, string, string) {
+	// --- Strong signals: any one match → high-confidence hit. ---
 	for hdr, pattern := range fp.Headers {
 		val, ok := headers[strings.ToLower(hdr)]
 		if !ok {
 			continue
 		}
 		if pattern == "" {
-			return true, fmt.Sprintf("header %q present (value %q)", hdr, val)
+			return true, fmt.Sprintf("header %q present (value %q)", hdr, val), "high"
 		}
 		if strings.Contains(strings.ToLower(val), strings.ToLower(pattern)) {
-			return true, fmt.Sprintf("header %q value %q contains %q", hdr, val, pattern)
+			return true, fmt.Sprintf("header %q value %q contains %q", hdr, val, pattern), "high"
 		}
 	}
-	// Cookie match.
 	for _, cp := range fp.Cookies {
 		for _, c := range cookies {
 			if strings.Contains(strings.ToLower(c), strings.ToLower(cp)) {
-				return true, fmt.Sprintf("cookie name %q matched (full name %q)", cp, c)
+				return true, fmt.Sprintf("cookie name %q matched (full name %q)", cp, c), "high"
 			}
 		}
 	}
 	if fp.HeaderOnly {
-		return false, ""
+		return false, "", ""
 	}
-	// Body substring match.
-	for _, bm := range fp.BodyMatch {
-		if strings.Contains(lowerBody, strings.ToLower(bm)) {
-			return true, fmt.Sprintf("response body contains substring %q", bm)
-		}
-	}
-	// <meta name=X content=Y> match.
 	for name, valPat := range fp.MetaMatch {
 		if matchMeta(lowerBody, strings.ToLower(name), strings.ToLower(valPat)) {
-			return true, fmt.Sprintf("<meta name=%q> content contains %q", name, valPat)
+			return true, fmt.Sprintf("<meta name=%q> content contains %q", name, valPat), "high"
 		}
 	}
-	return false, ""
+	// <script src=…> / <link href=…> host — strong, scoped to the element so a
+	// CDN host is a real signal rather than a coincidental body substring.
+	for _, sp := range fp.ScriptSrc {
+		if matchTagAttr(lowerBody, "<script", strings.ToLower(sp)) {
+			return true, fmt.Sprintf("<script src> contains %q", sp), "high"
+		}
+	}
+	for _, lp := range fp.LinkHref {
+		if matchTagAttr(lowerBody, "<link", strings.ToLower(lp)) {
+			return true, fmt.Sprintf("<link href> contains %q", lp), "high"
+		}
+	}
+	// --- Medium signal: body substring. A generic WeakCookie corroborates it
+	// up to high; on its own it stays medium. ---
+	for _, bm := range fp.BodyMatch {
+		if strings.Contains(lowerBody, strings.ToLower(bm)) {
+			if wc := matchWeakCookie(fp, cookies); wc != "" {
+				return true, fmt.Sprintf("response body contains %q + corroborating cookie %q", bm, wc), "high"
+			}
+			return true, fmt.Sprintf("response body contains substring %q", bm), "medium"
+		}
+	}
+	// --- Weak signals never fire alone (prevents PHPSESSID→Yii, session→Flask). ---
+	return false, "", ""
+}
+
+// matchWeakCookie returns the first WeakCookie token present in the response's
+// cookies, or "". Used only to corroborate a body match, never to trigger one.
+func matchWeakCookie(fp *Fingerprint, cookies []string) string {
+	for _, cp := range fp.WeakCookies {
+		for _, c := range cookies {
+			if strings.Contains(strings.ToLower(c), strings.ToLower(cp)) {
+				return cp
+			}
+		}
+	}
+	return ""
+}
+
+// matchTagAttr reports whether any occurrence of startTag (e.g. "<script",
+// "<link") contains pattern before its closing '>'.
+func matchTagAttr(body, startTag, pattern string) bool {
+	idx := 0
+	for {
+		pos := strings.Index(body[idx:], startTag)
+		if pos < 0 {
+			break
+		}
+		pos += idx
+		end := strings.Index(body[pos:], ">")
+		if end < 0 {
+			break
+		}
+		if strings.Contains(body[pos:pos+end+1], pattern) {
+			return true
+		}
+		idx = pos + end + 1
+	}
+	return false
 }
 
 func matchMeta(body, name, valPattern string) bool {

@@ -26,7 +26,12 @@ type Technology struct {
 	Name     string       `json:"name"`
 	Category TechCategory `json:"category"`
 	Version  string       `json:"version,omitempty"`
-	Source   string       `json:"source"` // "fingerprint", "whatweb", "header"
+	Source   string       `json:"source"` // "fingerprint", "whatweb", "header", "js-bundle"
+	// Confidence is how discriminating the matching signal was: "high" (vendor
+	// header, specific cookie, meta generator, script/link host, header/whatweb
+	// extraction) or "medium" (a body substring that could coincide). Surfaced
+	// in the UI so the operator can weigh each finding.
+	Confidence string `json:"confidence,omitempty"`
 	// Evidence is the specific signal that triggered detection — surfaced
 	// in the UI when the user clicks a chip so they can verify it's not a
 	// false positive. Examples:
@@ -401,11 +406,11 @@ func detectTech(target string, opts *shared.HTTPOptions, aggressive, lightCaptur
 		// Phase 1: Built-in fingerprinting (root page).
 		for i := range Fingerprints {
 			fp := &Fingerprints[i]
-			if hit, ev := MatchFingerprintWithEvidence(fp, headerMap, cookieNames, body, lowerBody); hit {
+			if hit, ev, conf := MatchFingerprintWithEvidence(fp, headerMap, cookieNames, body, lowerBody); hit {
 				if !seen[fp.Name] {
 					seen[fp.Name] = true
 					tr.Technologies = append(tr.Technologies, Technology{
-						Name: fp.Name, Category: fp.Category, Source: "fingerprint", Evidence: ev,
+						Name: fp.Name, Category: fp.Category, Source: "fingerprint", Evidence: ev, Confidence: conf,
 					})
 				}
 			}
@@ -536,11 +541,11 @@ func scanJSBundles(tr *TargetResult, target, body string, client *http.Client, o
 			if fp.HeaderOnly || seen[fp.Name] {
 				continue
 			}
-			if hit, ev := MatchFingerprintWithEvidence(fp, map[string]string{}, nil, js, lowerJS); hit {
+			if hit, ev, conf := MatchFingerprintWithEvidence(fp, map[string]string{}, nil, js, lowerJS); hit {
 				seen[fp.Name] = true
 				tr.Technologies = append(tr.Technologies, Technology{
 					Name: fp.Name, Category: fp.Category, Source: "js-bundle",
-					Evidence: fmt.Sprintf("in bundle %s: %s", u, ev),
+					Evidence: fmt.Sprintf("in bundle %s: %s", u, ev), Confidence: conf,
 				})
 			}
 		}
@@ -692,14 +697,15 @@ func analyzePrefetched(p PrefetchedResponse) *TargetResult {
 	lowerBody := strings.ToLower(p.Body)
 	for i := range Fingerprints {
 		fp := &Fingerprints[i]
-		if hit, ev := MatchFingerprintWithEvidence(fp, headerMap, cookieNames, p.Body, lowerBody); hit {
+		if hit, ev, conf := MatchFingerprintWithEvidence(fp, headerMap, cookieNames, p.Body, lowerBody); hit {
 			if !seen[fp.Name] {
 				seen[fp.Name] = true
 				tr.Technologies = append(tr.Technologies, Technology{
-					Name:     fp.Name,
-					Category: fp.Category,
-					Source:   "fingerprint",
-					Evidence: ev,
+					Name:       fp.Name,
+					Category:   fp.Category,
+					Source:     "fingerprint",
+					Evidence:   ev,
+					Confidence: conf,
 				})
 			}
 		}
@@ -763,7 +769,7 @@ func enrichFromHeaders(tr *TargetResult, seen *map[string]bool, h http.Header) {
 		}
 		(*seen)[name] = true
 		tr.Technologies = append(tr.Technologies, Technology{
-			Name: name, Version: version, Category: cat, Source: source, Evidence: evidence,
+			Name: name, Version: version, Category: cat, Source: source, Evidence: evidence, Confidence: "high",
 		})
 	}
 
@@ -1168,9 +1174,10 @@ func runWhatWeb(target string, opts *shared.HTTPOptions, aggressive bool, logf f
 				continue
 			}
 			t := Technology{
-				Name:     name,
-				Category: categorizeWhatWeb(name),
-				Source:   "whatweb",
+				Name:       name,
+				Category:   categorizeWhatWeb(name),
+				Source:     "whatweb",
+				Confidence: "high",
 			}
 			if infoMap, ok := info.(map[string]interface{}); ok {
 				if ver, ok := infoMap["version"].([]interface{}); ok && len(ver) > 0 {

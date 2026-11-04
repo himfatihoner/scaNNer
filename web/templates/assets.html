@@ -191,7 +191,7 @@ html.light #assetCharts{--chart-blue:#2563eb;--chart-purple:#7c3aed;--chart-oran
                         {{end}}{{end}}
                         {{if gt (len .ResolvedIPs) 4}}<span class="text-[10px] text-dark-500 self-center">+{{add (len .ResolvedIPs) -4}}</span>{{end}}
                     </div>
-                    {{else}}<span class="text-[11px] text-dark-600">—</span>{{end}}
+                    {{else if $.AssetIndexInitial}}<span class="text-[11px] text-dark-500 animate-pulse" title="{{T `Loading from scan results…`}}">···</span>{{else}}<span class="text-[11px] text-dark-600">—</span>{{end}}
                 </td>
                 <td class="px-4 py-3">
                     {{if .RedirectTo}}
@@ -201,7 +201,7 @@ html.light #assetCharts{--chart-blue:#2563eb;--chart-purple:#7c3aed;--chart-oran
                     </div>
                     {{else if .Live}}
                     <span class="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-success bg-success/10 border border-success/20 px-2 py-0.5 rounded">{{T "Live"}}{{if .LiveStatus}} <span class="mono opacity-70">{{.LiveStatus}}</span>{{end}}</span>
-                    {{else}}<span class="text-[11px] text-dark-600">—</span>{{end}}
+                    {{else if $.AssetIndexInitial}}<span class="text-[11px] text-dark-500 animate-pulse" title="{{T `Loading from scan results…`}}">···</span>{{else}}<span class="text-[11px] text-dark-600">—</span>{{end}}
                 </td>
                 <td class="px-4 py-3">
                     <div class="flex flex-wrap gap-1">
@@ -219,7 +219,7 @@ html.light #assetCharts{--chart-blue:#2563eb;--chart-purple:#7c3aed;--chart-oran
                     <span class="inline-flex items-center text-[11px] text-dark-500" title="{{T `A scan is running on this asset — ports appear when it finishes`}}">
                         <svg class="w-3.5 h-3.5 animate-spin text-accent-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
                     </span>
-                    {{else}}<span class="text-[11px] text-dark-600">—</span>{{end}}
+                    {{else if $.AssetIndexInitial}}<span class="text-[11px] text-dark-500 animate-pulse" title="{{T `Loading from scan results…`}}">···</span>{{else}}<span class="text-[11px] text-dark-600">—</span>{{end}}
                 </td>
                 <td class="px-4 py-3">
                     {{if .Technologies}}
@@ -236,7 +236,7 @@ html.light #assetCharts{--chart-blue:#2563eb;--chart-purple:#7c3aed;--chart-oran
                         <svg class="w-3.5 h-3.5 animate-spin text-accent-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
                         <span class="text-accent-400">{{T "loading…"}}</span>
                     </span>
-                    {{else}}<span class="text-[11px] text-dark-600">—</span>{{end}}
+                    {{else if $.AssetIndexInitial}}<span class="text-[11px] text-dark-500 animate-pulse" title="{{T `Loading from scan results…`}}">···</span>{{else}}<span class="text-[11px] text-dark-600">—</span>{{end}}
                 </td>
                 <td class="px-4 py-3">
                     {{if .Related}}
@@ -245,7 +245,7 @@ html.light #assetCharts{--chart-blue:#2563eb;--chart-purple:#7c3aed;--chart-oran
                         <a href="/assets/{{.}}" onclick="event.stopPropagation()" class="mono text-[10px] text-dark-300 bg-dark-850 border border-dark-700 hover:border-accent-500/50 hover:text-accent-300 px-1.5 py-0.5 rounded">{{.}}</a>
                         {{end}}
                     </div>
-                    {{else}}<span class="text-[11px] text-dark-600">—</span>{{end}}
+                    {{else if $.AssetIndexInitial}}<span class="text-[11px] text-dark-500 animate-pulse" title="{{T `Loading from scan results…`}}">···</span>{{else}}<span class="text-[11px] text-dark-600">—</span>{{end}}
                 </td>
                 <td class="px-4 py-3 text-center">
                     <span class="mono text-sm text-dark-200">{{.ScanCount}}</span>

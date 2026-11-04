@@ -476,7 +476,17 @@ func (h *Handler) Assets(w http.ResponseWriter, r *http.Request) {
 	// just-finished scan left the Technologies column at "—" and the search box
 	// unable to match findings until a manual reload. (vulnReady captured from
 	// getVulnIndex above; searchReady reads the search index's ready flag.)
-	data["AssetIndexBuilding"] = !vulnReady || !h.assetSearchReady(ws.ID, liteScans)
+	searchReady := h.assetSearchReady(ws.ID, liteScans)
+	data["AssetIndexBuilding"] = !vulnReady || !searchReady
+	// AssetIndexInitial = the search/tech index has produced NOTHING yet for this
+	// workspace — the FIRST build after a restart (the cache is in-memory, wiped on
+	// restart, and published atomically at the end of the build). In that window
+	// every index-derived column (IP/Status/Ports/Services/Related) is empty, so
+	// the template shows a gentle "loading" marker instead of a bare "—" that reads
+	// as broken. Once the first build lands (blob populated) this is false forever
+	// — even while a running scan keeps the index refreshing — so idle assets never
+	// perpetually spin.
+	data["AssetIndexInitial"] = !searchReady && len(searchBlob) == 0
 	// The type filter is now a two-way FQDN/IP tab; FQDN is the default view.
 	filterType := r.URL.Query().Get("type")
 	if filterType == "" {

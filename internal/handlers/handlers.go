@@ -1143,10 +1143,37 @@ func (h *Handler) promoteWebServiceTargets(wsID string, urls []string, note stri
 	if wsID == "" || len(urls) == 0 {
 		return
 	}
-	var listIDs []string
-	if lid := h.ensureTargetList(wsID, "HTTP services (discovered)"); lid != "" {
-		listIDs = []string{lid}
+	// Generic catch-all so a service whose host isn't an existing target still
+	// lands somewhere pickable.
+	genericList := h.ensureTargetList(wsID, "HTTP services (discovered)")
+
+	// Inherit list membership from the originating host: if a discovered
+	// service's host already exists as a workspace target in some list(s) — e.g.
+	// the operator's own "example list" that was fed to the scan — file the
+	// discovered http(s):// URL under those SAME list(s) too, so it shows up
+	// grouped under "example list" in every module's target picker, not only
+	// under the generic "HTTP services (discovered)" bucket.
+	hostToLists := map[string]map[string]bool{}
+	if targets, err := h.db.ListTargets(wsID, ""); err == nil {
+		membership := h.db.TargetListMembership(wsID)
+		for _, t := range targets {
+			cats := membership[t.ID]
+			if len(cats) == 0 {
+				continue
+			}
+			hk := targetHostKey(t.Value)
+			if hk == "" {
+				continue
+			}
+			if hostToLists[hk] == nil {
+				hostToLists[hk] = map[string]bool{}
+			}
+			for _, c := range cats {
+				hostToLists[hk][c.ID] = true
+			}
+		}
 	}
+
 	seen := map[string]bool{}
 	for _, u := range urls {
 		val := canonicalWebServiceURL(u)
@@ -1154,8 +1181,63 @@ func (h *Handler) promoteWebServiceTargets(wsID string, urls []string, note stri
 			continue
 		}
 		seen[val] = true
+		listSet := map[string]bool{}
+		if genericList != "" {
+			listSet[genericList] = true
+		}
+		for lid := range hostToLists[targetHostKey(val)] {
+			listSet[lid] = true
+		}
+		listIDs := make([]string, 0, len(listSet))
+		for lid := range listSet {
+			listIDs = append(listIDs, lid)
+		}
 		h.db.CreateTargetMulti(wsID, val, models.TargetURL, note, listIDs)
 	}
+}
+
+// targetHostKey reduces any target value (bare host, IP, or
+// scheme://host:port/path) to a comparable lowercase host key, so a discovered
+// service URL can be matched back to the workspace target it originated from
+// regardless of scheme, port, userinfo or path.
+func targetHostKey(value string) string {
+	s := strings.ToLower(strings.TrimSpace(value))
+	if s == "" {
+		return ""
+	}
+	if i := strings.Index(s, "://"); i != -1 {
+		s = s[i+3:]
+	}
+	if i := strings.Index(s, "@"); i != -1 {
+		s = s[i+1:]
+	}
+	if i := strings.IndexAny(s, "/?#"); i != -1 {
+		s = s[:i]
+	}
+	// IPv6 literal: [::1]:443 → ::1
+	if strings.HasPrefix(s, "[") {
+		if j := strings.Index(s, "]"); j != -1 {
+			return s[1:j]
+		}
+		return strings.TrimPrefix(s, "[")
+	}
+	// Strip a trailing :port only when there's a single colon (a bare IPv6
+	// address has several and must be left intact) and the suffix is all digits.
+	if c := strings.LastIndex(s, ":"); c != -1 && strings.Count(s, ":") == 1 {
+		if port := s[c+1:]; port != "" {
+			allDigit := true
+			for _, r := range port {
+				if r < '0' || r > '9' {
+					allDigit = false
+					break
+				}
+			}
+			if allDigit {
+				s = s[:c]
+			}
+		}
+	}
+	return s
 }
 
 // canonicalWebServiceURL normalises a scheme://host[:port] string so the same

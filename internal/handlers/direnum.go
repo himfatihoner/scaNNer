@@ -48,13 +48,11 @@ func (h *Handler) DirEnumRun(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/modules/direnum?error=no_urls", http.StatusSeeOther)
 		return
 	}
-	// Audit fix: cap URL count so a single submission cannot queue
-	// billions of requests. 500 matches the documented Settings ceiling
-	// for web modules and is well above any realistic engagement.
-	if len(urls) > 500 {
-		http.Redirect(w, r, "/modules/direnum?error=too_many_urls", http.StatusSeeOther)
-		return
-	}
+	// No artificial URL cap: the operator decides how large a sweep to run
+	// (a full target list of discovered http(s):// services can be well over
+	// 500). The only real bound is the per-scan concurrency/queue, not an
+	// up-front refusal. A huge sweep is slow — the operator's time to spend —
+	// not a resource blow-up, so it runs instead of being rejected.
 
 	techs := r.Form["techs"]
 	if len(techs) == 0 {

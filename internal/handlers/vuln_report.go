@@ -164,9 +164,44 @@ func severityRGB(sevRank int) (int, int, int) {
 	return 0x6B, 0x72, 0x80
 }
 
+// upgradeClass marks the KB classes for which an attached CVE means "a known
+// third-party component is outdated", so the correct fix is to UPGRADE it.
+// App-code-level classes (xss/sqli/ssti), info-disclosure, and the unclassified
+// buckets qualify: a first-party bug in these rarely carries a CVE, so a CVE
+// here signals a library/component finding (e.g. a jQuery XSS). Config/
+// infrastructure classes (weak-tls, missing-header, cors, open-redirect,
+// auth-bypass, …) are deliberately ABSENT — a CVE there (e.g. POODLE) is fixed
+// by configuration, not an upgrade, so they keep their own class remediation.
+var upgradeClass = map[string]bool{
+	"xss":             true,
+	"sqli":            true,
+	"ssti":            true,
+	"info-disclosure": true,
+	"cve-generic":     true,
+	"generic":         true,
+}
+
 // buildVulnReport resolves a GlobalVuln + KB into a language-selected report.
 func buildVulnReport(v GlobalVuln, lang string) VulnReport {
-	class := classifyVuln(v.Module, v.Title, len(v.CVEs) > 0)
+	hasCVE := len(v.CVEs) > 0
+	class := classifyVuln(v.Module, v.Title, hasCVE)
+
+	// Known-component / outdated-software findings: the fix is to UPGRADE the
+	// component, not to apply the generic attack-class control (a jQuery XSS is
+	// fixed by upgrading jQuery, not by "encoding output"). Reframe such findings
+	// to the component class for the whole narrative (description/impact/
+	// preconditions) and synthesize an upgrade-first remediation naming the
+	// product, fixed version, and CVE. Gate: a concrete product+version, OR a
+	// known fixed version (both are unambiguous upgrade signals — e.g. a wpscan
+	// plugin finding or a TLS-implementation CVE reframes when the detector
+	// supplied either), OR a CVE on an app-code-level/unclassified class. A
+	// config/infra class whose finding carries neither a product nor a fixed
+	// version (e.g. POODLE/BEAST/SWEET32 weak-tls) keeps its own, correct
+	// remediation.
+	component := strings.TrimSpace(v.Product) != "" || strings.TrimSpace(v.FixedIn) != "" || (hasCVE && upgradeClass[class])
+	if component {
+		class = "cve-generic"
+	}
 	kb := kbTextFor(class, lang)
 
 	// CVSS: score (captured) + vector (captured else KB).
@@ -213,20 +248,33 @@ func buildVulnReport(v GlobalVuln, lang string) VulnReport {
 	// Evidence/request/response in the PoC stay verbatim: they're raw technical
 	// artifacts, not translatable prose.)
 	name := v.Title
-	desc, rem := kb.Description, kb.Remediation
+	desc := kb.Description
 	if strings.EqualFold(lang, "en") {
 		desc = firstNonEmpty(v.Description, kb.Description)
-		rem = firstNonEmpty(v.Remediation, kb.Remediation)
-	} else {
+	} else if !component {
 		// TR: translate recognized TLS/certificate finding titles (and their
 		// descriptions) so the report reads fully in Turkish instead of leaking
-		// English titles like "No Modern TLS".
+		// English titles like "No Modern TLS". (Skipped for component findings,
+		// which use the localized cve-generic narrative.)
 		if trTitle, trDesc := tlsTitleTR(v.Title); trTitle != "" {
 			name = trTitle
 			if trDesc != "" {
 				desc = trDesc
 			}
 		}
+	}
+
+	// Remediation: component findings get the synthesized upgrade-first text
+	// (names product/version/CVE, localized); otherwise the captured scanner
+	// remediation wins in English, falling back to the localized KB text.
+	var rem string
+	switch {
+	case component:
+		rem = upgradeRemediation(v, lang)
+	case strings.EqualFold(lang, "en"):
+		rem = firstNonEmpty(v.Remediation, kb.Remediation)
+	default:
+		rem = kb.Remediation
 	}
 
 	// TLS findings carry no HTTP request/response. Prefer the real tool run the
@@ -264,6 +312,54 @@ func firstNonEmpty(a, b string) string {
 		return a
 	}
 	return b
+}
+
+// upgradeRemediation synthesizes an upgrade-first, semicolon-free, localized
+// remediation for a known-component / outdated-software finding. It names the
+// detected product, the fixed version, and the CVE(s) when those are known, and
+// degrades gracefully as each piece is missing. This is what replaces the
+// generic "sanitize input / encode output" text for library findings like an
+// outdated jQuery XSS — where the only real fix is to upgrade the component.
+func upgradeRemediation(v GlobalVuln, lang string) string {
+	product := strings.TrimSpace(v.Product)
+	fixed := strings.TrimSpace(v.FixedIn)
+	cves := strings.Join(v.CVEs, ", ")
+
+	if !strings.EqualFold(lang, "en") {
+		subject := "Etkilenen bileşeni"
+		if product != "" {
+			subject = "Etkilenen bileşeni (" + product + ")"
+		}
+		var first string
+		switch {
+		case fixed != "":
+			first = subject + " bu açığın giderildiği sürüm olan " + fixed + " veya üzerine yükseltin."
+		case cves != "":
+			first = subject + " " + cves + " ile takip edilen açıkları gideren satıcı sürümüne yükseltin. İlk yamalı sürüm için ilgili danışma belgesine bakın."
+		default:
+			first = subject + " satıcının desteklediği güncel sürüme yükseltin."
+		}
+		return first +
+			" Hemen yükseltemiyorsanız bileşeni gerekmediği yerde kaldırın veya satıcının belgelediği geçici önlemi uygulayın ve en kısa sürede yükseltin." +
+			" Sonrasında bulgunun giderildiğini doğrulamak için varlığı yeniden test edin."
+	}
+
+	subject := "the affected component"
+	if product != "" {
+		subject = "the affected component (" + product + ")"
+	}
+	var first string
+	switch {
+	case fixed != "":
+		first = "Upgrade " + subject + " to version " + fixed + " or later, the release in which this issue is fixed."
+	case cves != "":
+		first = "Upgrade " + subject + " to a vendor release that fixes " + cves + ". Check the referenced advisory for the first patched version."
+	default:
+		first = "Upgrade " + subject + " to the current supported release."
+	}
+	return first +
+		" If you cannot upgrade right away, remove the component where it is not needed or apply the vendor's documented mitigation as a temporary measure, then upgrade as soon as possible." +
+		" Re-test the asset afterwards to confirm the finding no longer appears."
 }
 
 // buildPoC assembles the page-2 proof-of-concept from captured request/response

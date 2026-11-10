@@ -72,9 +72,9 @@ func parseCVEMatchTarget(resJSON, target string, scanDate time.Time, scanID stri
 		detail := strings.TrimSpace(m.Description)
 		if fixed := strings.TrimSpace(m.FixedIn); fixed != "" {
 			if detail != "" {
-				detail += "; fixed in " + fixed
+				detail += " (fixed in " + fixed + ")"
 			} else {
-				detail = "fixed in " + fixed
+				detail = "Fixed in " + fixed
 			}
 		}
 
@@ -107,7 +107,7 @@ func parseCVEMatchTarget(resJSON, target string, scanDate time.Time, scanID stri
 		if cvss := strings.TrimSpace(m.CVSS); cvss != "" && cvss != "0.0" {
 			evParts = append(evParts, "CVSS "+cvss)
 		}
-		evidence := strings.Join(evParts, "; ")
+		evidence := strings.Join(evParts, " · ")
 
 		emit(targetRaw{
 			SevRank:     severityRank(sev),

@@ -75,7 +75,7 @@ func parseJWTTarget(resJSON, target string, scanDate time.Time, scanID string, e
 		if secret := strings.TrimSpace(tr.CrackedSecret); secret != "" {
 			evParts = append(evParts, "cracked secret="+secret)
 		}
-		evidence := strings.Join(evParts, "; ")
+		evidence := strings.Join(evParts, " · ")
 
 		// findings[] -> CatVuln.
 		for _, f := range tr.Findings {

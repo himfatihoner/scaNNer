@@ -56,7 +56,7 @@ func finalizeVulnEnrichment(h *Handler, v *GlobalVuln) {
 	if v.Port != "" && v.Protocol == "" {
 		v.Protocol = "tcp" // a known port with no explicit protocol is TCP (TLS/HTTP)
 	}
-	if h != nil && len(v.CVEs) > 0 && (v.CVSSScore == "" || v.Description == "" || v.Remediation == "") {
+	if h != nil && len(v.CVEs) > 0 && (v.CVSSScore == "" || v.Description == "" || v.Remediation == "" || v.FixedIn == "") {
 		if rec, ok := h.db.CVEByID(v.CVEs[0]); ok {
 			if v.CVSSScore == "" && rec.CVSS > 0 {
 				v.CVSSScore = fmt.Sprintf("%.1f", rec.CVSS)
@@ -66,6 +66,9 @@ func finalizeVulnEnrichment(h *Handler, v *GlobalVuln) {
 			}
 			if v.Remediation == "" {
 				v.Remediation = capStr(rec.Remediation, vulnTextCap)
+			}
+			if v.FixedIn == "" && rec.FixedIn != "" {
+				v.FixedIn = rec.FixedIn
 			}
 			if len(v.References) == 0 && rec.Reference != "" {
 				v.References = []string{rec.Reference}
@@ -89,6 +92,8 @@ func backfillVuln(dst, src *GlobalVuln) {
 	set(&dst.CVSSScore, src.CVSSScore)
 	set(&dst.CVSSVector, src.CVSSVector)
 	set(&dst.Remediation, src.Remediation)
+	set(&dst.Product, src.Product)
+	set(&dst.FixedIn, src.FixedIn)
 	set(&dst.Evidence, src.Evidence)
 	set(&dst.RawRequest, src.RawRequest)
 	set(&dst.RawResponse, src.RawResponse)
@@ -313,6 +318,14 @@ type GlobalVuln struct {
 	// "Software" column on the Vulnerabilities page. Empty for findings that
 	// aren't tied to a specific product (most nuclei/ssl/header findings).
 	Product string
+
+	// FixedIn is the first component version in which the finding is resolved
+	// (e.g. "3.5.0" for a jQuery CVE), when the detector or the CVE database
+	// knows it. Populated from the scan result's "fixed_in" field (cvematch /
+	// wpscan) and from the CVE DB join. Drives a precise "upgrade to <version> or
+	// later" remediation for known-component/outdated-software findings. Empty
+	// when no fixed version is known.
+	FixedIn string
 
 	// FirstSeen / LastSeen are folded across every scan that reported this
 	// (deduped) vuln — earliest and latest scan time. Assigned at index
@@ -948,6 +961,9 @@ func extractVulnsGeneric(raw json.RawMessage, inh vulnInherit) []GlobalVuln {
 func enrichVuln(gv *GlobalVuln, obj map[string]json.RawMessage, inhReq, inhResp, inhPort string) {
 	gv.Description = capStr(jsonStr(obj, "description", "desc"), vulnTextCap)
 	gv.Remediation = capStr(jsonStr(obj, "remediation", "solution", "fix", "recommendation"), vulnTextCap)
+	// The first patched version, when the detector reports one (cvematch/wpscan
+	// emit "fixed_in"). Drives a precise upgrade-oriented remediation.
+	gv.FixedIn = jsonStr(obj, "fixed_in", "fixed-in", "fixedin", "fixed_version", "patched_version")
 	gv.Evidence = capStr(jsonStr(obj, "evidence", "proof", "extracted_results", "extracted-results", "detail", "matcher_name"), vulnTextCap)
 	gv.CVSSScore = jsonNumStr(obj, "cvss", "cvss_score", "cvss-score", "cvssScore", "score", "cvss_base_score")
 	gv.CVSSVector = jsonStr(obj, "cvss_vector", "cvss-vector", "vector", "cvss_metrics", "cvss-metrics")

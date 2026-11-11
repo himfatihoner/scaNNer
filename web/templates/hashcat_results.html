@@ -10,6 +10,29 @@
 
 {{define "hashcat_results_inner"}}
 {{$s := .Summary}}
+{{if .Hashes}}
+<div class="flex items-center mb-3">
+    <textarea id="hashcatCopySrc" hidden aria-hidden="true">
+== Summary ==
+Mode{{"\t"}}-m {{$s.ModeID}} {{$s.ModeName}}{{if $s.DetectedModes}} (auto){{end}} · {{$s.Attack}}
+Status{{"\t"}}{{$s.Status}}
+Cracked{{"\t"}}{{$s.Cracked}} / {{$s.Total}}
+Candidates tried{{"\t"}}{{if $s.CandHuman}}{{$s.CandHuman}}{{else}}—{{end}} ({{$s.ProgressPct}}% of keyspace)
+Speed{{"\t"}}{{if $s.HashrateHuman}}{{$s.HashrateHuman}}{{else}}—{{end}}{{if $s.ETA}} · ETA {{$s.ETA}}{{end}}
+CPU / device{{"\t"}}{{$s.LiveUtilPct}}% (peak {{$s.PeakUtilPct}}%){{if $s.DeviceType}} · {{$s.DeviceType}} {{$s.DeviceName}}{{end}} · {{$s.DurationSec}}s
+{{if $s.DetectedModes}}Auto-detect candidates{{"\t"}}{{$s.DetectedModes}}
+{{end}}{{if $s.Warning}}Warning{{"\t"}}{{$s.Warning}}
+{{end}}
+== Cracked credentials ==
+Hash{{"\t"}}Plaintext
+{{range .Hashes}}{{if .Cracked}}{{.Hash}}{{"\t"}}{{.Plaintext}}
+{{end}}{{end}}
+== Uncracked ==
+{{range .Hashes}}{{if not .Cracked}}{{.Hash}}
+{{end}}{{end}}</textarea>
+    <button type="button" data-copy-results="hashcatCopySrc" data-label="{{T `Copy results`}}" data-done="{{T `Copied`}}" class="ml-auto text-[10px] px-2 py-0.5 rounded bg-dark-850 text-dark-300 hover:bg-dark-800 border border-dark-700">{{T `Copy results`}}</button>
+</div>
+{{end}}
 <!-- Stats strip -->
 <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
     <div class="bg-dark-900 border border-dark-800 rounded-xl p-4">

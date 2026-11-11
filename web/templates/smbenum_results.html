@@ -33,6 +33,47 @@
     </div>
 </div>
 
+{{if .Results}}
+<div class="flex mb-2">
+    <button type="button" data-copy-results="smbenumCopySrc" data-label="{{T `Copy results`}}" data-done="{{T `Copied`}}" class="ml-auto text-[10px] px-2 py-0.5 rounded bg-dark-850 text-dark-300 hover:bg-dark-800 border border-dark-700">{{T `Copy results`}}</button>
+</div>
+<textarea id="smbenumCopySrc" hidden aria-hidden="true">
+{{- "Target"}}{{"\t"}}{{"IP"}}{{"\t"}}{{"OS"}}{{"\t"}}{{"Shares"}}{{"\t"}}{{"Users"}}{{"\t"}}{{"Groups" -}}
+{{- range .Results -}}
+{{"\n"}}{{.Target}}{{"\t"}}{{.IP}}{{"\t"}}{{.OS}}{{"\t"}}{{len .Shares}}{{"\t"}}{{len .Users}}{{"\t"}}{{len .Groups -}}
+{{- end -}}
+{{- range .Results -}}
+{{- if or .Error .Domain .Workgroup .NetbiosName .Shares .Users .Groups .Sessions -}}
+{{"\n\n== "}}{{.Target}}{{if and .IP (ne .IP .Target)}}{{" ("}}{{.IP}}{{")"}}{{end}}{{" ==" -}}
+{{- if .OS}}{{"\nOS: "}}{{.OS}}{{end -}}
+{{- if .Domain}}{{"\nDomain: "}}{{.Domain}}{{end -}}
+{{- if .Workgroup}}{{"\nWorkgroup: "}}{{.Workgroup}}{{end -}}
+{{- if .NetbiosName}}{{"\nNetBIOS: "}}{{.NetbiosName}}{{end -}}
+{{- if .Error}}{{"\nError: "}}{{.Error}}{{end -}}
+{{- if .Shares -}}
+{{"\n\n-- Shares ("}}{{len .Shares}}{{") --"}}{{"\nName"}}{{"\t"}}{{"Type"}}{{"\t"}}{{"Comment" -}}
+{{- range .Shares -}}
+{{"\n"}}{{.Name}}{{"\t"}}{{.Type}}{{"\t"}}{{.Comment -}}
+{{- range .InterestingHits}}{{"\n  interesting: "}}{{.}}{{end -}}
+{{- end -}}
+{{- end -}}
+{{- if .Users -}}
+{{"\n\n-- Users ("}}{{len .Users}}{{") --" -}}
+{{- range .Users}}{{"\n"}}{{.}}{{end -}}
+{{- end -}}
+{{- if .Groups -}}
+{{"\n\n-- Groups ("}}{{len .Groups}}{{") --" -}}
+{{- range .Groups}}{{"\n"}}{{.}}{{end -}}
+{{- end -}}
+{{- if .Sessions -}}
+{{"\n\n-- Sessions ("}}{{len .Sessions}}{{") --" -}}
+{{- range .Sessions}}{{"\n"}}{{.}}{{end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+</textarea>
+{{end}}
+
 {{range .Results}}
 <div class="bg-dark-900 border {{if not .SMBPortOpen}}border-danger/30{{else}}border-dark-800{{end}} rounded-xl mb-4 overflow-hidden">
     <div class="px-5 py-4 border-b border-dark-800 flex items-center justify-between">

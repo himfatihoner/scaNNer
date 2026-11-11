@@ -81,6 +81,32 @@
 {{end}}
 
 {{if .Results}}
+{{/* Hidden plain-text snapshot of every finding for the shared "Copy results"
+     helper (the button lives in the tabs row below). Reuses only field paths
+     already rendered on this page; plain text, tab/newline separated. */}}
+<textarea id="portserviceCopySrc" hidden aria-hidden="true">
+{{- "== Open Ports =="}}{{"\n"}}
+{{- "Target\tIP\tHostname\tState\tPort\tProto\tService\tProduct\tVersion"}}
+{{- range $tr := .Results}}
+{{- $ip := $tr.IP}}{{if not $ip}}{{$ip = "-"}}{{end}}
+{{- $hn := $tr.Host}}{{if not $hn}}{{$hn = "-"}}{{end}}
+{{- $st := "up"}}{{if $tr.SuspectedFirewall}}{{$st = "potential-fw"}}{{else if not $tr.HostUp}}{{$st = "down"}}{{else if $tr.IcmpFiltered}}{{$st = "icmp-filtered"}}{{end}}
+{{- range $p := $tr.Ports}}{{if eq $p.State "open"}}
+{{- "\n"}}{{$tr.Target}}{{"\t"}}{{$ip}}{{"\t"}}{{$hn}}{{"\t"}}{{$st}}{{"\t"}}{{$p.Port}}{{"\t"}}{{$p.Protocol}}{{"\t"}}{{if $p.Service}}{{$p.Service}}{{else}}-{{end}}{{"\t"}}{{if $p.Product}}{{$p.Product}}{{else}}-{{end}}{{"\t"}}{{if $p.Version}}{{$p.Version}}{{else}}-{{end}}
+{{- end}}{{end}}
+{{- end}}
+{{- $vulnTotal := 0}}{{range .Results}}{{$vulnTotal = add $vulnTotal (len .NucleiFindings)}}{{end}}
+{{- if gt $vulnTotal 0}}
+{{- "\n\n== Vulnerabilities =="}}{{"\n"}}
+{{- "Host\tSeverity\tName\tCVEs"}}
+{{- range $tr := .Results}}
+{{- $vhost := $tr.IP}}{{if not $vhost}}{{$vhost = $tr.Target}}{{end}}
+{{- range $f := $tr.NucleiFindings}}
+{{- "\n"}}{{$vhost}}{{"\t"}}{{$f.Severity}}{{"\t"}}{{$f.Name}}{{"\t"}}{{range $ci, $cve := $f.CVEs}}{{if $ci}} {{end}}{{$cve}}{{end}}
+{{- end}}
+{{- end}}
+{{- end}}
+</textarea>
 <!-- Tabs: switch between row-per-host and row-per-port views. -->
 <div class="flex items-center gap-2 mb-3">
     <button type="button" id="psViewHosts" onclick="psSetView('hosts')"
@@ -88,6 +114,7 @@
     <button type="button" id="psViewPorts" onclick="psSetView('ports')"
             class="ps-tab px-3 py-1.5 text-xs rounded-lg bg-dark-850 border border-dark-700 text-dark-300 hover:text-white transition-colors">{{T "By Port"}}</button>
     <span class="text-[11px] text-dark-500 ml-2">{{T `Switch to "By Port" to find every host running e.g. 22`}}</span>
+    <button type="button" data-copy-results="portserviceCopySrc" data-label="{{T `Copy results`}}" data-done="{{T `Copied`}}" class="ml-auto text-[10px] px-2 py-0.5 rounded bg-dark-850 text-dark-300 hover:bg-dark-800 border border-dark-700">{{T `Copy results`}}</button>
 </div>
 
 <div class="flex flex-wrap items-center gap-2 mb-3">

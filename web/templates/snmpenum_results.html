@@ -38,6 +38,29 @@
 </div>
 {{end}}
 
+{{if .Results}}
+<div class="flex mb-2">
+    <button type="button" data-copy-results="snmpenumCopySrc" data-label="{{T `Copy results`}}" data-done="{{T `Copied`}}" class="ml-auto text-[10px] px-2 py-0.5 rounded bg-dark-850 text-dark-300 hover:bg-dark-800 border border-dark-700">{{T `Copy results`}}</button>
+</div>
+<textarea id="snmpenumCopySrc" hidden aria-hidden="true">
+{{- "Target"}}{{"\t"}}{{"System"}}{{"\t"}}{{"Communities"}}{{"\t"}}{{"RW communities" -}}
+{{- range .Results -}}
+{{"\n"}}{{.Target}}{{"\t"}}{{.SystemName}}{{"\t"}}{{range $i, $c := .ValidCommunities}}{{if $i}}, {{end}}{{$c}}{{end}}{{"\t"}}{{range $i, $c := .WriteCommunities}}{{if $i}}, {{end}}{{$c}}{{end -}}
+{{- end -}}
+{{- range .Results -}}
+{{- if or .Error .SystemDescr .SystemUptime .SystemContact .SystemLocation .Walks -}}
+{{"\n\n== "}}{{.Target}}{{" ==" -}}
+{{- if .Error}}{{"\nError: "}}{{.Error}}{{end -}}
+{{- if .SystemDescr}}{{"\nDescription: "}}{{.SystemDescr}}{{end -}}
+{{- if .SystemUptime}}{{"\nUptime: "}}{{.SystemUptime}}{{end -}}
+{{- if .SystemContact}}{{"\nContact: "}}{{.SystemContact}}{{end -}}
+{{- if .SystemLocation}}{{"\nLocation: "}}{{.SystemLocation}}{{end -}}
+{{- range .Walks}}{{"\n-- "}}{{.Label}}{{" ("}}{{.OID}}{{") · "}}{{.LineCount}}{{" lines --\n"}}{{.Output}}{{end -}}
+{{- end -}}
+{{- end -}}
+</textarea>
+{{end}}
+
 {{range .Results}}
 <div class="bg-dark-900 border {{if .ValidCommunities}}border-warning/30{{else}}border-dark-800{{end}} rounded-xl mb-4 overflow-hidden">
     <div class="px-5 py-4 border-b border-dark-800 flex items-center justify-between">

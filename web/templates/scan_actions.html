@@ -240,4 +240,39 @@
 {{end}}</pre>
 </details>
 {{end}}
+
+{{/* Shared "Copy results" helper. Any button with data-copy-results="<id>"
+     copies the text of the element with that id (textarea .value or textContent)
+     to the clipboard, with an execCommand fallback for non-secure contexts, and
+     flips its label to a localized "copied" state for 1.5s. Event-delegated on
+     document so it keeps working after an htmx partial swaps the results in. The
+     hidden source elements + buttons live in each module's results fragment. */}}
+<script>
+(function(){
+  if (window.__copyResultsInit) return; window.__copyResultsInit = true;
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest ? e.target.closest('[data-copy-results]') : null;
+    if (!btn) return;
+    e.preventDefault(); e.stopPropagation();
+    var src = document.getElementById(btn.getAttribute('data-copy-results'));
+    if (!src) return;
+    var text = (src.value != null && src.value !== undefined ? src.value : src.textContent) || '';
+    text = text.replace(/^\n+|\n+$/g, '');
+    var label = btn.getAttribute('data-label') || btn.textContent;
+    var doneLabel = btn.getAttribute('data-done') || '✓';
+    var flip = function(){ btn.textContent = doneLabel; setTimeout(function(){ btn.textContent = label; }, 1500); };
+    var fallback = function(){
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.top = '-1000px'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta); flip();
+      } catch (_) {}
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(flip, fallback);
+    } else { fallback(); }
+  }, true);
+})();
+</script>
 {{end}}

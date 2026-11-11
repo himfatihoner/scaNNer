@@ -21,20 +21,17 @@ import (
 // dispatch time, so this is the per-line shape gate.
 var targetTokenRe = regexp.MustCompile(`^[A-Za-z0-9._:\-/]+$`)
 
-// hostDiscoveryMaxTargets bounds the number of post-expansion hosts a single
-// submission may produce. One /16 worth (65 536) keeps the worst case at
-// roughly 2× nmap subprocesses × concurrency, which is recoverable; beyond
-// that a single request can take a host out of service.
-const hostDiscoveryMaxTargets = 65536
+// hostDiscoveryProgressExpandCap bounds ONLY the host-count expansion used to
+// compute the progress-bar denominator (so a /24 reports as 256, not 1). It is
+// not a limit on what may be scanned — cfg.Targets is passed to nmap verbatim —
+// it just stops the progress expansion from allocating an unbounded slice for a
+// huge input. 1<<20 keeps even very large sweeps accurate without runaway.
+const hostDiscoveryProgressExpandCap = 1 << 20
 
-// hostDiscoveryMaxTargetLines caps how many entries cfg.Targets may contain
-// before expansion. Prevents the expand step itself from running away when
-// a user pastes a megabyte of /16 lines.
-const hostDiscoveryMaxTargetLines = 256
-
-// hostDiscoveryMaxManualBytes caps the raw textarea size BEFORE splitting,
-// so we never spend memory tokenising 50 MB of newlines.
-const hostDiscoveryMaxManualBytes = 64 * 1024
+// hostDiscoveryMaxManualBytes caps the raw textarea size BEFORE splitting, so we
+// never spend memory tokenising a runaway paste. Generous (1 MB ≈ tens of
+// thousands of host lines) — a size guard, not an artificial list-length limit.
+const hostDiscoveryMaxManualBytes = 1 << 20
 
 type hostDiscoveryConfig struct {
 	Targets     []string `json:"targets"`
@@ -129,11 +126,13 @@ func (h *Handler) HostDiscoveryRun(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/modules/hostdiscovery?error=no_targets", http.StatusSeeOther)
 		return
 	}
-	// Audit S/Q: cap raw target line count to bound the pre-expand cost.
-	if len(cfg.Targets) > hostDiscoveryMaxTargetLines {
-		http.Redirect(w, r, "/modules/hostdiscovery?error=too_many_targets", http.StatusSeeOther)
-		return
-	}
+	// No artificial cap on the number of target lines / hosts: the operator
+	// decides how large a sweep to run (300 individual hosts on one port is
+	// trivial work, yet the old 256-line cap rejected it). The only remaining
+	// bound is the per-CIDR /16 guard below, which stops a single oversize block
+	// (e.g. a /8) from being handed to nmap as one runaway sweep — the operator
+	// can split such a block themselves. The raw-textarea byte cap still guards
+	// against a pathological multi-megabyte paste.
 	if (cfg.Scope == "custom" || cfg.Scope == "range") && cfg.PortSpec != "" && !shared.ValidPortSpec(cfg.PortSpec) {
 		http.Redirect(w, r, "/modules/hostdiscovery?error=bad_ports", http.StatusSeeOther)
 		return
@@ -160,15 +159,10 @@ func (h *Handler) HostDiscoveryRun(w http.ResponseWriter, r *http.Request) {
 	// Progress total = expanded host count so a /24 reports as 256, not 1.
 	// cfg.Targets stays as-is (CIDR / range strings) so nmap still gets the
 	// efficient batched form. The scanner increments done by len(rows) per
-	// target so progress lands accurately.
-	// Audit S/Q: also enforce an aggregate cap on the expanded host count
-	// — without this a user could submit hundreds of /16 entries and each
-	// would spawn 2 nmap subprocesses with full -p- sweeps.
-	expanded := shared.ExpandTargets(cfg.Targets, 65536)
-	if len(expanded) > hostDiscoveryMaxTargets {
-		http.Redirect(w, r, "/modules/hostdiscovery?error=too_many_targets", http.StatusSeeOther)
-		return
-	}
+	// target so progress lands accurately. The expansion here is only for the
+	// progress denominator (bounded by hostDiscoveryProgressExpandCap) — it is
+	// not a cap on what gets scanned.
+	expanded := shared.ExpandTargets(cfg.Targets, hostDiscoveryProgressExpandCap)
 	totalHosts := len(expanded)
 	if totalHosts < len(cfg.Targets) {
 		totalHosts = len(cfg.Targets)

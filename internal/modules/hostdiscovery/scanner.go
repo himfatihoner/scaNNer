@@ -89,8 +89,9 @@ func Scan(ctx context.Context, cfg Config, progress ProgressFunc, partial Partia
 	// Total host count, expanding CIDRs/ranges. Used so progress shows
 	// /24 → 0/256 instead of 0/1. Each scanOne result bumps `done` by
 	// len(rows) so the indicator reflects the host count nmap actually
-	// processed for that target.
-	totalHosts := len(shared.ExpandTargets(cfg.Targets, 65536))
+	// processed for that target. The cap bounds only this denominator
+	// expansion (not what is scanned — that iterates cfg.Targets verbatim).
+	totalHosts := len(shared.ExpandTargets(cfg.Targets, 1<<20))
 	if totalHosts < len(cfg.Targets) {
 		totalHosts = len(cfg.Targets)
 	}

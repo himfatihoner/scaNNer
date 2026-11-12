@@ -104,7 +104,7 @@
             <h4 class="text-xs font-semibold text-dark-400 uppercase tracking-wider mb-2">{{T "Shares"}} ({{len .Shares}})</h4>
             {{if .Shares}}
             <div class="bg-dark-850 rounded-lg overflow-hidden">
-                <table class="w-full">
+                <table data-copytable class="w-full">
                     <thead><tr class="border-b border-dark-700"><th class="text-left px-3 py-1.5 text-[10px] text-dark-500 uppercase">{{T "Name"}}</th><th class="text-left px-3 py-1.5 text-[10px] text-dark-500 uppercase">{{T "Type"}}</th><th class="text-left px-3 py-1.5 text-[10px] text-dark-500 uppercase">{{T "Comment"}}</th></tr></thead>
                     <tbody>
                     {{range .Shares}}

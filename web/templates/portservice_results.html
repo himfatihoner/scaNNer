@@ -132,7 +132,7 @@
 
 <!-- Hosts view: row-per-host -->
 <div id="psHostsView" class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
-    <table id="psHostsTable" class="w-full text-sm">
+    <table data-copytable id="psHostsTable" class="w-full text-sm">
         <thead class="bg-dark-850 border-b border-dark-800 text-left">
             <tr>
                 <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="target" data-sort-type="string">{{T "Target"}}</th>
@@ -315,7 +315,7 @@
 
 <!-- Ports view: row-per-port — one row per (host, port) combination -->
 <div id="psPortsView" class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden hidden">
-    <table id="psPortsTable" class="w-full text-sm">
+    <table data-copytable id="psPortsTable" class="w-full text-sm">
         <thead class="bg-dark-850 border-b border-dark-800 text-left">
             <tr>
                 <th class="px-4 py-3 text-[10px] uppercase tracking-wider text-dark-500 font-semibold" data-sort-key="port" data-sort-type="number">{{T "Port"}}</th>

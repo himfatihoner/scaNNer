@@ -66,7 +66,7 @@
 {{$svcTotal := $svcRendered}}{{if .TotalCount}}{{$svcTotal = .TotalCount}}{{end}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
     <div class="max-h-[600px] overflow-y-auto">
-    <table class="w-full" id="httpxFindTable">
+    <table data-copytable class="w-full" id="httpxFindTable">
         <thead class="sticky top-0 bg-dark-900 z-10">
             <tr class="border-b border-dark-800">
                 <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider cursor-pointer select-none" data-sort-key="url" data-sort-type="string">URL</th>

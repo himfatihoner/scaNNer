@@ -100,7 +100,7 @@
 
     {{if .Entries}}
     <div class="max-h-[600px] overflow-y-auto">
-        <table id="direnumTable-{{$tri}}" class="w-full">
+        <table data-copytable id="direnumTable-{{$tri}}" class="w-full">
             <thead class="sticky top-0 bg-dark-900">
                 <tr class="border-b border-dark-800">
                     <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase" data-sort-key="path"   data-sort-type="string">{{T `Path`}}</th>
@@ -191,7 +191,7 @@
     </div>
     {{end}}
     <div class="max-h-[600px] overflow-y-auto">
-        <table id="direnumDirsTable-{{$tri}}" class="w-full">
+        <table data-copytable id="direnumDirsTable-{{$tri}}" class="w-full">
             <thead class="sticky top-0 bg-dark-900">
                 <tr class="border-b border-dark-800">
                     <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase" data-sort-key="path"   data-sort-type="string">{{T `Path`}}</th>

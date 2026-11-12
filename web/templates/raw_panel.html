@@ -169,4 +169,136 @@ document.addEventListener('DOMContentLoaded', function() { decoratePresWithCopy(
     obs.observe(document.body, { childList: true, subtree: false });
 })();
 </script>
+
+{{/* ===== Scan-result COLUMN + CELL/VALUE copy =====
+     Adds, inside #scanContent only: (1) a hover copy icon in each <th> of a
+     table[data-copytable] that copies that column's VISIBLE data-row values,
+     and (2) a single floating copy button that appears beside the hovered
+     table cell (in a marked table) OR beside any .mono/.font-mono/code value
+     element (so card-layout modules get per-value copy too). Reuses the global
+     clipboard path; scoped to #scanContent so the header strip / non-findings
+     tables are never touched. */}}
+<style>
+.copycol-th { position: relative; }
+.copycol-btn { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; margin-left:4px; vertical-align:middle; color:currentColor; opacity:0; cursor:pointer; background:transparent; border:0; padding:0; transition:opacity .12s; }
+.copycol-th:hover .copycol-btn { opacity:.5; }
+.copycol-btn:hover { opacity:1; }
+.copycol-btn.copied { color:#22c55e; opacity:1; }
+.copycol-btn svg { width:12px; height:12px; }
+.copyval-float { position:fixed; z-index:70; width:20px; height:20px; display:none; align-items:center; justify-content:center; background:#1f2937; border:1px solid #475569; border-radius:5px; color:#cbd5e1; cursor:pointer; padding:0; box-shadow:0 1px 4px rgba(0,0,0,.45); }
+.copyval-float:hover { color:#fff; background:#334155; }
+.copyval-float.copied { color:#22c55e; border-color:#22c55e; }
+.copyval-float svg { width:12px; height:12px; pointer-events:none; }
+html.light .copyval-float { background:#ffffff; border-color:#cbd5e1; color:#475569; }
+html.light .copyval-float:hover { background:#f1f5f9; color:#0f172a; }
+</style>
+<script>
+(function(){
+  var COL_LABEL = '{{T "Copy column"}}';
+  var VAL_LABEL = '{{T "Copy value"}}';
+  var ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+
+  function clean(s){ if(!s) return ''; return s.replace(/ /g,' ').replace(/^[\s▸▾▶▿▹▼]+/,'').replace(/\s+/g,' ').trim(); }
+  function cellVal(c){ if(!c) return ''; if(c.dataset && c.dataset.copyValue != null) return c.dataset.copyValue; return clean(c.innerText || c.textContent || ''); }
+  function isDataRow(tr, n){ return tr && tr.cells && (n <= 0 || tr.cells.length === n); }
+  function rowVisible(tr){ return !!(tr && (tr.offsetParent !== null || tr.getClientRects().length)); }
+  function doCopy(text){
+    if(navigator.clipboard && navigator.clipboard.writeText){ return navigator.clipboard.writeText(text).catch(function(){ return fb(text); }); }
+    return fb(text);
+  }
+  function fb(text){ return new Promise(function(res){ try{ var ta=document.createElement('textarea'); ta.value=text; ta.setAttribute('readonly',''); ta.style.position='fixed'; ta.style.top='-1000px'; ta.style.opacity='0'; document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); }catch(e){} res(); }); }
+
+  // ---- Per-column copy icons on marked tables ----
+  function decorateTablesWithCopy(root){
+    var scope = (root && root.querySelectorAll) ? root : document;
+    var list = [];
+    if(scope.matches && scope.matches('table[data-copytable]')) list.push(scope);
+    if(scope.querySelectorAll) scope.querySelectorAll('table[data-copytable]').forEach(function(t){ list.push(t); });
+    list.forEach(function(table){
+      if(!table.closest('#scanContent')) return;
+      if(table.dataset.copyColsDone === '1') return;
+      table.dataset.copyColsDone = '1';
+      var thead = table.tHead;
+      if(!thead || !thead.rows.length) return; // headerless (whoisinfo) → cell copy only
+      var headRow = thead.rows[thead.rows.length - 1];
+      var headerCount = headRow.cells.length;
+      Array.prototype.forEach.call(headRow.cells, function(th, idx){
+        if(th.dataset.nocopy === '1') return;
+        if(clean(th.innerText || '') === '') return; // blank / action / expand column
+        var skey = th.getAttribute('data-sort-key');
+        th.classList.add('copycol-th');
+        var b = document.createElement('button');
+        b.type='button'; b.className='copycol-btn'; b.innerHTML = ICON;
+        b.title = COL_LABEL; b.setAttribute('aria-label', COL_LABEL);
+        b.addEventListener('click', function(ev){
+          ev.stopPropagation(); ev.preventDefault();
+          var out = [];
+          Array.prototype.forEach.call(table.tBodies, function(tb){
+            Array.prototype.forEach.call(tb.rows, function(tr){
+              if(!isDataRow(tr, headerCount) || !rowVisible(tr)) return;
+              var v = (skey && tr.dataset && tr.dataset[skey] != null && tr.dataset[skey] !== '') ? tr.dataset[skey] : cellVal(tr.cells[idx]);
+              v = (v == null ? '' : ''+v).trim();
+              if(v && v !== '—') out.push(v);
+            });
+          });
+          doCopy(out.join('\n')).then(function(){ b.classList.add('copied'); setTimeout(function(){ b.classList.remove('copied'); }, 1100); });
+        });
+        th.appendChild(b);
+      });
+    });
+  }
+
+  // ---- Single floating copy button for cells + mono values ----
+  var fbtn=null, fval='', hideT=null;
+  function ensureBtn(){
+    if(fbtn) return fbtn;
+    fbtn=document.createElement('button'); fbtn.type='button'; fbtn.className='copyval-float'; fbtn.innerHTML=ICON;
+    fbtn.title=VAL_LABEL; fbtn.setAttribute('aria-label',VAL_LABEL);
+    fbtn.addEventListener('click', function(ev){ ev.stopPropagation(); ev.preventDefault(); if(!fval) return; var el=fbtn; doCopy(fval).then(function(){ el.classList.add('copied'); setTimeout(function(){ el.classList.remove('copied'); }, 1000); }); });
+    fbtn.addEventListener('mouseleave', hideSoon);
+    document.body.appendChild(fbtn); return fbtn;
+  }
+  function hideSoon(){ clearTimeout(hideT); hideT=setTimeout(function(){ if(fbtn){ fbtn.style.display='none'; fbtn.classList.remove('copied'); } fval=''; }, 180); }
+  function showFor(el, val){
+    var b=ensureBtn(); fval=val; clearTimeout(hideT);
+    var r=el.getBoundingClientRect(), bw=20, bh=20;
+    var top=Math.max(4, Math.min(r.top+(r.height-bh)/2, window.innerHeight-bh-4));
+    var left=Math.max(4, Math.min(r.right-bw-2, window.innerWidth-bw-4));
+    b.style.top=top+'px'; b.style.left=left+'px'; b.style.display='inline-flex';
+  }
+  function targetFor(node){
+    if(!node || !node.closest) return null;
+    if(!node.closest('#scanContent')) return null;
+    var td=node.closest('table[data-copytable] td');
+    if(td){
+      var table=td.closest('table'), thead=table && table.tHead;
+      var n=(thead && thead.rows.length) ? thead.rows[thead.rows.length-1].cells.length : 0;
+      if(!isDataRow(td.parentElement, n)) return null;
+      if(td.querySelector && td.querySelector('button')) return null; // action cell
+      var v=cellVal(td);
+      if(v && v !== '—') return { el: td, val: v };
+      return null;
+    }
+    var mono=node.closest('.mono, .font-mono, code');
+    if(mono && !mono.closest('pre') && !mono.closest('table[data-copytable]') && mono.closest('#scanContent')){
+      var mv=cellVal(mono);
+      if(mv && mv.length>=2 && mv.length<=400 && mv.indexOf('\n')===-1 && mv !== '—') return { el: mono, val: mv };
+    }
+    return null;
+  }
+  document.addEventListener('mouseover', function(e){
+    if(fbtn && (e.target===fbtn || fbtn.contains(e.target))){ clearTimeout(hideT); return; }
+    var t=targetFor(e.target);
+    if(t){ clearTimeout(hideT); showFor(t.el, t.val); } else { hideSoon(); }
+  });
+  window.addEventListener('scroll', function(){ if(fbtn){ fbtn.style.display='none'; fval=''; } }, true);
+
+  function init(){ decorateTablesWithCopy(document); ensureBtn(); }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
+  if(typeof MutationObserver!=='undefined'){
+    var obs=new MutationObserver(function(muts){ for(var i=0;i<muts.length;i++){ for(var j=0;j<muts[i].addedNodes.length;j++){ var n=muts[i].addedNodes[j]; if(n.nodeType===1) decorateTablesWithCopy(n); } } });
+    var sc=document.getElementById('scanContent'); if(sc) obs.observe(sc, { childList:true, subtree:true });
+  }
+})();
+</script>
 {{end}}

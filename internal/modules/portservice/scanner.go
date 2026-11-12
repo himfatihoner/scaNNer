@@ -518,13 +518,18 @@ func scanOne(ctx context.Context, target string, cfg Config, log func(string)) [
 		}
 		if hasPn {
 			pnPorts := portsFromHost(hn)
-			if !tr.HostUp && countOpen(pnPorts) > 0 {
-				// ICMP filtered — ping pass thought down, but ports answered.
+			pnOpen := countOpen(pnPorts)
+			// A host that answers with RSTs on closed ports is alive even with
+			// zero open ports in range, so an ICMP-filtered, service-less host
+			// is no longer mislabelled "down".
+			_, pnClosed := hn.CountPortStates()
+			if !tr.HostUp && (pnOpen > 0 || pnClosed > 0) {
+				// Ping pass thought down, but -Pn shows the host answered.
 				tr.HostUp = true
 				tr.IcmpFiltered = true
 				tr.Host = hn.PrimaryHostname()
 				tr.Ports = pnPorts
-			} else if tr.HostUp && countOpen(pnPorts) > countOpen(tr.Ports) {
+			} else if tr.HostUp && pnOpen > countOpen(tr.Ports) {
 				// -Pn observed more ports — prefer the richer view.
 				tr.Ports = pnPorts
 			}
@@ -548,9 +553,13 @@ func scanOne(ctx context.Context, target string, cfg Config, log func(string)) [
 		}
 		tr.OpenCount = countOpen(tr.Ports)
 
-		// Firewall heuristic: phase-1 returned >100 ports for this host →
-		// flag it. The deep scan branches on this flag below.
-		if tr.OpenCount > firewallSuspicionThreshold {
+		// Firewall heuristic: a stateful firewall reflecting probes makes almost
+		// every scanned port look open. Flag only when the open count is both
+		// large AND at least half of the ports actually scanned — a legitimate
+		// host (even one exposing 100+ real services) never reaches that on a
+		// broad scope, so this no longer false-flags non-firewalled hosts.
+		if tr.OpenCount > firewallSuspicionThreshold &&
+			tr.OpenCount*2 >= scannedPortCount(cfg.Scope, cfg.PortSpec) {
 			tr.SuspectedFirewall = true
 			tr.FirewalledCount = tr.OpenCount
 		}
@@ -1092,6 +1101,32 @@ func portArgList(scope Scope, custom string) []string {
 		return []string{"--top-ports", "100"}
 	default:
 		return []string{"--top-ports", "1000"}
+	}
+}
+
+// scannedPortCount returns how many ports a given scope/port-spec actually
+// scans, so the firewall heuristic can judge "open" as a fraction of the scan
+// rather than an absolute count. Mirrors portArgList.
+func scannedPortCount(scope Scope, custom string) int {
+	switch scope {
+	case ScopeFull:
+		return 65535
+	case ScopeCustom, ScopeRange:
+		c := strings.TrimSpace(custom)
+		if c == "" {
+			if scope == ScopeRange {
+				return 1024 // default "1-1024"
+			}
+			return 6 // default "21,22,80,443,445,3389"
+		}
+		if n := len(shared.ExpandPortSpec(c)); n > 0 {
+			return n
+		}
+		return 65535 // unparseable → high, so the fraction gate under-flags
+	case "top100":
+		return 100
+	default: // ScopeCommon
+		return 1000
 	}
 }
 

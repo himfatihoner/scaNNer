@@ -47,6 +47,16 @@ type NmapName struct {
 
 type NmapPorts struct {
 	Ports []NmapPort `xml:"port"`
+	// ExtraPorts is nmap's summary of ports it did NOT list individually
+	// because many shared one state (e.g. `<extraports state="closed"
+	// count="998">`). Without it, a host that answers with RST on hundreds of
+	// closed ports looks like it has zero ports at all.
+	ExtraPorts []NmapExtraPort `xml:"extraports"`
+}
+
+type NmapExtraPort struct {
+	State string `xml:"state,attr"` // closed | filtered | open|filtered | ...
+	Count int    `xml:"count,attr"`
 }
 
 type NmapPort struct {
@@ -108,6 +118,33 @@ func (h NmapHost) PrimaryHostname() string {
 		return h.Hostnames.Names[0].Name
 	}
 	return ""
+}
+
+// CountPortStates returns the number of open and closed ports for the host,
+// counting BOTH individually-listed ports and nmap's `extraports` summary (the
+// "N closed ports not shown" roll-up it emits when many ports share a state).
+// A non-zero closed count means the host actively answered with RSTs — proof it
+// is alive even when it exposes no open ports. The open/closed ratio also
+// distinguishes a normal host (mostly closed) from a firewall reflecting every
+// probe as open (almost nothing closed).
+func (h NmapHost) CountPortStates() (open, closed int) {
+	for _, p := range h.Ports.Ports {
+		switch p.State.State {
+		case "open":
+			open++
+		case "closed":
+			closed++
+		}
+	}
+	for _, e := range h.Ports.ExtraPorts {
+		switch e.State {
+		case "open":
+			open += e.Count
+		case "closed":
+			closed += e.Count
+		}
+	}
+	return open, closed
 }
 
 // FormatCommand renders an executable + its argv as a roughly shell-paste-able

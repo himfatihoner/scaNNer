@@ -371,7 +371,13 @@ func scanOneMulti(ctx context.Context, label string, nmapTargets []string, cfg C
 			tr.Host = h.PrimaryHostname()
 			tr.Ports = portsFromHost(h)
 			tr.OpenCount = countOpen(tr.Ports)
-			if tr.OpenCount > 0 {
+			// The host is alive if -Pn found open ports OR it answered with
+			// RSTs on closed ports. A host behind an ICMP-filtering firewall
+			// still resets non-service ports, so a non-zero closed count proves
+			// it is up even with zero open ports in the scanned range —
+			// previously such a live host was wrongly reported "down".
+			_, closed := h.CountPortStates()
+			if tr.OpenCount > 0 || closed > 0 {
 				tr.HostUp = true
 				tr.IcmpFiltered = true
 			}
@@ -381,7 +387,7 @@ func scanOneMulti(ctx context.Context, label string, nmapTargets []string, cfg C
 		} else if h, ok := pingDown[ip]; ok {
 			tr.PingReason = h.Status.Reason
 		}
-		applyFirewallHeuristic(&tr)
+		applyFirewallHeuristic(&tr, scannedPortCount(cfg.Scope, cfg.PortSpec))
 		results = append(results, tr)
 	}
 	sort.Slice(results, func(i, j int) bool { return ipLess(results[i].IP, results[j].IP) })
@@ -570,21 +576,60 @@ func countOpen(p []PortFinding) int {
 	return n
 }
 
-// applyFirewallHeuristic flags hosts that nmap declared "fully open" because
-// a stateful firewall is reflecting every probe. Threshold: >100 reported
-// open ports. For host discovery we DON'T try to verify individual ports
-// (that's the portservice module's job) — we just mark the IP as
-// "Potential firewall, +N ports" and stop. The Ports list is cleared so
-// nothing downstream tries to act on the spurious entries; the user is
-// expected to follow up with portservice for service-level confirmation.
+// applyFirewallHeuristic flags hosts that nmap declared "fully open" because a
+// stateful firewall is reflecting every probe as a SYN-ACK. The signature of
+// such a device is that almost EVERY scanned port looks open — not merely that
+// the open count is high. The previous rule (open count > 100, regardless of
+// how many ports were scanned) false-flagged legitimate hosts that genuinely
+// expose many services, or whose port slice was padded by open|filtered
+// entries. We now require the open count to be both large AND at least half of
+// the ports actually scanned, which a real host never reaches on a broad scope.
+// When it fires we mark the IP "Potential firewall, +N ports" and clear the
+// spurious port list; the user follows up with portservice for confirmation.
 const firewallSuspicionThreshold = 100
 
-func applyFirewallHeuristic(tr *TargetResult) {
-	if tr == nil || len(tr.Ports) <= firewallSuspicionThreshold {
+func applyFirewallHeuristic(tr *TargetResult, scannedPorts int) {
+	if tr == nil {
 		return
 	}
-	tr.FirewalledCount = len(tr.Ports)
+	open := countOpen(tr.Ports)
+	if open <= firewallSuspicionThreshold {
+		return
+	}
+	// Only "reflecting" when the open ports dominate the scanned range. A fixed
+	// fallback keeps a host from being flagged when the scanned count is unknown.
+	if scannedPorts <= 0 {
+		scannedPorts = 65535
+	}
+	if open*2 < scannedPorts {
+		return
+	}
+	tr.FirewalledCount = open
 	tr.SuspectedFirewall = true
 	tr.Ports = nil
 	tr.OpenCount = 0
+}
+
+// scannedPortCount returns how many ports a given scope/port-spec actually
+// scans, so the firewall heuristic can judge "open" as a fraction of the scan
+// rather than an absolute count.
+func scannedPortCount(scope Scope, custom string) int {
+	switch scope {
+	case ScopeFull:
+		return 65535
+	case ScopeCustom, ScopeRange:
+		c := strings.TrimSpace(custom)
+		if c == "" {
+			if scope == ScopeRange {
+				return 1024 // default "1-1024"
+			}
+			return 6 // default "80,443,22,21,3389,445"
+		}
+		if n := len(shared.ExpandPortSpec(c)); n > 0 {
+			return n
+		}
+		return 65535 // unparseable → high, so the fraction gate under-flags
+	default: // ScopeCommon
+		return 1000
+	}
 }

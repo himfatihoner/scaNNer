@@ -35,7 +35,7 @@
                                        class="mt-0.5 rounded border-dark-600 bg-dark-800 text-accent-500">
                                 <div>
                                     <p class="text-xs font-medium text-dark-200">{{.Name}}</p>
-                                    <p class="text-[10px] text-dark-500 mt-0.5">{{if eq .ID "critical"}}{{T `high-value`}}{{else}}{{printf (T `%d ext`) (len .Extensions)}}{{end}}</p>
+                                    <p class="text-[10px] text-dark-500 mt-0.5">{{if eq .ID "critical"}}{{T `high-value`}}{{else if eq .ID "classicasp"}}{{printf (T `%d ext`) (len .Extensions)}} ({{T `IIS 3–6, ASP ≤3.0`}}){{else}}{{printf (T `%d ext`) (len .Extensions)}}{{end}}</p>
                                 </div>
                             </label>
                             {{end}}

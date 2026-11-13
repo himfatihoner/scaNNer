@@ -1137,6 +1137,7 @@
   "Hydra-powered credential brute-force for SSH, FTP, RDP, SMB, MSSQL, MySQL, PostgreSQL, VNC, LDAP, Telnet. Streams successful logins live.": "SSH, FTP, RDP, SMB, MSSQL, MySQL, PostgreSQL, VNC, LDAP, Telnet için Hydra destekli kimlik bilgisi brute-force. Başarılı oturum açmaları canlı akıtır.",
   "ICMP Filt.": "ICMP Filt.",
   "ICMP Filtered": "ICMP Filtreli",
+  "IIS 3–6, ASP ≤3.0": "IIS 3–6, ASP ≤3.0",
   "INFO-severity findings are filtered out of the default exports — they're enumeration data, not vulnerabilities. The 'Site Info' export section shows them when needed": "INFO-önem dereceli bulgular varsayılan dışa aktarımlardan filtrelenir — bunlar zafiyet değil, enumerate verisidir. 'Site Info' dışa aktarma bölümü gerektiğinde bunları gösterir",
   "IP Address(es)": "IP Adres(ler)i",
   "IP or hostname, one per line": "IP veya host adı, her satıra bir tane",

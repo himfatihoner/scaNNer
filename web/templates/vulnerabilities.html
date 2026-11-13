@@ -550,18 +550,31 @@ document.addEventListener('DOMContentLoaded', function(){
     // tab AND the triage tabs (bound before the early return below).
     document.querySelectorAll('details.vexport').forEach(function(d){
         d.addEventListener('toggle', function(){
-            var panel=d.querySelector(':scope > div');
             var sum=d.querySelector(':scope > summary');
-            if(!panel||!sum) return;
+            if(!sum) return;
             if(d.open){
+                var panel=d.querySelector(':scope > div');
+                if(!panel) return;
+                // PORTAL to <body> so the menu escapes the sticky Actions column's
+                // stacking context. position:fixed alone is NOT enough: the panel
+                // lives inside a `sticky right-0 z-10` cell, which is a stacking
+                // context, and the other rows' z-10 sticky cells (later in the DOM)
+                // paint OVER a fixed descendant no matter how high its z-index —
+                // so the menu rendered behind the Actions column. As a direct child
+                // of <body> it sits at the root stacking context and its z-index wins.
                 var r=sum.getBoundingClientRect();
+                d._liftPanel=panel;
+                document.body.appendChild(panel);
                 panel.style.position='fixed';
                 panel.style.top=(r.bottom+4)+'px';
                 panel.style.right=Math.max(8,(window.innerWidth-r.right))+'px';
                 panel.style.left='auto';
                 panel.style.zIndex='1000';
-            } else {
-                panel.style.position=''; panel.style.top=''; panel.style.right=''; panel.style.left=''; panel.style.zIndex='';
+            } else if(d._liftPanel){
+                var p=d._liftPanel;
+                p.style.position=''; p.style.top=''; p.style.right=''; p.style.left=''; p.style.zIndex='';
+                d.appendChild(p); // move back; the now-closed <details> hides it again
+                d._liftPanel=null;
             }
         });
     });

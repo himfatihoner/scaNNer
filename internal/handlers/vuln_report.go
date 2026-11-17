@@ -837,10 +837,39 @@ func (h *Handler) VulnDetail(w http.ResponseWriter, r *http.Request) {
 	http.NotFound(w, r)
 }
 
+// vulnInTab reports whether a finding belongs to the given triage tab, mirroring
+// the render partition in Vulnerabilities(): a deleted or in-flight-rescan
+// finding belongs to no tab list; an explicit status (fixed/false_positive/
+// assigned) wins over the rescan-archive state; "archive" = archived and not
+// status-overridden. Used to scope "Export All" on a triage tab.
+func vulnInTab(id, tab string, archived, statuses map[string]string, deleted, rescanning map[string]bool) bool {
+	if deleted[id] || rescanning[id] {
+		return false
+	}
+	st := statuses[id]
+	switch tab {
+	case "fixed", "false_positive", "assigned":
+		return st == tab
+	case "archive":
+		if st == "fixed" || st == "false_positive" || st == "assigned" {
+			return false
+		}
+		_, ok := archived[id]
+		return ok
+	}
+	// default (tab == "" / "active"): the Active tab — not triaged and not archived.
+	if st == "fixed" || st == "false_positive" || st == "assigned" {
+		return false
+	}
+	_, ok := archived[id]
+	return !ok
+}
+
 // VulnExport serves a per-vulnerability (or multi/bulk) report in PDF or DOCX,
 // TR or EN. Selection (first match wins): ids=<SCN,SCN,…> (checkbox multi-
-// select, via GET or POST form) → all=1 (filtered bulk, honoring sev/module/q)
-// → id=<SCN> (single). format=pdf|docx; lang=tr|en.
+// select, via GET or POST form) → all=1 (filtered bulk, honoring sev/module/q,
+// and status=<tab> to scope to one triage tab) → id=<SCN> (single).
+// format=pdf|docx; lang=tr|en.
 func (h *Handler) VulnExport(w http.ResponseWriter, r *http.Request) {
 	ws := h.activeWorkspace(r)
 	if ws == nil {
@@ -893,7 +922,20 @@ func (h *Handler) VulnExport(w http.ResponseWriter, r *http.Request) {
 		}
 		mod := get("module")
 		needle := strings.ToLower(strings.TrimSpace(get("q")))
+		// status scopes "Export All" to the tab it was launched from (archive /
+		// fixed / false_positive / assigned, or "" = Active), mirroring the page's
+		// render partition so the file holds EXACTLY the findings that tab shows.
+		// Applied ALWAYS — including the Active tab — so "Export All" can never
+		// leak deleted or triaged findings the tab doesn't render.
+		status := strings.TrimSpace(get("status"))
+		archivedMap := h.db.ArchivedVulnIDs(ws.ID)
+		statusMap := h.db.VulnStatusMap(ws.ID)
+		deletedSet := h.db.DeletedVulnIDs(ws.ID)
+		rescanningSet := h.db.RescanningVulnIDs(ws.ID)
 		for _, v := range vulns {
+			if !vulnInTab(v.ID, status, archivedMap, statusMap, deletedSet, rescanningSet) {
+				continue
+			}
 			if len(sevSet) > 0 && !sevSet[itoa(v.SevRank)] {
 				continue
 			}
@@ -901,7 +943,10 @@ func (h *Handler) VulnExport(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			if needle != "" {
-				hay := strings.ToLower(v.Host + " " + v.Title + " " + v.Module + " " + strings.Join(v.CVEs, " "))
+				// Match the client-side data-search fields (ID + Host + Product +
+				// Title + Module + CVEs) so a tab's text filter and its "Export All"
+				// agree on the set.
+				hay := strings.ToLower(v.ID + " " + v.Host + " " + v.Title + " " + v.Module + " " + v.Product + " " + strings.Join(v.CVEs, " "))
 				if !strings.Contains(hay, needle) {
 					continue
 				}

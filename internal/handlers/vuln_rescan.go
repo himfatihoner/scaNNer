@@ -270,7 +270,15 @@ func (h *Handler) VulnRescan(w http.ResponseWriter, r *http.Request) {
 		launchedFindings += len(g.vulnIDs)
 		launchedScans++
 	}
-	http.Redirect(w, r, fmt.Sprintf("/vulnerabilities?rescan=%d&scans=%d&skipped=%d", launchedFindings, launchedScans, skipped), http.StatusSeeOther)
+	// Stay on the tab the rescan was launched from (a triage tab passes from=…),
+	// so rescanning a Fixed/Archived/etc. finding doesn't bounce the operator to
+	// the Active tab.
+	dest := "/vulnerabilities?"
+	switch r.FormValue("from") {
+	case "archive", "fixed", "false_positive", "assigned":
+		dest = "/vulnerabilities?tab=" + r.FormValue("from") + "&"
+	}
+	http.Redirect(w, r, fmt.Sprintf("%srescan=%d&scans=%d&skipped=%d", dest, launchedFindings, launchedScans, skipped), http.StatusSeeOther)
 }
 
 // VulnArchiveToggle manually archives, restores, or permanently deletes
@@ -351,9 +359,15 @@ func (h *Handler) VulnStatusSet(w http.ResponseWriter, r *http.Request) {
 			ids = append(ids, v)
 		}
 	}
-	status := r.FormValue("status") // "fixed" | "false_positive" | "open"
+	status := r.FormValue("status") // "fixed" | "false_positive" | "assigned" | "open"
 	for _, id := range ids {
 		h.db.SetVulnStatus(id, ws.ID, status)
+		if status == "open" {
+			// Reopen must always land in Active: clear any archive flag a prior
+			// rescan may have set under the status, so render never routes the
+			// reopened finding to the Archive tab instead.
+			h.db.SetVulnArchived(id, ws.ID, false, "")
+		}
 	}
 	dest := "/vulnerabilities"
 	switch r.FormValue("from") {
@@ -402,11 +416,20 @@ func (h *Handler) reconcileRescan(scanID string) {
 	if len(short) > 8 {
 		short = short[:8]
 	}
+	// Findings with an operator triage status (fixed/false_positive/assigned) win
+	// over the archive flag at render, so archiving one would be dead state that
+	// later routes its Reopen to the wrong tab — we must NOT archive those.
+	statusMap := h.db.VulnStatusMap(src.WorkspaceID)
 	for _, id := range verifyIDs {
 		if found[id] {
 			h.db.SetVulnArchived(id, src.WorkspaceID, false, "") // still present → keep active
 			h.db.SetRescanResult(id, src.WorkspaceID, "present",
 				fmt.Sprintf("Rescan (scan %s) re-confirmed this finding", short))
+		} else if statusMap[id] != "" {
+			// Triaged finding no longer detected: keep it in its tab (status wins),
+			// just record the re-verification outcome — do not archive it.
+			h.db.SetRescanResult(id, src.WorkspaceID, "gone_kept",
+				fmt.Sprintf("Rescan (scan %s) no longer detected this finding", short))
 		} else {
 			h.db.SetVulnArchived(id, src.WorkspaceID, true,
 				fmt.Sprintf("Rescan no longer detected this finding (scan %s)", short))

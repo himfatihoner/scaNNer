@@ -20,6 +20,30 @@
 </div>
 {{end}}
 
+<!-- Rescan strip: in-flight rescans (pinned "scanning") + just-completed results
+     (transient). Rendered on EVERY tab so rescanning a triage finding shows
+     progress here instead of the finding silently vanishing. Hidden when empty. -->
+<div id="rescanStrip" class="{{if or .RescanActive .RescanResults}}mb-4 space-y-1.5{{else}}hidden{{end}}">
+    {{range .RescanActive}}
+    <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[12px]">
+        <span class="inline-block scan-pulse text-emerald-300">⟳</span>
+        <span class="text-emerald-200 font-medium">{{T "Rescanning"}}</span>
+        <span class="text-white truncate">{{.Title}}</span>
+        {{if .Host}}<a href="/assets/{{assetKey .Host}}" class="mono text-[11px] text-accent-400 hover:text-accent-300">{{.Host}}</a>{{end}}
+        <span class="ml-auto mono text-[10px] text-dark-500">{{.ID}}</span>
+    </div>
+    {{end}}
+    {{range .RescanResults}}
+    <div class="rescan-result-row flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] transition-opacity duration-700 {{if eq .Outcome "gone"}}bg-amber-500/10 border border-amber-500/30{{else}}bg-emerald-500/10 border border-emerald-500/30{{end}}">
+        <span class="{{if eq .Outcome "gone"}}text-amber-300{{else}}text-emerald-300{{end}}">{{if eq .Outcome "gone"}}{{icon "archive" "w-3.5 h-3.5"}}{{else}}{{icon "check" "w-3.5 h-3.5"}}{{end}}</span>
+        <span class="text-white truncate">{{.Vuln.Title}}</span>
+        {{if .Vuln.Host}}<a href="/assets/{{assetKey .Vuln.Host}}" class="mono text-[11px] text-accent-400 hover:text-accent-300">{{.Vuln.Host}}</a>{{end}}
+        <span class="{{if eq .Outcome "gone"}}text-amber-200{{else}}text-emerald-200{{end}}">— {{if eq .Outcome "gone"}}{{T "Rescan: no longer detected → moved to Archive"}}{{else if eq .Outcome "gone_kept"}}{{T "Rescan: no longer detected (kept in its tab)"}}{{else}}{{T "Rescan: re-confirmed (still present)"}}{{end}}</span>
+        <span class="ml-auto mono text-[10px] text-dark-500">{{.Vuln.ID}}</span>
+    </div>
+    {{end}}
+</div>
+
 {{if eq .ActiveTab ""}}
 <div class="flex flex-wrap items-center gap-2 mb-4">
     <button type="button" data-vsev="" onclick="setVulnSev(this)" class="vuln-sev-chip px-3 py-1.5 text-xs rounded-lg bg-accent-600 text-white">{{T "All"}}</button>
@@ -91,29 +115,6 @@
     {{T "Building the vulnerability index from scan results… refresh in a moment for the full list."}}
 </div>
 {{end}}
-
-<!-- Rescan strip: in-flight rescans (pinned "scanning") + just-completed results
-     (transient). Always present so the live poll can swap it; hidden when empty. -->
-<div id="rescanStrip" class="{{if or .RescanActive .RescanResults}}mb-4 space-y-1.5{{else}}hidden{{end}}">
-    {{range .RescanActive}}
-    <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[12px]">
-        <span class="inline-block scan-pulse text-emerald-300">⟳</span>
-        <span class="text-emerald-200 font-medium">{{T "Rescanning"}}</span>
-        <span class="text-white truncate">{{.Title}}</span>
-        {{if .Host}}<a href="/assets/{{assetKey .Host}}" class="mono text-[11px] text-accent-400 hover:text-accent-300">{{.Host}}</a>{{end}}
-        <span class="ml-auto mono text-[10px] text-dark-500">{{.ID}}</span>
-    </div>
-    {{end}}
-    {{range .RescanResults}}
-    <div class="rescan-result-row flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] transition-opacity duration-700 {{if eq .Outcome "gone"}}bg-amber-500/10 border border-amber-500/30{{else}}bg-emerald-500/10 border border-emerald-500/30{{end}}">
-        <span class="{{if eq .Outcome "gone"}}text-amber-300{{else}}text-emerald-300{{end}}">{{if eq .Outcome "gone"}}{{icon "archive" "w-3.5 h-3.5"}}{{else}}{{icon "check" "w-3.5 h-3.5"}}{{end}}</span>
-        <span class="text-white truncate">{{.Vuln.Title}}</span>
-        {{if .Vuln.Host}}<a href="/assets/{{assetKey .Vuln.Host}}" class="mono text-[11px] text-accent-400 hover:text-accent-300">{{.Vuln.Host}}</a>{{end}}
-        <span class="{{if eq .Outcome "gone"}}text-amber-200{{else}}text-emerald-200{{end}}">— {{if eq .Outcome "gone"}}{{T "Rescan: no longer detected → moved to Archive"}}{{else}}{{T "Rescan: re-confirmed (still present)"}}{{end}}</span>
-        <span class="ml-auto mono text-[10px] text-dark-500">{{.Vuln.ID}}</span>
-    </div>
-    {{end}}
-</div>
 
 {{if .Vulns}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
@@ -227,10 +228,39 @@
         {{else if eq .ActiveTab "assigned"}}{{T "Findings forwarded/assigned for follow-up. Reopen returns them to the Active tab."}}
         {{else}}{{T "Findings marked as false positive. Reopen returns them to the Active tab."}}{{end}}
     </span>
+    <button type="button" id="rescanArchSelBtn" onclick="rescanSelectedTriage('{{.ActiveTab}}')" class="ml-auto opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-accent-600/10 text-accent-300 border border-accent-500/30 hover:bg-accent-600/20" title="{{T `Re-run the source scan of each selected finding, scoped to its asset, to re-verify it.`}}">{{icon "rotate-cw" "w-3.5 h-3.5 mr-1"}}{{T "Rescan Selected"}} (<span id="rescanArchSelCount">0</span>)</button>
+    <details id="exportArchSelMenu" class="vexport vexport-top relative opacity-50 pointer-events-none">
+        <summary class="cursor-pointer list-none select-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white">{{icon "download" "w-3.5 h-3.5 mr-1"}}{{T "Export Selected"}} (<span id="archExpSelCount">0</span>)</summary>
+        <div class="absolute right-0 z-20 mt-1 w-52 bg-dark-850 border border-dark-700 rounded-lg shadow-xl p-1 text-[11px]">
+            <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-dark-500">{{T "Single file (combined)"}}</div>
+            <a href="javascript:void(0)" onclick="exportSelectedTriage('pdf','tr')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "PDF · Turkish"}}</a>
+            <a href="javascript:void(0)" onclick="exportSelectedTriage('pdf','en')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "PDF · English"}}</a>
+            <a href="javascript:void(0)" onclick="exportSelectedTriage('docx','tr')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "DOCX · Turkish"}}</a>
+            <a href="javascript:void(0)" onclick="exportSelectedTriage('docx','en')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "DOCX · English"}}</a>
+            <div class="border-t border-dark-700 my-1"></div>
+            <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-dark-500">{{T "Separate files (.zip)"}}</div>
+            <a href="javascript:void(0)" onclick="exportSelectedTriage('pdf','tr',1)" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "PDF · Turkish (each separate)"}}</a>
+            <a href="javascript:void(0)" onclick="exportSelectedTriage('docx','tr',1)" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "DOCX · Turkish (each separate)"}}</a>
+        </div>
+    </details>
+    <details class="vexport vexport-top relative">
+        <summary class="cursor-pointer list-none select-none text-xs px-3 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white">{{icon "download" "w-3.5 h-3.5 mr-1"}}{{T "Export All"}}</summary>
+        <div class="absolute right-0 z-20 mt-1 w-52 bg-dark-850 border border-dark-700 rounded-lg shadow-xl p-1 text-[11px]">
+            <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-dark-500">{{T "Single file (combined)"}}</div>
+            <a href="javascript:void(0)" onclick="exportTabAllURL('{{.ActiveTab}}','pdf','tr')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "PDF · Turkish"}}</a>
+            <a href="javascript:void(0)" onclick="exportTabAllURL('{{.ActiveTab}}','pdf','en')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "PDF · English"}}</a>
+            <a href="javascript:void(0)" onclick="exportTabAllURL('{{.ActiveTab}}','docx','tr')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "DOCX · Turkish"}}</a>
+            <a href="javascript:void(0)" onclick="exportTabAllURL('{{.ActiveTab}}','docx','en')" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "DOCX · English"}}</a>
+            <div class="border-t border-dark-700 my-1"></div>
+            <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-dark-500">{{T "Separate files (.zip)"}}</div>
+            <a href="javascript:void(0)" onclick="exportTabAllURL('{{.ActiveTab}}','pdf','tr',1)" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "PDF · Turkish (each separate)"}}</a>
+            <a href="javascript:void(0)" onclick="exportTabAllURL('{{.ActiveTab}}','docx','tr',1)" class="block px-2 py-1 rounded hover:bg-dark-800 text-dark-200">{{T "DOCX · Turkish (each separate)"}}</a>
+        </div>
+    </details>
     {{if $isArch}}
-    <button type="button" id="restoreSelectedBtn" onclick="archiveSelected('unarchive')" class="ml-auto opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white" title="{{T `Move the selected findings back to the Active tab.`}}">{{icon "rotate-ccw" "w-3.5 h-3.5 mr-1"}}{{T "Restore"}} (<span id="archSelCount">0</span>)</button>
+    <button type="button" id="restoreSelectedBtn" onclick="archiveSelected('unarchive')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white" title="{{T `Move the selected findings back to the Active tab.`}}">{{icon "rotate-ccw" "w-3.5 h-3.5 mr-1"}}{{T "Restore"}} (<span id="archSelCount">0</span>)</button>
     {{else}}
-    <button type="button" id="restoreSelectedBtn" onclick="reopenSelectedTriage('{{.ActiveTab}}')" class="ml-auto opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white" title="{{T `Reopen the selected findings — returns them to the Active tab.`}}">{{icon "rotate-ccw" "w-3.5 h-3.5 mr-1"}}{{T "Reopen"}} (<span id="archSelCount">0</span>)</button>
+    <button type="button" id="restoreSelectedBtn" onclick="reopenSelectedTriage('{{.ActiveTab}}')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white" title="{{T `Reopen the selected findings — returns them to the Active tab.`}}">{{icon "rotate-ccw" "w-3.5 h-3.5 mr-1"}}{{T "Reopen"}} (<span id="archSelCount">0</span>)</button>
     {{end}}
     <button type="button" id="deleteSelectedBtn" onclick="deleteArchivedSelected('{{.ActiveTab}}')" class="opacity-50 pointer-events-none text-xs px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white" title="{{T `Permanently remove the selected findings from every view. Cannot be undone.`}}">{{icon "trash-2" "w-3.5 h-3.5 mr-1"}}{{T "Delete"}} (<span id="archDelCount">0</span>)</button>
 </div>
@@ -263,6 +293,7 @@
                 <td class="px-4 py-2.5">{{if $isArch}}<span class="text-[11px] text-dark-500 break-all">{{if .ArchiveReason}}{{.ArchiveReason}}{{else}}{{T "Archived"}}{{end}}</span>{{else if eq $.ActiveTab "fixed"}}<span class="text-[11px] text-emerald-400">{{icon "check" "w-3 h-3 mr-0.5"}}{{T "Fixed"}}</span>{{else if eq $.ActiveTab "assigned"}}<span class="text-[11px] text-violet-400">{{icon "send" "w-3 h-3 mr-0.5"}}{{T "Assigned"}}</span>{{else}}<span class="text-[11px] text-yellow-400">{{icon "triangle-alert" "w-3 h-3 mr-0.5"}}{{T "False positive"}}</span>{{end}}</td>
                 <td class="px-4 py-2.5 whitespace-nowrap text-right sticky right-0 z-10 bg-dark-900 border-l border-dark-800">
                     <div class="inline-flex items-center justify-end gap-2">
+                        <button type="button" onclick="event.stopPropagation(); rescanVulns(['{{.ID}}'], this, '{{$.ActiveTab}}')" class="rescan-btn inline-flex items-center gap-1 text-[11px] text-accent-300 hover:text-accent-200 transition-colors" title="{{T `Re-run the source scan to re-verify this finding.`}}"><span class="rescan-spin inline-block">⟳</span> {{T "Rescan"}}</button>
                         <details class="vexport relative inline-block">
                             <summary class="inline-flex items-center gap-1 cursor-pointer list-none select-none text-[11px] px-2 py-1 rounded-md border border-accent-500/30 text-accent-300 hover:bg-accent-600/20 transition-colors">{{icon "download" "w-3.5 h-3.5 mr-1"}}{{T "Export"}}</summary>
                             <div class="absolute right-0 z-10 mt-1 w-36 bg-dark-850 border border-dark-700 rounded-lg shadow-xl p-1 text-[11px] text-left">
@@ -377,14 +408,16 @@ function postIdsForm(action, ids, extra, loaderMsg){
     if(window.showAppLoader) showAppLoader(loaderMsg||'');
     f.submit();
 }
-function rescanVulns(ids, btn){
+function rescanVulns(ids, btn, from){
     // Optimistic instant feedback: spin the clicked row's icon right away (the
     // page reloads immediately after, then the server-rendered state + live
-    // poll keep it spinning until the rescan resolves).
+    // poll keep it spinning until the rescan resolves). `from` is the originating
+    // tab so the handler redirects back to it (a triage tab passes its name).
     if(btn){ var s=btn.querySelector('.rescan-spin'); if(s) s.classList.add('scan-pulse'); }
-    postIdsForm('/vulnerabilities/rescan', ids, null, '{{T `Launching rescan…`}}');
+    postIdsForm('/vulnerabilities/rescan', ids, {from: from||''}, '{{T `Launching rescan…`}}');
 }
 function rescanSelected(){ rescanVulns(selectedVulnIds()); }
+function rescanSelectedTriage(from){ rescanVulns(selectedArchiveIds(), null, from); }
 function archiveVulns(ids, action){ postIdsForm('/vulnerabilities/archive', ids, {action: action, from: (action==='unarchive'?'archive':'active')}); }
 function archiveSelected(action){ archiveVulns((action==='unarchive')?selectedArchiveIds():selectedVulnIds(), action); }
 // ---- Triage: Fixed / False Positive / Reopen ----
@@ -405,11 +438,13 @@ function deleteArchivedSelected(from){ deleteArchivedVulns(selectedArchiveIds(),
 function selectedArchiveIds(){ return Array.prototype.slice.call(document.querySelectorAll('.arch-cb:checked')).map(function(cb){return cb.value;}); }
 function refreshArchSelCount(){
     var ids=selectedArchiveIds();
-    var c=document.getElementById('archSelCount'); if(c) c.textContent=ids.length;
-    var dc=document.getElementById('archDelCount'); if(dc) dc.textContent=ids.length;
-    ['restoreSelectedBtn','deleteSelectedBtn'].forEach(function(bid){
+    var on=ids.length>0;
+    ['archSelCount','archDelCount','rescanArchSelCount','archExpSelCount'].forEach(function(cid){
+        var c=document.getElementById(cid); if(c) c.textContent=ids.length;
+    });
+    ['restoreSelectedBtn','deleteSelectedBtn','rescanArchSelBtn','exportArchSelMenu'].forEach(function(bid){
         var b=document.getElementById(bid);
-        if(b){ if(ids.length>0){ b.classList.remove('opacity-50','pointer-events-none'); } else { b.classList.add('opacity-50','pointer-events-none'); } }
+        if(b){ if(on){ b.classList.remove('opacity-50','pointer-events-none'); } else { b.classList.add('opacity-50','pointer-events-none'); if(b.removeAttribute) b.removeAttribute('open'); } }
     });
 }
 function toggleArchiveSelectAll(master){
@@ -497,6 +532,32 @@ function exportSelected(fmt,lang,separate){
     document.querySelectorAll('details.vexport[open]').forEach(function(d){ d.removeAttribute('open'); });
     f.submit();
 }
+// Triage tabs: export the SELECTED (.arch-cb) findings (POST so a long list isn't
+// URL-capped). Same as exportSelected but sourced from the archive checkboxes.
+function exportSelectedTriage(fmt,lang,separate){
+    var ids=selectedArchiveIds();
+    if(!ids.length) return;
+    showExportBusy();
+    var f=document.createElement('form');
+    f.method='POST'; f.action='/vulnerabilities/export'; f.style.display='none';
+    function add(n,v){ var i=document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; f.appendChild(i); }
+    add('ids', ids.join(',')); add('format', fmt); add('lang', lang);
+    if(separate) add('separate','1');
+    document.body.appendChild(f);
+    document.querySelectorAll('details.vexport[open]').forEach(function(d){ d.removeAttribute('open'); });
+    f.submit();
+}
+// Triage tabs: export EVERY finding in THIS tab (status scopes the server-side
+// set); honors the tab's text filter (archSearch).
+function exportTabAllURL(status, fmt, lang, separate){
+    showExportBusy();
+    var u='/vulnerabilities/export?all=1&status='+encodeURIComponent(status)+'&format='+encodeURIComponent(fmt)+'&lang='+encodeURIComponent(lang);
+    var s=document.getElementById('archSearch'); var q=s?(s.value||'').trim():'';
+    if(q) u+='&q='+encodeURIComponent(q);
+    if(separate) u+='&separate=1';
+    document.querySelectorAll('details.vexport[open]').forEach(function(d){ d.removeAttribute('open'); });
+    window.location.href=u;
+}
 // Close any open export popover when clicking elsewhere.
 document.addEventListener('click', function(e){
     document.querySelectorAll('details.vexport[open]').forEach(function(d){
@@ -548,39 +609,91 @@ document.addEventListener('DOMContentLoaded', function(){
     // opening menu. On open, lift the panel to position:fixed (viewport-anchored,
     // high z-index) so it escapes the clip; restore on close. Covers the Active
     // tab AND the triage tabs (bound before the early return below).
-    document.querySelectorAll('details.vexport').forEach(function(d){
-        d.addEventListener('toggle', function(){
-            var sum=d.querySelector(':scope > summary');
-            if(!sum) return;
-            if(d.open){
-                var panel=d.querySelector(':scope > div');
-                if(!panel) return;
-                // PORTAL to <body> so the menu escapes the sticky Actions column's
-                // stacking context. position:fixed alone is NOT enough: the panel
-                // lives inside a `sticky right-0 z-10` cell, which is a stacking
-                // context, and the other rows' z-10 sticky cells (later in the DOM)
-                // paint OVER a fixed descendant no matter how high its z-index —
-                // so the menu rendered behind the Actions column. As a direct child
-                // of <body> it sits at the root stacking context and its z-index wins.
-                var r=sum.getBoundingClientRect();
-                d._liftPanel=panel;
-                document.body.appendChild(panel);
-                panel.style.position='fixed';
-                panel.style.top=(r.bottom+4)+'px';
-                panel.style.right=Math.max(8,(window.innerWidth-r.right))+'px';
-                panel.style.left='auto';
-                panel.style.zIndex='1000';
-            } else if(d._liftPanel){
-                var p=d._liftPanel;
-                p.style.position=''; p.style.top=''; p.style.right=''; p.style.left=''; p.style.zIndex='';
-                d.appendChild(p); // move back; the now-closed <details> hides it again
-                d._liftPanel=null;
-            }
+    // Idempotent so it can re-run on rows a poll swaps into #vulnTbody/#archTbody
+    // (the `_liftBound` guard skips already-bound menus). On open, PORTAL the panel
+    // to <body>: position:fixed alone is NOT enough because the per-row menu lives
+    // inside a `sticky right-0 z-10` cell (its own stacking context), so other
+    // rows' z-10 sticky cells paint over a fixed descendant and the menu rendered
+    // behind the Actions column. As a direct child of <body> its z-index wins.
+    window.bindVexportLift = function(root){
+        (root||document).querySelectorAll('details.vexport').forEach(function(d){
+            if(d._liftBound) return; d._liftBound=true;
+            d.addEventListener('toggle', function(){
+                var sum=d.querySelector(':scope > summary');
+                if(!sum) return;
+                if(d.open){
+                    var panel=d.querySelector(':scope > div');
+                    if(!panel) return;
+                    var r=sum.getBoundingClientRect();
+                    d._liftPanel=panel;
+                    document.body.appendChild(panel);
+                    panel.style.position='fixed';
+                    panel.style.top=(r.bottom+4)+'px';
+                    panel.style.right=Math.max(8,(window.innerWidth-r.right))+'px';
+                    panel.style.left='auto';
+                    panel.style.zIndex='1000';
+                } else if(d._liftPanel){
+                    var p=d._liftPanel;
+                    p.style.position=''; p.style.top=''; p.style.right=''; p.style.left=''; p.style.zIndex='';
+                    d.appendChild(p); // move back; the now-closed <details> hides it again
+                    d._liftPanel=null;
+                }
+            });
         });
-    });
+    };
+    bindVexportLift(document);
 {{if ne .ActiveTab ""}}
     if(window.bindSortableTable) bindSortableTable('#archTable',{defaultKey:'sev',defaultDir:'desc'});
     refreshArchSelCount();
+    // Restore scroll after a structural reload (the empty-state <-> table swap the
+    // poll below falls back to) so the page doesn't jump to the top.
+    try { var _ay = sessionStorage.getItem('vulnScrollY'); if (_ay !== null) { window.scrollTo(0, parseInt(_ay, 10) || 0); sessionStorage.removeItem('vulnScrollY'); } } catch(e){}
+    // Fade transient rescan-result rows (same behaviour as the Active tab).
+    window._fadeRescanResults = function(){
+        document.querySelectorAll('#rescanStrip .rescan-result-row').forEach(function(el){
+            if(el._fadeScheduled) return; el._fadeScheduled = true;
+            setTimeout(function(){ el.style.opacity='0'; setTimeout(function(){ el.remove(); }, 750); }, 15000);
+        });
+    };
+    window._fadeRescanResults();
+    // While a rescan launched from THIS triage tab is in flight, live-swap the
+    // rescan strip + this table so the finding returns to its tab (and its
+    // outcome shows) without a manual refresh. Lighter than the Active poll:
+    // only scroll + checkbox selection are restored.
+    {{if .RescanActive}}
+    (function(){
+        var timer=setInterval(function(){
+            fetch(window.location.pathname+window.location.search,{cache:'no-store',credentials:'same-origin'})
+                .then(function(r){ return r.ok ? r.text() : Promise.reject(r.status); })
+                .then(function(html){
+                    var doc=new DOMParser().parseFromString(html,'text/html');
+                    var fS=doc.getElementById('rescanStrip'), cS=document.getElementById('rescanStrip');
+                    if(fS&&cS&&fS.innerHTML!==cS.innerHTML){ cS.innerHTML=fS.innerHTML; cS.className=fS.className; window._fadeRescanResults(); }
+                    var fTb=doc.getElementById('archTbody'), cTb=document.getElementById('archTbody');
+                    // Structural transition (empty-state placeholder <-> populated
+                    // table): exactly one tbody is absent → full reload (scroll
+                    // preserved) so the row set renders instead of freezing.
+                    if((!fTb) !== (!cTb)){
+                        clearInterval(timer);
+                        try { sessionStorage.setItem('vulnScrollY', String(window.scrollY)); } catch(e){}
+                        location.reload(); return;
+                    }
+                    if(fTb&&cTb&&fTb.innerHTML!==cTb.innerHTML){
+                        var checked={}; selectedArchiveIds().forEach(function(id){ checked[id]=1; });
+                        var sy=window.scrollY;
+                        cTb.innerHTML=fTb.innerHTML;
+                        if(window.bindSortableTable) bindSortableTable('#archTable',{defaultKey:'sev',defaultDir:'desc'});
+                        if(window.bindVexportLift) bindVexportLift(cTb); // portal-bind the swapped-in row menus
+                        if(window.applyArchiveFilter) applyArchiveFilter();
+                        document.querySelectorAll('#archTbody .arch-cb').forEach(function(cb){ if(checked[cb.value]) cb.checked=true; });
+                        refreshArchSelCount(); window.scrollTo(0, sy);
+                    }
+                    // Stop once no rescans remain in flight (no pulsing strip rows).
+                    if(fS && fS.querySelectorAll('.scan-pulse').length===0){ clearInterval(timer); }
+                }).catch(function(){});
+        }, 4000);
+    })();
+    {{end}}
     return;
 {{end}}
     if(window.bindSortableTable) bindSortableTable('#vulnTable',{defaultKey:'sev',defaultDir:'desc'});
@@ -665,6 +778,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         var sy = window.scrollY;
                         // ---- swap ----
                         curTb.innerHTML = freshHTML;
+                        if(window.bindVexportLift) bindVexportLift(curTb); // portal-bind swapped-in row menus
                         // ---- restore open drawers (+ their loaded bodies) ----
                         Object.keys(openDetails).forEach(function(id){
                             var d = document.querySelector('#vulnTbody tr.vuln-detail[data-row-follow="'+esc(id)+'"]');

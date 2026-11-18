@@ -2744,6 +2744,28 @@ func (d *DB) GetSettings() models.AppSettings {
 	}
 	s.TwoFactorAvailable = d.GetSetting("two_factor_available") == "1"
 	s.NTPServer = d.GetSetting("ntp_server")
+	// --- Updates area ---
+	if v := d.GetSetting("update_auto_enabled"); v != "" {
+		s.UpdateAutoEnabled = v == "1"
+	}
+	if v := d.GetSetting("update_cadence"); v != "" {
+		s.UpdateCadence = v
+	}
+	if v := d.GetSetting("update_weekday"); v != "" {
+		fmt.Sscanf(v, "%d", &s.UpdateWeekday)
+	}
+	if v := d.GetSetting("update_time"); v != "" {
+		s.UpdateTime = v
+	}
+	if v := d.GetSetting("update_cve_enabled"); v != "" {
+		s.UpdateCVEEnabled = v == "1"
+	}
+	if v := d.GetSetting("update_nuclei_enabled"); v != "" {
+		s.UpdateNucleiEnabled = v == "1"
+	}
+	if v := d.GetSetting("update_wpscan_enabled"); v != "" {
+		s.UpdateWpscanEnabled = v == "1"
+	}
 	return s
 }
 
@@ -2812,6 +2834,20 @@ func (d *DB) SaveSettings(s models.AppSettings) {
 	}
 	d.SetSetting("two_factor_available", twoFactorAvail)
 	d.SetSetting("ntp_server", s.NTPServer)
+	// --- Updates area ---
+	bit := func(b bool) string {
+		if b {
+			return "1"
+		}
+		return "0"
+	}
+	d.SetSetting("update_auto_enabled", bit(s.UpdateAutoEnabled))
+	d.SetSetting("update_cadence", s.UpdateCadence)
+	d.SetSetting("update_weekday", fmt.Sprintf("%d", s.UpdateWeekday))
+	d.SetSetting("update_time", s.UpdateTime)
+	d.SetSetting("update_cve_enabled", bit(s.UpdateCVEEnabled))
+	d.SetSetting("update_nuclei_enabled", bit(s.UpdateNucleiEnabled))
+	d.SetSetting("update_wpscan_enabled", bit(s.UpdateWpscanEnabled))
 }
 
 // HasRunningScans checks if any scan is currently running (for settings lock)
@@ -2819,6 +2855,16 @@ func (d *DB) HasRunningScans() bool {
 	var count int
 	d.Get(&count, `SELECT COUNT(*) FROM scans WHERE status IN ('pending', 'running')`)
 	return count > 0
+}
+
+// RunningScanModules returns the DISTINCT set of module names that currently
+// have a running or pending scan (across ALL workspaces). The Updates area uses
+// it for per-tool scan-wait: a tool update is deferred only while a scan of a
+// module that actually consumes that tool is active.
+func (d *DB) RunningScanModules() []string {
+	var mods []string
+	_ = d.Select(&mods, `SELECT DISTINCT module FROM scans WHERE status IN ('running','pending')`)
+	return mods
 }
 
 // RunningProgress sums progress_done across running/pending scans and returns

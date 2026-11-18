@@ -290,7 +290,7 @@ func New(registry *modules.Registry, db *database.DB, templateDir string) (*Hand
 			"moduleDisplayName": func(m string) string { return i18n.T(lang, models.ModuleDisplayName(m)) },
 			"isVulnEmitter":     modules.IsVulnEmitter,
 			// icon renders an inline SVG (Lucide) by name; see internal/handlers/icons.go.
-			"icon": renderIcon,
+			"icon":       renderIcon,
 			"userLocked": func(u models.User) bool { n := time.Now(); return u.LoginLocked(n) || u.TwoFactorLocked(n) },
 			// assetKey is the bare, scheme-stripped host used as the /assets/<key>
 			// path — linking with a raw "https://host" would put "://" in the URL
@@ -1653,6 +1653,14 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 		smtpPass = h.db.GetSettings().SMTPPassword
 	}
 
+	updCadence := "daily"
+	if r.FormValue("update_cadence") == "weekly" {
+		updCadence = "weekly"
+	}
+	updTime := strings.TrimSpace(r.FormValue("update_time"))
+	if _, _, err := parseHHMM(updTime); err != nil {
+		updTime = "03:00"
+	}
 	s := models.AppSettings{
 		DefaultTimeout:           timeout,
 		MaxConcurrent:            conc,
@@ -1697,8 +1705,17 @@ func (h *Handler) SettingsSave(w http.ResponseWriter, r *http.Request) {
 		SMTPPassword:             smtpPass,
 		TwoFactorAvailable:       r.FormValue("two_factor_available") == "on",
 		NTPServer:                strings.TrimSpace(r.FormValue("ntp_server")),
+		UpdateAutoEnabled:        r.FormValue("update_auto_enabled") == "on",
+		UpdateCadence:            updCadence,
+		UpdateWeekday:            pi("update_weekday", 0, 6),
+		UpdateTime:               updTime,
+		UpdateCVEEnabled:         r.FormValue("update_cve_enabled") == "on",
+		UpdateNucleiEnabled:      r.FormValue("update_nuclei_enabled") == "on",
+		UpdateWpscanEnabled:      r.FormValue("update_wpscan_enabled") == "on",
 	}
 	h.db.SaveSettings(s)
+	// Recompute the auto-update next-run so a changed cadence/time takes effect now.
+	h.reseedUpdateNextRun()
 	// Re-measure the TOTP clock offset against the (possibly new) NTP server.
 	// Async — an unreachable server must not block saving the rest of settings.
 	go h.refreshNTP()
@@ -1942,6 +1959,9 @@ func (h *Handler) FinishScan(scanID string) {
 	// This scan just freed its workspace — wake the sequential-scan scheduler
 	// so any scan queued behind it starts within ~1s instead of on the next tick.
 	kickScanQueue()
+	// Also wake the update scheduler: a tool/DB update that was deferred because
+	// this scan was using that tool can now run (per-tool scan-wait drained).
+	kickUpdateQueue()
 	// Extract + cache this scan's vulnerabilities off the request path so the
 	// /vulnerabilities index build never has to walk this (possibly huge) result
 	// blob on page load. Best-effort; safe to skip on failure.

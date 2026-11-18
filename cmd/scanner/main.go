@@ -318,6 +318,11 @@ func main() {
 	// once on the catch-up pass.
 	h.StartScheduledScans()
 
+	// Auto-updater for CVE DB / nuclei templates / wpscan DB. Daily/weekly per
+	// Settings; defers any update while a scan that uses that tool is running
+	// (per-tool scan-wait), firing when those scans drain.
+	h.StartUpdateScheduler()
+
 	// Load any calibrated per-module resource profiles (written by prior
 	// calibration runs) over the embedded seed, so capacity.Recommend uses the
 	// measured coefficients.
@@ -473,6 +478,9 @@ func main() {
 	http.HandleFunc("/settings/cvedb/status", h.CVEDBStatus)
 	http.HandleFunc("/settings/network-tune", h.SettingsNetworkTune)
 	http.HandleFunc("/settings/cvedb/cancel", h.CVEDBCancel)
+	http.HandleFunc("/settings/update/run", h.UpdateRun)
+	http.HandleFunc("/settings/update/status", h.UpdateStatus)
+	http.HandleFunc("/settings/update/cancel", h.UpdateCancel)
 	http.HandleFunc("/targets", h.Targets)
 	http.HandleFunc("/modules", h.Modules)
 	http.HandleFunc("/scans", h.Scans)

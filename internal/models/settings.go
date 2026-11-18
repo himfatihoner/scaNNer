@@ -81,14 +81,14 @@ type AppSettings struct {
 	// resumes the paused scans from their checkpoint once it's healthy again.
 	// Default ON; the user can disable it in Settings.
 	VPNAutoReconnect     bool   `db:"vpn_auto_reconnect"      json:"vpn_auto_reconnect"`
-	VPNConnection        string `db:"vpn_connection"          json:"vpn_connection,omitempty"`         // NetworkManager connection name (nmcli id)
-	VPNInterface         string `db:"vpn_interface"           json:"vpn_interface,omitempty"`          // device to watch (blank → "tun0")
-	VPNReconnectAfterSec int    `db:"vpn_reconnect_after_sec" json:"vpn_reconnect_after_sec"`         // grace before a reconnect attempt
+	VPNConnection        string `db:"vpn_connection"          json:"vpn_connection,omitempty"` // NetworkManager connection name (nmcli id)
+	VPNInterface         string `db:"vpn_interface"           json:"vpn_interface,omitempty"`  // device to watch (blank → "tun0")
+	VPNReconnectAfterSec int    `db:"vpn_reconnect_after_sec" json:"vpn_reconnect_after_sec"`  // grace before a reconnect attempt
 
 	// API keys for third-party services.
-	WPScanAPIKey string `db:"wpscan_api_key"  json:"wpscan_api_key,omitempty"`
-	HIBPAPIKey   string `db:"hibp_api_key"    json:"hibp_api_key,omitempty"`
-	GitHubToken  string `db:"github_token"    json:"github_token,omitempty"`
+	WPScanAPIKey     string `db:"wpscan_api_key"  json:"wpscan_api_key,omitempty"`
+	HIBPAPIKey       string `db:"hibp_api_key"    json:"hibp_api_key,omitempty"`
+	GitHubToken      string `db:"github_token"    json:"github_token,omitempty"`
 	ShodanAPIKey     string `db:"shodan_api_key"     json:"shodan_api_key,omitempty"`
 	CensysID         string `db:"censys_id"          json:"censys_id,omitempty"`
 	CensysSecret     string `db:"censys_secret"      json:"censys_secret,omitempty"`
@@ -122,6 +122,35 @@ type AppSettings struct {
 	// = trust the local clock. TOTP only tolerates ~90s of skew, so a drifting
 	// server clock silently breaks authenticator logins without this.
 	NTPServer string `db:"ntp_server" json:"ntp_server,omitempty"`
+
+	// --- Updates area (CVE DB + nuclei templates + wpscan DB) ---
+	// UpdateAutoEnabled turns on the daily/weekly auto-updater. When off, updates
+	// run only from the per-source "Update now" buttons. The updater defers any
+	// run while a scan that uses that tool is active (per-tool scan-wait).
+	UpdateAutoEnabled bool   `db:"update_auto_enabled" json:"update_auto_enabled"`
+	UpdateCadence     string `db:"update_cadence"      json:"update_cadence"` // "daily" | "weekly"
+	UpdateWeekday     int    `db:"update_weekday"      json:"update_weekday"` // 0=Sunday..6 (weekly only)
+	UpdateTime        string `db:"update_time"         json:"update_time"`    // "HH:MM" (server local)
+	// Per-source enable flags — which tools the auto-updater includes.
+	UpdateCVEEnabled    bool `db:"update_cve_enabled"    json:"update_cve_enabled"`
+	UpdateNucleiEnabled bool `db:"update_nuclei_enabled" json:"update_nuclei_enabled"`
+	UpdateWpscanEnabled bool `db:"update_wpscan_enabled" json:"update_wpscan_enabled"`
+}
+
+// EffectiveUpdateCadence returns the auto-update cadence, defaulting to daily.
+func (s AppSettings) EffectiveUpdateCadence() string {
+	if s.UpdateCadence == "weekly" {
+		return "weekly"
+	}
+	return "daily"
+}
+
+// EffectiveUpdateTime returns the auto-update time-of-day, defaulting to 03:00.
+func (s AppSettings) EffectiveUpdateTime() string {
+	if s.UpdateTime == "" {
+		return "03:00"
+	}
+	return s.UpdateTime
 }
 
 // EffectiveSMTPPort returns the SMTP port, defaulting by TLS mode when unset.
@@ -245,29 +274,36 @@ func (s AppSettings) EffectiveVPNReconnectAfterSec() int {
 // DefaultSettings returns sane defaults
 func DefaultSettings() AppSettings {
 	return AppSettings{
-		DefaultTimeout:       30,
-		MaxConcurrent:        30,
-		RateLimit:            0,
-		WebTimeout:           30,
-		WebMaxConcurrent:     30,
-		WebRateLimit:         0,
-		NetworkTimeout:       60,
-		NetworkMaxConcurrent: 4,
-		NetworkRateLimit:     0,
-		BruteThreads:         16,
-		MaxCPUPercent:        75,
-		ProxyURL:             "",
-		UseProxy:             false,
-		UserAgent:            DefaultUserAgents[0],
-		UserAgents:           append([]string(nil), DefaultUserAgents...),
-		UAMode:               "rotate",
-		DefaultExportFmt:     "csv",
+		DefaultTimeout:           30,
+		MaxConcurrent:            30,
+		RateLimit:                0,
+		WebTimeout:               30,
+		WebMaxConcurrent:         30,
+		WebRateLimit:             0,
+		NetworkTimeout:           60,
+		NetworkMaxConcurrent:     4,
+		NetworkRateLimit:         0,
+		BruteThreads:             16,
+		MaxCPUPercent:            75,
+		ProxyURL:                 "",
+		UseProxy:                 false,
+		UserAgent:                DefaultUserAgents[0],
+		UserAgents:               append([]string(nil), DefaultUserAgents...),
+		UAMode:                   "rotate",
+		DefaultExportFmt:         "csv",
 		VPNAutoReconnect:         true,        // watchdog on by default
 		KillswitchScope:          "scan_only", // safe default: management stays on the normal route
 		VPNReconnectAfterSec:     20,
 		WebReachabilityPreflight: true, // skip TLS-dead targets by default
 		WebPreflightTimeout:      4,
 		SMTPTLSMode:              "starttls",
+		UpdateAutoEnabled:        false, // opt-in
+		UpdateCadence:            "daily",
+		UpdateWeekday:            0,
+		UpdateTime:               "03:00",
+		UpdateCVEEnabled:         true,
+		UpdateNucleiEnabled:      true,
+		UpdateWpscanEnabled:      true,
 	}
 }
 

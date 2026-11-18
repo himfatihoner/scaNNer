@@ -615,10 +615,56 @@
              feeds the SQLite cache that supplements them with the full NVD set. -->
         <div data-settings-section="integrations" class="bg-dark-900 border border-dark-800 rounded-xl p-5 mb-6">
             <h3 class="text-sm font-semibold text-white mb-1 flex items-center gap-2">
-                <svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                {{T "CVE Database"}}
+                <svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                {{T "Updates"}}
             </h3>
-            <p class="text-xs text-dark-500 mb-3">{{T "CVE Matcher always uses the built-in 35 curated landmark CVEs. Pull NVD feeds below to supplement with the full ~250 000-CVE database."}}</p>
+            <p class="text-xs text-dark-500 mb-3">{{T "Keep the data the scanning tools rely on fresh — the CVE database (NVD), Nuclei templates, and the WPScan database. An update never runs while a scan that uses that tool is active; it waits and runs when those scans finish."}}</p>
+
+            <!-- Automatic updates (saved with the main Settings form) -->
+            <div class="bg-dark-850 border border-dark-700 rounded-lg p-3 mb-4">
+                <label class="flex items-center gap-2 cursor-pointer mb-2">
+                    <input type="checkbox" name="update_auto_enabled" id="updAutoEnabled" {{if .Settings.UpdateAutoEnabled}}checked{{end}}
+                           class="w-4 h-4 rounded border-dark-600 bg-dark-850 text-accent-500 focus:ring-accent-500">
+                    <span class="text-xs font-medium text-white">{{T "Automatic updates"}}</span>
+                    <span class="text-[11px] text-dark-500" id="updNextRun"></span>
+                </label>
+                <div class="flex flex-wrap items-end gap-3 pl-6">
+                    <div>
+                        <label class="block text-[10px] text-dark-500 mb-1">{{T "Frequency"}}</label>
+                        <select name="update_cadence" id="updCadence" class="bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-500">
+                            <option value="daily" {{if ne .Settings.UpdateCadence "weekly"}}selected{{end}}>{{T "Daily"}}</option>
+                            <option value="weekly" {{if eq .Settings.UpdateCadence "weekly"}}selected{{end}}>{{T "Weekly"}}</option>
+                        </select>
+                    </div>
+                    <div id="updWeekdayWrap">
+                        <label class="block text-[10px] text-dark-500 mb-1">{{T "Day"}}</label>
+                        <select name="update_weekday" class="bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-500">
+                            <option value="1" {{if eq .Settings.UpdateWeekday 1}}selected{{end}}>{{T "Mon"}}</option>
+                            <option value="2" {{if eq .Settings.UpdateWeekday 2}}selected{{end}}>{{T "Tue"}}</option>
+                            <option value="3" {{if eq .Settings.UpdateWeekday 3}}selected{{end}}>{{T "Wed"}}</option>
+                            <option value="4" {{if eq .Settings.UpdateWeekday 4}}selected{{end}}>{{T "Thu"}}</option>
+                            <option value="5" {{if eq .Settings.UpdateWeekday 5}}selected{{end}}>{{T "Fri"}}</option>
+                            <option value="6" {{if eq .Settings.UpdateWeekday 6}}selected{{end}}>{{T "Sat"}}</option>
+                            <option value="0" {{if eq .Settings.UpdateWeekday 0}}selected{{end}}>{{T "Sun"}}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-dark-500 mb-1">{{T "Time (server)"}}</label>
+                        <input type="time" name="update_time" value="{{.Settings.EffectiveUpdateTime}}" class="bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-500">
+                    </div>
+                    <div class="flex flex-col gap-1 text-[11px] text-dark-300">
+                        <span class="text-[10px] text-dark-500">{{T "Include"}}</span>
+                        <div class="flex flex-wrap gap-3">
+                            <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" name="update_cve_enabled" {{if .Settings.UpdateCVEEnabled}}checked{{end}} class="w-3.5 h-3.5 rounded border-dark-600 bg-dark-900 text-accent-500">{{T "CVE DB"}}</label>
+                            <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" name="update_nuclei_enabled" {{if .Settings.UpdateNucleiEnabled}}checked{{end}} class="w-3.5 h-3.5 rounded border-dark-600 bg-dark-900 text-accent-500">{{T "Nuclei"}}</label>
+                            <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" name="update_wpscan_enabled" {{if .Settings.UpdateWpscanEnabled}}checked{{end}} class="w-3.5 h-3.5 rounded border-dark-600 bg-dark-900 text-accent-500">{{T "WPScan"}}</label>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-[11px] text-dark-500 mt-2 pl-6">{{T "Changes apply when you press Save Settings at the bottom."}}</p>
+            </div>
+
+            <h4 class="text-xs font-semibold text-dark-200 mb-2">{{T "CVE Database"}} <span class="text-[10px] text-dark-500 font-normal">(NVD)</span></h4>
 
             <div class="bg-dark-850 border border-dark-700 rounded-lg p-3 mb-3 text-[11px] grid grid-cols-4 gap-3" id="cveDBStats">
                 <div title="{{T `One row = one (CVE × product × version-range) tuple. A single CVE produces 1–100 rows.`}}">
@@ -692,6 +738,79 @@
                 {{T `Daily refresh fetches the NVD "modified" delta feed only (very fast, last 8 days of changes). For initial setup or full re-sync use the source picker above.`}}
                 <br>{{T "All sources are public — no API key required. Downloads run in the background; you can leave the page. Built-in 35 curated CVEs are always loaded at startup so the matcher works even with an empty cache."}}
             </p>
+
+            <h4 class="text-xs font-semibold text-dark-200 mt-5 mb-2">{{T "Tools"}}</h4>
+            <div class="space-y-2">
+                <div class="upd-row flex items-center justify-between gap-3 bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5" data-upd="nuclei">
+                    <div class="min-w-0">
+                        <p class="text-sm text-white">{{T "Nuclei templates"}}</p>
+                        <p class="text-[11px] text-dark-500"><span class="upd-status">—</span> · <span class="text-dark-400">{{T "last"}}:</span> <span class="upd-last mono text-dark-300">—</span></p>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <button type="button" class="upd-run text-[11px] px-3 py-1.5 rounded-lg bg-accent-600 text-white hover:bg-accent-500" onclick="__updRun('nuclei')">{{T "Update now"}}</button>
+                        <button type="button" class="upd-cancel hidden text-[11px] px-3 py-1.5 rounded-lg bg-dark-800 text-dark-300 border border-dark-700 hover:text-white" onclick="__updCancel('nuclei')">{{T "Cancel"}}</button>
+                    </div>
+                </div>
+                <div class="upd-row flex items-center justify-between gap-3 bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5" data-upd="wpscan">
+                    <div class="min-w-0">
+                        <p class="text-sm text-white">{{T "WPScan database"}}</p>
+                        <p class="text-[11px] text-dark-500"><span class="upd-status">—</span> · <span class="text-dark-400">{{T "last"}}:</span> <span class="upd-last mono text-dark-300">—</span></p>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <button type="button" class="upd-run text-[11px] px-3 py-1.5 rounded-lg bg-accent-600 text-white hover:bg-accent-500" onclick="__updRun('wpscan')">{{T "Update now"}}</button>
+                        <button type="button" class="upd-cancel hidden text-[11px] px-3 py-1.5 rounded-lg bg-dark-800 text-dark-300 border border-dark-700 hover:text-white" onclick="__updCancel('wpscan')">{{T "Cancel"}}</button>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+            (function(){
+                var L = {
+                    ready: {{T "up to date"}}, updating: {{T "updating…"}}, queued: {{T "queued — waiting for a scan that uses it to finish"}},
+                    unavailable: {{T "tool not installed"}}, next: {{T "next"}}
+                };
+                window.__updRun = function(src){
+                    var fd = new FormData(); fd.append('source', src);
+                    fetch('/settings/update/run', {method:'POST', body:fd}).then(function(r){return r.json();}).then(function(){ __updPoll(); });
+                };
+                window.__updCancel = function(src){
+                    var fd = new FormData(); fd.append('source', src);
+                    fetch('/settings/update/cancel', {method:'POST', body:fd}).then(function(){ __updPoll(); });
+                };
+                window.__updPoll = function(){
+                    fetch('/settings/update/status', {cache:'no-store'}).then(function(r){return r.json();}).then(function(j){
+                        var active = false;
+                        (j.sources || []).forEach(function(s){
+                            var row = document.querySelector('.upd-row[data-upd="'+s.key+'"]'); if(!row) return;
+                            var st = row.querySelector('.upd-status'), last = row.querySelector('.upd-last'),
+                                runBtn = row.querySelector('.upd-run'), cancelBtn = row.querySelector('.upd-cancel');
+                            var busy = false, txt;
+                            if(!s.available){ txt = L.unavailable; runBtn.disabled = true; runBtn.classList.add('opacity-40'); }
+                            else if(s.running){ txt = L.updating; busy = true; }
+                            else if(s.queued){ txt = L.queued; busy = true; }
+                            else if(s.error){ txt = '⚠ ' + s.error; }
+                            else { txt = L.ready; }
+                            st.textContent = txt;
+                            last.textContent = s.last ? new Date(s.last).toLocaleString() : '—';
+                            runBtn.classList.toggle('hidden', busy);
+                            cancelBtn.classList.toggle('hidden', !busy);
+                            if(busy) active = true;
+                        });
+                        var nr = document.getElementById('updNextRun'), auto = document.getElementById('updAutoEnabled');
+                        if(nr){ nr.textContent = (auto && auto.checked && j.next_run) ? ('· ' + L.next + ' ' + new Date(j.next_run).toLocaleString()) : ''; }
+                        if(active) setTimeout(__updPoll, 2000);
+                    }).catch(function(){});
+                };
+                // Weekly day picker only matters for the weekly cadence.
+                function syncCadence(){
+                    var c = document.getElementById('updCadence'), w = document.getElementById('updWeekdayWrap');
+                    if(c && w) w.style.display = (c.value === 'weekly') ? '' : 'none';
+                }
+                var cad = document.getElementById('updCadence'); if(cad) cad.addEventListener('change', syncCadence);
+                syncCadence();
+                __updPoll();
+            })();
+            </script>
 
             <script>
             function __cveDBRefresh(modifiedOnly) {

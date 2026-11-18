@@ -312,6 +312,12 @@ func main() {
 	// orphan sweep, so a queue outlives a restart.
 	h.StartScanQueue()
 
+	// Scheduled scans: boot-time goroutine firing due one-time + recurring
+	// schedules on the server clock via the same CreateScan → dispatchRestart
+	// seam. Schedules persist across restarts; a next_run missed while down fires
+	// once on the catch-up pass.
+	h.StartScheduledScans()
+
 	// Load any calibrated per-module resource profiles (written by prior
 	// calibration runs) over the embedded seed, so capacity.Recommend uses the
 	// measured coefficients.
@@ -470,6 +476,12 @@ func main() {
 	http.HandleFunc("/targets", h.Targets)
 	http.HandleFunc("/modules", h.Modules)
 	http.HandleFunc("/scans", h.Scans)
+	http.HandleFunc("/schedules", h.SchedulesPage)
+	http.HandleFunc("/schedules/create", h.ScheduleCreate)
+	http.HandleFunc("/schedules/edit", h.ScheduleEdit)
+	http.HandleFunc("/schedules/toggle", h.ScheduleToggle)
+	http.HandleFunc("/schedules/run", h.ScheduleRunNow)
+	http.HandleFunc("/schedules/delete", h.ScheduleDelete)
 	http.HandleFunc("/settings", h.Settings)
 	http.HandleFunc("/settings/save", h.SettingsSave)
 	http.HandleFunc("/settings/vacuum", h.SettingsVacuum)
@@ -511,7 +523,7 @@ func main() {
 	http.HandleFunc("/logs", h.LogsPage)
 	http.HandleFunc("/leak-report", h.LeakReportPage)         // admin-only (gated in authorizePath)
 	http.HandleFunc("/network-history", h.NetworkHistoryPage) // admin-only (gated in authorizePath)
-	http.HandleFunc("/leak-report/ack", h.LeakAck)    // dismiss the header leak banner (admin)
+	http.HandleFunc("/leak-report/ack", h.LeakAck)            // dismiss the header leak banner (admin)
 
 	// Offline utility toolbox (CyberChef, Comparer, URL codec, ViewState) — any user.
 	http.HandleFunc("/tools", h.ToolsPage)
@@ -547,8 +559,8 @@ func main() {
 	http.HandleFunc("/vulnerabilities/rescan", h.VulnRescan)
 	http.HandleFunc("/vulnerabilities/archive", h.VulnArchiveToggle)
 	http.HandleFunc("/vulnerabilities/status", h.VulnStatusSet) // Fixed / False-Positive triage
-	http.HandleFunc("/info", h.Info)               // info-severity findings, deduped per finding
-	http.HandleFunc("/info/detail", h.InfoDetail)  // one finding's host list + details (lazy-loaded)
+	http.HandleFunc("/info", h.Info)                            // info-severity findings, deduped per finding
+	http.HandleFunc("/info/detail", h.InfoDetail)               // one finding's host list + details (lazy-loaded)
 	// /assets/lists/* and /assets/membership routes were removed when
 	// the user-curated asset-lists feature was retired.
 	http.HandleFunc("/assets/", h.AssetDetail)
@@ -736,7 +748,6 @@ func main() {
 
 	// === A-group (pentest expansion) =====================================
 
-
 	// A2: CORS Misconfig
 	http.HandleFunc("/modules/corsscan", h.CORSScanPage)
 	http.HandleFunc("/modules/corsscan/run", h.CORSScanRun)
@@ -754,7 +765,6 @@ func main() {
 	http.HandleFunc("/modules/cvematch/run", h.CVEMatchRun)
 	http.HandleFunc("/modules/cvematch/results/", h.CVEMatchResults)
 	http.HandleFunc("/modules/cvematch/status/", h.CVEMatchStatus)
-
 
 	// A7: Auth Tester
 	http.HandleFunc("/modules/authtest", h.AuthTestPage)

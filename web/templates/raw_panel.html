@@ -301,4 +301,42 @@ html.light .copyval-float:hover { background:#f1f5f9; color:#0f172a; }
   }
 })();
 </script>
+
+<script>
+// Inject a "Schedule" button next to the Run button on every module launch form,
+// so a scan can be set to run once at a time or on a repeating schedule WITHOUT
+// adding clutter to the (already busy) module forms. The button submits the
+// filled form with schedule=1; the Run handler's intercept (scheduleDraftIfRequested)
+// drops the draft scan and shows the dedicated timing form. oob is excluded (it
+// opens a live listener at submit time, not a replayable scan).
+(function(){
+  function init(){
+    var forms = document.querySelectorAll('form[action^="/modules/"][action$="/run"]');
+    Array.prototype.forEach.call(forms, function(form){
+      if (form.dataset.schedInjected) return;
+      if ((form.getAttribute('action') || '') === '/modules/oob/run') return;
+      var submit = form.querySelector('button[type="submit"], input[type="submit"]');
+      if (!submit) return;
+      form.dataset.schedInjected = '1';
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = {{T "Schedule"}} + ' ▸';
+      btn.title = {{T "Set this scan to run once at a time, or on a repeating schedule"}};
+      btn.className = 'ml-2 inline-flex items-center gap-1 px-4 py-2 text-sm font-medium text-dark-300 bg-dark-850 border border-dark-700 rounded-lg hover:text-white hover:border-dark-600';
+      function setSched(v){
+        var h = form.querySelector('input[name="schedule"]');
+        if (!h){ h = document.createElement('input'); h.type = 'hidden'; h.name = 'schedule'; form.appendChild(h); }
+        h.value = v;
+      }
+      btn.addEventListener('click', function(){
+        setSched('1');
+        if (form.requestSubmit) form.requestSubmit(); else form.submit();
+        setTimeout(function(){ setSched(''); }, 0); // reset if client validation blocked the submit
+      });
+      submit.insertAdjacentElement('afterend', btn);
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+</script>
 {{end}}

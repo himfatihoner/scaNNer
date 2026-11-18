@@ -129,6 +129,9 @@ func (h *Handler) ConcurTestRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.scheduleDraftIfRequested(w, r, scan) {
+		return
+	}
 	go h.runConcurTest(scan.ID, targets, cfg, opts)
 	http.Redirect(w, r, "/modules/concurtest/results/"+scan.ID, http.StatusSeeOther)
 }

@@ -101,6 +101,12 @@ func (h *Handler) queueIfSequential(w http.ResponseWriter, r *http.Request, scan
 	if scan == nil || scan.ID == "" {
 		return false
 	}
+	// "Schedule" button on the launch form: don't run now — hand off to the
+	// timing form (drops this draft scan). Checked before the sequential logic so
+	// every module that funnels through here gets scheduling for free.
+	if h.scheduleDraftIfRequested(w, r, scan) {
+		return true
+	}
 	if r.FormValue("run_sequential") == "" {
 		return false
 	}

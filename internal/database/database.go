@@ -28,11 +28,11 @@ type DB struct {
 //   - journal_mode=wal — durable + concurrent reads while writing
 //   - foreign_keys=1   — enforce FKs (we rely on this for cascade-like deletes)
 //   - busy_timeout=5000 — SQLITE_BUSY retries for up to 5s instead of failing
-//                        immediately. Without this, concurrent progress
-//                        updates from N parallel scan workers produced
-//                        intermittent 'database is locked' errors that
-//                        showed up as missing rows / stuck progress bars
-//                        after ~hours of running. (Audit B4.)
+//     immediately. Without this, concurrent progress
+//     updates from N parallel scan workers produced
+//     intermittent 'database is locked' errors that
+//     showed up as missing rows / stuck progress bars
+//     after ~hours of running. (Audit B4.)
 //
 // Connection-pool tuning (audit B3): modernc.org/sqlite serializes writes
 // internally, but the sql.DB pool defaults to unlimited connections — under
@@ -304,6 +304,37 @@ func (d *DB) migrate() error {
 	d.Exec(`INSERT OR IGNORE INTO target_list_members (list_id, target_id, created_at)
 		SELECT list_id, id, created_at FROM targets
 		WHERE list_id IS NOT NULL AND list_id != ''`)
+	// scheduled_scans — persisted scan schedules (one-time + recurring). Each row
+	// is a saved (module, config, workspace) launch plus WHEN to fire it; the
+	// background runner replays config through CreateScan → dispatchRestart. Real
+	// columns (mirrors scans), workspace-scoped with ON DELETE CASCADE.
+	if _, err := d.Exec(`CREATE TABLE IF NOT EXISTS scheduled_scans (
+		id               TEXT PRIMARY KEY,
+		workspace_id     TEXT NOT NULL,
+		label            TEXT NOT NULL DEFAULT '',
+		module           TEXT NOT NULL,
+		config           TEXT NOT NULL DEFAULT '{}',
+		total_targets    INTEGER NOT NULL DEFAULT 0,
+		kind             TEXT NOT NULL DEFAULT 'once',
+		run_at           DATETIME,
+		recur_kind       TEXT NOT NULL DEFAULT '',
+		interval_seconds INTEGER NOT NULL DEFAULT 0,
+		at_time          TEXT NOT NULL DEFAULT '',
+		weekdays         TEXT NOT NULL DEFAULT '',
+		cron             TEXT NOT NULL DEFAULT '',
+		enabled          INTEGER NOT NULL DEFAULT 1,
+		next_run_at      DATETIME,
+		last_run_at      DATETIME,
+		last_scan_id     TEXT NOT NULL DEFAULT '',
+		last_status      TEXT NOT NULL DEFAULT '',
+		created_at       DATETIME NOT NULL,
+		created_by       TEXT NOT NULL DEFAULT '',
+		FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+	)`); err != nil {
+		return fmt.Errorf("create scheduled_scans: %w", err)
+	}
+	d.Exec(`CREATE INDEX IF NOT EXISTS idx_sched_workspace ON scheduled_scans(workspace_id)`)
+	d.Exec(`CREATE INDEX IF NOT EXISTS idx_sched_due ON scheduled_scans(enabled, next_run_at)`)
 	// asset_lists / asset_list_members were dropped along with the
 	// user-curated asset grouping feature. Assets are now strictly the
 	// read-only set of things any scan has touched — no membership table.
@@ -700,8 +731,8 @@ type CVEBulkRow struct {
 //
 // progress fires with cumulative row count after each transaction commits.
 func (d *DB) CVEBulkUpsert(rows []CVEBulkRow, progress func(done int)) error {
-	const txBatch = 10000     // rows per transaction commit
-	const insertChunk = 500   // rows per multi-row INSERT statement
+	const txBatch = 10000   // rows per transaction commit
+	const insertChunk = 500 // rows per multi-row INSERT statement
 
 	cols := `(cve_id, source, product_key, product_name, version_lo, version_hi, lo_inclusive, hi_inclusive,
 		fixed_in, severity, cvss, description, remediation, reference, published_at, modified_at)`
@@ -1637,6 +1668,97 @@ func (d *DB) GetTargetList(id string) (*models.TargetList, error) {
 	return &tl, err
 }
 
+// --- Scheduled scans (one-time + recurring) ---
+
+// CreateScheduledScan persists a new schedule. Fills ID + CreatedAt if the
+// caller left them zero.
+func (d *DB) CreateScheduledScan(s *models.ScheduledScan) error {
+	if s.ID == "" {
+		s.ID = uuid.New().String()
+	}
+	if s.CreatedAt.IsZero() {
+		s.CreatedAt = time.Now()
+	}
+	_, err := d.NamedExec(`INSERT INTO scheduled_scans
+		(id, workspace_id, label, module, config, total_targets, kind, run_at,
+		 recur_kind, interval_seconds, at_time, weekdays, cron, enabled,
+		 next_run_at, last_run_at, last_scan_id, last_status, created_at, created_by)
+		VALUES
+		(:id, :workspace_id, :label, :module, :config, :total_targets, :kind, :run_at,
+		 :recur_kind, :interval_seconds, :at_time, :weekdays, :cron, :enabled,
+		 :next_run_at, :last_run_at, :last_scan_id, :last_status, :created_at, :created_by)`, s)
+	return err
+}
+
+// ListScheduledScans returns every schedule in a workspace, newest first.
+func (d *DB) ListScheduledScans(workspaceID string) ([]models.ScheduledScan, error) {
+	var out []models.ScheduledScan
+	err := d.Select(&out, `SELECT * FROM scheduled_scans WHERE workspace_id = ? ORDER BY created_at DESC`, workspaceID)
+	return out, err
+}
+
+// GetScheduledScan fetches one schedule by id.
+func (d *DB) GetScheduledScan(id string) (*models.ScheduledScan, error) {
+	var s models.ScheduledScan
+	if err := d.Get(&s, `SELECT * FROM scheduled_scans WHERE id = ?`, id); err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+// UpdateScheduledScan rewrites the editable timing + label + enabled fields.
+// Module/config/workspace are fixed at creation and not touched here.
+func (d *DB) UpdateScheduledScan(s *models.ScheduledScan) error {
+	_, err := d.NamedExec(`UPDATE scheduled_scans SET
+		label=:label, kind=:kind, run_at=:run_at, recur_kind=:recur_kind,
+		interval_seconds=:interval_seconds, at_time=:at_time, weekdays=:weekdays,
+		cron=:cron, enabled=:enabled, next_run_at=:next_run_at
+		WHERE id=:id`, s)
+	return err
+}
+
+// DeleteScheduledScan removes a schedule permanently.
+func (d *DB) DeleteScheduledScan(id string) error {
+	_, err := d.Exec(`DELETE FROM scheduled_scans WHERE id = ?`, id)
+	return err
+}
+
+// SetScheduleEnabled pauses (false) or resumes (true) a schedule; resuming
+// writes the freshly recomputed next_run.
+func (d *DB) SetScheduleEnabled(id string, enabled bool, nextRun *time.Time) error {
+	_, err := d.Exec(`UPDATE scheduled_scans SET enabled = ?, next_run_at = ? WHERE id = ?`, enabled, nextRun, id)
+	return err
+}
+
+// ListDueScheduledScans returns enabled schedules whose next_run_at has arrived
+// (<= now), oldest-due first.
+func (d *DB) ListDueScheduledScans(now time.Time) ([]models.ScheduledScan, error) {
+	var out []models.ScheduledScan
+	err := d.Select(&out, `SELECT * FROM scheduled_scans
+		WHERE enabled = 1 AND next_run_at IS NOT NULL AND next_run_at <= ?
+		ORDER BY next_run_at ASC`, now)
+	return out, err
+}
+
+// RecordScheduleRun stamps one real fire: the launched scan id, the run time,
+// the recomputed next_run (nil = none), the new enabled state (a one-time
+// schedule disables itself), and a status crumb.
+func (d *DB) RecordScheduleRun(id, scanID string, lastRun time.Time, nextRun *time.Time, enabled bool, status string) error {
+	_, err := d.Exec(`UPDATE scheduled_scans SET
+		last_scan_id = ?, last_run_at = ?, next_run_at = ?, enabled = ?, last_status = ?
+		WHERE id = ?`, scanID, lastRun, nextRun, enabled, status, id)
+	return err
+}
+
+// AdvanceSchedule moves a schedule's next_run forward WITHOUT recording a launch
+// (used when a fire is skipped — previous run still active, or memory pressure).
+// Leaves last_scan_id / last_run_at untouched.
+func (d *DB) AdvanceSchedule(id string, nextRun *time.Time, enabled bool, status string) error {
+	_, err := d.Exec(`UPDATE scheduled_scans SET next_run_at = ?, enabled = ?, last_status = ? WHERE id = ?`,
+		nextRun, enabled, status, id)
+	return err
+}
+
 // MoveTargetsToList reassigns one or more targets to a list (or to "" =
 // uncategorized).
 func (d *DB) MoveTargetsToList(targetIDs []string, listID string) error {
@@ -1741,11 +1863,11 @@ func (d *DB) TargetExists(workspaceID, value string) bool {
 
 func (d *DB) CreateScan(workspaceID, module, config string, totalTargets int) (*models.Scan, error) {
 	s := &models.Scan{
-		ID:            uuid.New().String(),
-		WorkspaceID:   workspaceID,
-		Module:        module,
-		Status:        models.ScanPending,
-		Config:        config,
+		ID:          uuid.New().String(),
+		WorkspaceID: workspaceID,
+		Module:      module,
+		Status:      models.ScanPending,
+		Config:      config,
 		// Seed an empty JSON OBJECT, not an array: every module's ScanResult
 		// is an object, so a poll of the results page before the first partial
 		// flush unmarshals "{}" into a zero-value result ("no results yet")
@@ -2311,14 +2433,14 @@ func (d *DB) ListArchivedScans(workspaceID string) ([]models.Scan, error) {
 // below. We deliberately omit:
 //
 //   - result        : the per-scan JSON blob averages ~79 MB and can reach
-//                     217 MB on hostdiscovery sweeps. Sidebar/history views
-//                     never reference it; loading it just to read status +
-//                     created_at costs seconds per page render on workspaces
-//                     with dozens of completed scans.
+//     217 MB on hostdiscovery sweeps. Sidebar/history views
+//     never reference it; loading it just to read status +
+//     created_at costs seconds per page render on workspaces
+//     with dozens of completed scans.
 //   - commands      : the "$ ..." command log accumulates unbounded across
-//                     long scans; only useful on the per-scan results page.
+//     long scans; only useful on the per-scan results page.
 //   - progress_msg  : the live message line; sidebar shows status badge,
-//                     not the streaming text.
+//     not the streaming text.
 //
 // Result/Commands/ProgressMsg come back as zero strings — Go template
 // branches like {{if .Result}} stay correct (they treat "" as falsy).

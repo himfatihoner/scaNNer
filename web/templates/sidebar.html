@@ -92,6 +92,13 @@
             <span class="sidebar-label">{{T "Scans"}}</span>
         </a>
 
+        <a href="/schedules" title="{{T `Schedules`}}" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm border-l-2 border-transparent transition-all duration-200 {{if or (eq .Page "schedules") (eq .Page "schedule_new")}}active{{else}}text-dark-300{{end}}">
+            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="sidebar-label">{{T "Schedules"}}</span>
+        </a>
+
         <a href="/tools" title="{{T `Tools`}}" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm border-l-2 border-transparent transition-all duration-200 {{if eq .Page "tools"}}active{{else}}text-dark-300{{end}}">
             <!-- Wrench + screwdriver — a utility toolbox -->
             <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

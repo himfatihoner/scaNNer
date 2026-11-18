@@ -263,6 +263,7 @@
   .max-w-xs { max-width: var(--container-xs); }
   .min-w-0 { min-width: 0px; }
   .min-w-\[20px\] { min-width: 20px; }
+  .min-w-\[64rem\] { min-width: 64rem; }
   .min-w-\[88px\] { min-width: 88px; }
   .min-w-\[160px\] { min-width: 160px; }
   .min-w-\[220px\] { min-width: 220px; }
@@ -386,31 +387,31 @@
   .border-dashed { --tw-border-style: dashed; border-style: dashed; }
   .border-accent-500 { border-color: var(--color-accent-500); }
   .border-accent-500\/20 {
-  border-color: color-mix(in srgb, rgb(59, 130, 246) 20%, transparent);
+  border-color: color-mix(in srgb, rgb(59, 130, 246) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-accent-500) 20%, transparent);
 }
 }
   .border-accent-500\/30 {
-  border-color: color-mix(in srgb, rgb(59, 130, 246) 30%, transparent);
+  border-color: color-mix(in srgb, rgb(59, 130, 246) 30%, transparent 70%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-accent-500) 30%, transparent);
 }
 }
   .border-accent-500\/40 {
-  border-color: color-mix(in srgb, rgb(59, 130, 246) 40%, transparent);
+  border-color: color-mix(in srgb, rgb(59, 130, 246) 40%, transparent 60%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-accent-500) 40%, transparent);
 }
 }
   .border-accent-600\/40 {
-  border-color: color-mix(in srgb, rgb(37, 99, 235) 40%, transparent);
+  border-color: color-mix(in srgb, rgb(37, 99, 235) 40%, transparent 60%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-accent-600) 40%, transparent);
 }
 }
   .border-amber-500\/30 {
-  border-color: color-mix(in srgb, oklch(0.769 0.188 70.08) 30%, transparent);
+  border-color: color-mix(in srgb, oklch(0.769 0.188 70.08) 30%, transparent 70%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-amber-500) 30%, transparent);
 }
@@ -422,19 +423,19 @@
 }
 }
   .border-blue-500\/20 {
-  border-color: color-mix(in srgb, oklch(0.623 0.214 259.815) 20%, transparent);
+  border-color: color-mix(in srgb, oklch(0.623 0.214 259.815) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-blue-500) 20%, transparent);
 }
 }
   .border-blue-500\/30 {
-  border-color: color-mix(in srgb, oklch(0.623 0.214 259.815) 30%, transparent);
+  border-color: color-mix(in srgb, oklch(0.623 0.214 259.815) 30%, transparent 70%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-blue-500) 30%, transparent);
 }
 }
   .border-blue-500\/40 {
-  border-color: color-mix(in srgb, oklch(0.623 0.214 259.815) 40%, transparent);
+  border-color: color-mix(in srgb, oklch(0.623 0.214 259.815) 40%, transparent 60%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-blue-500) 40%, transparent);
 }
@@ -446,19 +447,19 @@
 }
 }
   .border-danger\/20 {
-  border-color: color-mix(in srgb, rgb(239, 68, 68) 20%, transparent);
+  border-color: color-mix(in srgb, rgb(239, 68, 68) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-danger) 20%, transparent);
 }
 }
   .border-danger\/30 {
-  border-color: color-mix(in srgb, rgb(239, 68, 68) 30%, transparent);
+  border-color: color-mix(in srgb, rgb(239, 68, 68) 30%, transparent 70%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-danger) 30%, transparent);
 }
 }
   .border-danger\/40 {
-  border-color: color-mix(in srgb, rgb(239, 68, 68) 40%, transparent);
+  border-color: color-mix(in srgb, rgb(239, 68, 68) 40%, transparent 60%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-danger) 40%, transparent);
 }
@@ -470,7 +471,7 @@
 }
 }
   .border-dark-500\/30 {
-  border-color: color-mix(in srgb, rgb(105, 106, 116) 30%, transparent);
+  border-color: color-mix(in srgb, rgb(105, 106, 116) 30%, transparent 70%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-dark-500) 30%, transparent);
 }
@@ -484,7 +485,7 @@
 }
 }
   .border-dark-700\/60 {
-  border-color: color-mix(in srgb, rgb(76, 77, 84) 60%, transparent);
+  border-color: color-mix(in srgb, rgb(76, 77, 84) 60%, transparent 40%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-dark-700) 60%, transparent);
 }
@@ -498,49 +499,49 @@
 }
   .border-dark-850 { border-color: var(--color-dark-850); }
   .border-emerald-500\/20 {
-  border-color: color-mix(in srgb, oklch(0.696 0.17 162.48) 20%, transparent);
+  border-color: color-mix(in srgb, oklch(0.696 0.17 162.48) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-emerald-500) 20%, transparent);
 }
 }
   .border-emerald-500\/30 {
-  border-color: color-mix(in srgb, oklch(0.696 0.17 162.48) 30%, transparent);
+  border-color: color-mix(in srgb, oklch(0.696 0.17 162.48) 30%, transparent 70%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-emerald-500) 30%, transparent);
 }
 }
   .border-emerald-500\/40 {
-  border-color: color-mix(in srgb, oklch(0.696 0.17 162.48) 40%, transparent);
+  border-color: color-mix(in srgb, oklch(0.696 0.17 162.48) 40%, transparent 60%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-emerald-500) 40%, transparent);
 }
 }
   .border-error\/20 {
-  border-color: color-mix(in srgb, rgb(239, 68, 68) 20%, transparent);
+  border-color: color-mix(in srgb, rgb(239, 68, 68) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-error) 20%, transparent);
 }
 }
   .border-error\/30 {
-  border-color: color-mix(in srgb, rgb(239, 68, 68) 30%, transparent);
+  border-color: color-mix(in srgb, rgb(239, 68, 68) 30%, transparent 70%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-error) 30%, transparent);
 }
 }
   .border-orange-500\/20 {
-  border-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 20%, transparent);
+  border-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-orange-500) 20%, transparent);
 }
 }
   .border-orange-500\/30 {
-  border-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 30%, transparent);
+  border-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 30%, transparent 70%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-orange-500) 30%, transparent);
 }
 }
   .border-orange-500\/40 {
-  border-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 40%, transparent);
+  border-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 40%, transparent 60%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-orange-500) 40%, transparent);
 }
@@ -552,19 +553,19 @@
 }
 }
   .border-red-500\/20 {
-  border-color: color-mix(in srgb, oklch(0.637 0.237 25.331) 20%, transparent);
+  border-color: color-mix(in srgb, oklch(0.637 0.237 25.331) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-red-500) 20%, transparent);
 }
 }
   .border-red-500\/30 {
-  border-color: color-mix(in srgb, oklch(0.637 0.237 25.331) 30%, transparent);
+  border-color: color-mix(in srgb, oklch(0.637 0.237 25.331) 30%, transparent 70%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-red-500) 30%, transparent);
 }
 }
   .border-red-500\/40 {
-  border-color: color-mix(in srgb, oklch(0.637 0.237 25.331) 40%, transparent);
+  border-color: color-mix(in srgb, oklch(0.637 0.237 25.331) 40%, transparent 60%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-red-500) 40%, transparent);
 }
@@ -576,19 +577,19 @@
 }
 }
   .border-rose-500\/25 {
-  border-color: color-mix(in srgb, oklch(0.645 0.246 16.439) 25%, transparent);
+  border-color: color-mix(in srgb, oklch(0.645 0.246 16.439) 25%, transparent 75%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-rose-500) 25%, transparent);
 }
 }
   .border-rose-500\/30 {
-  border-color: color-mix(in srgb, oklch(0.645 0.246 16.439) 30%, transparent);
+  border-color: color-mix(in srgb, oklch(0.645 0.246 16.439) 30%, transparent 70%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-rose-500) 30%, transparent);
 }
 }
   .border-rose-500\/40 {
-  border-color: color-mix(in srgb, oklch(0.645 0.246 16.439) 40%, transparent);
+  border-color: color-mix(in srgb, oklch(0.645 0.246 16.439) 40%, transparent 60%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-rose-500) 40%, transparent);
 }
@@ -600,86 +601,86 @@
 }
 }
   .border-success\/20 {
-  border-color: color-mix(in srgb, rgb(34, 197, 94) 20%, transparent);
+  border-color: color-mix(in srgb, rgb(34, 197, 94) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-success) 20%, transparent);
 }
 }
   .border-success\/30 {
-  border-color: color-mix(in srgb, rgb(34, 197, 94) 30%, transparent);
+  border-color: color-mix(in srgb, rgb(34, 197, 94) 30%, transparent 70%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-success) 30%, transparent);
 }
 }
   .border-success\/40 {
-  border-color: color-mix(in srgb, rgb(34, 197, 94) 40%, transparent);
+  border-color: color-mix(in srgb, rgb(34, 197, 94) 40%, transparent 60%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-success) 40%, transparent);
 }
 }
   .border-transparent { border-color: transparent; }
   .border-violet-500\/20 {
-  border-color: color-mix(in srgb, oklch(0.606 0.25 292.717) 20%, transparent);
+  border-color: color-mix(in srgb, oklch(0.606 0.25 292.717) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-violet-500) 20%, transparent);
 }
 }
   .border-violet-500\/30 {
-  border-color: color-mix(in srgb, oklch(0.606 0.25 292.717) 30%, transparent);
+  border-color: color-mix(in srgb, oklch(0.606 0.25 292.717) 30%, transparent 70%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-violet-500) 30%, transparent);
 }
 }
   .border-warning\/20 {
-  border-color: color-mix(in srgb, rgb(234, 179, 8) 20%, transparent);
+  border-color: color-mix(in srgb, rgb(234, 179, 8) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-warning) 20%, transparent);
 }
 }
   .border-warning\/25 {
-  border-color: color-mix(in srgb, rgb(234, 179, 8) 25%, transparent);
+  border-color: color-mix(in srgb, rgb(234, 179, 8) 25%, transparent 75%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-warning) 25%, transparent);
 }
 }
   .border-warning\/30 {
-  border-color: color-mix(in srgb, rgb(234, 179, 8) 30%, transparent);
+  border-color: color-mix(in srgb, rgb(234, 179, 8) 30%, transparent 70%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-warning) 30%, transparent);
 }
 }
   .border-warning\/40 {
-  border-color: color-mix(in srgb, rgb(234, 179, 8) 40%, transparent);
+  border-color: color-mix(in srgb, rgb(234, 179, 8) 40%, transparent 60%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-warning) 40%, transparent);
 }
 }
   .border-white\/25 {
-  border-color: color-mix(in srgb, rgb(255, 255, 255) 25%, transparent);
+  border-color: color-mix(in srgb, rgb(255, 255, 255) 25%, transparent 75%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-white) 25%, transparent);
 }
 }
   .border-yellow-500\/20 {
-  border-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 20%, transparent);
+  border-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-yellow-500) 20%, transparent);
 }
 }
   .border-yellow-500\/25 {
-  border-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 25%, transparent);
+  border-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 25%, transparent 75%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-yellow-500) 25%, transparent);
 }
 }
   .border-yellow-500\/30 {
-  border-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 30%, transparent);
+  border-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 30%, transparent 70%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-yellow-500) 30%, transparent);
 }
 }
   .border-yellow-500\/40 {
-  border-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 40%, transparent);
+  border-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 40%, transparent 60%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-yellow-500) 40%, transparent);
 }
@@ -693,142 +694,142 @@
   .bg-accent-400 { background-color: var(--color-accent-400); }
   .bg-accent-500 { background-color: var(--color-accent-500); }
   .bg-accent-500\/5 {
-  background-color: color-mix(in srgb, rgb(59, 130, 246) 5%, transparent);
+  background-color: color-mix(in srgb, rgb(59, 130, 246) 5%, transparent 95%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-accent-500) 5%, transparent);
 }
 }
   .bg-accent-500\/10 {
-  background-color: color-mix(in srgb, rgb(59, 130, 246) 10%, transparent);
+  background-color: color-mix(in srgb, rgb(59, 130, 246) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-accent-500) 10%, transparent);
 }
 }
   .bg-accent-500\/15 {
-  background-color: color-mix(in srgb, rgb(59, 130, 246) 15%, transparent);
+  background-color: color-mix(in srgb, rgb(59, 130, 246) 15%, transparent 85%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-accent-500) 15%, transparent);
 }
 }
   .bg-accent-500\/20 {
-  background-color: color-mix(in srgb, rgb(59, 130, 246) 20%, transparent);
+  background-color: color-mix(in srgb, rgb(59, 130, 246) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-accent-500) 20%, transparent);
 }
 }
   .bg-accent-600 { background-color: var(--color-accent-600); }
   .bg-accent-600\/5 {
-  background-color: color-mix(in srgb, rgb(37, 99, 235) 5%, transparent);
+  background-color: color-mix(in srgb, rgb(37, 99, 235) 5%, transparent 95%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-accent-600) 5%, transparent);
 }
 }
   .bg-accent-600\/10 {
-  background-color: color-mix(in srgb, rgb(37, 99, 235) 10%, transparent);
+  background-color: color-mix(in srgb, rgb(37, 99, 235) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-accent-600) 10%, transparent);
 }
 }
   .bg-accent-600\/15 {
-  background-color: color-mix(in srgb, rgb(37, 99, 235) 15%, transparent);
+  background-color: color-mix(in srgb, rgb(37, 99, 235) 15%, transparent 85%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-accent-600) 15%, transparent);
 }
 }
   .bg-accent-600\/20 {
-  background-color: color-mix(in srgb, rgb(37, 99, 235) 20%, transparent);
+  background-color: color-mix(in srgb, rgb(37, 99, 235) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-accent-600) 20%, transparent);
 }
 }
   .bg-amber-500\/5 {
-  background-color: color-mix(in srgb, oklch(0.769 0.188 70.08) 5%, transparent);
+  background-color: color-mix(in srgb, oklch(0.769 0.188 70.08) 5%, transparent 95%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-amber-500) 5%, transparent);
 }
 }
   .bg-amber-500\/10 {
-  background-color: color-mix(in srgb, oklch(0.769 0.188 70.08) 10%, transparent);
+  background-color: color-mix(in srgb, oklch(0.769 0.188 70.08) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-amber-500) 10%, transparent);
 }
 }
   .bg-amber-500\/15 {
-  background-color: color-mix(in srgb, oklch(0.769 0.188 70.08) 15%, transparent);
+  background-color: color-mix(in srgb, oklch(0.769 0.188 70.08) 15%, transparent 85%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-amber-500) 15%, transparent);
 }
 }
   .bg-amber-500\/20 {
-  background-color: color-mix(in srgb, oklch(0.769 0.188 70.08) 20%, transparent);
+  background-color: color-mix(in srgb, oklch(0.769 0.188 70.08) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-amber-500) 20%, transparent);
 }
 }
   .bg-black\/60 {
-  background-color: color-mix(in srgb, rgb(0, 0, 0) 60%, transparent);
+  background-color: color-mix(in srgb, rgb(0, 0, 0) 60%, transparent 40%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-black) 60%, transparent);
 }
 }
   .bg-black\/70 {
-  background-color: color-mix(in srgb, rgb(0, 0, 0) 70%, transparent);
+  background-color: color-mix(in srgb, rgb(0, 0, 0) 70%, transparent 30%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-black) 70%, transparent);
 }
 }
   .bg-blue-500\/5 {
-  background-color: color-mix(in srgb, oklch(0.623 0.214 259.815) 5%, transparent);
+  background-color: color-mix(in srgb, oklch(0.623 0.214 259.815) 5%, transparent 95%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-blue-500) 5%, transparent);
 }
 }
   .bg-blue-500\/10 {
-  background-color: color-mix(in srgb, oklch(0.623 0.214 259.815) 10%, transparent);
+  background-color: color-mix(in srgb, oklch(0.623 0.214 259.815) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-blue-500) 10%, transparent);
 }
 }
   .bg-blue-500\/15 {
-  background-color: color-mix(in srgb, oklch(0.623 0.214 259.815) 15%, transparent);
+  background-color: color-mix(in srgb, oklch(0.623 0.214 259.815) 15%, transparent 85%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-blue-500) 15%, transparent);
 }
 }
   .bg-blue-500\/20 {
-  background-color: color-mix(in srgb, oklch(0.623 0.214 259.815) 20%, transparent);
+  background-color: color-mix(in srgb, oklch(0.623 0.214 259.815) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-blue-500) 20%, transparent);
 }
 }
   .bg-cyan-500 { background-color: var(--color-cyan-500); }
   .bg-cyan-500\/10 {
-  background-color: color-mix(in srgb, oklch(0.715 0.143 215.221) 10%, transparent);
+  background-color: color-mix(in srgb, oklch(0.715 0.143 215.221) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-cyan-500) 10%, transparent);
 }
 }
   .bg-danger { background-color: var(--color-danger); }
   .bg-danger\/5 {
-  background-color: color-mix(in srgb, rgb(239, 68, 68) 5%, transparent);
+  background-color: color-mix(in srgb, rgb(239, 68, 68) 5%, transparent 95%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-danger) 5%, transparent);
 }
 }
   .bg-danger\/10 {
-  background-color: color-mix(in srgb, rgb(239, 68, 68) 10%, transparent);
+  background-color: color-mix(in srgb, rgb(239, 68, 68) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-danger) 10%, transparent);
 }
 }
   .bg-danger\/15 {
-  background-color: color-mix(in srgb, rgb(239, 68, 68) 15%, transparent);
+  background-color: color-mix(in srgb, rgb(239, 68, 68) 15%, transparent 85%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-danger) 15%, transparent);
 }
 }
   .bg-danger\/20 {
-  background-color: color-mix(in srgb, rgb(239, 68, 68) 20%, transparent);
+  background-color: color-mix(in srgb, rgb(239, 68, 68) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-danger) 20%, transparent);
 }
@@ -836,7 +837,7 @@
   .bg-dark-400 { background-color: var(--color-dark-400); }
   .bg-dark-500 { background-color: var(--color-dark-500); }
   .bg-dark-500\/10 {
-  background-color: color-mix(in srgb, rgb(105, 106, 116) 10%, transparent);
+  background-color: color-mix(in srgb, rgb(105, 106, 116) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-dark-500) 10%, transparent);
 }
@@ -850,27 +851,27 @@
 }
 }
   .bg-dark-700\/60 {
-  background-color: color-mix(in srgb, rgb(76, 77, 84) 60%, transparent);
+  background-color: color-mix(in srgb, rgb(76, 77, 84) 60%, transparent 40%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-dark-700) 60%, transparent);
 }
 }
   .bg-dark-800 { background-color: var(--color-dark-800); }
   .bg-dark-800\/90 {
-  background-color: color-mix(in srgb, rgb(67, 67, 73) 90%, transparent);
+  background-color: color-mix(in srgb, rgb(67, 67, 73) 90%, transparent 10%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-dark-800) 90%, transparent);
 }
 }
   .bg-dark-850 { background-color: var(--color-dark-850); }
   .bg-dark-850\/30 {
-  background-color: color-mix(in srgb, rgb(49, 49, 54) 30%, transparent);
+  background-color: color-mix(in srgb, rgb(49, 49, 54) 30%, transparent 70%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-dark-850) 30%, transparent);
 }
 }
   .bg-dark-850\/40 {
-  background-color: color-mix(in srgb, rgb(49, 49, 54) 40%, transparent);
+  background-color: color-mix(in srgb, rgb(49, 49, 54) 40%, transparent 60%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-dark-850) 40%, transparent);
 }
@@ -882,26 +883,26 @@
 }
 }
   .bg-dark-850\/60 {
-  background-color: color-mix(in srgb, rgb(49, 49, 54) 60%, transparent);
+  background-color: color-mix(in srgb, rgb(49, 49, 54) 60%, transparent 40%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-dark-850) 60%, transparent);
 }
 }
   .bg-dark-900 { background-color: var(--color-dark-900); }
   .bg-dark-900\/40 {
-  background-color: color-mix(in srgb, rgb(39, 39, 42) 40%, transparent);
+  background-color: color-mix(in srgb, rgb(39, 39, 42) 40%, transparent 60%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-dark-900) 40%, transparent);
 }
 }
   .bg-dark-900\/60 {
-  background-color: color-mix(in srgb, rgb(39, 39, 42) 60%, transparent);
+  background-color: color-mix(in srgb, rgb(39, 39, 42) 60%, transparent 40%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-dark-900) 60%, transparent);
 }
 }
   .bg-dark-900\/80 {
-  background-color: color-mix(in srgb, rgb(39, 39, 42) 80%, transparent);
+  background-color: color-mix(in srgb, rgb(39, 39, 42) 80%, transparent 20%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-dark-900) 80%, transparent);
 }
@@ -915,45 +916,45 @@
 }
 }
   .bg-dark-950\/90 {
-  background-color: color-mix(in srgb, rgb(24, 24, 27) 90%, transparent);
+  background-color: color-mix(in srgb, rgb(24, 24, 27) 90%, transparent 10%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-dark-950) 90%, transparent);
 }
 }
   .bg-emerald-400 { background-color: var(--color-emerald-400); }
   .bg-emerald-500\/10 {
-  background-color: color-mix(in srgb, oklch(0.696 0.17 162.48) 10%, transparent);
+  background-color: color-mix(in srgb, oklch(0.696 0.17 162.48) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-emerald-500) 10%, transparent);
 }
 }
   .bg-emerald-500\/20 {
-  background-color: color-mix(in srgb, oklch(0.696 0.17 162.48) 20%, transparent);
+  background-color: color-mix(in srgb, oklch(0.696 0.17 162.48) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-emerald-500) 20%, transparent);
 }
 }
   .bg-emerald-600 { background-color: var(--color-emerald-600); }
   .bg-emerald-600\/10 {
-  background-color: color-mix(in srgb, oklch(0.596 0.145 163.225) 10%, transparent);
+  background-color: color-mix(in srgb, oklch(0.596 0.145 163.225) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-emerald-600) 10%, transparent);
 }
 }
   .bg-error\/5 {
-  background-color: color-mix(in srgb, rgb(239, 68, 68) 5%, transparent);
+  background-color: color-mix(in srgb, rgb(239, 68, 68) 5%, transparent 95%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-error) 5%, transparent);
 }
 }
   .bg-error\/10 {
-  background-color: color-mix(in srgb, rgb(239, 68, 68) 10%, transparent);
+  background-color: color-mix(in srgb, rgb(239, 68, 68) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-error) 10%, transparent);
 }
 }
   .bg-error\/20 {
-  background-color: color-mix(in srgb, rgb(239, 68, 68) 20%, transparent);
+  background-color: color-mix(in srgb, rgb(239, 68, 68) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-error) 20%, transparent);
 }
@@ -962,25 +963,25 @@
   .bg-orange-400 { background-color: var(--color-orange-400); }
   .bg-orange-500 { background-color: var(--color-orange-500); }
   .bg-orange-500\/5 {
-  background-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 5%, transparent);
+  background-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 5%, transparent 95%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-orange-500) 5%, transparent);
 }
 }
   .bg-orange-500\/10 {
-  background-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 10%, transparent);
+  background-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-orange-500) 10%, transparent);
 }
 }
   .bg-orange-500\/15 {
-  background-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 15%, transparent);
+  background-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 15%, transparent 85%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-orange-500) 15%, transparent);
 }
 }
   .bg-orange-500\/20 {
-  background-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 20%, transparent);
+  background-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-orange-500) 20%, transparent);
 }
@@ -988,20 +989,20 @@
   .bg-pink-400 { background-color: var(--color-pink-400); }
   .bg-pink-500 { background-color: var(--color-pink-500); }
   .bg-pink-500\/10 {
-  background-color: color-mix(in srgb, oklch(0.656 0.241 354.308) 10%, transparent);
+  background-color: color-mix(in srgb, oklch(0.656 0.241 354.308) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-pink-500) 10%, transparent);
 }
 }
   .bg-purple-400 { background-color: var(--color-purple-400); }
   .bg-purple-500\/10 {
-  background-color: color-mix(in srgb, oklch(0.627 0.265 303.9) 10%, transparent);
+  background-color: color-mix(in srgb, oklch(0.627 0.265 303.9) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-purple-500) 10%, transparent);
 }
 }
   .bg-purple-500\/15 {
-  background-color: color-mix(in srgb, oklch(0.627 0.265 303.9) 15%, transparent);
+  background-color: color-mix(in srgb, oklch(0.627 0.265 303.9) 15%, transparent 85%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-purple-500) 15%, transparent);
 }
@@ -1009,133 +1010,133 @@
   .bg-red-400 { background-color: var(--color-red-400); }
   .bg-red-500 { background-color: var(--color-red-500); }
   .bg-red-500\/5 {
-  background-color: color-mix(in srgb, oklch(0.637 0.237 25.331) 5%, transparent);
+  background-color: color-mix(in srgb, oklch(0.637 0.237 25.331) 5%, transparent 95%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-red-500) 5%, transparent);
 }
 }
   .bg-red-500\/10 {
-  background-color: color-mix(in srgb, oklch(0.637 0.237 25.331) 10%, transparent);
+  background-color: color-mix(in srgb, oklch(0.637 0.237 25.331) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-red-500) 10%, transparent);
 }
 }
   .bg-red-500\/15 {
-  background-color: color-mix(in srgb, oklch(0.637 0.237 25.331) 15%, transparent);
+  background-color: color-mix(in srgb, oklch(0.637 0.237 25.331) 15%, transparent 85%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-red-500) 15%, transparent);
 }
 }
   .bg-red-500\/20 {
-  background-color: color-mix(in srgb, oklch(0.637 0.237 25.331) 20%, transparent);
+  background-color: color-mix(in srgb, oklch(0.637 0.237 25.331) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-red-500) 20%, transparent);
 }
 }
   .bg-red-600 { background-color: var(--color-red-600); }
   .bg-rose-500\/10 {
-  background-color: color-mix(in srgb, oklch(0.645 0.246 16.439) 10%, transparent);
+  background-color: color-mix(in srgb, oklch(0.645 0.246 16.439) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-rose-500) 10%, transparent);
 }
 }
   .bg-rose-500\/15 {
-  background-color: color-mix(in srgb, oklch(0.645 0.246 16.439) 15%, transparent);
+  background-color: color-mix(in srgb, oklch(0.645 0.246 16.439) 15%, transparent 85%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-rose-500) 15%, transparent);
 }
 }
   .bg-sky-500 { background-color: var(--color-sky-500); }
   .bg-sky-500\/15 {
-  background-color: color-mix(in srgb, oklch(0.685 0.169 237.323) 15%, transparent);
+  background-color: color-mix(in srgb, oklch(0.685 0.169 237.323) 15%, transparent 85%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-sky-500) 15%, transparent);
 }
 }
   .bg-sky-500\/20 {
-  background-color: color-mix(in srgb, oklch(0.685 0.169 237.323) 20%, transparent);
+  background-color: color-mix(in srgb, oklch(0.685 0.169 237.323) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-sky-500) 20%, transparent);
 }
 }
   .bg-success { background-color: var(--color-success); }
   .bg-success\/5 {
-  background-color: color-mix(in srgb, rgb(34, 197, 94) 5%, transparent);
+  background-color: color-mix(in srgb, rgb(34, 197, 94) 5%, transparent 95%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-success) 5%, transparent);
 }
 }
   .bg-success\/10 {
-  background-color: color-mix(in srgb, rgb(34, 197, 94) 10%, transparent);
+  background-color: color-mix(in srgb, rgb(34, 197, 94) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-success) 10%, transparent);
 }
 }
   .bg-success\/15 {
-  background-color: color-mix(in srgb, rgb(34, 197, 94) 15%, transparent);
+  background-color: color-mix(in srgb, rgb(34, 197, 94) 15%, transparent 85%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-success) 15%, transparent);
 }
 }
   .bg-success\/20 {
-  background-color: color-mix(in srgb, rgb(34, 197, 94) 20%, transparent);
+  background-color: color-mix(in srgb, rgb(34, 197, 94) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-success) 20%, transparent);
 }
 }
   .bg-violet-500 { background-color: var(--color-violet-500); }
   .bg-violet-500\/10 {
-  background-color: color-mix(in srgb, oklch(0.606 0.25 292.717) 10%, transparent);
+  background-color: color-mix(in srgb, oklch(0.606 0.25 292.717) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-violet-500) 10%, transparent);
 }
 }
   .bg-violet-500\/20 {
-  background-color: color-mix(in srgb, oklch(0.606 0.25 292.717) 20%, transparent);
+  background-color: color-mix(in srgb, oklch(0.606 0.25 292.717) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-violet-500) 20%, transparent);
 }
 }
   .bg-warning { background-color: var(--color-warning); }
   .bg-warning\/5 {
-  background-color: color-mix(in srgb, rgb(234, 179, 8) 5%, transparent);
+  background-color: color-mix(in srgb, rgb(234, 179, 8) 5%, transparent 95%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-warning) 5%, transparent);
 }
 }
   .bg-warning\/10 {
-  background-color: color-mix(in srgb, rgb(234, 179, 8) 10%, transparent);
+  background-color: color-mix(in srgb, rgb(234, 179, 8) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-warning) 10%, transparent);
 }
 }
   .bg-warning\/15 {
-  background-color: color-mix(in srgb, rgb(234, 179, 8) 15%, transparent);
+  background-color: color-mix(in srgb, rgb(234, 179, 8) 15%, transparent 85%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-warning) 15%, transparent);
 }
 }
   .bg-warning\/20 {
-  background-color: color-mix(in srgb, rgb(234, 179, 8) 20%, transparent);
+  background-color: color-mix(in srgb, rgb(234, 179, 8) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-warning) 20%, transparent);
 }
 }
   .bg-warning\/80 {
-  background-color: color-mix(in srgb, rgb(234, 179, 8) 80%, transparent);
+  background-color: color-mix(in srgb, rgb(234, 179, 8) 80%, transparent 20%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-warning) 80%, transparent);
 }
 }
   .bg-white { background-color: var(--color-white); }
   .bg-white\/15 {
-  background-color: color-mix(in srgb, rgb(255, 255, 255) 15%, transparent);
+  background-color: color-mix(in srgb, rgb(255, 255, 255) 15%, transparent 85%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-white) 15%, transparent);
 }
 }
   .bg-white\/20 {
-  background-color: color-mix(in srgb, rgb(255, 255, 255) 20%, transparent);
+  background-color: color-mix(in srgb, rgb(255, 255, 255) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-white) 20%, transparent);
 }
@@ -1143,25 +1144,25 @@
   .bg-yellow-400 { background-color: var(--color-yellow-400); }
   .bg-yellow-500 { background-color: var(--color-yellow-500); }
   .bg-yellow-500\/5 {
-  background-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 5%, transparent);
+  background-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 5%, transparent 95%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-yellow-500) 5%, transparent);
 }
 }
   .bg-yellow-500\/10 {
-  background-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 10%, transparent);
+  background-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-yellow-500) 10%, transparent);
 }
 }
   .bg-yellow-500\/15 {
-  background-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 15%, transparent);
+  background-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 15%, transparent 85%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-yellow-500) 15%, transparent);
 }
 }
   .bg-yellow-500\/20 {
-  background-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 20%, transparent);
+  background-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-yellow-500) 20%, transparent);
 }
@@ -1322,20 +1323,20 @@
   .text-amber-50 { color: var(--color-amber-50); }
   .text-amber-100 { color: var(--color-amber-100); }
   .text-amber-100\/80 {
-  color: color-mix(in srgb, oklch(0.962 0.059 95.617) 80%, transparent);
+  color: color-mix(in srgb, oklch(0.962 0.059 95.617) 80%, transparent 20%);
   @supports (color: color-mix(in lab, red, red)) {
   color: color-mix(in oklab, var(--color-amber-100) 80%, transparent);
 }
 }
   .text-amber-100\/90 {
-  color: color-mix(in srgb, oklch(0.962 0.059 95.617) 90%, transparent);
+  color: color-mix(in srgb, oklch(0.962 0.059 95.617) 90%, transparent 10%);
   @supports (color: color-mix(in lab, red, red)) {
   color: color-mix(in oklab, var(--color-amber-100) 90%, transparent);
 }
 }
   .text-amber-200 { color: var(--color-amber-200); }
   .text-amber-200\/90 {
-  color: color-mix(in srgb, oklch(0.924 0.12 95.746) 90%, transparent);
+  color: color-mix(in srgb, oklch(0.924 0.12 95.746) 90%, transparent 10%);
   @supports (color: color-mix(in lab, red, red)) {
   color: color-mix(in oklab, var(--color-amber-200) 90%, transparent);
 }
@@ -1343,13 +1344,13 @@
   .text-amber-300 { color: var(--color-amber-300); }
   .text-amber-400 { color: var(--color-amber-400); }
   .text-amber-400\/70 {
-  color: color-mix(in srgb, oklch(0.828 0.189 84.429) 70%, transparent);
+  color: color-mix(in srgb, oklch(0.828 0.189 84.429) 70%, transparent 30%);
   @supports (color: color-mix(in lab, red, red)) {
   color: color-mix(in oklab, var(--color-amber-400) 70%, transparent);
 }
 }
   .text-amber-500\/80 {
-  color: color-mix(in srgb, oklch(0.769 0.188 70.08) 80%, transparent);
+  color: color-mix(in srgb, oklch(0.769 0.188 70.08) 80%, transparent 20%);
   @supports (color: color-mix(in lab, red, red)) {
   color: color-mix(in oklab, var(--color-amber-500) 80%, transparent);
 }
@@ -1360,19 +1361,19 @@
   .text-cyan-300 { color: var(--color-cyan-300); }
   .text-danger { color: var(--color-danger); }
   .text-danger\/60 {
-  color: color-mix(in srgb, rgb(239, 68, 68) 60%, transparent);
+  color: color-mix(in srgb, rgb(239, 68, 68) 60%, transparent 40%);
   @supports (color: color-mix(in lab, red, red)) {
   color: color-mix(in oklab, var(--color-danger) 60%, transparent);
 }
 }
   .text-danger\/70 {
-  color: color-mix(in srgb, rgb(239, 68, 68) 70%, transparent);
+  color: color-mix(in srgb, rgb(239, 68, 68) 70%, transparent 30%);
   @supports (color: color-mix(in lab, red, red)) {
   color: color-mix(in oklab, var(--color-danger) 70%, transparent);
 }
 }
   .text-danger\/80 {
-  color: color-mix(in srgb, rgb(239, 68, 68) 80%, transparent);
+  color: color-mix(in srgb, rgb(239, 68, 68) 80%, transparent 20%);
   @supports (color: color-mix(in lab, red, red)) {
   color: color-mix(in oklab, var(--color-danger) 80%, transparent);
 }
@@ -1389,13 +1390,13 @@
   .text-emerald-300 { color: var(--color-emerald-300); }
   .text-emerald-400 { color: var(--color-emerald-400); }
   .text-emerald-400\/70 {
-  color: color-mix(in srgb, oklch(0.765 0.177 163.223) 70%, transparent);
+  color: color-mix(in srgb, oklch(0.765 0.177 163.223) 70%, transparent 30%);
   @supports (color: color-mix(in lab, red, red)) {
   color: color-mix(in oklab, var(--color-emerald-400) 70%, transparent);
 }
 }
   .text-emerald-400\/80 {
-  color: color-mix(in srgb, oklch(0.765 0.177 163.223) 80%, transparent);
+  color: color-mix(in srgb, oklch(0.765 0.177 163.223) 80%, transparent 20%);
   @supports (color: color-mix(in lab, red, red)) {
   color: color-mix(in oklab, var(--color-emerald-400) 80%, transparent);
 }
@@ -1412,7 +1413,7 @@
   .text-red-300 { color: var(--color-red-300); }
   .text-red-400 { color: var(--color-red-400); }
   .text-red-400\/80 {
-  color: color-mix(in srgb, oklch(0.704 0.191 22.216) 80%, transparent);
+  color: color-mix(in srgb, oklch(0.704 0.191 22.216) 80%, transparent 20%);
   @supports (color: color-mix(in lab, red, red)) {
   color: color-mix(in oklab, var(--color-red-400) 80%, transparent);
 }
@@ -1425,7 +1426,7 @@
   .text-sky-400 { color: var(--color-sky-400); }
   .text-success { color: var(--color-success); }
   .text-success\/60 {
-  color: color-mix(in srgb, rgb(34, 197, 94) 60%, transparent);
+  color: color-mix(in srgb, rgb(34, 197, 94) 60%, transparent 40%);
   @supports (color: color-mix(in lab, red, red)) {
   color: color-mix(in oklab, var(--color-success) 60%, transparent);
 }
@@ -1434,32 +1435,32 @@
   .text-violet-400 { color: var(--color-violet-400); }
   .text-warning { color: var(--color-warning); }
   .text-warning\/70 {
-  color: color-mix(in srgb, rgb(234, 179, 8) 70%, transparent);
+  color: color-mix(in srgb, rgb(234, 179, 8) 70%, transparent 30%);
   @supports (color: color-mix(in lab, red, red)) {
   color: color-mix(in oklab, var(--color-warning) 70%, transparent);
 }
 }
   .text-warning\/90 {
-  color: color-mix(in srgb, rgb(234, 179, 8) 90%, transparent);
+  color: color-mix(in srgb, rgb(234, 179, 8) 90%, transparent 10%);
   @supports (color: color-mix(in lab, red, red)) {
   color: color-mix(in oklab, var(--color-warning) 90%, transparent);
 }
 }
   .text-white { color: var(--color-white); }
   .text-white\/70 {
-  color: color-mix(in srgb, rgb(255, 255, 255) 70%, transparent);
+  color: color-mix(in srgb, rgb(255, 255, 255) 70%, transparent 30%);
   @supports (color: color-mix(in lab, red, red)) {
   color: color-mix(in oklab, var(--color-white) 70%, transparent);
 }
 }
   .text-white\/80 {
-  color: color-mix(in srgb, rgb(255, 255, 255) 80%, transparent);
+  color: color-mix(in srgb, rgb(255, 255, 255) 80%, transparent 20%);
   @supports (color: color-mix(in lab, red, red)) {
   color: color-mix(in oklab, var(--color-white) 80%, transparent);
 }
 }
   .text-white\/90 {
-  color: color-mix(in srgb, rgb(255, 255, 255) 90%, transparent);
+  color: color-mix(in srgb, rgb(255, 255, 255) 90%, transparent 10%);
   @supports (color: color-mix(in lab, red, red)) {
   color: color-mix(in oklab, var(--color-white) 90%, transparent);
 }
@@ -1614,7 +1615,7 @@
   .group-hover\:bg-accent-600\/30 {
   &:is(:where(.group):hover *) {
   @media (hover: hover) {
-  background-color: color-mix(in srgb, rgb(37, 99, 235) 30%, transparent);
+  background-color: color-mix(in srgb, rgb(37, 99, 235) 30%, transparent 70%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-accent-600) 30%, transparent);
 }
@@ -1624,7 +1625,7 @@
   .group-hover\:bg-success\/30 {
   &:is(:where(.group):hover *) {
   @media (hover: hover) {
-  background-color: color-mix(in srgb, rgb(34, 197, 94) 30%, transparent);
+  background-color: color-mix(in srgb, rgb(34, 197, 94) 30%, transparent 70%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-success) 30%, transparent);
 }
@@ -1634,7 +1635,7 @@
   .group-hover\:bg-warning\/30 {
   &:is(:where(.group):hover *) {
   @media (hover: hover) {
-  background-color: color-mix(in srgb, rgb(234, 179, 8) 30%, transparent);
+  background-color: color-mix(in srgb, rgb(234, 179, 8) 30%, transparent 70%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-warning) 30%, transparent);
 }
@@ -1674,7 +1675,7 @@
 }
   .peer-checked\:border-blue-500\/40 {
   &:is(:where(.peer):checked ~ *) {
-  border-color: color-mix(in srgb, oklch(0.623 0.214 259.815) 40%, transparent);
+  border-color: color-mix(in srgb, oklch(0.623 0.214 259.815) 40%, transparent 60%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-blue-500) 40%, transparent);
 }
@@ -1688,7 +1689,7 @@
 }
   .peer-checked\:border-orange-500\/40 {
   &:is(:where(.peer):checked ~ *) {
-  border-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 40%, transparent);
+  border-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 40%, transparent 60%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-orange-500) 40%, transparent);
 }
@@ -1696,7 +1697,7 @@
 }
   .peer-checked\:border-red-500\/40 {
   &:is(:where(.peer):checked ~ *) {
-  border-color: color-mix(in srgb, oklch(0.637 0.237 25.331) 40%, transparent);
+  border-color: color-mix(in srgb, oklch(0.637 0.237 25.331) 40%, transparent 60%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-red-500) 40%, transparent);
 }
@@ -1713,7 +1714,7 @@
 }
   .peer-checked\:border-yellow-500\/40 {
   &:is(:where(.peer):checked ~ *) {
-  border-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 40%, transparent);
+  border-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 40%, transparent 60%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-yellow-500) 40%, transparent);
 }
@@ -1724,7 +1725,7 @@
 }
   .peer-checked\:bg-accent-600\/5 {
   &:is(:where(.peer):checked ~ *) {
-  background-color: color-mix(in srgb, rgb(37, 99, 235) 5%, transparent);
+  background-color: color-mix(in srgb, rgb(37, 99, 235) 5%, transparent 95%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-accent-600) 5%, transparent);
 }
@@ -1732,7 +1733,7 @@
 }
   .peer-checked\:bg-accent-600\/10 {
   &:is(:where(.peer):checked ~ *) {
-  background-color: color-mix(in srgb, rgb(37, 99, 235) 10%, transparent);
+  background-color: color-mix(in srgb, rgb(37, 99, 235) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-accent-600) 10%, transparent);
 }
@@ -1740,7 +1741,7 @@
 }
   .peer-checked\:bg-accent-600\/30 {
   &:is(:where(.peer):checked ~ *) {
-  background-color: color-mix(in srgb, rgb(37, 99, 235) 30%, transparent);
+  background-color: color-mix(in srgb, rgb(37, 99, 235) 30%, transparent 70%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-accent-600) 30%, transparent);
 }
@@ -1748,7 +1749,7 @@
 }
   .peer-checked\:bg-blue-500\/20 {
   &:is(:where(.peer):checked ~ *) {
-  background-color: color-mix(in srgb, oklch(0.623 0.214 259.815) 20%, transparent);
+  background-color: color-mix(in srgb, oklch(0.623 0.214 259.815) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-blue-500) 20%, transparent);
 }
@@ -1756,7 +1757,7 @@
 }
   .peer-checked\:bg-danger\/5 {
   &:is(:where(.peer):checked ~ *) {
-  background-color: color-mix(in srgb, rgb(239, 68, 68) 5%, transparent);
+  background-color: color-mix(in srgb, rgb(239, 68, 68) 5%, transparent 95%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-danger) 5%, transparent);
 }
@@ -1767,7 +1768,7 @@
 }
   .peer-checked\:bg-orange-500\/20 {
   &:is(:where(.peer):checked ~ *) {
-  background-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 20%, transparent);
+  background-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-orange-500) 20%, transparent);
 }
@@ -1775,7 +1776,7 @@
 }
   .peer-checked\:bg-red-500\/20 {
   &:is(:where(.peer):checked ~ *) {
-  background-color: color-mix(in srgb, oklch(0.637 0.237 25.331) 20%, transparent);
+  background-color: color-mix(in srgb, oklch(0.637 0.237 25.331) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-red-500) 20%, transparent);
 }
@@ -1783,7 +1784,7 @@
 }
   .peer-checked\:bg-success\/5 {
   &:is(:where(.peer):checked ~ *) {
-  background-color: color-mix(in srgb, rgb(34, 197, 94) 5%, transparent);
+  background-color: color-mix(in srgb, rgb(34, 197, 94) 5%, transparent 95%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-success) 5%, transparent);
 }
@@ -1791,7 +1792,7 @@
 }
   .peer-checked\:bg-warning\/5 {
   &:is(:where(.peer):checked ~ *) {
-  background-color: color-mix(in srgb, rgb(234, 179, 8) 5%, transparent);
+  background-color: color-mix(in srgb, rgb(234, 179, 8) 5%, transparent 95%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-warning) 5%, transparent);
 }
@@ -1799,7 +1800,7 @@
 }
   .peer-checked\:bg-yellow-500\/20 {
   &:is(:where(.peer):checked ~ *) {
-  background-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 20%, transparent);
+  background-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-yellow-500) 20%, transparent);
 }
@@ -1807,6 +1808,9 @@
 }
   .peer-checked\:text-accent-200 {
   &:is(:where(.peer):checked ~ *) { color: var(--color-accent-200); }
+}
+  .peer-checked\:text-accent-300 {
+  &:is(:where(.peer):checked ~ *) { color: var(--color-accent-300); }
 }
   .peer-checked\:text-accent-400 {
   &:is(:where(.peer):checked ~ *) { color: var(--color-accent-400); }
@@ -1891,7 +1895,7 @@
   .hover\:border-accent-500\/40 {
   &:hover {
   @media (hover: hover) {
-  border-color: color-mix(in srgb, rgb(59, 130, 246) 40%, transparent);
+  border-color: color-mix(in srgb, rgb(59, 130, 246) 40%, transparent 60%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-accent-500) 40%, transparent);
 }
@@ -1918,7 +1922,7 @@
   .hover\:border-danger\/40 {
   &:hover {
   @media (hover: hover) {
-  border-color: color-mix(in srgb, rgb(239, 68, 68) 40%, transparent);
+  border-color: color-mix(in srgb, rgb(239, 68, 68) 40%, transparent 60%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-danger) 40%, transparent);
 }
@@ -1942,7 +1946,7 @@
   .hover\:border-orange-500\/40 {
   &:hover {
   @media (hover: hover) {
-  border-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 40%, transparent);
+  border-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 40%, transparent 60%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-orange-500) 40%, transparent);
 }
@@ -1962,7 +1966,7 @@
   .hover\:border-rose-400\/60 {
   &:hover {
   @media (hover: hover) {
-  border-color: color-mix(in srgb, oklch(0.712 0.194 13.428) 60%, transparent);
+  border-color: color-mix(in srgb, oklch(0.712 0.194 13.428) 60%, transparent 40%);
   @supports (color: color-mix(in lab, red, red)) {
   border-color: color-mix(in oklab, var(--color-rose-400) 60%, transparent);
 }
@@ -1986,7 +1990,7 @@
   .hover\:bg-accent-500\/20 {
   &:hover {
   @media (hover: hover) {
-  background-color: color-mix(in srgb, rgb(59, 130, 246) 20%, transparent);
+  background-color: color-mix(in srgb, rgb(59, 130, 246) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-accent-500) 20%, transparent);
 }
@@ -1996,7 +2000,7 @@
   .hover\:bg-accent-600\/20 {
   &:hover {
   @media (hover: hover) {
-  background-color: color-mix(in srgb, rgb(37, 99, 235) 20%, transparent);
+  background-color: color-mix(in srgb, rgb(37, 99, 235) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-accent-600) 20%, transparent);
 }
@@ -2006,7 +2010,7 @@
   .hover\:bg-accent-600\/25 {
   &:hover {
   @media (hover: hover) {
-  background-color: color-mix(in srgb, rgb(37, 99, 235) 25%, transparent);
+  background-color: color-mix(in srgb, rgb(37, 99, 235) 25%, transparent 75%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-accent-600) 25%, transparent);
 }
@@ -2016,7 +2020,7 @@
   .hover\:bg-accent-600\/30 {
   &:hover {
   @media (hover: hover) {
-  background-color: color-mix(in srgb, rgb(37, 99, 235) 30%, transparent);
+  background-color: color-mix(in srgb, rgb(37, 99, 235) 30%, transparent 70%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-accent-600) 30%, transparent);
 }
@@ -2026,7 +2030,7 @@
   .hover\:bg-amber-500\/10 {
   &:hover {
   @media (hover: hover) {
-  background-color: color-mix(in srgb, oklch(0.769 0.188 70.08) 10%, transparent);
+  background-color: color-mix(in srgb, oklch(0.769 0.188 70.08) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-amber-500) 10%, transparent);
 }
@@ -2036,7 +2040,7 @@
   .hover\:bg-danger\/10 {
   &:hover {
   @media (hover: hover) {
-  background-color: color-mix(in srgb, rgb(239, 68, 68) 10%, transparent);
+  background-color: color-mix(in srgb, rgb(239, 68, 68) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-danger) 10%, transparent);
 }
@@ -2046,7 +2050,7 @@
   .hover\:bg-danger\/20 {
   &:hover {
   @media (hover: hover) {
-  background-color: color-mix(in srgb, rgb(239, 68, 68) 20%, transparent);
+  background-color: color-mix(in srgb, rgb(239, 68, 68) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-danger) 20%, transparent);
 }
@@ -2084,7 +2088,7 @@
   .hover\:bg-dark-850\/30 {
   &:hover {
   @media (hover: hover) {
-  background-color: color-mix(in srgb, rgb(49, 49, 54) 30%, transparent);
+  background-color: color-mix(in srgb, rgb(49, 49, 54) 30%, transparent 70%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-dark-850) 30%, transparent);
 }
@@ -2094,7 +2098,7 @@
   .hover\:bg-dark-850\/40 {
   &:hover {
   @media (hover: hover) {
-  background-color: color-mix(in srgb, rgb(49, 49, 54) 40%, transparent);
+  background-color: color-mix(in srgb, rgb(49, 49, 54) 40%, transparent 60%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-dark-850) 40%, transparent);
 }
@@ -2114,7 +2118,7 @@
   .hover\:bg-dark-850\/60 {
   &:hover {
   @media (hover: hover) {
-  background-color: color-mix(in srgb, rgb(49, 49, 54) 60%, transparent);
+  background-color: color-mix(in srgb, rgb(49, 49, 54) 60%, transparent 40%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-dark-850) 60%, transparent);
 }
@@ -2131,7 +2135,7 @@
   .hover\:bg-emerald-500\/20 {
   &:hover {
   @media (hover: hover) {
-  background-color: color-mix(in srgb, oklch(0.696 0.17 162.48) 20%, transparent);
+  background-color: color-mix(in srgb, oklch(0.696 0.17 162.48) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-emerald-500) 20%, transparent);
 }
@@ -2141,7 +2145,7 @@
   .hover\:bg-orange-500\/20 {
   &:hover {
   @media (hover: hover) {
-  background-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 20%, transparent);
+  background-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-orange-500) 20%, transparent);
 }
@@ -2158,7 +2162,7 @@
   .hover\:bg-red-500\/25 {
   &:hover {
   @media (hover: hover) {
-  background-color: color-mix(in srgb, oklch(0.637 0.237 25.331) 25%, transparent);
+  background-color: color-mix(in srgb, oklch(0.637 0.237 25.331) 25%, transparent 75%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-red-500) 25%, transparent);
 }
@@ -2168,7 +2172,7 @@
   .hover\:bg-rose-500\/25 {
   &:hover {
   @media (hover: hover) {
-  background-color: color-mix(in srgb, oklch(0.645 0.246 16.439) 25%, transparent);
+  background-color: color-mix(in srgb, oklch(0.645 0.246 16.439) 25%, transparent 75%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-rose-500) 25%, transparent);
 }
@@ -2178,7 +2182,7 @@
   .hover\:bg-violet-500\/20 {
   &:hover {
   @media (hover: hover) {
-  background-color: color-mix(in srgb, oklch(0.606 0.25 292.717) 20%, transparent);
+  background-color: color-mix(in srgb, oklch(0.606 0.25 292.717) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-violet-500) 20%, transparent);
 }
@@ -2195,7 +2199,7 @@
   .hover\:bg-warning\/10 {
   &:hover {
   @media (hover: hover) {
-  background-color: color-mix(in srgb, rgb(234, 179, 8) 10%, transparent);
+  background-color: color-mix(in srgb, rgb(234, 179, 8) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-warning) 10%, transparent);
 }
@@ -2205,7 +2209,7 @@
   .hover\:bg-warning\/20 {
   &:hover {
   @media (hover: hover) {
-  background-color: color-mix(in srgb, rgb(234, 179, 8) 20%, transparent);
+  background-color: color-mix(in srgb, rgb(234, 179, 8) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-warning) 20%, transparent);
 }
@@ -2215,7 +2219,7 @@
   .hover\:bg-warning\/90 {
   &:hover {
   @media (hover: hover) {
-  background-color: color-mix(in srgb, rgb(234, 179, 8) 90%, transparent);
+  background-color: color-mix(in srgb, rgb(234, 179, 8) 90%, transparent 10%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-warning) 90%, transparent);
 }
@@ -2225,7 +2229,7 @@
   .hover\:bg-white\/30 {
   &:hover {
   @media (hover: hover) {
-  background-color: color-mix(in srgb, rgb(255, 255, 255) 30%, transparent);
+  background-color: color-mix(in srgb, rgb(255, 255, 255) 30%, transparent 70%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-white) 30%, transparent);
 }
@@ -2235,7 +2239,7 @@
   .hover\:bg-yellow-500\/20 {
   &:hover {
   @media (hover: hover) {
-  background-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 20%, transparent);
+  background-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 20%, transparent 80%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-yellow-500) 20%, transparent);
 }
@@ -2507,7 +2511,7 @@
 }
   .has-\[\:checked\]\:bg-accent-500\/10 {
   &:has(:is(:checked)) {
-  background-color: color-mix(in srgb, rgb(59, 130, 246) 10%, transparent);
+  background-color: color-mix(in srgb, rgb(59, 130, 246) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-accent-500) 10%, transparent);
 }
@@ -2515,7 +2519,7 @@
 }
   .has-\[\:checked\]\:bg-accent-600\/5 {
   &:has(:is(:checked)) {
-  background-color: color-mix(in srgb, rgb(37, 99, 235) 5%, transparent);
+  background-color: color-mix(in srgb, rgb(37, 99, 235) 5%, transparent 95%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-accent-600) 5%, transparent);
 }
@@ -2523,7 +2527,7 @@
 }
   .has-\[\:checked\]\:bg-accent-600\/10 {
   &:has(:is(:checked)) {
-  background-color: color-mix(in srgb, rgb(37, 99, 235) 10%, transparent);
+  background-color: color-mix(in srgb, rgb(37, 99, 235) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-accent-600) 10%, transparent);
 }
@@ -2531,7 +2535,7 @@
 }
   .has-\[\:checked\]\:bg-blue-500\/10 {
   &:has(:is(:checked)) {
-  background-color: color-mix(in srgb, oklch(0.623 0.214 259.815) 10%, transparent);
+  background-color: color-mix(in srgb, oklch(0.623 0.214 259.815) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-blue-500) 10%, transparent);
 }
@@ -2539,7 +2543,7 @@
 }
   .has-\[\:checked\]\:bg-danger\/5 {
   &:has(:is(:checked)) {
-  background-color: color-mix(in srgb, rgb(239, 68, 68) 5%, transparent);
+  background-color: color-mix(in srgb, rgb(239, 68, 68) 5%, transparent 95%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-danger) 5%, transparent);
 }
@@ -2547,7 +2551,7 @@
 }
   .has-\[\:checked\]\:bg-danger\/10 {
   &:has(:is(:checked)) {
-  background-color: color-mix(in srgb, rgb(239, 68, 68) 10%, transparent);
+  background-color: color-mix(in srgb, rgb(239, 68, 68) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-danger) 10%, transparent);
 }
@@ -2558,7 +2562,7 @@
 }
   .has-\[\:checked\]\:bg-orange-500\/10 {
   &:has(:is(:checked)) {
-  background-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 10%, transparent);
+  background-color: color-mix(in srgb, oklch(0.705 0.213 47.604) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-orange-500) 10%, transparent);
 }
@@ -2566,7 +2570,7 @@
 }
   .has-\[\:checked\]\:bg-red-500\/10 {
   &:has(:is(:checked)) {
-  background-color: color-mix(in srgb, oklch(0.637 0.237 25.331) 10%, transparent);
+  background-color: color-mix(in srgb, oklch(0.637 0.237 25.331) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-red-500) 10%, transparent);
 }
@@ -2574,7 +2578,7 @@
 }
   .has-\[\:checked\]\:bg-success\/5 {
   &:has(:is(:checked)) {
-  background-color: color-mix(in srgb, rgb(34, 197, 94) 5%, transparent);
+  background-color: color-mix(in srgb, rgb(34, 197, 94) 5%, transparent 95%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-success) 5%, transparent);
 }
@@ -2582,7 +2586,7 @@
 }
   .has-\[\:checked\]\:bg-success\/10 {
   &:has(:is(:checked)) {
-  background-color: color-mix(in srgb, rgb(34, 197, 94) 10%, transparent);
+  background-color: color-mix(in srgb, rgb(34, 197, 94) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-success) 10%, transparent);
 }
@@ -2590,7 +2594,7 @@
 }
   .has-\[\:checked\]\:bg-warning\/5 {
   &:has(:is(:checked)) {
-  background-color: color-mix(in srgb, rgb(234, 179, 8) 5%, transparent);
+  background-color: color-mix(in srgb, rgb(234, 179, 8) 5%, transparent 95%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-warning) 5%, transparent);
 }
@@ -2598,7 +2602,7 @@
 }
   .has-\[\:checked\]\:bg-yellow-500\/10 {
   &:has(:is(:checked)) {
-  background-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 10%, transparent);
+  background-color: color-mix(in srgb, oklch(0.795 0.184 86.047) 10%, transparent 90%);
   @supports (color: color-mix(in lab, red, red)) {
   background-color: color-mix(in oklab, var(--color-yellow-500) 10%, transparent);
 }

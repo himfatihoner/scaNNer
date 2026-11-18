@@ -472,6 +472,10 @@
                     {{template "page_modules" .}}
                 {{else if eq .Page "scans"}}
                     {{template "page_scans" .}}
+                {{else if eq .Page "schedules"}}
+                    {{template "page_schedules" .}}
+                {{else if eq .Page "schedule_new"}}
+                    {{template "page_schedule_new" .}}
                 {{else if eq .Page "sslscan"}}
                     {{template "page_sslscan" .}}
                 {{else if eq .Page "sslscan_results"}}

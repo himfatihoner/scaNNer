@@ -470,7 +470,17 @@ function awScrollToStage(ev, stageKey) {
             {{else if eq (print $stage) "wpscan"}}
                 {{if $data}}{{template "wpscan_results_inner" (dict "Results" $data.Results)}}{{end}}
             {{else if eq (print $stage) "nuclei"}}
-                {{if $data}}{{template "nuclei_results_inner" (dict "Results" $data.Results)}}{{end}}
+                {{if $data}}{{template "nuclei_results_inner" (dict
+                    "Results" $data.Results
+                    "Scan" $.Scan
+                    "Truncated" $data.Truncated
+                    "TruncateReason" $data.TruncateReason
+                    "TotalFindings" (index $stageMeta "nuclei_count")
+                    "CriticalCount" (index $stageMeta "nuclei_critical")
+                    "HighCount" (index $stageMeta "nuclei_high")
+                    "MediumCount" (index $stageMeta "nuclei_medium")
+                    "LowCount" (index $stageMeta "nuclei_low")
+                    "InfoCount" (index $stageMeta "nuclei_info"))}}{{end}}
             {{else if eq (print $stage) "dirspider"}}
                 {{if $data}}
                 {{if $data.IterationLog}}

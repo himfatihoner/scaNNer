@@ -520,6 +520,65 @@ func (h *Handler) AdvancedWebStatus(w http.ResponseWriter, r *http.Request) {
 	h.writeScanStatus(w, scan)
 }
 
+// capNucleiDisplay prepares an advancedweb Nuclei stage result for rendering:
+// it sorts the per-target rows so those carrying findings (most-severe first,
+// then by finding count) lead, keeps any Error/ExitInfo diagnostic row above a
+// clean-empty one, and only THEN truncates to max rows (and each row's findings
+// to max). Nuclei emits one row per target in target order and findings are
+// sparse, so a suite over >max live hosts used to truncate away the few rows
+// that actually matched — the stage header (counted on the full slice) then read
+// "N findings" while the body, after the default "hide URLs with no findings"
+// toggle, showed nothing. Sorting findings-first before the cap keeps the rows
+// that matter. Counting must be done on the full slice BEFORE calling this.
+func capNucleiDisplay(v *nuclei.ScanResult, max int) {
+	if v == nil {
+		return
+	}
+	rank := func(t nuclei.TargetResult) (int, int) {
+		best := 0
+		for _, f := range t.Findings {
+			r := 1 // unknown/other severity still counts as a real finding
+			switch strings.ToLower(f.Severity) {
+			case "critical":
+				r = 6
+			case "high":
+				r = 5
+			case "medium":
+				r = 4
+			case "low":
+				r = 3
+			case "info", "informational":
+				r = 2
+			}
+			if r > best {
+				best = r
+			}
+		}
+		if best == 0 && (t.Error != "" || t.ExitInfo != "") {
+			best = 1 // diagnostic row: above clean-empty, below any real finding
+		}
+		return best, len(t.Findings)
+	}
+	sort.SliceStable(v.Results, func(i, j int) bool {
+		bi, ni := rank(v.Results[i])
+		bj, nj := rank(v.Results[j])
+		if bi != bj {
+			return bi > bj
+		}
+		return ni > nj
+	})
+	if max > 0 {
+		for i := range v.Results {
+			if len(v.Results[i].Findings) > max {
+				v.Results[i].Findings = v.Results[i].Findings[:max]
+			}
+		}
+		if len(v.Results) > max {
+			v.Results = v.Results[:max]
+		}
+	}
+}
+
 func (h *Handler) AdvancedWebResults(w http.ResponseWriter, r *http.Request) {
 	scanID := extractScanID(r.URL.Path, "results")
 	scan, err := h.db.GetScan(scanID)
@@ -843,7 +902,7 @@ func (h *Handler) AdvancedWebResults(w http.ResponseWriter, r *http.Request) {
 		if json.Unmarshal(sr.Result, &v) == nil {
 			// Severity buckets computed on the FULL slice BEFORE
 			// display truncation so top-line badges stay accurate.
-			total, crit, high, med, low := 0, 0, 0, 0, 0
+			total, crit, high, med, low, info := 0, 0, 0, 0, 0, 0
 			for _, t := range v.Results {
 				for _, f := range t.Findings {
 					total++
@@ -856,6 +915,8 @@ func (h *Handler) AdvancedWebResults(w http.ResponseWriter, r *http.Request) {
 						med++
 					case "low":
 						low++
+					case "info", "informational":
+						info++
 					}
 				}
 			}
@@ -864,15 +925,10 @@ func (h *Handler) AdvancedWebResults(w http.ResponseWriter, r *http.Request) {
 			stageMeta["nuclei_high"] = high
 			stageMeta["nuclei_medium"] = med
 			stageMeta["nuclei_low"] = low
-			// Per-URL Findings list — cap each one, then cap outer.
-			for i := range v.Results {
-				if len(v.Results[i].Findings) > displayRowCap {
-					v.Results[i].Findings = v.Results[i].Findings[:displayRowCap]
-				}
-			}
-			if len(v.Results) > displayRowCap {
-				v.Results = v.Results[:displayRowCap]
-			}
+			stageMeta["nuclei_info"] = info
+			// Sort findings-bearing targets to the FRONT, THEN cap for display.
+			// (Counts above are on the FULL slice, so the header stays accurate.)
+			capNucleiDisplay(&v, displayRowCap)
 			stageData[string(advancedweb.StageNuclei)] = &v
 		}
 	}

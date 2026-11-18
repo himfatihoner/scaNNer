@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -75,6 +76,40 @@ func finalizeVulnEnrichment(h *Handler, v *GlobalVuln) {
 			}
 		}
 	}
+	// Reconcile the severity BADGE to the CVSS score so the label never
+	// contradicts the number shown beside it. A module carries a qualitative
+	// severity from its own source — e.g. a Nuclei template tags a CVE 'critical'
+	// while NVD scores it 8.1 (= High) — but when the finding has an authoritative
+	// CVSS score, the score's band is the source of truth. Only for findings
+	// already rated a real severity (SevRank >= 1): an 'info' finding is never
+	// promoted off the /info page just because a referenced CVE scores high (info
+	// templates frequently only fingerprint a version). A missing/zero score
+	// (rank 0) leaves the module's own severity untouched.
+	if v.SevRank >= 1 && v.CVSSScore != "" {
+		if score, err := strconv.ParseFloat(strings.TrimSpace(v.CVSSScore), 64); err == nil {
+			if sev, rank := severityFromCVSS(score); rank >= 1 {
+				v.Severity, v.SevRank = sev, rank
+			}
+		}
+	}
+}
+
+// severityFromCVSS maps a CVSS v3.x base score to its qualitative band and
+// SevRank (4=critical … 1=low), per the CVSS v3.1 spec: 0.0 None, 0.1–3.9 Low,
+// 4.0–6.9 Medium, 7.0–8.9 High, 9.0–10.0 Critical. Returns ("", 0) for a
+// non-positive score so callers can leave the existing severity in place.
+func severityFromCVSS(score float64) (string, int) {
+	switch {
+	case score >= 9.0:
+		return "CRITICAL", 4
+	case score >= 7.0:
+		return "HIGH", 3
+	case score >= 4.0:
+		return "MEDIUM", 2
+	case score > 0:
+		return "LOW", 1
+	}
+	return "", 0
 }
 
 // backfillVuln copies enrichment from a fresh sighting into an existing deduped

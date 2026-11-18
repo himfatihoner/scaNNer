@@ -3298,6 +3298,40 @@ func (h *Handler) exportPDF(w http.ResponseWriter, module, result, shortID strin
 			}
 		}
 
+	case "nuclei":
+		// Standalone Nuclei PDF export. CSV/JSON already rendered the findings
+		// section; the PDF switch had no "nuclei" case, so a standalone Nuclei
+		// scan exported a title-only (empty) PDF. Mirror the CSV path exactly —
+		// same value map, column selection via pdfFilteredTable, same severity
+		// filter — so all three formats agree.
+		var sr nuclei.ScanResult
+		json.Unmarshal([]byte(result), &sr)
+		if sections["findings"] {
+			pdfSection(pdf, "Nuclei Findings")
+			tbl := pdfFilteredTable(pdf, "nuclei", "findings", columns)
+			for _, tr := range sr.Results {
+				for _, f := range tr.Findings {
+					if !SeverityAllowed(f.Severity, severities) {
+						continue
+					}
+					tbl.filteredRow("nuclei", "findings", columns, map[string]string{
+						"url":         tr.URL,
+						"template_id": f.TemplateID,
+						"name":        f.Name,
+						"severity":    f.Severity,
+						"type":        f.Type,
+						"matched_at":  f.MatchedAt,
+						"description": f.Description,
+						"cves":        strings.Join(f.CVEs, ","),
+						"cwes":        strings.Join(f.CWEs, ","),
+						"tags":        strings.Join(f.Tags, ","),
+						"references":  strings.Join(f.References, ","),
+					})
+				}
+			}
+			tbl.flush()
+		}
+
 	case "cvematch":
 		var sr cvematch.ScanResult
 		json.Unmarshal([]byte(result), &sr)
@@ -3708,9 +3742,9 @@ func pdfTableRowWrap(pdf *fpdf.Fpdf, cells []string, widths []float64) {
 	pdf.SetTextColor(20, 20, 20)
 
 	const (
-		lineH = 3.6  // mm per wrapped line
-		padX  = 1.0  // horizontal padding inside each cell
-		padY  = 0.6  // vertical padding above the first line
+		lineH = 3.6 // mm per wrapped line
+		padX  = 1.0 // horizontal padding inside each cell
+		padY  = 0.6 // vertical padding above the first line
 	)
 
 	// Wrap each cell. SplitLines uses the currently-set font (7pt

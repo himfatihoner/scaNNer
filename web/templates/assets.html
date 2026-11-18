@@ -224,9 +224,10 @@ html.light #assetCharts{--chart-blue:#2563eb;--chart-purple:#7c3aed;--chart-oran
                 <td class="px-4 py-3">
                     {{if .Technologies}}
                     <div class="flex flex-wrap gap-1 max-w-md">
-                        {{range .Technologies}}
-                        <span class="text-[10px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">{{.}}</span>
-                        {{end}}
+                        {{range $i, $t := .Technologies}}{{if lt $i 8}}
+                        <span class="text-[10px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">{{$t}}</span>
+                        {{end}}{{end}}
+                        {{if gt (len .Technologies) 8}}<a href="/assets/{{.Value}}" onclick="event.stopPropagation()" class="text-[10px] text-dark-500 self-center hover:text-accent-300" title="{{T `Open the asset to see all`}}">+{{add (len .Technologies) -8}}</a>{{end}}
                     </div>
                     {{else if gt .RunningJobs 0}}
                     {{/* A scan is actively running on this asset, so technologies are
@@ -241,9 +242,10 @@ html.light #assetCharts{--chart-blue:#2563eb;--chart-purple:#7c3aed;--chart-oran
                 <td class="px-4 py-3">
                     {{if .Related}}
                     <div class="flex flex-wrap gap-1 max-w-xs">
-                        {{range .Related}}
-                        <a href="/assets/{{.}}" onclick="event.stopPropagation()" class="mono text-[10px] text-dark-300 bg-dark-850 border border-dark-700 hover:border-accent-500/50 hover:text-accent-300 px-1.5 py-0.5 rounded">{{.}}</a>
-                        {{end}}
+                        {{range $i, $r := .Related}}{{if lt $i 6}}
+                        <a href="/assets/{{$r}}" onclick="event.stopPropagation()" class="mono text-[10px] text-dark-300 bg-dark-850 border border-dark-700 hover:border-accent-500/50 hover:text-accent-300 px-1.5 py-0.5 rounded">{{$r}}</a>
+                        {{end}}{{end}}
+                        {{if gt (len .Related) 6}}<a href="/assets/{{.Value}}" onclick="event.stopPropagation()" class="text-[10px] text-dark-500 self-center hover:text-accent-300" title="{{T `Open the asset to see all`}}">+{{add (len .Related) -6}}</a>{{end}}
                     </div>
                     {{else if $.AssetIndexInitial}}<span class="text-[11px] text-dark-500 animate-pulse" title="{{T `Loading from scan results…`}}">···</span>{{else}}<span class="text-[11px] text-dark-600">—</span>{{end}}
                 </td>
@@ -267,6 +269,10 @@ html.light #assetCharts{--chart-blue:#2563eb;--chart-purple:#7c3aed;--chart-oran
             {{end}}
         </tbody>
     </table>
+    </div>
+    <div id="assetShowMoreWrap" style="display:none" class="px-4 py-3 border-t border-dark-800 text-center">
+        <button type="button" onclick="assetShowMore()" class="text-xs px-4 py-1.5 rounded-lg bg-dark-850 border border-dark-700 text-dark-300 hover:text-white hover:border-dark-600">{{T "Show more"}} <span id="assetShowMoreCount" class="text-dark-500"></span></button>
+        <button type="button" onclick="assetShowAll()" class="ml-2 text-xs px-3 py-1.5 rounded-lg text-dark-400 hover:text-white">{{T "Show all"}}</button>
     </div>
 </div>
 {{else}}
@@ -497,7 +503,7 @@ function applyAssetFilter() {
     var tbody = document.getElementById('assetsTbody');
     if (!tbody) return;
     var rows = Array.prototype.slice.call(tbody.querySelectorAll('.asset-row'));
-    var visible = 0;
+    var matched = [];
     var techCounts = {};
     rows.forEach(function(row) {
         var v = (row.getAttribute('data-value') || '').toLowerCase();
@@ -525,24 +531,48 @@ function applyAssetFilter() {
         var techStr = (row.getAttribute('data-tech') || '');
         var matchTech = !assetActiveTech || ('|' + techStr).indexOf('|' + assetActiveTech + '|') !== -1;
         var show = matchSearch && matchStatus && matchSev && matchType && matchBaseDomain && matchTech;
-        row.style.display = show ? '' : 'none';
         if (show) {
-            visible++;
-            // Tally this visible asset's technologies — the donut charts reflect
-            // the current filtered/visible set.
+            matched.push(row);
+            // Tally this matched asset's technologies — the donut charts reflect
+            // the full filtered set (not just the paginated page below).
             var parts = techStr.split('|');
             for (var ti = 0; ti < parts.length; ti++) {
                 if (parts[ti]) techCounts[parts[ti]] = (techCounts[parts[ti]] || 0) + 1;
             }
+        } else {
+            row.style.display = 'none';
         }
     });
+    // Paginate the DISPLAY: only the first _assetPageLimit matched rows are
+    // painted. A workspace with 2000+ assets rendered every row at once, and the
+    // browser's layout/paint of that many rows (each with chip columns) was the
+    // "cells load slowly" symptom. Search/filter/sort and the donut all run over
+    // the FULL matched set above — only how many rows get laid out is capped.
+    var limit = window._assetPageLimit || 120;
+    for (var pi = 0; pi < matched.length; pi++) {
+        matched[pi].style.display = (pi < limit) ? '' : 'none';
+    }
+    var shown = Math.min(limit, matched.length);
     var counter = document.getElementById('assetResultCount');
-    if (counter) counter.textContent = visible + ' / ' + rows.length + ' shown';
+    if (counter) counter.textContent = shown + ' / ' + matched.length + ' shown';
+    var moreWrap = document.getElementById('assetShowMoreWrap');
+    if (moreWrap) {
+        if (matched.length > limit) {
+            moreWrap.style.display = '';
+            var mc = document.getElementById('assetShowMoreCount');
+            if (mc) mc.textContent = '(' + (matched.length - limit) + ')';
+        } else {
+            moreWrap.style.display = 'none';
+        }
+    }
     renderAssetCharts(techCounts);
 }
+window._assetPageLimit = window._assetPageLimit || 120;
+window.assetShowMore = function(){ window._assetPageLimit = (window._assetPageLimit || 120) + 500; applyAssetFilter(); };
+window.assetShowAll = function(){ window._assetPageLimit = 1e9; applyAssetFilter(); };
 document.addEventListener('DOMContentLoaded', function() {
     if (window.bindSortableTable) {
-        bindSortableTable('#assetsTable', { defaultKey: 'last-scanned', defaultDir: 'desc' });
+        bindSortableTable('#assetsTable', { defaultKey: 'last-scanned', defaultDir: 'desc', onSort: function(){ applyAssetFilter(); } });
     }
     applyAssetFilter();
     // Live auto-refresh while any scan is running OR the background search/vuln
@@ -572,7 +602,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             window._assetLastHTML = freshHTML;
                             var sy = window.scrollY;
                             cur.innerHTML = freshHTML;
-                            if (window.bindSortableTable) bindSortableTable('#assetsTable', { defaultKey: 'last-scanned', defaultDir: 'desc' });
+                            if (window.bindSortableTable) bindSortableTable('#assetsTable', { defaultKey: 'last-scanned', defaultDir: 'desc', onSort: function(){ applyAssetFilter(); } });
                             applyAssetFilter();
                             window.scrollTo(0, sy);
                         }

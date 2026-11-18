@@ -63,18 +63,18 @@ func (h *Handler) NucleiPage(w http.ResponseWriter, r *http.Request) {
 
 // nucleiConfig is the form-side serialization stored in scans.config.
 type nucleiConfig struct {
-	URLs               []string `json:"urls"`
-	Severity           []string `json:"severity"`
-	Tags               []string `json:"tags"`
-	TemplateIDs        []string `json:"template_ids"`
-	ExcludeTags        []string `json:"exclude_tags,omitempty"`
-	ExcludeTemplates   []string `json:"exclude_templates,omitempty"`
-	RateLimit          int      `json:"rate_limit"`
-	Concurrency        int      `json:"concurrency"`
-	Level              string   `json:"level,omitempty"` // aggressiveness: polite|normal|aggressive
-	UpdateTemplates    bool     `json:"update_templates"`
-	DAST               bool     `json:"dast,omitempty"`
-	AutomaticScan      bool     `json:"automatic_scan,omitempty"`
+	URLs             []string `json:"urls"`
+	Severity         []string `json:"severity"`
+	Tags             []string `json:"tags"`
+	TemplateIDs      []string `json:"template_ids"`
+	ExcludeTags      []string `json:"exclude_tags,omitempty"`
+	ExcludeTemplates []string `json:"exclude_templates,omitempty"`
+	RateLimit        int      `json:"rate_limit"`
+	Concurrency      int      `json:"concurrency"`
+	Level            string   `json:"level,omitempty"` // aggressiveness: polite|normal|aggressive
+	UpdateTemplates  bool     `json:"update_templates"`
+	DAST             bool     `json:"dast,omitempty"`
+	AutomaticScan    bool     `json:"automatic_scan,omitempty"`
 	// ParallelHosts (opt-in checkbox): scan hosts in parallel (N at a time) with
 	// the network budget divided across the workers. Persisted so Restart replays it.
 	ParallelHosts bool `json:"parallel_hosts,omitempty"`
@@ -86,7 +86,7 @@ type nucleiConfig struct {
 	// HTTP auth knobs — wired from the run form + global Settings via
 	// BuildHTTPOptions. Persisted on the scan row so Restart replays
 	// the same auth setup.
-	FollowRedirects bool `json:"follow_redirects"`
+	FollowRedirects bool   `json:"follow_redirects"`
 	SNIHost         string `json:"sni_host,omitempty"`
 
 	// rejectedTemplates is populated by parseNucleiForm with template
@@ -438,6 +438,7 @@ func (h *Handler) techTagsByTarget(workspaceID string, urls []string) map[string
 func (h *Handler) ensureAssetTech(workspaceID string) map[string][]string {
 	liteScans, _ := h.db.ListScansLite(workspaceID, "")
 	fp := assetSearchFingerprint(liteScans)
+	setFP := searchFingerprint(liteScans)
 	assetSearchMu.Lock()
 	idx := assetSearchCache[workspaceID]
 	ready := idx != nil && idx.fingerprint == fp && idx.tech != nil
@@ -449,7 +450,7 @@ func (h *Handler) ensureAssetTech(workspaceID string) map[string][]string {
 				ids = append(ids, [2]string{s.ID, s.Module})
 			}
 		}
-		h.buildAssetSearchIndex(workspaceID, fp, ids)
+		h.buildAssetSearchIndex(workspaceID, fp, setFP, ids)
 	}
 	return h.getAssetTechnologies(workspaceID)
 }

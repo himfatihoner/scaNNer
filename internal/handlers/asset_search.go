@@ -3,10 +3,12 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"scanner/internal/models"
 )
@@ -36,6 +38,8 @@ type wsSearchIndex struct {
 	people      map[string][]Person // normalizedAsset(FQDN) -> person intel (emails + names) from metacollector
 	ready       bool
 	building    bool
+	setFP       string    // scan-SET fingerprint (count + latest finished), ignoring running progress — drives the live-rebuild throttle
+	lastBuild   time.Time // when the index last finished building — throttles progress-only rebuilds while a scan is running
 }
 
 // Person is one metacollector-derived person datum attached to an FQDN asset:
@@ -260,6 +264,7 @@ var (
 // while the background build runs); a refresh a moment later shows full data.
 func (h *Handler) getAssetSearchBlob(workspaceID string, liteScans []models.Scan) map[string]string {
 	fp := assetSearchFingerprint(liteScans)
+	setFP := searchFingerprint(liteScans) // scan SET only (count + latest finished), no running progress
 
 	assetSearchMu.Lock()
 	idx := assetSearchCache[workspaceID]
@@ -269,6 +274,16 @@ func (h *Handler) getAssetSearchBlob(workspaceID string, liteScans []models.Scan
 	}
 	current := idx.blob
 	needsBuild := idx.fingerprint != fp && !idx.building
+	// Throttle live progress-only rebuilds: a running scan bumps its ProgressDone
+	// every tick, which changes fp and would otherwise rebuild the WHOLE index
+	// (re-reading every scan result) on each 5s assets-page poll — the "columns
+	// load slowly" symptom. When ONLY the running progress changed (the scan SET
+	// is unchanged) and we rebuilt recently, skip; a scan finishing changes setFP
+	// and rebuilds immediately, so final data is never missed. The first build
+	// (lastBuild zero) and a blob that's still empty are never throttled.
+	if needsBuild && idx.setFP == setFP && len(idx.blob) > 0 && !idx.lastBuild.IsZero() && time.Since(idx.lastBuild) < 15*time.Second {
+		needsBuild = false
+	}
 	if needsBuild {
 		idx.building = true
 	}
@@ -285,7 +300,7 @@ func (h *Handler) getAssetSearchBlob(workspaceID string, liteScans []models.Scan
 				ids = append(ids, [2]string{s.ID, s.Module})
 			}
 		}
-		go h.buildAssetSearchIndex(workspaceID, fp, ids)
+		go h.buildAssetSearchIndex(workspaceID, fp, setFP, ids)
 	}
 	return current
 }
@@ -339,7 +354,23 @@ func assetSearchFingerprint(scans []models.Scan) string {
 // buildAssetSearchIndex loads each scan's full result ONE AT A TIME, extracts
 // per-host search tokens, merges them per asset, and publishes the compact
 // index. Memory stays bounded to a single result at a time.
-func (h *Handler) buildAssetSearchIndex(workspaceID, fp string, ids [][2]string) {
+func (h *Handler) buildAssetSearchIndex(workspaceID, fp, setFP string, ids [][2]string) {
+	// Guarantee the building flag is released even if parsing a scan result
+	// panics. Without this, a panic left building=true forever and the assets
+	// page's index-derived columns (Ports/Services/Technologies/Related) spun
+	// permanently — getAssetSearchBlob only re-triggers a build when !building.
+	// The clean-finish publish below already clears it; this covers the failure
+	// path so the next page view retries instead of spinning forever.
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("buildAssetSearchIndex panic (ws %s): %v", workspaceID, r)
+			assetSearchMu.Lock()
+			if idx := assetSearchCache[workspaceID]; idx != nil {
+				idx.building = false
+			}
+			assetSearchMu.Unlock()
+		}
+	}()
 	perAsset := map[string]map[string]bool{}
 	mergeInto := func(tokens map[string]map[string]bool) {
 		for asset, toks := range tokens {
@@ -546,6 +577,8 @@ func (h *Handler) buildAssetSearchIndex(workspaceID, fp string, ids [][2]string)
 	idx.redirect = redirectByAsset
 	idx.people = people
 	idx.fingerprint = fp
+	idx.setFP = setFP
+	idx.lastBuild = time.Now()
 	idx.ready = true
 	idx.building = false
 	assetSearchMu.Unlock()

@@ -196,7 +196,9 @@ html.light .copyval-float:hover { background:#f1f5f9; color:#0f172a; }
 (function(){
   var COL_LABEL = '{{T "Copy column"}}';
   var VAL_LABEL = '{{T "Copy value"}}';
+  var ROW_LABEL = '{{T "Copy row"}}';
   var ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+  var ROWICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="14" x2="21" y2="14"/></svg>';
 
   function clean(s){ if(!s) return ''; return s.replace(/ /g,' ').replace(/^[\s▸▾▶▿▹▼]+/,'').replace(/\s+/g,' ').trim(); }
   function cellVal(c){ if(!c) return ''; if(c.dataset && c.dataset.copyValue != null) return c.dataset.copyValue; return clean(c.innerText || c.textContent || ''); }
@@ -215,7 +217,7 @@ html.light .copyval-float:hover { background:#f1f5f9; color:#0f172a; }
     if(scope.matches && scope.matches('table[data-copytable]')) list.push(scope);
     if(scope.querySelectorAll) scope.querySelectorAll('table[data-copytable]').forEach(function(t){ list.push(t); });
     list.forEach(function(table){
-      if(!table.closest('#scanContent')) return;
+      if(!table.closest('#scanContent, [data-copyscope]')) return;
       if(table.dataset.copyColsDone === '1') return;
       table.dataset.copyColsDone = '1';
       var thead = table.tHead;
@@ -248,27 +250,52 @@ html.light .copyval-float:hover { background:#f1f5f9; color:#0f172a; }
     });
   }
 
-  // ---- Single floating copy button for cells + mono values ----
-  var fbtn=null, fval='', hideT=null;
-  function ensureBtn(){
-    if(fbtn) return fbtn;
-    fbtn=document.createElement('button'); fbtn.type='button'; fbtn.className='copyval-float'; fbtn.innerHTML=ICON;
-    fbtn.title=VAL_LABEL; fbtn.setAttribute('aria-label',VAL_LABEL);
-    fbtn.addEventListener('click', function(ev){ ev.stopPropagation(); ev.preventDefault(); if(!fval) return; var el=fbtn; doCopy(fval).then(function(){ el.classList.add('copied'); setTimeout(function(){ el.classList.remove('copied'); }, 1000); }); });
-    fbtn.addEventListener('mouseleave', hideSoon);
-    document.body.appendChild(fbtn); return fbtn;
+  // ---- Floating copy buttons: cell value + whole row (+ mono values) ----
+  var fbtn=null, rbtn=null, fval='', rval='', hideT=null;
+  function mkBtn(cls, icon, label, getVal){
+    var b=document.createElement('button'); b.type='button'; b.className=cls; b.innerHTML=icon;
+    b.title=label; b.setAttribute('aria-label',label);
+    b.addEventListener('click', function(ev){ ev.stopPropagation(); ev.preventDefault(); var v=getVal(); if(!v) return; doCopy(v).then(function(){ b.classList.add('copied'); setTimeout(function(){ b.classList.remove('copied'); }, 1000); }); });
+    b.addEventListener('mouseleave', hideSoon);
+    document.body.appendChild(b); return b;
   }
-  function hideSoon(){ clearTimeout(hideT); hideT=setTimeout(function(){ if(fbtn){ fbtn.style.display='none'; fbtn.classList.remove('copied'); } fval=''; }, 180); }
-  function showFor(el, val){
-    var b=ensureBtn(); fval=val; clearTimeout(hideT);
+  function ensureBtn(){
+    if(fbtn) return;
+    fbtn=mkBtn('copyval-float', ICON, VAL_LABEL, function(){ return fval; });
+    rbtn=mkBtn('copyval-float copyrow-float', ROWICON, ROW_LABEL, function(){ return rval; });
+  }
+  function hideSoon(){ clearTimeout(hideT); hideT=setTimeout(function(){ [fbtn,rbtn].forEach(function(b){ if(b){ b.style.display='none'; b.classList.remove('copied'); } }); fval=''; rval=''; }, 180); }
+  function place(b, left, top){ b.style.left=left+'px'; b.style.top=top+'px'; b.style.display='inline-flex'; }
+  function showFor(el, val, rowVal){
+    ensureBtn(); fval=val; rval=rowVal||''; clearTimeout(hideT);
     var r=el.getBoundingClientRect(), bw=20, bh=20;
-    var top=Math.max(4, Math.min(r.top+(r.height-bh)/2, window.innerHeight-bh-4));
     var left=Math.max(4, Math.min(r.right-bw-2, window.innerWidth-bw-4));
-    b.style.top=top+'px'; b.style.left=left+'px'; b.style.display='inline-flex';
+    var top=Math.max(4, Math.min(r.top+(r.height-bh)/2, window.innerHeight-bh-4));
+    place(fbtn, left, top);
+    // Row button stacks just below the cell button, only for table cells.
+    if(rowVal){ place(rbtn, left, Math.min(top+bh+2, window.innerHeight-bh-4)); }
+    else if(rbtn){ rbtn.style.display='none'; }
+  }
+  // rowValue joins a row's cells (dataset-clean value where available) as TSV so
+  // it pastes into a spreadsheet; action cells are skipped, trailing blanks trimmed.
+  function rowValue(tr){
+    if(!tr || !tr.cells) return '';
+    var table=tr.closest('table'), thead=table && table.tHead, skeys=[];
+    if(thead && thead.rows.length){ Array.prototype.forEach.call(thead.rows[thead.rows.length-1].cells, function(th){ skeys.push(th.getAttribute('data-sort-key')); }); }
+    var out=[];
+    for(var i=0;i<tr.cells.length;i++){
+      var c=tr.cells[i];
+      if(c.querySelector && c.querySelector('button')) continue;
+      var v=(skeys[i] && tr.dataset && tr.dataset[skeys[i]]!=null && tr.dataset[skeys[i]]!=='') ? tr.dataset[skeys[i]] : cellVal(c);
+      v=(v==null?'':(''+v)).trim(); if(v==='—') v='';
+      out.push(v);
+    }
+    while(out.length && out[out.length-1]==='') out.pop();
+    return out.join('\t');
   }
   function targetFor(node){
     if(!node || !node.closest) return null;
-    if(!node.closest('#scanContent')) return null;
+    if(!node.closest('#scanContent, [data-copyscope]')) return null;
     var td=node.closest('table[data-copytable] td');
     if(td){
       var table=td.closest('table'), thead=table && table.tHead;
@@ -276,22 +303,22 @@ html.light .copyval-float:hover { background:#f1f5f9; color:#0f172a; }
       if(!isDataRow(td.parentElement, n)) return null;
       if(td.querySelector && td.querySelector('button')) return null; // action cell
       var v=cellVal(td);
-      if(v && v !== '—') return { el: td, val: v };
+      if(v && v !== '—') return { el: td, val: v, rowVal: rowValue(td.parentElement) };
       return null;
     }
     var mono=node.closest('.mono, .font-mono, code');
-    if(mono && !mono.closest('pre') && !mono.closest('table[data-copytable]') && mono.closest('#scanContent')){
+    if(mono && !mono.closest('pre') && !mono.closest('table[data-copytable]') && mono.closest('#scanContent, [data-copyscope]')){
       var mv=cellVal(mono);
       if(mv && mv.length>=2 && mv.length<=400 && mv.indexOf('\n')===-1 && mv !== '—') return { el: mono, val: mv };
     }
     return null;
   }
   document.addEventListener('mouseover', function(e){
-    if(fbtn && (e.target===fbtn || fbtn.contains(e.target))){ clearTimeout(hideT); return; }
+    if((fbtn && (e.target===fbtn || fbtn.contains(e.target))) || (rbtn && (e.target===rbtn || rbtn.contains(e.target)))){ clearTimeout(hideT); return; }
     var t=targetFor(e.target);
-    if(t){ clearTimeout(hideT); showFor(t.el, t.val); } else { hideSoon(); }
+    if(t){ clearTimeout(hideT); showFor(t.el, t.val, t.rowVal); } else { hideSoon(); }
   });
-  window.addEventListener('scroll', function(){ if(fbtn){ fbtn.style.display='none'; fval=''; } }, true);
+  window.addEventListener('scroll', function(){ [fbtn,rbtn].forEach(function(b){ if(b){ b.style.display='none'; } }); fval=''; rval=''; }, true);
 
   function init(){ decorateTablesWithCopy(document); ensureBtn(); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();

@@ -366,4 +366,29 @@ html.light .copyval-float:hover { background:#f1f5f9; color:#0f172a; }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
 </script>
+
+<script>
+// Live server clock. Any element with class "srv-clock" + data-srvnow set to the
+// server's "YYYY-MM-DD HH:MM:SS" at render time ticks forward each second using
+// the string's components, so it shows the SERVER's wall clock regardless of the
+// browser's timezone (schedules fire on server-local time).
+(function(){
+  function pad(n){ return (n < 10 ? '0' : '') + n; }
+  var clocks = [];
+  document.querySelectorAll('.srv-clock[data-srvnow]').forEach(function(el){
+    var m = (el.getAttribute('data-srvnow') || '').match(/(\d+)-(\d+)-(\d+)[ T](\d+):(\d+):(\d+)/);
+    if(!m) return;
+    clocks.push({ el: el, t: new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5], +m[6]) });
+  });
+  if(!clocks.length) return;
+  setInterval(function(){
+    clocks.forEach(function(c){
+      c.t = new Date(c.t.getTime() + 1000);
+      var t = c.t;
+      c.el.textContent = t.getFullYear() + '-' + pad(t.getMonth()+1) + '-' + pad(t.getDate()) + ' ' +
+        pad(t.getHours()) + ':' + pad(t.getMinutes()) + ':' + pad(t.getSeconds());
+    });
+  }, 1000);
+})();
+</script>
 {{end}}

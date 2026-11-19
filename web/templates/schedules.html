@@ -1,6 +1,9 @@
 {{define "page_schedules"}}
 <div class="mb-6">
-    <h1 class="text-2xl font-bold text-white">{{T "Schedules"}}</h1>
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+        <h1 class="text-2xl font-bold text-white">{{T "Schedules"}}</h1>
+        {{if .ServerNow}}<span class="text-xs text-dark-500">{{T "Server time"}}: <span class="srv-clock mono text-accent-300" data-srvnow="{{.ServerNow}}">{{.ServerNow}}</span></span>{{end}}
+    </div>
     <p class="text-sm text-dark-400 mt-1">{{T "Scheduled scans run on the server clock — once at a set time, or repeating. Create one from any module's Schedule button."}}</p>
 </div>
 
@@ -87,6 +90,7 @@
         <p class="text-xs text-dark-500 uppercase tracking-wider">{{T "Scheduling"}}</p>
         <p class="text-sm text-white font-medium mt-0.5">{{$s.ModuleDisplay}}</p>
         {{if $s.TargetSummary}}<p class="text-xs text-dark-400 mono mt-1">{{Tn $s.TargetCount "%d target" "%d targets" $s.TargetCount}}: {{$s.TargetSummary}}</p>{{end}}
+        <p class="text-[11px] text-dark-500 mt-2">{{T "Server time"}}: <span class="srv-clock mono text-accent-300" data-srvnow="{{$s.ServerNow}}">{{$s.ServerNow}}</span> <span class="text-dark-600">· {{T "schedules run on this clock"}}</span></p>
     </div>
 
     <form action="/schedules/create" method="POST" class="space-y-5">
@@ -118,8 +122,9 @@
         <!-- Once -->
         <div data-kind-block="once" class="sched-block">
             <label class="block text-xs text-dark-400 mb-1.5">{{T "Date & time (server time)"}}</label>
-            <input type="datetime-local" name="run_at" value="{{$s.RunAt}}"
+            <input type="datetime-local" name="run_at" value="{{$s.RunAt}}" min="{{$s.ServerNowInput}}"
                    class="w-full bg-dark-850 border border-dark-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-accent-500">
+            <p class="text-[11px] text-dark-500 mt-1">{{T "Pick a date and time in the future (server time shown above)."}}</p>
         </div>
 
         <!-- Recurring -->

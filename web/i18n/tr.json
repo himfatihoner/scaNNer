@@ -3099,5 +3099,8 @@
   "updating…": "güncelleniyor…",
   "queued — waiting for a scan that uses it to finish": "sırada — kullanan taramanın bitmesi bekleniyor",
   "tool not installed": "araç kurulu değil",
-  "next": "sonraki"
+  "next": "sonraki",
+  "Server time": "Sunucu saati",
+  "schedules run on this clock": "zamanlamalar bu saate göre çalışır",
+  "Pick a date and time in the future (server time shown above).": "Gelecekte bir tarih ve saat seçin (sunucu saati yukarıda gösteriliyor)."
 }

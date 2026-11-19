@@ -53,6 +53,7 @@ func (h *Handler) SchedulesPage(w http.ResponseWriter, r *http.Request) {
 	}
 	data := h.baseData(r, i18n.T(lang, "Schedules"), "schedules")
 	data["Schedules"] = rows
+	data["ServerNow"] = time.Now().Format("2006-01-02 15:04:05")
 	h.render(w, "layout", data)
 }
 
@@ -270,7 +271,8 @@ func (h *Handler) renderScheduleForm(w http.ResponseWriter, r *http.Request, s *
 			summary += fmt.Sprintf(" (+%d)", n-3)
 		}
 	}
-	runAt := time.Now().Add(time.Hour).Format("2006-01-02T15:04")
+	now := time.Now()
+	runAt := now.Add(time.Hour).Format("2006-01-02T15:04")
 	if s.RunAt != nil {
 		runAt = s.RunAt.Format("2006-01-02T15:04")
 	}
@@ -303,6 +305,11 @@ func (h *Handler) renderScheduleForm(w http.ResponseWriter, r *http.Request, s *
 		"RecurKind": recurKind, "IntervalN": intervalN, "IntervalUnit": intervalUnit,
 		"AtTime": atTime, "Weekdays": weekdaysSet(s.Weekdays), "Cron": cron,
 		"FormError": formError,
+		// Server clock reference: schedules fire on the SERVER's local time, which
+		// may differ from the browser's — show it, and floor the one-time picker at
+		// "now" so a past date can't be chosen.
+		"ServerNow":      now.Format("2006-01-02 15:04:05"),
+		"ServerNowInput": now.Format("2006-01-02T15:04"),
 	}
 	h.render(w, "layout", data)
 }

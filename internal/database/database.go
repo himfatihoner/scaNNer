@@ -2867,6 +2867,21 @@ func (d *DB) RunningScanModules() []string {
 	return mods
 }
 
+// ScanBrief returns a scan's status + start/finish times WITHOUT loading its
+// (possibly huge) result blob. Used by the Schedules list to show each run's
+// outcome + timing cheaply.
+func (d *DB) ScanBrief(id string) (status string, started, finished *time.Time, ok bool) {
+	var row struct {
+		Status   string     `db:"status"`
+		Started  *time.Time `db:"started_at"`
+		Finished *time.Time `db:"finished_at"`
+	}
+	if err := d.Get(&row, `SELECT status, started_at, finished_at FROM scans WHERE id = ?`, id); err != nil {
+		return "", nil, nil, false
+	}
+	return row.Status, row.Started, row.Finished, true
+}
+
 // RunningProgress sums progress_done across running/pending scans and returns
 // (totalDone, activeCount). The performance monitor differentiates totalDone
 // over time to derive live throughput (units/sec) without parsing results.

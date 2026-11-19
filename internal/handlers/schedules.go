@@ -45,11 +45,22 @@ func (h *Handler) SchedulesPage(w http.ResponseWriter, r *http.Request) {
 	lang := h.lang(r)
 	type row struct {
 		models.ScheduledScan
-		When string
+		When         string
+		State        string     // active | running | completed | failed | cancelled | paused
+		ScanStarted  *time.Time // the last launched scan's actual start
+		ScanFinished *time.Time // ...and finish
 	}
 	rows := make([]row, 0, len(list))
 	for _, s := range list {
-		rows = append(rows, row{s, scheduleWhenText(s, lang)})
+		rw := row{ScheduledScan: s, When: scheduleWhenText(s, lang)}
+		scanStatus := ""
+		if s.LastScanID != "" {
+			if st, started, finished, ok := h.db.ScanBrief(s.LastScanID); ok {
+				scanStatus, rw.ScanStarted, rw.ScanFinished = st, started, finished
+			}
+		}
+		rw.State = scheduleState(s, scanStatus)
+		rows = append(rows, rw)
 	}
 	data := h.baseData(r, i18n.T(lang, "Schedules"), "schedules")
 	data["Schedules"] = rows
@@ -375,6 +386,35 @@ func weekdaysHuman(csv, lang string) string {
 		}
 	}
 	return strings.Join(out, ", ")
+}
+
+// scheduleState derives a user-facing state for the Schedules list from the
+// schedule's enabled/kind and the last launched scan's status. A one-time
+// schedule that has fired shows its scan's OUTCOME (completed/failed/…) rather
+// than a misleading "Paused".
+func scheduleState(s models.ScheduledScan, scanStatus string) string {
+	switch scanStatus {
+	case "running", "pending":
+		return "running"
+	}
+	if s.Enabled {
+		return "active"
+	}
+	if s.Kind == models.ScheduleOnce && s.LastScanID != "" {
+		switch scanStatus {
+		case "done":
+			return "completed"
+		case "error":
+			return "failed"
+		case "cancelled":
+			return "cancelled"
+		case "paused":
+			return "paused"
+		default:
+			return "completed"
+		}
+	}
+	return "paused"
 }
 
 // scheduleWhenText renders a schedule's timing as one localized line.

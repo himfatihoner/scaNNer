@@ -3102,5 +3102,7 @@
   "next": "sonraki",
   "Server time": "Sunucu saati",
   "schedules run on this clock": "zamanlamalar bu saate göre çalışır",
-  "Pick a date and time in the future (server time shown above).": "Gelecekte bir tarih ve saat seçin (sunucu saati yukarıda gösteriliyor)."
+  "Pick a date and time in the future (server time shown above).": "Gelecekte bir tarih ve saat seçin (sunucu saati yukarıda gösteriliyor).",
+  "skipped (busy)": "atlandı (meşgul)",
+  "Failed": "Başarısız"
 }

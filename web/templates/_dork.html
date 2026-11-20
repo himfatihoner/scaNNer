@@ -71,21 +71,37 @@ html.light .dork-ac-foot code { background:#e2e8f0; color:#2563eb; }
   var SEV_RANK = { critical:4, crit:4, high:3, medium:2, med:2, low:1, any:1 };
   function attrLower(row, attr){ return (row.getAttribute(attr) || '').toLowerCase(); }
 
+  // Glob wildcards: * = any run of chars, ? = one char. globSrc escapes the
+  // regex metachars (NOT * / ?) then expands them; reFor caches the compiled
+  // RegExp by (anchored,value) so filtering 1000s of rows per keystroke doesn't
+  // recompile. hasWild gates the fast non-regex path for the common no-* case.
+  function globSrc(glob){ return glob.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.'); }
+  var _reCache = {};
+  function reFor(val, anchored){
+    var key = (anchored ? 'A' : 'U') + '\u0000' + val;
+    if (_reCache[key]) return _reCache[key];
+    var re = anchored ? new RegExp('^' + globSrc(val) + '$') : new RegExp(globSrc(val));
+    _reCache[key] = re; return re;
+  }
+  function hasWild(s){ return s.indexOf('*') !== -1 || s.indexOf('?') !== -1; }
+
   function valueMatches(hay, val, def){
+    var wild = hasWild(val);
     switch (def.mode){
       case 'token': {
         var toks = hay.split(def.sep || ' ');
-        for (var i=0;i<toks.length;i++){ if (toks[i] && toks[i] === val) return true; }
+        if (wild){ var re = reFor(val, true); for (var i=0;i<toks.length;i++){ if (toks[i] && re.test(toks[i])) return true; } return false; }
+        for (var j=0;j<toks.length;j++){ if (toks[j] && toks[j] === val) return true; }
         return false;
       }
-      case 'equals':   return hay === val;
-      case 'prefix':   return hay.indexOf(val) === 0;
+      case 'equals':   return wild ? reFor(val, true).test(hay) : hay === val;
+      case 'prefix':   return wild ? reFor(val, true).test(hay) : hay.indexOf(val) === 0;
       case 'severity': {
         var want = SEV_RANK[val]; if (want === undefined){ var n = parseInt(val,10); want = isNaN(n)?0:n; }
         var have = parseInt(hay,10) || 0;
         return want > 0 && have >= want;
       }
-      default:         return hay.indexOf(val) !== -1; // 'contains'
+      default:         return wild ? reFor(val, false).test(hay) : hay.indexOf(val) !== -1; // 'contains'
     }
   }
 
@@ -101,7 +117,11 @@ html.light .dork-ac-foot code { background:#e2e8f0; color:#2563eb; }
     var kwAttrs = registry.keywordAttrs || [];
     if (term.keyword){
       if (!term.text) return true;
-      for (var k=0;k<kwAttrs.length;k++){ if (attrLower(row, kwAttrs[k]).indexOf(term.text) !== -1) return true; }
+      var kwWild = hasWild(term.text);
+      for (var k=0;k<kwAttrs.length;k++){
+        var h = attrLower(row, kwAttrs[k]);
+        if (kwWild ? reFor(term.text, false).test(h) : h.indexOf(term.text) !== -1) return true;
+      }
       return false;
     }
     var def = byNameOf(registry)[term.field];

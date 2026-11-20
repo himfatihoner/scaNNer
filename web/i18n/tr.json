@@ -3141,5 +3141,6 @@
   "comma = OR within a field; combine terms with": "virgül = alan içinde VEYA; terimleri şununla birleştir:",
   "scan": "tarama",
   "first": "ilk",
-  "seen": "görüldü"
+  "seen": "görüldü",
+  "comma = OR within a field; * = wildcard; combine terms with": "virgül = alan içinde VEYA; * = joker; terimleri şununla birleştir:"
 }

@@ -30,6 +30,7 @@ type wsSearchIndex struct {
 	fingerprint string
 	blob        map[string]string   // normalizedAsset -> space-joined lowercase tokens
 	ports       map[string]string   // normalizedAsset -> compact "80/tcp 443/tcp +N" summary (Task 5)
+	portsFull   map[string]string   // normalizedAsset -> ALL open port numbers, space-joined ("80 443 8080") — the dork Port: field (data-port)
 	related     map[string][]string // normalizedAsset -> related hosts/IPs (IP↔subdomain cross-ref)
 	tech        map[string][]string // normalizedAsset -> detected technology names (techdetect)
 	ips         map[string][]string // normalizedAsset -> resolved IP(s) (the IPv4 subset of related)
@@ -505,6 +506,7 @@ func (h *Handler) buildAssetSearchIndex(workspaceID, fp, setFP string, ids [][2]
 
 	blob := make(map[string]string, len(perAsset))
 	ports := make(map[string]string, len(perAsset))
+	portsFull := make(map[string]string, len(perAsset))
 	for asset, toks := range perAsset {
 		list := make([]string, 0, len(toks))
 		// Port tokens are already emitted as "<num>/<proto>" by scanSearchTokens;
@@ -527,6 +529,18 @@ func (h *Handler) buildAssetSearchIndex(workspaceID, fp, setFP string, ids [][2]
 		blob[asset] = strings.Join(list, " ")
 		if len(pts) > 0 {
 			sort.Slice(pts, func(i, j int) bool { return pts[i].n < pts[j].n })
+			// Full, uncapped port-number list for the dork `Port:` field — distinct
+			// (a port can appear as both tcp/udp), space-joined, numerically sorted.
+			fullNums := make([]string, 0, len(pts))
+			seenN := make(map[int]bool, len(pts))
+			for _, p := range pts {
+				if seenN[p.n] {
+					continue
+				}
+				seenN[p.n] = true
+				fullNums = append(fullNums, strconv.Itoa(p.n))
+			}
+			portsFull[asset] = strings.Join(fullNums, " ")
 			const maxShow = 6
 			extra := 0
 			if len(pts) > maxShow {
@@ -570,6 +584,7 @@ func (h *Handler) buildAssetSearchIndex(workspaceID, fp, setFP string, ids [][2]
 	}
 	idx.blob = blob
 	idx.ports = ports
+	idx.portsFull = portsFull
 	idx.related = related
 	idx.tech = tech
 	idx.ips = ips
@@ -817,6 +832,18 @@ func (h *Handler) getAssetPorts(workspaceID string) map[string]string {
 	defer assetSearchMu.Unlock()
 	if idx := assetSearchCache[workspaceID]; idx != nil && idx.ports != nil {
 		return idx.ports
+	}
+	return map[string]string{}
+}
+
+// getAssetPortsFull returns the per-asset FULL open-port-number list (space-
+// joined, uncapped) feeding the assets-list dork `Port:` field (data-port),
+// distinct from getAssetPorts' 6-capped display summary.
+func (h *Handler) getAssetPortsFull(workspaceID string) map[string]string {
+	assetSearchMu.Lock()
+	defer assetSearchMu.Unlock()
+	if idx := assetSearchCache[workspaceID]; idx != nil && idx.portsFull != nil {
+		return idx.portsFull
 	}
 	return map[string]string{}
 }

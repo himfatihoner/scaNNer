@@ -32,6 +32,9 @@ type AssetSummary struct {
 	// the asset's open ports for the assets-list column (Task 5). Built from the
 	// same background index; full port/service detail is on the asset page.
 	PortSummary string
+	// PortsFull is ALL open port numbers, space-joined ("80 443 8080"), uncapped —
+	// the row's data-port attribute for the dork `Port:` field (exact-token match).
+	PortsFull string
 	// Related lists the asset's resolution cross-references: for an IP, the
 	// subdomains/hosts that resolve to it; for a hostname, its resolved IP(s).
 	Related []string
@@ -284,6 +287,7 @@ func (h *Handler) Assets(w http.ResponseWriter, r *http.Request) {
 	// background-built index so the search box can match on findings.
 	searchBlob := h.getAssetSearchBlob(ws.ID, liteScans)
 	portsBlob := h.getAssetPorts(ws.ID)
+	portsFullBlob := h.getAssetPortsFull(ws.ID)
 	relatedBlob := h.getAssetRelated(ws.ID)
 	techBlob := h.getAssetTechnologies(ws.ID)
 	ipsBlob := h.getAssetIPs(ws.ID)
@@ -416,6 +420,7 @@ func (h *Handler) Assets(w http.ResponseWriter, r *http.Request) {
 		assets[i].MaxSevRank = findMaxSev[assets[i].Value]
 		assets[i].FindingCount = findCount[assets[i].Value]
 		assets[i].PortSummary = portsBlob[assets[i].Value]
+		assets[i].PortsFull = portsFullBlob[assets[i].Value]
 		assets[i].Related = relatedBlob[assets[i].Value]
 		assets[i].Technologies = techBlob[assets[i].Value]
 		assets[i].Categories = catByValue[assets[i].Value]

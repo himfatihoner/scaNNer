@@ -1,0 +1,262 @@
+{{define "dork_script"}}
+{{/* Reusable DORK search engine. Page-agnostic: a page supplies a field
+     REGISTRY ({names, attr, mode, sep?}) + collected value suggestions, then
+     calls Dork.parse / Dork.makeMatcher / Dork.bindAutocomplete. Used first by
+     the assets page; scan result pages reuse it with their own registry. Syntax:
+       Field:v1,v2  (comma = OR within the field) joined by AND / OR
+       Keyword:text (or a bare word) = free-text over the keyword attrs
+     AND binds tighter than OR. Included once globally via layout.html. */}}
+<style>
+.dork-wrap { position: relative; display: inline-block; }
+.dork-ac { position:absolute; z-index:60; left:0; min-width:100%; top:calc(100% + 4px);
+  max-height:340px; overflow-y:auto; background:#0f172a; border:1px solid #334155;
+  border-radius:8px; box-shadow:0 10px 28px rgba(0,0,0,.55); display:none; }
+.dork-ac.open { display:block; }
+.dork-ac-head { padding:5px 10px; font-size:10px; text-transform:uppercase; letter-spacing:.06em;
+  color:#64748b; background:#111827; position:sticky; top:0; }
+.dork-ac-item { display:flex; align-items:baseline; gap:8px; padding:6px 10px; cursor:pointer;
+  font-size:12px; white-space:nowrap; }
+.dork-ac-item:hover, .dork-ac-item.active { background:#1e293b; }
+.dork-ac-key { color:#93c5fd; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+.dork-ac-hint { color:#64748b; font-size:11px; }
+.dork-ac-foot { padding:6px 10px; font-size:10px; color:#64748b; border-top:1px solid #1e293b;
+  position:sticky; bottom:0; background:#111827; white-space:normal; }
+.dork-ac-foot code { color:#93c5fd; background:#1e293b; padding:0 3px; border-radius:3px; }
+.dork-input.dork-error { border-color:#ef4444 !important; }
+html.light .dork-ac { background:#ffffff; border-color:#cbd5e1; box-shadow:0 10px 28px rgba(0,0,0,.18); }
+html.light .dork-ac-head, html.light .dork-ac-foot { background:#f8fafc; }
+html.light .dork-ac-item:hover, html.light .dork-ac-item.active { background:#f1f5f9; }
+html.light .dork-ac-key { color:#2563eb; }
+html.light .dork-ac-foot code { background:#e2e8f0; color:#2563eb; }
+</style>
+<script>
+(function(){
+  if (window.Dork) return;
+
+  function escHtml(s){ return String(s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  // ---- parse: OR-groups of AND-terms -------------------------------------
+  function parse(query){
+    query = (query || '').trim();
+    if (!query) return { groups: [], empty: true };
+    var groups = [];
+    var orParts = query.split(/\s+or\s+/i);
+    for (var i=0;i<orParts.length;i++){
+      var andParts = orParts[i].split(/\s+and\s+/i);
+      var terms = [];
+      for (var j=0;j<andParts.length;j++){
+        var raw = andParts[j].trim();
+        if (!raw) continue;
+        var ci = raw.indexOf(':');
+        if (ci > 0){
+          var field = raw.slice(0, ci).trim().toLowerCase();
+          var valstr = raw.slice(ci+1).trim();
+          if (field === 'keyword' || field === 'kw'){
+            terms.push({ keyword:true, text: valstr.toLowerCase() });
+          } else {
+            var vals = valstr.split(',').map(function(x){ return x.trim(); }).filter(Boolean);
+            terms.push({ field: field, values: vals });
+          }
+        } else {
+          terms.push({ keyword:true, text: raw.toLowerCase() });
+        }
+      }
+      if (terms.length) groups.push(terms);
+    }
+    return { groups: groups, empty: groups.length === 0 };
+  }
+
+  // ---- matching ----------------------------------------------------------
+  var SEV_RANK = { critical:4, crit:4, high:3, medium:2, med:2, low:1, any:1 };
+  function attrLower(row, attr){ return (row.getAttribute(attr) || '').toLowerCase(); }
+
+  function valueMatches(hay, val, def){
+    switch (def.mode){
+      case 'token': {
+        var toks = hay.split(def.sep || ' ');
+        for (var i=0;i<toks.length;i++){ if (toks[i] && toks[i] === val) return true; }
+        return false;
+      }
+      case 'equals':   return hay === val;
+      case 'prefix':   return hay.indexOf(val) === 0;
+      case 'severity': {
+        var want = SEV_RANK[val]; if (want === undefined){ var n = parseInt(val,10); want = isNaN(n)?0:n; }
+        var have = parseInt(hay,10) || 0;
+        return want > 0 && have >= want;
+      }
+      default:         return hay.indexOf(val) !== -1; // 'contains'
+    }
+  }
+
+  function byNameOf(registry){
+    if (!registry._byName){
+      registry._byName = {};
+      registry.fields.forEach(function(f){ f.names.forEach(function(n){ registry._byName[n.toLowerCase()] = f; }); });
+    }
+    return registry._byName;
+  }
+
+  function matchTerm(row, term, registry){
+    var kwAttrs = registry.keywordAttrs || [];
+    if (term.keyword){
+      if (!term.text) return true;
+      for (var k=0;k<kwAttrs.length;k++){ if (attrLower(row, kwAttrs[k]).indexOf(term.text) !== -1) return true; }
+      return false;
+    }
+    var def = byNameOf(registry)[term.field];
+    if (!def){
+      // unknown field → fall back to matching "field:values" as free text
+      var kw = (term.field + ':' + term.values.join(',')).toLowerCase();
+      for (var u=0;u<kwAttrs.length;u++){ if (attrLower(row, kwAttrs[u]).indexOf(kw) !== -1) return true; }
+      return false;
+    }
+    if (!term.values.length) return true; // "Field:" with no value → ignore
+    var hay = attrLower(row, def.attr);
+    for (var v=0; v<term.values.length; v++){            // comma = OR
+      if (valueMatches(hay, term.values[v].toLowerCase(), def)) return true;
+    }
+    return false;
+  }
+
+  function makeMatcher(parsed, registry){
+    if (parsed.empty) return function(){ return true; };
+    return function(row){
+      for (var g=0; g<parsed.groups.length; g++){        // OR between groups
+        var terms = parsed.groups[g], all = true;
+        for (var t=0;t<terms.length;t++){ if (!matchTerm(row, terms[t], registry)){ all = false; break; } }
+        if (all) return true;
+      }
+      return false;
+    };
+  }
+
+  // ---- collect distinct value suggestions from the rendered rows ---------
+  function collectValues(rows, registry){
+    var out = {};
+    registry.fields.forEach(function(f){
+      if (f.fixedValues){ out[f.names[0]] = f.fixedValues.slice(); return; }
+      var set = {};
+      for (var i=0;i<rows.length;i++){
+        var raw = rows[i].getAttribute(f.attr) || '';
+        if (!raw) continue;
+        var parts = f.sep ? raw.split(f.sep) : [raw];
+        for (var p=0;p<parts.length;p++){
+          var v = parts[p].trim();
+          if (v) set[v] = (set[v]||0)+1;
+        }
+      }
+      var list = Object.keys(set);
+      list.sort(function(a,b){ return set[b]-set[a]; }); // most common first
+      out[f.names[0]] = list.slice(0, 60);
+    });
+    return out;
+  }
+
+  // ---- autocomplete dropdown --------------------------------------------
+  // config: { registry, fieldList:[{key,hint}], values:{field:[...]}, labels:{fields,values,ops,noValues,unknownField,legend} }
+  function bindAutocomplete(input, config, onChange){
+    var L = config.labels || {};
+    var wrap = input.closest('.dork-wrap');
+    if (!wrap){ wrap = document.createElement('span'); wrap.className = 'dork-wrap'; input.parentNode.insertBefore(wrap, input); wrap.appendChild(input); }
+    input.classList.add('dork-input');
+    var ac = document.createElement('div'); ac.className = 'dork-ac'; wrap.appendChild(ac);
+    var items = [], active = -1;
+
+    function curTerm(){
+      var pos = input.selectionStart; if (pos == null) pos = input.value.length;
+      var before = input.value.slice(0, pos);
+      var lo = before.toLowerCase();
+      var a = lo.lastIndexOf(' and '); var o = lo.lastIndexOf(' or ');
+      var start = Math.max(a >= 0 ? a + 5 : 0, o >= 0 ? o + 4 : 0);
+      return { start: start, text: before.slice(start), pos: pos };
+    }
+    function footer(){ return '<div class="dork-ac-foot">' + (L.legend || '') + '</div>'; }
+
+    function render(){
+      var ct = curTerm();
+      var lead = ct.text.match(/^\s*/)[0];
+      var text = ct.text.slice(lead.length);
+      var ci = text.indexOf(':');
+      var html = ''; items = [];
+      if (ci < 0){
+        var pfx = text.trim().toLowerCase();
+        html += '<div class="dork-ac-head">' + (L.fields || 'Fields') + '</div>';
+        config.fieldList.forEach(function(f){
+          if (pfx && f.key.toLowerCase().indexOf(pfx) !== 0) return;
+          items.push({ type:'field', f:f });
+          html += '<div class="dork-ac-item" data-i="' + (items.length-1) + '"><span class="dork-ac-key">' + escHtml(f.key) + ':</span><span class="dork-ac-hint">' + escHtml(f.hint || '') + '</span></div>';
+        });
+        if (!items.length) html += '<div class="dork-ac-item dork-ac-hint">' + escHtml(L.noFields || '—') + '</div>';
+      } else {
+        var fname = text.slice(0, ci).trim().toLowerCase();
+        var vpart = text.slice(ci+1);
+        var lastComma = vpart.lastIndexOf(',');
+        var vpfx = (lastComma >= 0 ? vpart.slice(lastComma+1) : vpart).trim().toLowerCase();
+        var isKw = (fname === 'keyword' || fname === 'kw');
+        var known = byNameOf(config.registry)[fname];
+        var canonical = known ? known.names[0] : fname;
+        var vals = isKw ? [] : (config.values[canonical] || []);
+        html += '<div class="dork-ac-head">' + escHtml(isKw ? (L.keywordHint || 'free text') : (known ? fname + ' ' + (L.values || 'values') : (L.unknownField || 'unknown field'))) + '</div>';
+        vals.forEach(function(v){
+          if (vpfx && v.toLowerCase().indexOf(vpfx) === -1) return;
+          items.push({ type:'value', v:v });
+          html += '<div class="dork-ac-item" data-i="' + (items.length-1) + '"><span class="dork-ac-key">' + escHtml(v) + '</span></div>';
+        });
+        if (!items.length) html += '<div class="dork-ac-item dork-ac-hint">' + escHtml(L.noValues || '—') + '</div>';
+      }
+      ac.innerHTML = html + footer();
+      active = -1;
+      Array.prototype.forEach.call(ac.querySelectorAll('.dork-ac-item[data-i]'), function(el){
+        el.addEventListener('mousedown', function(e){ e.preventDefault(); choose(parseInt(el.getAttribute('data-i'),10)); });
+      });
+      open();
+    }
+    function choose(i){
+      var it = items[i]; if (!it) return;
+      var ct = curTerm();
+      var lead = ct.text.match(/^\s*/)[0];
+      var newTerm;
+      if (it.type === 'field'){
+        newTerm = lead + it.f.key + ':';
+      } else {
+        var text = ct.text.slice(lead.length);
+        var ci = text.indexOf(':');
+        var head = text.slice(0, ci+1);
+        var vpart = text.slice(ci+1);
+        var lastComma = vpart.lastIndexOf(',');
+        var kept = lastComma >= 0 ? vpart.slice(0, lastComma+1) : '';
+        newTerm = lead + head + kept + it.v;
+      }
+      var newBefore = input.value.slice(0, ct.start) + newTerm;
+      input.value = newBefore + input.value.slice(ct.pos);
+      var np = newBefore.length;
+      input.focus(); input.setSelectionRange(np, np);
+      render();
+      if (onChange) onChange();
+    }
+    function open(){ ac.classList.add('open'); }
+    function close(){ ac.classList.remove('open'); }
+    function move(d){
+      var els = ac.querySelectorAll('.dork-ac-item[data-i]'); if (!els.length) return;
+      if (active >= 0 && els[active]) els[active].classList.remove('active');
+      active = (active + d + els.length) % els.length;
+      els[active].classList.add('active'); els[active].scrollIntoView({ block:'nearest' });
+    }
+    input.addEventListener('focus', render);
+    input.addEventListener('input', render);
+    input.addEventListener('click', render);
+    input.addEventListener('keydown', function(e){
+      if (!ac.classList.contains('open')) return;
+      if (e.key === 'ArrowDown'){ e.preventDefault(); move(1); }
+      else if (e.key === 'ArrowUp'){ e.preventDefault(); move(-1); }
+      else if (e.key === 'Enter' && active >= 0){ e.preventDefault(); choose(parseInt(ac.querySelectorAll('.dork-ac-item[data-i]')[active].getAttribute('data-i'),10)); }
+      else if (e.key === 'Escape'){ close(); }
+    });
+    document.addEventListener('click', function(e){ if (!wrap.contains(e.target)) close(); });
+  }
+
+  window.Dork = { parse: parse, makeMatcher: makeMatcher, collectValues: collectValues, bindAutocomplete: bindAutocomplete };
+})();
+</script>
+{{end}}

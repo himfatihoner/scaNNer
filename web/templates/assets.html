@@ -93,23 +93,15 @@ html.light #assetCharts{--chart-blue:#2563eb;--chart-purple:#7c3aed;--chart-oran
     <button type="button" data-asset-tab="fqdn" onclick="setAssetTypeTab(this)" class="asset-tab px-3 py-1.5 text-xs rounded-lg transition-colors {{if or (eq .FilterType "ip") (eq .FilterType "people")}}bg-dark-850 border border-dark-700 text-dark-300 hover:text-white{{else}}bg-accent-600 text-white{{end}}">FQDN</button>
     <button type="button" data-asset-tab="ip" onclick="setAssetTypeTab(this)" class="asset-tab px-3 py-1.5 text-xs rounded-lg transition-colors {{if eq .FilterType "ip"}}bg-accent-600 text-white{{else}}bg-dark-850 border border-dark-700 text-dark-300 hover:text-white{{end}}">IP</button>
     <button type="button" data-asset-tab="people" onclick="setAssetTypeTab(this)" class="asset-tab px-3 py-1.5 text-xs rounded-lg transition-colors {{if eq .FilterType "people"}}bg-accent-600 text-white{{else}}bg-dark-850 border border-dark-700 text-dark-300 hover:text-white{{end}}">{{T "People"}} <span class="opacity-60">{{.AssetPeopleCount}}</span></button>
-    <input id="assetSearch" type="search" placeholder="{{T `Search host, port, service or technology (e.g. nginx, 443, wordpress)…`}}" oninput="applyAssetFilter()"
-           class="w-64 mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
-    <select id="assetStatusFilter" onchange="applyAssetFilter()"
-            class="bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
-        <option value="">{{T "All statuses"}}</option>
-        <option value="running">{{T "Running"}}</option>
-        <option value="idle">{{T "Idle"}}</option>
-    </select>
-    <select id="assetSevFilter" onchange="applyAssetFilter()" title="{{T `Filter by the highest-severity finding on each asset`}}"
-            class="bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-accent-500">
-        <option value="">{{T "All findings"}}</option>
-        <option value="any">{{T "Has findings"}}</option>
-        <option value="4">{{T "Critical"}}</option>
-        <option value="3">{{T "High+"}}</option>
-        <option value="2">{{T "Medium+"}}</option>
-        <option value="1">{{T "Low+"}}</option>
-    </select>
+    {{/* Dork search bar — replaces the old free-text box + Status/Severity
+         dropdowns. Fields (Port:/Technology:/Status:/Severity:/Activity:/…) come
+         from the columns; AND/OR + comma-OR; Keyword: = free text. Click the box
+         for field + value autocomplete (wired in the script below via Dork). */}}
+    <span class="dork-wrap flex-1 min-w-[260px] max-w-[680px]">
+        <input id="assetDork" type="search" autocomplete="off" spellcheck="false"
+               placeholder="{{T `Dork: Port:80,443 AND Technology:nginx  ·  Keyword:wordpress`}}" oninput="applyAssetFilter()"
+               class="dork-input w-full mono bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-dark-600 focus:outline-none focus:border-accent-500">
+    </span>
     <span id="assetResultCount" class="ml-auto text-[11px] text-dark-500"></span>
 </div>
 
@@ -159,7 +151,11 @@ html.light #assetCharts{--chart-blue:#2563eb;--chart-purple:#7c3aed;--chart-oran
                 data-scans="{{.ScanCount}}"
                 data-running="{{.RunningJobs}}"
                 data-last-scanned="{{if not .LastScanned.IsZero}}{{.LastScanned.Unix}}{{else}}0{{end}}"
-                data-tech="{{range .Technologies}}{{lower .}}|{{end}}">
+                data-tech="{{range .Technologies}}{{lower .}}|{{end}}"
+                data-port="{{.PortsFull}}"
+                data-ip="{{range .ResolvedIPs}}{{.}} {{end}}{{if eq .Type "ipv4"}}{{.Value}}{{end}}"
+                data-modules="{{range .Modules}}{{lower .}} {{end}}"
+                data-activity="{{if gt .RunningJobs 0}}running{{else}}idle{{end}}">
                 <td class="px-4 py-3">
                     <div class="flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full {{if eq .Type "ipv4"}}bg-cyan-500{{else if eq .Type "domain"}}bg-violet-500{{else if eq .Type "fqdn"}}bg-pink-500{{else}}bg-dark-500{{end}}"></span>
@@ -472,11 +468,12 @@ function renderAssetCharts(techCounts) {
     }
 }
 function applyAssetFilter() {
-    var q = (document.getElementById('assetSearch').value || '').toLowerCase().trim();
-    var statusFilter = document.getElementById('assetStatusFilter').value;
-    var sevEl = document.getElementById('assetSevFilter');
-    var sevFilter = sevEl ? sevEl.value : '';
+    var qraw = (document.getElementById('assetDork').value || '').trim();
+    var q = qraw.toLowerCase();
     var typeTab = _activeAssetTab();
+    // The dork query owns free-text + every column filter; parse it once per call.
+    var parsed = Dork.parse(qraw);
+    var dmatch = Dork.makeMatcher(parsed, ASSET_DORK_REGISTRY);
     // People is a separate table, not a row-filter on the asset rows: toggle the
     // two views and (when active) filter the people rows by the search box.
     var assetsView = document.getElementById('assetsView');
@@ -506,22 +503,11 @@ function applyAssetFilter() {
     var matched = [];
     var techCounts = {};
     rows.forEach(function(row) {
-        var v = (row.getAttribute('data-value') || '').toLowerCase();
         var t = (row.getAttribute('data-type') || '').toLowerCase();
-        var s = (row.getAttribute('data-search') || '').toLowerCase();
-        var running = parseInt(row.getAttribute('data-running') || '0', 10);
-        // data-search now carries host/port/service/tech AND the asset's vuln
-        // findings (titles/severity/CVEs), so the box matches findings too.
-        var matchSearch = !q || v.indexOf(q) !== -1 || t.indexOf(q) !== -1 || s.indexOf(q) !== -1;
-        var matchStatus = true;
-        if (statusFilter === 'running') matchStatus = running > 0;
-        else if (statusFilter === 'idle') matchStatus = running === 0;
-        // Findings-severity filter: "any" = has any finding; a number = max
-        // severity ≥ that rank (4=crit,3=high,2=med,1=low).
-        var maxsev = parseInt(row.getAttribute('data-maxsev') || '0', 10);
-        var matchSev = true;
-        if (sevFilter === 'any') matchSev = maxsev > 0;
-        else if (sevFilter) matchSev = maxsev >= parseInt(sevFilter, 10);
+        // The dork query owns free-text + all column filters (Keyword:, Port:,
+        // Technology:, Status:, Severity:, Activity:, …). The type TAB, base-domain
+        // CHIP and technology-donut SLICE stay as separate visual filters, ANDed in.
+        var matchDork = dmatch(row);
         // Type tab: "ip" shows only IPv4 assets; "fqdn" (default) shows everything else.
         var matchType = (typeTab === 'ip') ? (t === 'ipv4') : (t !== 'ipv4');
         // Base domain: exact-match the row's registrable domain (blank chip = All).
@@ -530,7 +516,7 @@ function applyAssetFilter() {
         // Technology slice-filter: "" = all; else the row's data-tech must carry the token.
         var techStr = (row.getAttribute('data-tech') || '');
         var matchTech = !assetActiveTech || ('|' + techStr).indexOf('|' + assetActiveTech + '|') !== -1;
-        var show = matchSearch && matchStatus && matchSev && matchType && matchBaseDomain && matchTech;
+        var show = matchDork && matchType && matchBaseDomain && matchTech;
         if (show) {
             matched.push(row);
             // Tally this matched asset's technologies — the donut charts reflect
@@ -567,12 +553,69 @@ function applyAssetFilter() {
     }
     renderAssetCharts(techCounts);
 }
+// --- Dork search: assets field registry + autocomplete config ---
+// Fields map to the row's data-* attributes; modes: contains (substring, lists
+// split by sep), token (exact token in a sep-list — Port), equals, prefix
+// (Status 2→2xx), severity (name/number ≥). Keyword: + bare words search the
+// keywordAttrs blob. Reused engine lives in _dork.html (window.Dork).
+var ASSET_DORK_REGISTRY = {
+    keywordAttrs: ['data-search', 'data-value'],
+    fields: [
+        { names:['host','asset'], attr:'data-value', mode:'contains' },
+        { names:['ip'], attr:'data-ip', mode:'contains', sep:' ' },
+        { names:['port'], attr:'data-port', mode:'token', sep:' ' },
+        { names:['technology','tech'], attr:'data-tech', mode:'contains', sep:'|' },
+        { names:['type'], attr:'data-type', mode:'equals', fixedValues:['ipv4','domain','fqdn','url'] },
+        { names:['status'], attr:'data-live', mode:'prefix' },
+        { names:['severity','sev'], attr:'data-maxsev', mode:'severity', fixedValues:['critical','high','medium','low'] },
+        { names:['domain'], attr:'data-basedomain', mode:'contains' },
+        { names:['module'], attr:'data-modules', mode:'contains', sep:' ' },
+        { names:['activity'], attr:'data-activity', mode:'equals', fixedValues:['running','idle'] },
+        { names:['cve'], attr:'data-search', mode:'contains' }
+    ]
+};
+var ASSET_DORK_CONFIG = {
+    registry: ASSET_DORK_REGISTRY,
+    values: {},
+    fieldList: [
+        { key:'Keyword', hint:'{{T `free text`}}' },
+        { key:'Host', hint:'{{T `host / asset name`}}' },
+        { key:'IP', hint:'{{T `resolved IP`}}' },
+        { key:'Port', hint:'80,443' },
+        { key:'Technology', hint:'nginx, bootstrap' },
+        { key:'Type', hint:'ipv4 / domain / fqdn / url' },
+        { key:'Status', hint:'{{T `HTTP status (200, 4xx)`}}' },
+        { key:'Severity', hint:'critical / high / medium / low' },
+        { key:'Domain', hint:'{{T `base domain`}}' },
+        { key:'Module', hint:'nuclei, httpxfind' },
+        { key:'Activity', hint:'running / idle' },
+        { key:'CVE', hint:'CVE-2024-...' }
+    ],
+    labels: {
+        fields: '{{T `Fields`}}',
+        values: '{{T `values on this page`}}',
+        unknownField: '{{T `unknown field`}}',
+        keywordHint: '{{T `free text — matches anything`}}',
+        noValues: '{{T `no values on this page`}}',
+        noFields: '{{T `no matching field`}}',
+        legend: '{{T "comma = OR within a field; combine terms with"}} <code>AND</code> / <code>OR</code>'
+    }
+};
+function refreshDorkValues(){
+    var tb = document.getElementById('assetsTbody');
+    var rows = tb ? Array.prototype.slice.call(tb.querySelectorAll('.asset-row')) : [];
+    if (window.Dork) ASSET_DORK_CONFIG.values = Dork.collectValues(rows, ASSET_DORK_REGISTRY);
+}
 window._assetPageLimit = window._assetPageLimit || 120;
 window.assetShowMore = function(){ window._assetPageLimit = (window._assetPageLimit || 120) + 500; applyAssetFilter(); };
 window.assetShowAll = function(){ window._assetPageLimit = 1e9; applyAssetFilter(); };
 document.addEventListener('DOMContentLoaded', function() {
     if (window.bindSortableTable) {
         bindSortableTable('#assetsTable', { defaultKey: 'last-scanned', defaultDir: 'desc', onSort: function(){ applyAssetFilter(); } });
+    }
+    refreshDorkValues();
+    if (window.Dork && document.getElementById('assetDork')) {
+        Dork.bindAutocomplete(document.getElementById('assetDork'), ASSET_DORK_CONFIG, applyAssetFilter);
     }
     applyAssetFilter();
     // Live auto-refresh while any scan is running OR the background search/vuln
@@ -603,6 +646,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             var sy = window.scrollY;
                             cur.innerHTML = freshHTML;
                             if (window.bindSortableTable) bindSortableTable('#assetsTable', { defaultKey: 'last-scanned', defaultDir: 'desc', onSort: function(){ applyAssetFilter(); } });
+                            refreshDorkValues();
                             applyAssetFilter();
                             window.scrollTo(0, sy);
                         }

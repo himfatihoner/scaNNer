@@ -3125,5 +3125,21 @@
   "Content-Type (html, json…)": "Content-Type (html, json…)",
   "Port (80, 443…)": "Port (80, 443…)",
   "Show 100": "100 göster",
-  "Show 100 (collapse)": "100 göster (daralt)"
+  "Show 100 (collapse)": "100 göster (daralt)",
+  "Dork: Port:80,443 AND Technology:nginx  ·  Keyword:wordpress": "Dork: Port:80,443 AND Technology:nginx  ·  Keyword:wordpress",
+  "free text": "serbest metin",
+  "host / asset name": "host / varlık adı",
+  "resolved IP": "çözülen IP",
+  "HTTP status (200, 4xx)": "HTTP durumu (200, 4xx)",
+  "base domain": "temel alan adı",
+  "Fields": "Alanlar",
+  "values on this page": "bu sayfadaki değerler",
+  "unknown field": "bilinmeyen alan",
+  "free text — matches anything": "serbest metin — her şeyle eşleşir",
+  "no values on this page": "bu sayfada değer yok",
+  "no matching field": "eşleşen alan yok",
+  "comma = OR within a field; combine terms with": "virgül = alan içinde VEYA; terimleri şununla birleştir:",
+  "scan": "tarama",
+  "first": "ilk",
+  "seen": "görüldü"
 }

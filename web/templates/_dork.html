@@ -248,9 +248,19 @@ html.light .dork-ac-foot code { background:#e2e8f0; color:#2563eb; }
     input.addEventListener('click', render);
     input.addEventListener('keydown', function(e){
       if (!ac.classList.contains('open')) return;
+      var els = ac.querySelectorAll('.dork-ac-item[data-i]');
       if (e.key === 'ArrowDown'){ e.preventDefault(); move(1); }
       else if (e.key === 'ArrowUp'){ e.preventDefault(); move(-1); }
-      else if (e.key === 'Enter' && active >= 0){ e.preventDefault(); choose(parseInt(ac.querySelectorAll('.dork-ac-item[data-i]')[active].getAttribute('data-i'),10)); }
+      else if (e.key === 'Tab' || e.key === 'Enter'){
+        // Shell-style completion: Tab (or Enter) fills in the highlighted
+        // suggestion, or the FIRST one when nothing is highlighted yet. choose()
+        // re-renders, so a second Tab completes the next level (field → value).
+        if (els.length){
+          e.preventDefault();
+          var idx = (active >= 0 && els[active]) ? active : 0;
+          choose(parseInt(els[idx].getAttribute('data-i'), 10));
+        } else if (e.key === 'Enter'){ close(); }
+      }
       else if (e.key === 'Escape'){ close(); }
     });
     document.addEventListener('click', function(e){ if (!wrap.contains(e.target)) close(); });

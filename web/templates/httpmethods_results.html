@@ -37,8 +37,13 @@
     <div class="px-5 py-4 border-b border-dark-800">
         <span class="mono text-sm font-semibold text-accent-400">{{$tr.URL}}</span>
     </div>
+    <div class="flex items-center gap-2 mb-2 flex-wrap">
+        <input id="httpmethodsTable-{{$tIdx}}-search" type="search" data-filter-table="#httpmethodsTable-{{$tIdx}}" data-filter-count="#httpmethodsTable-{{$tIdx}}-count" placeholder="{{T `Search…`}}"
+               class="flex-1 min-w-[180px] px-3 py-1.5 text-xs bg-dark-850 border border-dark-700 rounded-lg text-dark-200 placeholder-dark-600 focus:border-accent-500/50 focus:outline-none">
+        <span id="httpmethodsTable-{{$tIdx}}-count" class="text-[10px] text-dark-500 mono"></span>
+    </div>
     <div class="overflow-x-auto">
-        <table data-copytable class="w-full">
+        <table data-copytable class="w-full" id="httpmethodsTable-{{$tIdx}}">
             <thead>
                 <tr class="border-b border-dark-800">
                     <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">{{T "Method"}}</th>
@@ -98,7 +103,7 @@
                     <td class="px-5 py-2 text-[11px] text-dark-400 max-w-[150px] truncate">{{if $m.RespCT}}{{$m.RespCT}}{{else}}-{{end}}</td>
                     <td class="px-5 py-2 mono text-[11px] text-dark-400 max-w-[150px] truncate">{{if $m.Allow}}{{$m.Allow}}{{else}}-{{end}}</td>
                 </tr>
-                <tr id="hm-raw-{{$tIdx}}-{{$mIdx}}" class="hidden bg-dark-925">
+                <tr id="hm-raw-{{$tIdx}}-{{$mIdx}}" class="hidden bg-dark-925" data-filter-skip="1">
                     <td colspan="7" class="px-5 py-3">
                         {{template "raw_panel" (list "hm" (printf "%d-%d" $tIdx $mIdx) $m.RawRequest $m.RawResponse)}}
                     </td>

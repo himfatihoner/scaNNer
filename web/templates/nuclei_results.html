@@ -42,6 +42,14 @@
      URLs with actual findings (the typical pentest review flow).
      Group "aw-suite" so the suite master toggle can broadcast. */}}
 {{if .Results}}
+{{/* Search filters findings-bearing target groups by text (URL, finding name,
+     CVE, template id, tags). Scoped to data-empty='false' so it never fights the
+     "hide URLs with no findings" toggle, which owns the empty groups. */}}
+<div class="flex items-center gap-2 mb-3 flex-wrap">
+    <input id="nuclei-search" type="search" data-filter-items="#nucleiTargetGroups > div[data-empty='false']" data-filter-count="#nuclei-search-count" placeholder="{{T `Search URL, finding, CVE, template…`}}"
+           class="flex-1 min-w-[180px] px-3 py-1.5 text-xs bg-dark-850 border border-dark-700 rounded-lg text-dark-200 placeholder-dark-600 focus:border-accent-500/50 focus:outline-none">
+    <span id="nuclei-search-count" class="text-[10px] text-dark-500 mono"></span>
+</div>
 <div class="bg-dark-900 border border-dark-800 rounded-xl mb-4 overflow-hidden">
     {{template "empty_toggle" (dict "Scope" "nuclei-targets" "ContainerSel" "#nucleiTargetGroups" "Group" "aw-suite" "Label" (T `Hide URLs with no findings`))}}
     <div id="nucleiTargetGroups" class="max-h-[600px] overflow-y-auto">

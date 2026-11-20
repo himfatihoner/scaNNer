@@ -64,12 +64,28 @@
 {{$svcLimit := 0}}{{if .DisplayLimit}}{{$svcLimit = .DisplayLimit}}{{end}}
 {{$svcRendered := len .Services}}
 {{$svcTotal := $svcRendered}}{{if .TotalCount}}{{$svcTotal = .TotalCount}}{{end}}
+{{/* Query separator for the show-more links: "?" normally, but when MoreBase
+     already carries a query (e.g. the advancedweb per-module page passes
+     ?stage=httpxfind) the caller sets MoreSep="&" so ?httpx= doesn't clobber it. */}}
+{{$sep := "?"}}{{if .MoreSep}}{{$sep = .MoreSep}}{{end}}
+{{/* Filter bar — free-text (URL/title/server) + a dedicated PORT filter (the
+     port is on every row's data-port). Both inputs carry an id, so
+     scan_progress.html's captureSearchState preserves the operator's filter
+     across the 2s live-poll swaps automatically. */}}
+<div class="flex items-center gap-2 mb-2 flex-wrap">
+    <input id="httpxSearch" type="search" oninput="applyHttpxFilter()" placeholder="{{T `Search URL, title, server…`}}"
+           class="flex-1 min-w-[180px] px-3 py-1.5 text-xs bg-dark-850 border border-dark-700 rounded-lg text-dark-200 placeholder-dark-600 focus:border-accent-500/50 focus:outline-none">
+    <input id="httpxPortFilter" type="search" inputmode="numeric" oninput="applyHttpxFilter()" placeholder="{{T `Port (e.g. 80, 443, 8080)`}}"
+           class="w-[170px] px-3 py-1.5 text-xs bg-dark-850 border border-dark-700 rounded-lg text-dark-200 placeholder-dark-600 focus:border-accent-500/50 focus:outline-none">
+    <span id="httpxFilterCount" class="text-[10px] text-dark-500 mono"></span>
+</div>
 <div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
     <div class="max-h-[600px] overflow-y-auto">
     <table data-copytable class="w-full" id="httpxFindTable">
         <thead class="sticky top-0 bg-dark-900 z-10">
             <tr class="border-b border-dark-800">
                 <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider cursor-pointer select-none" data-sort-key="url" data-sort-type="string">URL</th>
+                <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider cursor-pointer select-none" data-sort-key="port" data-sort-type="number">{{T "Port"}}</th>
                 <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider cursor-pointer select-none" data-sort-key="status" data-sort-type="number">Status</th>
                 <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider cursor-pointer select-none" data-sort-key="title" data-sort-type="string">Title</th>
                 <th class="text-left px-5 py-3 text-[10px] font-semibold text-dark-500 uppercase tracking-wider cursor-pointer select-none" data-sort-key="server" data-sort-type="string">Server</th>
@@ -83,6 +99,7 @@
             {{$hasDetail := or (lt $i $svcLimit) (le $svcLimit 0) $svc.ResponseHeaders $svc.ResponseBody $svc.RawResponse}}
             <tr class="border-b border-dark-800/50 hover:bg-dark-850/50 transition-colors"
                 data-url="{{.URL}}"
+                data-port="{{.Port}}"
                 data-status="{{.StatusCode}}"
                 data-title="{{.Title}}"
                 data-server="{{.Server}}"
@@ -100,6 +117,7 @@
                     </div>
                     {{if $hasDetail}}{{template "raw_exchange" (dict "Request" .RawRequest "Response" .RawResponse)}}{{end}}
                 </td>
+                <td class="px-5 py-3 mono text-xs text-dark-300" data-sort-value="{{.Port}}">{{.Port}}</td>
                 <td class="px-5 py-3">
                     <span class="mono text-xs px-2 py-0.5 rounded
                         {{if and (ge .StatusCode 200) (lt .StatusCode 300)}}bg-success/10 text-success
@@ -125,7 +143,7 @@
             </tr>
             {{if $hasDetail}}
             <tr id="resp-{{$i}}" class="hidden">
-                <td colspan="7" class="px-5 py-4 bg-dark-925">
+                <td colspan="8" class="px-5 py-4 bg-dark-925">
                     {{/* Response header strip: prominent status badge +
                          content meta + actions. Operators flagged that
                          opening "View" without seeing the actual HTTP
@@ -187,9 +205,9 @@
 {{if and .MoreBase (gt $svcTotal $svcRendered)}}
 <div class="mt-3 flex items-center gap-2 flex-wrap">
     <span class="text-[11px] text-dark-400">{{T "Showing"}} <span class="mono text-dark-200">{{$svcRendered}}</span> {{T "of"}} <span class="mono text-dark-200">{{$svcTotal}}</span> {{T "services"}}</span>
-    {{if lt $svcRendered 200}}<a href="{{.MoreBase}}?httpx=200" class="text-[11px] px-2.5 py-1 rounded bg-dark-850 text-accent-400 border border-dark-700 hover:bg-dark-800 transition-colors">{{T "Show 200"}}</a>{{end}}
-    {{if lt $svcRendered 500}}<a href="{{.MoreBase}}?httpx=500" class="text-[11px] px-2.5 py-1 rounded bg-dark-850 text-accent-400 border border-dark-700 hover:bg-dark-800 transition-colors">{{T "Show 500"}}</a>{{end}}
-    <a href="{{.MoreBase}}?httpx=all" class="text-[11px] px-2.5 py-1 rounded bg-dark-850 text-accent-300 border border-accent-500/30 hover:bg-dark-800 transition-colors">{{T "Show all"}}{{if gt $svcTotal 1000}} {{T "(max 1000)"}}{{end}}</a>
+    {{if lt $svcRendered 200}}<a href="{{.MoreBase}}{{$sep}}httpx=200" class="text-[11px] px-2.5 py-1 rounded bg-dark-850 text-accent-400 border border-dark-700 hover:bg-dark-800 transition-colors">{{T "Show 200"}}</a>{{end}}
+    {{if lt $svcRendered 500}}<a href="{{.MoreBase}}{{$sep}}httpx=500" class="text-[11px] px-2.5 py-1 rounded bg-dark-850 text-accent-400 border border-dark-700 hover:bg-dark-800 transition-colors">{{T "Show 500"}}</a>{{end}}
+    <a href="{{.MoreBase}}{{$sep}}httpx=all" class="text-[11px] px-2.5 py-1 rounded bg-dark-850 text-accent-300 border border-accent-500/30 hover:bg-dark-800 transition-colors">{{T "Show all"}}{{if gt $svcTotal 1000}} {{T "(max 1000)"}}{{end}}</a>
     <a href="{{.MoreBase}}" class="text-[11px] px-2.5 py-1 rounded bg-dark-850 text-dark-400 border border-dark-700 hover:bg-dark-800 transition-colors">{{T "Show 50"}}</a>
     <button type="button" data-copy-httpx-urls class="text-[11px] px-2.5 py-1 rounded bg-dark-850 text-dark-300 border border-dark-700 hover:bg-dark-800 transition-colors">{{T "Copy all URLs"}}</button>
 </div>
@@ -200,6 +218,31 @@
 (function() {
     if (window.bindSortableTable) bindSortableTable('#httpxFindTable');
 })();
+// Free-text (URL/title/server) + port filter. Hides non-matching MAIN rows and
+// their paired detail (resp-N) row. Port match is a prefix so "80" also matches
+// 8080/8000; use the exact number to pin one port.
+function applyHttpxFilter() {
+    var qi = document.getElementById('httpxSearch'), pi = document.getElementById('httpxPortFilter');
+    var q = (qi && qi.value ? qi.value : '').trim().toLowerCase();
+    var p = (pi && pi.value ? pi.value : '').trim();
+    var tbl = document.getElementById('httpxFindTable');
+    if (!tbl) return;
+    var shown = 0, total = 0;
+    tbl.querySelectorAll('tbody > tr').forEach(function(tr) {
+        if (!tr.hasAttribute('data-url')) return; // skip detail (resp-N) rows
+        total++;
+        var hay = ((tr.getAttribute('data-url') || '') + ' ' + (tr.getAttribute('data-title') || '') + ' ' + (tr.getAttribute('data-server') || '')).toLowerCase();
+        var port = tr.getAttribute('data-port') || '';
+        var ok = (!q || hay.indexOf(q) !== -1) && (!p || port.indexOf(p) === 0);
+        tr.style.display = ok ? '' : 'none';
+        var det = tr.nextElementSibling;
+        if (det && det.id && det.id.indexOf('resp-') === 0) det.style.display = ok ? '' : 'none';
+        if (ok) shown++;
+    });
+    var c = document.getElementById('httpxFilterCount');
+    if (c) c.textContent = (q || p) ? (shown + ' / ' + total) : '';
+}
+applyHttpxFilter();
 </script>
 {{else}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">

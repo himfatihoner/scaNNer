@@ -22,12 +22,17 @@
 {{define "wafdetect_results_inner"}}
 <p class="text-sm text-dark-400 mb-4">{{T "%d WAF(s) detected across %d target(s)" .WAFCount (len .Results)}}</p>
 {{if .Results}}
+<div class="flex items-center gap-2 mb-3 flex-wrap">
+    <input id="waf-search" type="search" data-filter-items=".waf-item[data-empty='false']" data-filter-count="#waf-count" placeholder="{{T `Search…`}}"
+           class="flex-1 min-w-[180px] px-3 py-1.5 text-xs bg-dark-850 border border-dark-700 rounded-lg text-dark-200 placeholder-dark-600 focus:border-accent-500/50 focus:outline-none">
+    <span id="waf-count" class="text-[10px] text-dark-500 mono"></span>
+</div>
 <div class="bg-dark-900 border border-dark-800 rounded-xl mb-4 overflow-hidden">
     {{template "empty_toggle" (dict "Scope" "wafdetect-targets" "ContainerSel" "#wafDetectGroups" "Group" "aw-suite" "Label" (T `Hide URLs with no WAF detected`))}}
     <div id="wafDetectGroups" class="max-h-[600px] overflow-y-auto p-3 space-y-3">
 {{end}}
 {{range $i, $tr := .Results}}
-<div class="bg-dark-900 border {{if .WAFDetected}}border-warning/30{{else}}border-dark-800{{end}} rounded-xl overflow-hidden" data-empty="{{if and .Reachable (not .WAFDetected)}}true{{else}}false{{end}}">
+<div class="waf-item bg-dark-900 border {{if .WAFDetected}}border-warning/30{{else}}border-dark-800{{end}} rounded-xl overflow-hidden" data-empty="{{if and .Reachable (not .WAFDetected)}}true{{else}}false{{end}}">
     <!-- Target header -->
     <div class="flex items-center justify-between px-5 py-4 border-b border-dark-800">
         <div class="flex items-center gap-3">

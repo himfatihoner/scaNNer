@@ -391,4 +391,55 @@ html.light .copyval-float:hover { background:#f1f5f9; color:#0f172a; }
   }, 1000);
 })();
 </script>
+
+<script>
+// ===== Generic result-table filter =====
+// Any <input data-filter-table="#tableId"> live-filters that table's tbody rows:
+// a row stays if its text contains every whitespace-separated term (case-
+// insensitive). Rows marked data-filter-skip="1" (expander/detail rows) are left
+// alone. Optional data-filter-count="#id" shows "shown / total". Give the input
+// an id so scan_progress.html's captureSearchState preserves the operator's
+// query across the 2s live-poll swaps with zero per-template wiring.
+// Two modes, pick whichever fits a module's layout:
+//   data-filter-table="#tableId"  → hides non-matching <tbody> rows
+//   data-filter-items="#list .card" → hides non-matching elements (card layouts)
+// A match = the element's text contains EVERY whitespace term (case-insensitive).
+// Rows/items marked data-filter-skip="1" are never hidden.
+function awFilterTable(input){
+  if(!input || !input.getAttribute) return;
+  var terms = (input.value||'').toLowerCase().split(/\s+/).filter(Boolean);
+  var shown=0, total=0;
+  function test(el){ var hay=(el.textContent||'').toLowerCase(); return terms.every(function(t){ return hay.indexOf(t)!==-1; }); }
+  var tsel = input.getAttribute('data-filter-table');
+  var isel = input.getAttribute('data-filter-items');
+  if(tsel){
+    var table = document.querySelector(tsel); if(!table) return;
+    Array.prototype.forEach.call(table.tBodies, function(tb){
+      Array.prototype.forEach.call(tb.rows, function(tr){
+        if(tr.dataset && tr.dataset.filterSkip === '1') return;
+        total++; var ok=test(tr); tr.style.display = ok ? '' : 'none'; if(ok) shown++;
+      });
+    });
+  } else if(isel){
+    document.querySelectorAll(isel).forEach(function(el){
+      if(el.dataset && el.dataset.filterSkip === '1') return;
+      total++; var ok=test(el); el.style.display = ok ? '' : 'none'; if(ok) shown++;
+    });
+  } else { return; }
+  var cs = input.getAttribute('data-filter-count');
+  if(cs){ var c=document.querySelector(cs); if(c) c.textContent = terms.length ? (shown+' / '+total) : ''; }
+}
+(function(){
+  function applyAll(root){ (root||document).querySelectorAll('input[data-filter-table],input[data-filter-items]').forEach(function(i){ awFilterTable(i); }); }
+  document.addEventListener('input', function(e){
+    if(e.target && e.target.getAttribute && (e.target.getAttribute('data-filter-table') || e.target.getAttribute('data-filter-items'))) awFilterTable(e.target);
+  });
+  function init(){ applyAll(document); }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
+  if(typeof MutationObserver!=='undefined'){
+    var obs=new MutationObserver(function(muts){ for(var i=0;i<muts.length;i++){ for(var j=0;j<muts[i].addedNodes.length;j++){ var n=muts[i].addedNodes[j]; if(n.nodeType===1 && n.querySelectorAll) applyAll(n); } } });
+    var sc=document.getElementById('scanContent'); if(sc) obs.observe(sc, { childList:true, subtree:true });
+  }
+})();
+</script>
 {{end}}

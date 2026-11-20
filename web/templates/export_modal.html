@@ -94,6 +94,7 @@
 
 <script>
 var _exportScanID = '';
+var _exportStage = ''; // advancedweb per-module sub-export: exports just this stage
 
 function _esc(s) { return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 
@@ -120,10 +121,12 @@ function _exportSyncSectionFromColumns(sectionID) {
     sec.checked = !!any;
 }
 
-function openExportModal(scanID) {
+function openExportModal(scanID, stage) {
     _exportScanID = scanID;
+    _exportStage = stage || '';
     document.getElementById('exportModal').classList.remove('hidden');
-    fetch('/export/sections/' + scanID).then(function(r){return r.json()}).then(function(sections) {
+    var secURL = '/export/sections/' + scanID + (_exportStage ? ('?stage=' + encodeURIComponent(_exportStage)) : '');
+    fetch(secURL).then(function(r){return r.json()}).then(function(sections) {
         if (!sections || !sections.length) {
             document.getElementById('exportSections').innerHTML =
                 '<p class="text-xs text-dark-500">No exportable sections for this module.</p>';
@@ -181,6 +184,7 @@ function doExport() {
         return;
     }
     var url = '/export/' + _exportScanID + '?format=' + format + '&sections=' + sections.join(',') + '&columns=' + columns.join(',');
+    if (_exportStage) url += '&stage=' + encodeURIComponent(_exportStage);
     // Severity filter — only sent when the group is visible (i.e. the
     // module has any HasSeverity section).
     var sevGroup = document.getElementById('exportSeverityGroup');

@@ -20,6 +20,11 @@
 
 {{define "secheaders_results_inner"}}
 {{if .Results}}
+<div class="flex items-center gap-2 mb-3 flex-wrap">
+    <input id="sh-search" type="search" data-filter-items=".sh-item[data-empty='false']" data-filter-count="#sh-count" placeholder="{{T `Search…`}}"
+           class="flex-1 min-w-[180px] px-3 py-1.5 text-xs bg-dark-850 border border-dark-700 rounded-lg text-dark-200 placeholder-dark-600 focus:border-accent-500/50 focus:outline-none">
+    <span id="sh-count" class="text-[10px] text-dark-500 mono"></span>
+</div>
 <div class="bg-dark-900 border border-dark-800 rounded-xl mb-4 overflow-hidden">
     {{template "empty_toggle" (dict "Scope" "secheaders-targets" "ContainerSel" "#secHeadersGroups" "Group" "aw-suite" "Label" (T `Hide URLs with A/A+ grades (no issues)`))}}
     <div id="secHeadersGroups" class="max-h-[600px] overflow-y-auto p-3 space-y-3">
@@ -27,7 +32,7 @@
 {{range .Results}}
 {{$urlRes := .}}
 {{$noIssues := or (eq .Grade "A+") (eq .Grade "A")}}
-<div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden" data-empty="{{if $noIssues}}true{{else}}false{{end}}">
+<div class="sh-item bg-dark-900 border border-dark-800 rounded-xl overflow-hidden" data-empty="{{if $noIssues}}true{{else}}false{{end}}">
     <!-- Header with grade -->
     <div class="px-5 py-4 border-b border-dark-800 flex items-center justify-between">
         <div class="flex items-center gap-4">

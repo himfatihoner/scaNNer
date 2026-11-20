@@ -180,33 +180,33 @@ func (h *Handler) AdvancedWebRun(w http.ResponseWriter, r *http.Request) {
 	// re-enabled by a forged POST (defense-in-depth beyond the hidden UI).
 	stageOK := h.advWebAllowedStages(r, ws.ID)
 	cfg := advancedweb.Config{
-		EnableWhois:       r.FormValue("enable_whois") == "on" && stageOK["whois"],
-		EnableDNSEnum:     r.FormValue("enable_dnsenum") == "on" && stageOK["dnsenum"],
-		EnableHTTPXFind:   r.FormValue("enable_httpxfind") == "on" && stageOK["httpxfind"],
-		EnableSSLScan:     r.FormValue("enable_sslscan") == "on" && stageOK["sslscan"],
-		EnableWAFDetect:   r.FormValue("enable_wafdetect") == "on" && stageOK["wafdetect"],
-		EnableTechDetect:  r.FormValue("enable_techdetect") == "on" && stageOK["techdetect"],
-		EnableCVEMatch:    r.FormValue("enable_cvematch") == "on" && stageOK["cvematch"],
-		EnableWPScan:      r.FormValue("enable_wpscan") == "on" && stageOK["wpscan"],
-		EnableNuclei:      r.FormValue("enable_nuclei") == "on" && stageOK["nuclei"],
-		EnableDirSpider:   r.FormValue("enable_dirspider") == "on" && stageOK["dirspider"],
-		EnableHTTPMethods: r.FormValue("enable_httpmethods") == "on" && stageOK["httpmethods"],
-		EnableSecHeaders:  r.FormValue("enable_secheaders") == "on" && stageOK["secheaders"],
-		DNSEnumSpeed:       r.FormValue("dnsenum_speed"),
-		HTTPXMode:          r.FormValue("httpx_mode"),
-		HTTPXCustomPorts:   strings.TrimSpace(r.FormValue("httpx_custom_ports")),
-		HTTPXDirectHTTP:    r.FormValue("httpx_direct_http") == "on",
-		SSLScanPorts:       strings.TrimSpace(r.FormValue("sslscan_ports")),
-		DirEnumLevel:       r.FormValue("direnum_level"),
-		DirEnumSmartScan:   r.FormValue("direnum_smart_scan") == "on",
-		DirEnumRecursive:   r.FormValue("direnum_recursive") == "on",
-		NucleiSeverities:   r.Form["nuclei_severities"],
-		NucleiLevel:        r.FormValue("nuclei_level"),
-		NucleiTechTargeted: r.FormValue("nuclei_tech_targeted") == "on",
+		EnableWhois:          r.FormValue("enable_whois") == "on" && stageOK["whois"],
+		EnableDNSEnum:        r.FormValue("enable_dnsenum") == "on" && stageOK["dnsenum"],
+		EnableHTTPXFind:      r.FormValue("enable_httpxfind") == "on" && stageOK["httpxfind"],
+		EnableSSLScan:        r.FormValue("enable_sslscan") == "on" && stageOK["sslscan"],
+		EnableWAFDetect:      r.FormValue("enable_wafdetect") == "on" && stageOK["wafdetect"],
+		EnableTechDetect:     r.FormValue("enable_techdetect") == "on" && stageOK["techdetect"],
+		EnableCVEMatch:       r.FormValue("enable_cvematch") == "on" && stageOK["cvematch"],
+		EnableWPScan:         r.FormValue("enable_wpscan") == "on" && stageOK["wpscan"],
+		EnableNuclei:         r.FormValue("enable_nuclei") == "on" && stageOK["nuclei"],
+		EnableDirSpider:      r.FormValue("enable_dirspider") == "on" && stageOK["dirspider"],
+		EnableHTTPMethods:    r.FormValue("enable_httpmethods") == "on" && stageOK["httpmethods"],
+		EnableSecHeaders:     r.FormValue("enable_secheaders") == "on" && stageOK["secheaders"],
+		DNSEnumSpeed:         r.FormValue("dnsenum_speed"),
+		HTTPXMode:            r.FormValue("httpx_mode"),
+		HTTPXCustomPorts:     strings.TrimSpace(r.FormValue("httpx_custom_ports")),
+		HTTPXDirectHTTP:      r.FormValue("httpx_direct_http") == "on",
+		SSLScanPorts:         strings.TrimSpace(r.FormValue("sslscan_ports")),
+		DirEnumLevel:         r.FormValue("direnum_level"),
+		DirEnumSmartScan:     r.FormValue("direnum_smart_scan") == "on",
+		DirEnumRecursive:     r.FormValue("direnum_recursive") == "on",
+		NucleiSeverities:     r.Form["nuclei_severities"],
+		NucleiLevel:          r.FormValue("nuclei_level"),
+		NucleiTechTargeted:   r.FormValue("nuclei_tech_targeted") == "on",
 		TechDetectAggressive: r.FormValue("techdetect_aggressive") == "on",
-		WPScanSpeed:        r.FormValue("wpscan_speed"),
-		SecHeadersMethods:  r.Form["secheaders_methods"],
-		SecHeadersOverride: r.FormValue("secheaders_override") == "on",
+		WPScanSpeed:          r.FormValue("wpscan_speed"),
+		SecHeadersMethods:    r.Form["secheaders_methods"],
+		SecHeadersOverride:   r.FormValue("secheaders_override") == "on",
 	}
 	if v, err := strconv.Atoi(r.FormValue("dnsenum_max_depth")); err == nil && v >= 1 && v <= 3 {
 		cfg.DNSEnumMaxDepth = v
@@ -1037,6 +1037,36 @@ func (h *Handler) AdvancedWebResults(w http.ResponseWriter, r *http.Request) {
 	data["CVESeverityCounts"] = cveSeverityCounts
 	data["StageOrder"] = advancedweb.StageOrder
 	data["StageDisplayNames"] = advancedweb.StageDisplayNames
+
+	// Per-module sub-page: `?stage=<id>` renders ONE stage on its own full page
+	// using the standalone module's *_results_inner template (so it gets that
+	// module's full export / copy / search affordances), instead of cramming all
+	// 12 stages onto the suite overview. The stageData/stageMeta dicts built above
+	// already carry exactly what each inner template expects; the sub-page just
+	// selects one. Any known stage is allowed (the inner shows an empty/disabled
+	// state when that stage didn't run). The suite's own scan-level actions stay
+	// on the overview; the sub-page header (scan_actions with StageView) omits
+	// them so an operator can't restart/delete the parent suite scan from here.
+	if stage := r.URL.Query().Get("stage"); stage != "" {
+		if name, known := advancedweb.StageDisplayNames[advancedweb.Stage(stage)]; known {
+			data["Page"] = "advancedweb_stage"
+			data["Title"] = name + " — Advanced Web - scaNNer"
+			data["StageView"] = true
+			data["StageID"] = stage
+			data["StageDisplayName"] = name
+			data["BackURL"] = "/modules/advancedweb/results/" + scan.ID
+			// result.Stages is keyed by the typed advancedweb.Stage; pass the
+			// resolved *StageResult so the template needn't `index` a typed map
+			// with a plain string (which wouldn't match).
+			data["StageSR"] = result.Stages[advancedweb.Stage(stage)]
+			h.renderResults(w, r, "advancedweb_stage_inner", data)
+			return
+		}
+	}
+	// Suite overview: Export + table-copy move to the per-module sub-pages, so
+	// suppress the generic Export button here (the scan's Restart/Archive/Delete
+	// stay — they act on the whole suite scan).
+	data["HideExport"] = true
 
 	// Heavy-result memory mitigation: a 200+ MB Result blob leaves
 	// hundreds of MB of arena-allocated byte slices and the unmarshalled

@@ -1,16 +1,4 @@
 {{define "page_advancedweb_results"}}
-{{/* Suite stage embeds each include their module's standalone summary
-     line (`<p class="text-sm text-dark-400 mb-4">N subdomains discovered</p>`
-     etc.). That info is already in the stage card header as a count
-     badge, so the inline paragraph is duplicate noise inside the suite
-     view. CSS suppresses just those paragraphs without touching the
-     standalone module result pages. */}}
-<style>
-    .aw-stage-scroll > p.text-sm.text-dark-400.mb-4,
-    .aw-stage-scroll p.text-sm.text-dark-400.mb-4:first-child {
-        display: none;
-    }
-</style>
 <div class="flex items-center gap-2 text-sm text-dark-500 mb-5">
     <a href="/modules" class="hover:text-accent-400 transition-colors">{{T "Modules"}}</a>
     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
@@ -29,17 +17,31 @@
 </div>
 {{end}}
 
+{{/* ===================================================================
+     SUITE OVERVIEW — a light, scannable summary: the suite hero, the
+     headline quick-stats, and one CLICKABLE CARD per module. Each card
+     opens that module's own full results page (page_advancedweb_stage,
+     via ?stage=<id>) where the standalone module layout gives export,
+     copy and search. The old inline per-stage result tables (and their
+     copy/export affordances) were removed from here on purpose: with
+     hundreds of targets they crammed every module into a sliver. The
+     SUITE scan's own actions (Restart / Archive / Delete) stay in the
+     header above (scan_actions) — only Export + table-copy moved out.
+     =================================================================== */}}
 {{define "advancedweb_results_inner"}}
 {{$result := .SuiteResult}}
 {{$stageData := .StageData}}
 {{$stageMeta := .StageMeta}}
 {{$scanID := .Scan.ID}}
 {{$stageNames := .StageDisplayNames}}
+{{$stageIcons := dict
+    "whoisinfo" "🔍" "dnsenum" "🌐" "httpxfind" "📡" "sslscan" "🔒"
+    "wafdetect" "🛡" "techdetect" "🔬" "cvematch" "🩻" "wpscan" "🔵"
+    "nuclei" "💥" "dirspider" "📂" "httpmethods" "🔄" "secheaders" "🔐"}}
 
 {{if $result}}
-{{/* Stage status accumulators — Go template scope rules make these
-     visible only inside the {{if $result}} block, but they're referenced
-     by the hero header, timeline, and stage list below. */}}
+{{/* Stage status accumulators (Go template scope: visible only inside this
+     {{if $result}} block) — drive the hero rollup. */}}
 {{$d := 0}}{{$sk := 0}}{{$di := 0}}{{$er := 0}}{{$rn := 0}}{{$pe := 0}}
 {{range $sr := $result.Stages}}
     {{if eq (print $sr.Status) "done"}}{{$d = (add $d 1)}}{{end}}
@@ -62,7 +64,7 @@
             {{if $result.Error}}<p class="text-xs text-dark-200 mono break-all">{{$result.Error}}</p>
             {{else if $result.Incomplete}}<p class="text-xs text-dark-200 break-words">{{$result.IncompleteReason}}</p>
             {{else if .Scan.ProgressMsg}}<p class="text-xs text-dark-200 mono break-all">{{.Scan.ProgressMsg}}</p>{{end}}
-            <p class="text-[11px] text-dark-400 mt-2">{{T "Per-stage details below — completed stages still show their results."}}</p>
+            <p class="text-[11px] text-dark-400 mt-2">{{T "Open any completed module below to see its full results."}}</p>
         </div>
     </div>
 </div>
@@ -107,12 +109,11 @@
 </div>
 
 <!-- Quick-stats strip: the headline numbers from each completed stage,
-     so the user can read the suite's verdict without expanding cards. -->
+     so the user can read the suite's verdict at a glance. -->
 <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 mb-5">
     {{$nc := index $stageMeta "nuclei_critical"}}
     {{$nh := index $stageMeta "nuclei_high"}}
     {{$nm := index $stageMeta "nuclei_medium"}}
-    {{$nl := index $stageMeta "nuclei_low"}}
     {{$wcount := index $stageMeta "wafdetect_count"}}
     {{$techCount := index $stageMeta "techdetect_count"}}
     {{$svcCount := index $stageMeta "httpxfind_count"}}
@@ -179,69 +180,6 @@
     {{end}}
 </div>
 
-<!-- Stage timeline — visual progress strip; each pill = one stage. -->
-{{$stageIcons := dict
-    "whoisinfo" "🔍"
-    "dnsenum" "🌐"
-    "httpxfind" "📡"
-    "sslscan" "🔒"
-    "wafdetect" "🛡"
-    "techdetect" "🔬"
-    "cvematch" "🩻"
-    "wpscan" "🔵"
-    "nuclei" "💥"
-    "dirspider" "📂"
-    "httpmethods" "🔄"
-    "secheaders" "🔐"
-}}
-<div class="bg-dark-900 border border-dark-800 rounded-xl p-4 mb-5 overflow-x-auto">
-    <div class="flex items-stretch gap-1 min-w-max">
-        {{range $idx, $stage := .StageOrder}}
-        {{$sr := index $result.Stages $stage}}
-        {{if $sr}}
-        {{$status := print $sr.Status}}
-        {{/* Disabled stages aren't part of THIS scan run — hide them
-             from the progress strip so the user only sees what was
-             actually requested. */}}
-        {{if ne $status "disabled"}}
-        {{$name := index $stageNames $stage}}
-        {{$icon := index $stageIcons (print $stage)}}
-        {{/* Use a click handler for smooth-scroll + scroll-margin offset
-             so the heading lands cleanly below the top nav. */}}
-        <a href="#stage-{{print $stage}}" onclick="awScrollToStage(event, '{{print $stage}}')" class="cursor-pointer flex flex-col items-center min-w-[88px] px-2 py-1.5 rounded-lg border transition-all hover:scale-105
-            {{if eq $status "done"}}bg-success/10 border-success/30 text-success
-            {{else if eq $status "running"}}bg-accent-500/10 border-accent-500/40 text-accent-300 scan-pulse
-            {{else if eq $status "error"}}bg-danger/10 border-danger/30 text-danger
-            {{else if eq $status "skipped"}}bg-warning/5 border-warning/20 text-warning
-            {{else}}bg-dark-850 border-dark-700 text-dark-400{{end}}">
-            <span class="text-base">{{$icon}}</span>
-            <span class="text-[9px] mono text-dark-500">{{add $idx 1}}</span>
-            <span class="text-[10px] font-medium truncate max-w-[78px]" title="{{$name}}">{{$name}}</span>
-        </a>
-        {{end}}
-        {{end}}
-        {{end}}
-    </div>
-</div>
-<script>
-// Smooth-scroll handler used by the progress-strip chips. Target card
-// has scroll-mt-* utility set in the existing markup; we just need to
-// upgrade the default hash-link behaviour to smooth + focus.
-function awScrollToStage(ev, stageKey) {
-    ev.preventDefault();
-    var el = document.getElementById('stage-' + stageKey);
-    if (!el) return;
-    // Force-open the <details> so the card content is in flow when we
-    // scroll — otherwise the user lands on a collapsed header.
-    var d = el.querySelector('details');
-    if (d && !d.open) d.open = true;
-    el.scrollIntoView({behavior: 'smooth', block: 'start'});
-    // Highlight pulse so the user sees which card was targeted.
-    el.classList.add('ring-2','ring-accent-500/60');
-    setTimeout(function() { el.classList.remove('ring-2','ring-accent-500/60'); }, 1500);
-}
-</script>
-
 {{if $result.Notes}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl mb-5 p-4">
     <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-2">{{T "Suite Notes"}}</p>
@@ -253,283 +191,239 @@ function awScrollToStage(ev, stageKey) {
 </div>
 {{end}}
 
-{{/* Display-cap notice — large-target scans (e.g. 1818 subdomains) produced
-     44MB HTML pages and froze browsers. The handler now caps each stage's
-     visible rows at 200; full data is in the scan record + the Export
-     endpoint. Show this once at the top so users don't think rows were lost. */}}
-<div class="bg-warning/5 border border-warning/30 rounded-xl mb-5 px-4 py-2 text-[11px] text-warning leading-relaxed flex items-start gap-2">
-    <svg class="w-3.5 h-3.5 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-    <span>{{T "Each stage's table is capped at"}} <span class="mono">{{T "50 rows"}}</span> {{T "for browser performance. Stage badges show real counts. Use"}} <a href="/export/{{$.Scan.ID}}?format=json" class="text-accent-300 hover:text-accent-200 underline">{{T "Export"}}</a> {{T "for the full result set."}}</span>
-</div>
-
-{{/* Scan Config panel — closed by default so it doesn't crowd the
-     timeline, but the user can crack it open mid-scan to see WHY a
-     stage is behaving a certain way ("only 200 subdomains?" → check
-     DNSEnumSpeed=fast + MaxDepth=1, etc). Built from the original
-     scan.Config blob decoded handler-side. */}}
+{{/* Scan Config panel — the launch parameters, so a user arriving mid-scan can
+     see which stages/depths were chosen. Decoded handler-side from scan.Config. */}}
 {{template "advancedweb_config_panel" (dict "Config" .ScanConfig "Result" $result)}}
 
-{{/* Suite-level master "Hide empty rows" toggle. Broadcasts to every
-     per-module checkbox sharing the `aw-suite` group via the
-     aw-empty-broadcast custom event. Default checked so quiet modules
-     don't crowd findings — user can flip off to reveal "no vulns"
-     stamps on every target. */}}
-<div class="bg-dark-900 border border-dark-800 rounded-xl mb-5 px-4 py-2.5 flex items-center justify-between">
-    <div class="flex items-center gap-2">
-        <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
-        <span class="text-xs font-medium text-dark-200">{{T "Suite display options"}}</span>
-    </div>
-    <label class="inline-flex items-center gap-2 cursor-pointer select-none text-[11px] text-dark-300">
-        <input id="awMasterEmpty" type="checkbox" class="accent-accent-500 rounded border-dark-600 bg-dark-800" checked>
-        <span>{{T "Hide empty rows across all modules"}}</span>
-    </label>
-</div>
-<script>
-(function() {
-    var master = document.getElementById('awMasterEmpty');
-    if (!master || master.__wired) return; master.__wired = true;
-    // Default checked. On change, broadcast to every group="aw-suite"
-    // child so per-module checkboxes sync up.
-    master.addEventListener('change', function() {
-        document.dispatchEvent(new CustomEvent('aw-empty-broadcast', {
-            detail: { group: 'aw-suite', checked: master.checked }
-        }));
-    });
-})();
-</script>
+<!-- Module cards: one per enabled stage. Click a completed/running/failed card
+     to open that module's own full results page (export · copy · search). -->
+<p class="text-[11px] text-dark-500 mb-2 mt-5 flex items-center gap-1.5">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+    {{T "Click a module to open its full results — export, copy and search live on each module's own page."}}
+</p>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+    {{range $idx, $stage := .StageOrder}}
+    {{$sr := index $result.Stages $stage}}
+    {{if $sr}}
+    {{$status := print $sr.Status}}
+    {{/* Disabled stages weren't part of this run — hide them entirely. */}}
+    {{if ne $status "disabled"}}
+    {{$displayName := index $stageNames $stage}}
+    {{$icon := index $stageIcons (print $stage)}}
+    {{$key := print $stage}}
+    {{$clickable := or (eq $status "done") (eq $status "running") (eq $status "error")}}
+    {{$cardCls := "bg-dark-900 border rounded-xl p-4 transition-all block"}}
+    {{if $clickable}}{{$cardCls = printf "%s hover:border-accent-500/50 hover:bg-dark-850 cursor-pointer" $cardCls}}{{else}}{{$cardCls = printf "%s opacity-60 cursor-default" $cardCls}}{{end}}
+    {{if eq $status "error"}}{{$cardCls = printf "%s border-danger/40" $cardCls}}{{else if eq $status "running"}}{{$cardCls = printf "%s border-accent-500/40 scan-pulse" $cardCls}}{{else}}{{$cardCls = printf "%s border-dark-800" $cardCls}}{{end}}
 
-<!-- Per-stage cards. Stages the user disabled in the form are
-     skipped entirely — they'd just be visual noise without action. -->
-{{range $idx, $stage := .StageOrder}}
-{{$sr := index $result.Stages $stage}}
-{{if $sr}}
-{{$status := print $sr.Status}}
-{{if ne $status "disabled"}}
-{{$displayName := index $stageNames $stage}}
-{{$icon := index $stageIcons (print $stage)}}
-{{$data := index $stageData (print $stage)}}
-{{$key := print $stage}}
-
-<div id="stage-{{$key}}" class="bg-dark-900 border rounded-xl mb-4 overflow-hidden scroll-mt-20 transition-all duration-300
-    {{if eq $status "error"}}border-danger/40
-    {{else if eq $status "running"}}border-accent-500/40 scan-pulse
-    {{else if eq $status "done"}}border-dark-800
-    {{else}}border-dark-850{{end}}">
-
-    <details {{if or (eq $status "done") (eq $status "running") (eq $status "error")}}open{{end}}>
-        <summary class="cursor-pointer px-5 py-3 flex items-center justify-between hover:bg-dark-850/30 transition-colors gap-3 flex-wrap">
-            <div class="flex items-center gap-3 min-w-0 flex-1">
+    {{if $clickable}}<a href="/modules/advancedweb/results/{{$scanID}}?stage={{$key}}" class="{{$cardCls}}">{{else}}<div class="{{$cardCls}}">{{end}}
+        <div class="flex items-start justify-between gap-2">
+            <div class="flex items-center gap-2.5 min-w-0">
                 <div class="w-9 h-9 rounded-lg flex items-center justify-center text-lg shrink-0
-                    {{if eq $status "done"}}bg-success/10
-                    {{else if eq $status "running"}}bg-accent-500/15
-                    {{else if eq $status "error"}}bg-danger/10
-                    {{else if eq $status "skipped"}}bg-warning/10
-                    {{else}}bg-dark-850{{end}}">{{$icon}}</div>
+                    {{if eq $status "done"}}bg-success/10{{else if eq $status "running"}}bg-accent-500/15{{else if eq $status "error"}}bg-danger/10{{else if eq $status "skipped"}}bg-warning/10{{else}}bg-dark-850{{end}}">{{$icon}}</div>
                 <div class="min-w-0">
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <span class="text-[10px] uppercase tracking-wider text-dark-500 font-mono">Stage {{add $idx 1}}</span>
-                        <span class="text-sm font-semibold text-white">{{$displayName}}</span>
-                        {{if eq $status "done"}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-success/15 text-success">{{icon "check" "w-3.5 h-3.5 mr-1"}}{{T "done"}}</span>
-                        {{else if eq $status "running"}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-accent-500/15 text-accent-300">⟳ {{T "running"}}</span>
-                        {{else if eq $status "error"}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-danger/15 text-danger">{{icon "x" "w-3.5 h-3.5 mr-1"}}{{T "error"}}</span>
-                        {{else if eq $status "skipped"}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-warning/15 text-warning">⤼ {{T "skipped"}}</span>
-                        {{else if eq $status "disabled"}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-dark-800 text-dark-400">{{T "off"}}</span>
-                        {{else}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-dark-800 text-dark-400">{{$status}}</span>
-                        {{end}}
-                    </div>
-                    {{if $sr.Message}}<p class="text-[11px] text-dark-400 mt-0.5 truncate">{{$sr.Message}}</p>{{end}}
-                    {{/* Per-stage progress bar — visible only while the stage
-                         is actively running. ProgressDone/Total are written
-                         by the stage's progress callback; partial saves pick
-                         them up every ~2s. */}}
-                    {{if and (eq $status "running") (gt $sr.ProgressTotal 0)}}
-                    {{$pct := 0}}{{if gt $sr.ProgressTotal 0}}{{$pct = mulf 100.0 (divf (intf $sr.ProgressDone) (intf $sr.ProgressTotal))}}{{end}}
-                    <div class="mt-1.5 max-w-md">
-                        <div class="flex items-center justify-between text-[10px] text-dark-400 mono mb-0.5">
-                            <span>{{$sr.ProgressDone}} / {{$sr.ProgressTotal}}</span>
-                            <span class="text-accent-300">{{printf "%.0f" $pct}}%</span>
-                        </div>
-                        <div class="w-full h-1 bg-dark-800 rounded-full overflow-hidden">
-                            <div class="h-full bg-accent-500 transition-all duration-300" style="width:{{printf "%.0f" $pct}}%"></div>
-                        </div>
-                        {{if $sr.ProgressMsg}}<p class="text-[10px] text-dark-500 mt-0.5 truncate">{{$sr.ProgressMsg}}</p>{{end}}
-                    </div>
-                    {{end}}
-                    {{/* Per-stage timing: surfaces start/end timestamps + wall-clock
-                         duration so the user can see which stages dominate the run. */}}
-                    {{if not $sr.StartedAt.IsZero}}
-                    <p class="text-[10px] text-dark-500 mono mt-0.5">
-                        <span title="{{T `Stage started`}}">▶ {{$sr.StartedAt.Format "15:04:05"}}</span>
-                        {{if not $sr.FinishedAt.IsZero}}
-                        <span class="mx-1">·</span>
-                        <span title="{{T `Stage finished`}}">⏹ {{$sr.FinishedAt.Format "15:04:05"}}</span>
-                        <span class="mx-1">·</span>
-                        <span title="{{T `Wall-clock duration`}}" class="text-dark-300">{{formatDuration ($sr.FinishedAt.Sub $sr.StartedAt)}}</span>
-                        {{else if eq $status "running"}}
-                        <span class="mx-1">·</span>
-                        <span class="text-accent-300">{{T "running…"}}</span>
-                        {{end}}
-                    </p>
-                    {{end}}
+                    <p class="text-sm font-semibold text-white truncate">{{$displayName}}</p>
+                    <p class="text-[10px] uppercase tracking-wider font-mono text-dark-500">{{T "Stage"}} {{add $idx 1}}</p>
                 </div>
             </div>
-            <div class="flex items-center gap-2 text-[11px]">
-                {{/* Per-stage metric badges pulled from stageMeta. */}}
-                {{if eq $key "dnsenum"}}{{$v := index $stageMeta "dnsenum_count"}}{{if gt $v 0}}<span class="mono px-2 py-0.5 rounded bg-dark-850 text-dark-200 border border-dark-700">{{T "%d subdomains" $v}}</span>{{end}}{{end}}
-                {{if eq $key "httpxfind"}}{{$v := index $stageMeta "httpxfind_count"}}{{if gt $v 0}}<span class="mono px-2 py-0.5 rounded bg-dark-850 text-dark-200 border border-dark-700">{{T "%d services" $v}}</span>{{end}}{{end}}
-                {{if eq $key "sslscan"}}{{$v := index $stageMeta "sslscan_count"}}{{if gt $v 0}}<span class="mono px-2 py-0.5 rounded bg-warning/10 text-warning border border-warning/30">{{T "%d findings" $v}}</span>{{end}}{{end}}
-                {{if eq $key "wafdetect"}}{{$v := index $stageMeta "wafdetect_count"}}{{if gt $v 0}}<span class="mono px-2 py-0.5 rounded bg-orange-500/10 text-orange-300 border border-orange-500/30">{{T "%d WAF" $v}}</span>{{end}}{{end}}
-                {{if eq $key "techdetect"}}{{$v := index $stageMeta "techdetect_count"}}{{if gt $v 0}}<span class="mono px-2 py-0.5 rounded bg-dark-850 text-dark-200 border border-dark-700">{{T "%d techs" $v}}</span>{{end}}{{end}}
-                {{if eq $key "wpscan"}}{{$v := index $stageMeta "wpscan_count"}}{{if gt $v 0}}<span class="mono px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/30">{{T "%d findings" $v}}</span>{{end}}{{end}}
-                {{if eq $key "nuclei"}}{{$c := index $stageMeta "nuclei_critical"}}{{$h := index $stageMeta "nuclei_high"}}{{$m := index $stageMeta "nuclei_medium"}}{{if gt $c 0}}<span class="mono px-2 py-0.5 rounded bg-danger/15 text-danger border border-danger/30">{{T "%d crit" $c}}</span>{{end}}{{if gt $h 0}}<span class="mono px-2 py-0.5 rounded bg-warning/15 text-warning border border-warning/30">{{T "%d high" $h}}</span>{{end}}{{if gt $m 0}}<span class="mono px-2 py-0.5 rounded bg-accent-500/15 text-accent-300 border border-accent-500/30">{{T "%d med" $m}}</span>{{end}}{{end}}
-                {{if eq $key "dirspider"}}{{$de := index $stageMeta "direnum_count"}}{{$sp := index $stageMeta "spider_count"}}{{if gt $de 0}}<span class="mono px-2 py-0.5 rounded bg-dark-850 text-dark-200 border border-dark-700">{{T "%d entries" $de}}</span>{{end}}{{if gt $sp 0}}<span class="mono px-2 py-0.5 rounded bg-dark-850 text-dark-200 border border-dark-700">{{T "%d crawled" $sp}}</span>{{end}}{{end}}
-                {{if eq $key "httpmethods"}}{{$v := index $stageMeta "httpmethods_dangerous"}}{{if gt $v 0}}<span class="mono px-2 py-0.5 rounded bg-warning/10 text-warning border border-warning/30">{{T "%d dangerous" $v}}</span>{{end}}{{end}}
-                {{if eq $key "secheaders"}}{{$v := index $stageMeta "secheaders_missing"}}{{if gt $v 0}}<span class="mono px-2 py-0.5 rounded bg-warning/10 text-warning border border-warning/30">{{T "%d weak" $v}}</span>{{end}}{{end}}
-                <svg class="w-3.5 h-3.5 text-dark-500 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-            </div>
-        </summary>
-
-        <div class="border-t border-dark-800">
-            {{if $sr.Error}}
-            <div class="px-5 py-3 bg-danger/5">
-                <p class="text-xs text-danger">{{T "Error:"}} {{$sr.Error}}</p>
-            </div>
-            {{end}}
-
-            {{/* Render the embedded inner template whenever the stage
-                 has produced data — even mid-run for `running` and for
-                 `error` (partial results are still useful). The
-                 status-only placeholder shows when there is genuinely
-                 no data yet.
-
-                 Constrain the content to a scrollable window so a stage
-                 that found 1000 subdomains/URLs doesn't push every other
-                 card off the page. ~500px ≈ 10-20 rows with the dense
-                 row heights used in the inner templates. Copy-all
-                 buttons inside iterate the full backing data, NOT just
-                 visible DOM, so they still copy everything. */}}
-            {{$hasData := false}}{{if $data}}{{$hasData = true}}{{end}}
-            {{if and $hasData (or (eq $status "done") (eq $status "running") (eq $status "error"))}}
-            <div class="aw-stage-scroll max-h-[500px] overflow-y-auto">
-            {{if eq (print $stage) "whoisinfo"}}
-                {{if $data}}{{template "whoisinfo_results_inner" (dict "Results" $data.Results)}}{{end}}
-            {{else if eq (print $stage) "dnsenum"}}
-                {{/* Cap visible rows inside the suite — large subdomain lists
-                     blow up the DOM and trigger the Firefox slow-page warning.
-                     BulkText carries every discovered subdomain (built handler-
-                     side before truncation) so Copy-all dumps the full list,
-                     not just the 50 rendered rows. */}}
-                {{if $data}}{{template "dnsenum_results_inner" (dict "Results" $data.Results "DisplayLimit" 50 "TotalSubs" (index $stageMeta "dnsenum_count") "BulkText" (index $stageData "dnsenum_bulk"))}}{{end}}
-            {{else if eq (print $stage) "httpxfind"}}
-                {{if $data}}{{template "httpxfind_results_inner" (dict "Services" $data.Services "Scan" $.Scan "DisplayLimit" 50 "ServiceCount" (index $stageMeta "httpxfind_count") "TotalCount" (index $stageMeta "httpxfind_count") "MoreBase" (printf "/modules/advancedweb/results/%s" $.Scan.ID) "BulkText" (index $stageData "httpxfind_bulk"))}}{{end}}
-            {{else if eq (print $stage) "sslscan"}}
-                {{if $data}}{{template "sslscan_results_inner" (dict
-                    "Results" $data
-                    "Scan" $.Scan
-                    "TotalFindings" (index $stageMeta "sslscan_count")
-                    "CriticalCount" (index $stageMeta "sslscan_critical")
-                    "HighCount" (index $stageMeta "sslscan_high")
-                    "MediumCount" (index $stageMeta "sslscan_medium")
-                    "LowCount" (index $stageMeta "sslscan_low")
-                    "InfoCount" (index $stageMeta "sslscan_info"))}}{{end}}
-            {{else if eq (print $stage) "wafdetect"}}
-                {{if $data}}{{template "wafdetect_results_inner" (dict "Results" $data.Results "WAFCount" (index $stageMeta "wafdetect_count"))}}{{end}}
-            {{else if eq (print $stage) "techdetect"}}
-                {{if $data}}{{template "techdetect_results_inner" (dict "Results" $data.Results "TotalTech" (index $stageMeta "techdetect_count") "TotalRows" (index $stageMeta "techdetect_total_rows") "ShownRows" (index $stageMeta "techdetect_shown_rows") "ScanID" $scanID)}}{{end}}
-            {{else if eq (print $stage) "cvematch"}}
-                {{if $data}}
-                <div class="px-5 py-2 border-b border-dark-800 bg-dark-850/40 flex items-center justify-between flex-wrap gap-2">
-                    <span class="text-[10px] text-dark-500 uppercase tracking-wider">{{T "%d CVE matches" (len $data.Matches)}}</span>
-                    <div class="inline-flex items-center gap-1">
-                        <span class="text-[10px] text-dark-500 mr-1">{{T "Export CVE matches:"}}</span>
-                        <a href="/export/{{$.Scan.ID}}?format=csv&sections=cvematch"
-                           class="text-[10px] px-2 py-1 rounded bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700 inline-flex items-center gap-1"
-                           title="{{T `Download CVE matches as CSV`}}">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                            CSV
-                        </a>
-                        <a href="/export/{{$.Scan.ID}}?format=json&sections=cvematch"
-                           class="text-[10px] px-2 py-1 rounded bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700 inline-flex items-center gap-1"
-                           title="{{T `Download CVE matches as JSON`}}">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                            JSON
-                        </a>
-                        <a href="/export/{{$.Scan.ID}}?format=pdf&sections=cvematch"
-                           class="text-[10px] px-2 py-1 rounded bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700 inline-flex items-center gap-1"
-                           title="{{T `Download CVE matches as PDF`}}">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                            PDF
-                        </a>
-                    </div>
-                </div>
-                {{template "cvematch_results_inner" (dict
-                    "Inputs" $data.Inputs
-                    "Matches" $data.Matches
-                    "SeverityCounts" $.CVESeverityCounts)}}
-                {{end}}
-            {{else if eq (print $stage) "wpscan"}}
-                {{if $data}}{{template "wpscan_results_inner" (dict "Results" $data.Results)}}{{end}}
-            {{else if eq (print $stage) "nuclei"}}
-                {{if $data}}{{template "nuclei_results_inner" (dict
-                    "Results" $data.Results
-                    "Scan" $.Scan
-                    "Truncated" $data.Truncated
-                    "TruncateReason" $data.TruncateReason
-                    "TotalFindings" (index $stageMeta "nuclei_count")
-                    "CriticalCount" (index $stageMeta "nuclei_critical")
-                    "HighCount" (index $stageMeta "nuclei_high")
-                    "MediumCount" (index $stageMeta "nuclei_medium")
-                    "LowCount" (index $stageMeta "nuclei_low")
-                    "InfoCount" (index $stageMeta "nuclei_info"))}}{{end}}
-            {{else if eq (print $stage) "dirspider"}}
-                {{if $data}}
-                {{if $data.IterationLog}}
-                <div class="px-5 py-3 bg-dark-950 border-b border-dark-800">
-                    <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-1.5">{{T "Cross-feed iterations"}}</p>
-                    <ul class="space-y-0.5">
-                        {{range $data.IterationLog}}
-                        <li class="text-[11px] text-dark-300 mono">› {{.}}</li>
-                        {{end}}
-                    </ul>
-                </div>
-                {{end}}
-                {{if $data.DirEnum}}
-                <div class="px-5 py-3 border-b border-dark-800">
-                    <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-2">{{T "DirEnum"}}</p>
-                    {{template "direnum_results_inner" (dict "Results" $data.DirEnum.Results "TotalFound" (index $stageMeta "direnum_count") "Scan" $.Scan)}}
-                </div>
-                {{end}}
-                {{if $data.Spider}}
-                <div class="px-5 py-3">
-                    <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-2">{{T "Spider"}}</p>
-                    {{template "spider_results_inner" (dict "Results" $data.Spider.Results)}}
-                </div>
-                {{end}}
-                {{end}}
-            {{else if eq (print $stage) "httpmethods"}}
-                {{if $data}}{{template "httpmethods_results_inner" (dict "Results" $data.Results "DangerousCount" (index $stageMeta "httpmethods_dangerous"))}}{{end}}
-            {{else if eq (print $stage) "secheaders"}}
-                {{if $data}}{{template "secheaders_results_inner" (dict "Results" $data.Results "Scan" $.Scan)}}{{end}}
-            {{end}}
-            </div>{{/* /.aw-stage-scroll */}}
-            {{else}}
-            <div class="px-5 py-4 text-[11px] text-dark-500">
-                {{if eq $status "skipped"}}{{T "Stage skipped:"}} {{$sr.Message}}
-                {{else if eq $status "disabled"}}{{T "Stage disabled by user."}}
-                {{else if eq $status "running"}}{{T "Stage in progress…"}}
-                {{else}}{{$sr.Message}}{{end}}
-            </div>
-            {{end}}
+            {{if eq $status "done"}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-success/15 text-success shrink-0">{{T "done"}}</span>
+            {{else if eq $status "running"}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-accent-500/15 text-accent-300 shrink-0 scan-pulse">⟳ {{T "running"}}</span>
+            {{else if eq $status "error"}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-danger/15 text-danger shrink-0">{{T "error"}}</span>
+            {{else if eq $status "skipped"}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-warning/15 text-warning shrink-0">⤼ {{T "skipped"}}</span>
+            {{else}}<span class="text-[10px] px-1.5 py-0.5 rounded bg-dark-800 text-dark-400 shrink-0">{{$status}}</span>{{end}}
         </div>
-    </details>
+
+        {{/* Running progress bar. */}}
+        {{if and (eq $status "running") (gt $sr.ProgressTotal 0)}}
+        {{$pct := mulf 100.0 (divf (intf $sr.ProgressDone) (intf $sr.ProgressTotal))}}
+        <div class="mt-3">
+            <div class="flex items-center justify-between text-[10px] text-dark-400 mono mb-0.5">
+                <span>{{$sr.ProgressDone}} / {{$sr.ProgressTotal}}</span>
+                <span class="text-accent-300">{{printf "%.0f" $pct}}%</span>
+            </div>
+            <div class="w-full h-1 bg-dark-800 rounded-full overflow-hidden"><div class="h-full bg-accent-500 transition-all duration-300" style="width:{{printf "%.0f" $pct}}%"></div></div>
+        </div>
+        {{end}}
+
+        {{/* Headline counts per module (surface info). */}}
+        <div class="flex items-center gap-1.5 flex-wrap mt-3 min-h-[20px]">
+            {{if eq $key "dnsenum"}}{{$v := index $stageMeta "dnsenum_count"}}{{if gt $v 0}}<span class="mono text-[11px] px-2 py-0.5 rounded bg-dark-850 text-dark-200 border border-dark-700">{{T "%d subdomains" $v}}</span>{{end}}{{end}}
+            {{if eq $key "httpxfind"}}{{$v := index $stageMeta "httpxfind_count"}}{{if gt $v 0}}<span class="mono text-[11px] px-2 py-0.5 rounded bg-dark-850 text-dark-200 border border-dark-700">{{T "%d services" $v}}</span>{{end}}{{end}}
+            {{if eq $key "sslscan"}}{{$v := index $stageMeta "sslscan_count"}}{{if gt $v 0}}<span class="mono text-[11px] px-2 py-0.5 rounded bg-warning/10 text-warning border border-warning/30">{{T "%d findings" $v}}</span>{{end}}{{end}}
+            {{if eq $key "wafdetect"}}{{$v := index $stageMeta "wafdetect_count"}}{{if gt $v 0}}<span class="mono text-[11px] px-2 py-0.5 rounded bg-orange-500/10 text-orange-300 border border-orange-500/30">{{T "%d WAF" $v}}</span>{{end}}{{end}}
+            {{if eq $key "techdetect"}}{{$v := index $stageMeta "techdetect_count"}}{{if gt $v 0}}<span class="mono text-[11px] px-2 py-0.5 rounded bg-dark-850 text-dark-200 border border-dark-700">{{T "%d techs" $v}}</span>{{end}}{{end}}
+            {{if eq $key "cvematch"}}{{$v := index $stageMeta "cvematch_count"}}{{if gt $v 0}}<span class="mono text-[11px] px-2 py-0.5 rounded bg-danger/10 text-danger border border-danger/30">{{T "%d CVE" $v}}</span>{{end}}{{end}}
+            {{if eq $key "wpscan"}}{{$v := index $stageMeta "wpscan_count"}}{{if gt $v 0}}<span class="mono text-[11px] px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/30">{{T "%d findings" $v}}</span>{{end}}{{end}}
+            {{if eq $key "nuclei"}}{{$c := index $stageMeta "nuclei_critical"}}{{$h := index $stageMeta "nuclei_high"}}{{$m := index $stageMeta "nuclei_medium"}}{{if gt $c 0}}<span class="mono text-[11px] px-2 py-0.5 rounded bg-danger/15 text-danger border border-danger/30">{{T "%d crit" $c}}</span>{{end}}{{if gt $h 0}}<span class="mono text-[11px] px-2 py-0.5 rounded bg-warning/15 text-warning border border-warning/30">{{T "%d high" $h}}</span>{{end}}{{if gt $m 0}}<span class="mono text-[11px] px-2 py-0.5 rounded bg-accent-500/15 text-accent-300 border border-accent-500/30">{{T "%d med" $m}}</span>{{end}}{{end}}
+            {{if eq $key "dirspider"}}{{$de := index $stageMeta "direnum_count"}}{{$sp := index $stageMeta "spider_count"}}{{if gt $de 0}}<span class="mono text-[11px] px-2 py-0.5 rounded bg-dark-850 text-dark-200 border border-dark-700">{{T "%d entries" $de}}</span>{{end}}{{if gt $sp 0}}<span class="mono text-[11px] px-2 py-0.5 rounded bg-dark-850 text-dark-200 border border-dark-700">{{T "%d crawled" $sp}}</span>{{end}}{{end}}
+            {{if eq $key "httpmethods"}}{{$v := index $stageMeta "httpmethods_dangerous"}}{{if gt $v 0}}<span class="mono text-[11px] px-2 py-0.5 rounded bg-warning/10 text-warning border border-warning/30">{{T "%d dangerous" $v}}</span>{{end}}{{end}}
+            {{if eq $key "secheaders"}}{{$v := index $stageMeta "secheaders_missing"}}{{if gt $v 0}}<span class="mono text-[11px] px-2 py-0.5 rounded bg-warning/10 text-warning border border-warning/30">{{T "%d weak" $v}}</span>{{end}}{{end}}
+            {{if $sr.Message}}<span class="text-[11px] text-dark-500 truncate">{{$sr.Message}}</span>{{end}}
+        </div>
+
+        <div class="flex items-center justify-between mt-3 pt-3 border-t border-dark-800/60">
+            {{if not $sr.StartedAt.IsZero}}
+            <span class="text-[10px] text-dark-500 mono">{{$sr.StartedAt.Format "15:04:05"}}{{if not $sr.FinishedAt.IsZero}} · {{formatDuration ($sr.FinishedAt.Sub $sr.StartedAt)}}{{end}}</span>
+            {{else}}<span></span>{{end}}
+            {{if $clickable}}<span class="text-[11px] text-accent-400 font-medium inline-flex items-center gap-1">{{T "Inspect"}}<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></span>
+            {{else if eq $status "skipped"}}<span class="text-[10px] text-dark-600">{{T "skipped"}}</span>
+            {{else}}<span class="text-[10px] text-dark-600">{{T "pending"}}</span>{{end}}
+        </div>
+    {{if $clickable}}</a>{{else}}</div>{{end}}
+    {{end}}{{/* if ne disabled */}}
+    {{end}}{{/* if $sr */}}
+    {{end}}{{/* range StageOrder */}}
 </div>
-{{end}}{{/* if ne $status "disabled" */}}
-{{end}}{{/* if $sr */}}
-{{end}}
 
 {{else}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
     <p class="text-sm">{{if eq (print .Scan.Status) "running"}}{{T "Suite is starting up…"}}{{else}}{{T "No suite results yet"}}{{end}}</p>
+</div>
+{{end}}
+{{end}}
+
+
+{{/* ===================================================================
+     PER-MODULE SUB-PAGE — opened from a module card (?stage=<id>). It
+     renders that one stage with the STANDALONE module's *_results_inner
+     template, so it gets the module's full-width table, export, copy and
+     search, exactly like running the module on its own. The header
+     (scan_actions with StageView=true) drops the parent scan's
+     lifecycle buttons; Back returns to the suite overview.
+     =================================================================== */}}
+{{define "page_advancedweb_stage"}}
+<div class="flex items-center gap-2 text-sm text-dark-500 mb-5 flex-wrap">
+    <a href="/modules" class="hover:text-accent-400 transition-colors">{{T "Modules"}}</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="/modules/advanced-web" class="hover:text-accent-400 transition-colors">{{T "Advanced Web Application Scanner"}}</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <a href="{{.BackURL}}" class="hover:text-accent-400 transition-colors">{{T "Results"}}</a>
+    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    <span class="text-dark-200">{{.StageDisplayName}}</span>
+</div>
+{{template "scan_actions" .}}
+
+{{if or (eq (print .Scan.Status) "running") (eq (print .Scan.Status) "pending")}}
+{{template "scan_progress" .}}
+{{end}}
+
+<div id="scanContent">
+{{template "advancedweb_stage_inner" .}}
+</div>
+{{end}}
+
+{{define "advancedweb_stage_inner"}}
+{{$sr := .StageSR}}
+{{$stageData := .StageData}}
+{{$stageMeta := .StageMeta}}
+{{$scanID := .Scan.ID}}
+{{$stage := .StageID}}
+{{$data := index $stageData $stage}}
+{{$status := ""}}{{if $sr}}{{$status = print $sr.Status}}{{end}}
+
+<!-- Stage status strip: status pill + timing + message + running progress. -->
+<div class="bg-dark-900 border border-dark-800 rounded-xl mb-5 px-4 py-3">
+    <div class="flex items-center gap-3 flex-wrap">
+        {{if eq $status "done"}}<span class="text-[11px] px-2 py-0.5 rounded bg-success/15 text-success border border-success/30">{{icon "check" "w-3.5 h-3.5 mr-1"}}{{T "done"}}</span>
+        {{else if eq $status "running"}}<span class="text-[11px] px-2 py-0.5 rounded bg-accent-500/15 text-accent-300 border border-accent-500/30 scan-pulse">⟳ {{T "running"}}</span>
+        {{else if eq $status "error"}}<span class="text-[11px] px-2 py-0.5 rounded bg-danger/15 text-danger border border-danger/30">{{icon "x" "w-3.5 h-3.5 mr-1"}}{{T "error"}}</span>
+        {{else if eq $status "skipped"}}<span class="text-[11px] px-2 py-0.5 rounded bg-warning/15 text-warning border border-warning/30">⤼ {{T "skipped"}}</span>
+        {{else}}<span class="text-[11px] px-2 py-0.5 rounded bg-dark-800 text-dark-400 border border-dark-700">{{if $status}}{{$status}}{{else}}{{T "pending"}}{{end}}</span>{{end}}
+        {{if $sr}}{{if not $sr.StartedAt.IsZero}}
+        <span class="text-[11px] text-dark-500 mono">▶ {{$sr.StartedAt.Format "15:04:05"}}{{if not $sr.FinishedAt.IsZero}} · ⏹ {{$sr.FinishedAt.Format "15:04:05"}} · <span class="text-dark-300">{{formatDuration ($sr.FinishedAt.Sub $sr.StartedAt)}}</span>{{else if eq $status "running"}} · <span class="text-accent-300">{{T "running…"}}</span>{{end}}</span>
+        {{end}}{{end}}
+    </div>
+    {{if $sr}}{{if $sr.Message}}<p class="text-[11px] text-dark-400 mt-1.5">{{$sr.Message}}</p>{{end}}{{end}}
+    {{if and (eq $status "running") $sr (gt $sr.ProgressTotal 0)}}
+    {{$pct := mulf 100.0 (divf (intf $sr.ProgressDone) (intf $sr.ProgressTotal))}}
+    <div class="mt-2 max-w-md">
+        <div class="flex items-center justify-between text-[10px] text-dark-400 mono mb-0.5"><span>{{$sr.ProgressDone}} / {{$sr.ProgressTotal}}</span><span class="text-accent-300">{{printf "%.0f" $pct}}%</span></div>
+        <div class="w-full h-1 bg-dark-800 rounded-full overflow-hidden"><div class="h-full bg-accent-500 transition-all duration-300" style="width:{{printf "%.0f" $pct}}%"></div></div>
+    </div>
+    {{end}}
+</div>
+
+{{if $sr}}{{if $sr.Error}}
+<div class="bg-danger/5 border border-danger/30 rounded-xl mb-5 px-4 py-3">
+    <p class="text-xs text-danger">{{T "Error:"}} {{$sr.Error}}</p>
+</div>
+{{end}}{{end}}
+
+{{/* The one-stage dispatch. Reuses each standalone module's *_results_inner —
+     full height (no scroll clamp) and a generous display limit so the sub-page
+     behaves like running the module on its own. For httpx the show-more links
+     carry ?stage=httpxfind (MoreBase + MoreSep "&") so the window stays on this
+     page. dirspider renders both of its standalone inners. */}}
+{{$hasData := false}}{{if $data}}{{$hasData = true}}{{end}}
+{{if $hasData}}
+    {{if eq $stage "whoisinfo"}}
+        {{template "whoisinfo_results_inner" (dict "Results" $data.Results)}}
+    {{else if eq $stage "dnsenum"}}
+        {{template "dnsenum_results_inner" (dict "Results" $data.Results "DisplayLimit" 100000 "TotalSubs" (index $stageMeta "dnsenum_count") "BulkText" (index $stageData "dnsenum_bulk"))}}
+    {{else if eq $stage "httpxfind"}}
+        {{template "httpxfind_results_inner" (dict "Services" $data.Services "Scan" $.Scan "DisplayLimit" 100000 "ServiceCount" (index $stageMeta "httpxfind_count") "TotalCount" (index $stageMeta "httpxfind_count") "MoreBase" (printf "/modules/advancedweb/results/%s?stage=httpxfind" $scanID) "MoreSep" "&" "BulkText" (index $stageData "httpxfind_bulk"))}}
+    {{else if eq $stage "sslscan"}}
+        {{template "sslscan_results_inner" (dict
+            "Results" $data "Scan" $.Scan
+            "TotalFindings" (index $stageMeta "sslscan_count")
+            "CriticalCount" (index $stageMeta "sslscan_critical")
+            "HighCount" (index $stageMeta "sslscan_high")
+            "MediumCount" (index $stageMeta "sslscan_medium")
+            "LowCount" (index $stageMeta "sslscan_low")
+            "InfoCount" (index $stageMeta "sslscan_info"))}}
+    {{else if eq $stage "wafdetect"}}
+        {{template "wafdetect_results_inner" (dict "Results" $data.Results "WAFCount" (index $stageMeta "wafdetect_count"))}}
+    {{else if eq $stage "techdetect"}}
+        {{template "techdetect_results_inner" (dict "Results" $data.Results "TotalTech" (index $stageMeta "techdetect_count") "TotalRows" (index $stageMeta "techdetect_total_rows") "ShownRows" (index $stageMeta "techdetect_shown_rows"))}}
+    {{else if eq $stage "cvematch"}}
+        <div class="px-1 pb-2">
+            <span class="text-[10px] text-dark-500 uppercase tracking-wider">{{T "%d CVE matches" (len $data.Matches)}}</span>
+        </div>
+        {{template "cvematch_results_inner" (dict "Inputs" $data.Inputs "Matches" $data.Matches "SeverityCounts" $.CVESeverityCounts)}}
+    {{else if eq $stage "wpscan"}}
+        {{template "wpscan_results_inner" (dict "Results" $data.Results)}}
+    {{else if eq $stage "nuclei"}}
+        {{template "nuclei_results_inner" (dict
+            "Results" $data.Results "Scan" $.Scan
+            "Truncated" $data.Truncated "TruncateReason" $data.TruncateReason
+            "TotalFindings" (index $stageMeta "nuclei_count")
+            "CriticalCount" (index $stageMeta "nuclei_critical")
+            "HighCount" (index $stageMeta "nuclei_high")
+            "MediumCount" (index $stageMeta "nuclei_medium")
+            "LowCount" (index $stageMeta "nuclei_low")
+            "InfoCount" (index $stageMeta "nuclei_info"))}}
+    {{else if eq $stage "dirspider"}}
+        {{if $data.IterationLog}}
+        <div class="bg-dark-950 border border-dark-800 rounded-xl mb-4 px-4 py-3">
+            <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-1.5">{{T "Cross-feed iterations"}}</p>
+            <ul class="space-y-0.5">{{range $data.IterationLog}}<li class="text-[11px] text-dark-300 mono">› {{.}}</li>{{end}}</ul>
+        </div>
+        {{end}}
+        {{if $data.DirEnum}}
+        <div class="mb-5">
+            <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-2">{{T "DirEnum"}}</p>
+            {{template "direnum_results_inner" (dict "Results" $data.DirEnum.Results "TotalFound" (index $stageMeta "direnum_count") "Scan" $.Scan)}}
+        </div>
+        {{end}}
+        {{if $data.Spider}}
+        <div>
+            <p class="text-[10px] uppercase tracking-wider text-dark-500 mb-2">{{T "Spider"}}</p>
+            {{template "spider_results_inner" (dict "Results" $data.Spider.Results)}}
+        </div>
+        {{end}}
+    {{else if eq $stage "httpmethods"}}
+        {{template "httpmethods_results_inner" (dict "Results" $data.Results "DangerousCount" (index $stageMeta "httpmethods_dangerous"))}}
+    {{else if eq $stage "secheaders"}}
+        {{template "secheaders_results_inner" (dict "Results" $data.Results "Scan" $.Scan)}}
+    {{end}}
+{{else}}
+<div class="bg-dark-900 border border-dark-800 rounded-xl p-12 flex flex-col items-center text-dark-500">
+    <p class="text-sm">
+        {{if eq $status "skipped"}}{{T "Stage skipped:"}} {{if $sr}}{{$sr.Message}}{{end}}
+        {{else if eq $status "running"}}{{T "Stage in progress…"}}
+        {{else if eq $status "pending"}}{{T "This stage hasn't run yet."}}
+        {{else}}{{T "This stage produced no results."}}{{end}}
+    </p>
 </div>
 {{end}}
 {{end}}

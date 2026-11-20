@@ -123,7 +123,7 @@
      picks an existing TargetList or names a new one. Filters honor
      "include wildcards" + "only resolved-with-IPs". Submits via fetch()
      so the user gets inline feedback without losing the results view. -->
-{{range .Results}}
+{{range $rIdx, $res := .Results}}
 <div class="bg-dark-900 border border-dark-800 rounded-xl mb-6 overflow-hidden">
     <div class="px-5 py-4 border-b border-dark-800">
         <div class="flex items-center justify-between">
@@ -240,8 +240,13 @@
         <button type="button" data-copy-subdomains class="underline text-accent-400 hover:text-accent-300">{{T "Copy all"}}</button> {{T "to grab the full list."}}
     </div>
     {{end}}
+    <div class="flex items-center gap-2 mb-2 flex-wrap">
+        <input id="dnsSubTable-{{$rIdx}}-search" type="search" data-filter-table="#dnsSubTable-{{$rIdx}}" data-filter-count="#dnsSubTable-{{$rIdx}}-count" placeholder="{{T `Search…`}}"
+               class="flex-1 min-w-[180px] px-3 py-1.5 text-xs bg-dark-850 border border-dark-700 rounded-lg text-dark-200 placeholder-dark-600 focus:border-accent-500/50 focus:outline-none">
+        <span id="dnsSubTable-{{$rIdx}}-count" class="text-[10px] text-dark-500 mono"></span>
+    </div>
     <div class="max-h-[600px] overflow-y-auto">
-        <table data-copytable class="w-full">
+        <table data-copytable class="w-full" id="dnsSubTable-{{$rIdx}}">
             <thead class="sticky top-0 bg-dark-900">
                 <tr class="border-b border-dark-800">
                     <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase tracking-wider">{{T "Subdomain"}}</th>

@@ -9,7 +9,7 @@
 */}}
 <div class="flex items-start justify-between mb-6">
     <div class="flex items-start gap-3">
-        <button type="button" onclick="window.history.length>1?window.history.back():window.location.href='/scans'"
+        <button type="button" onclick="{{if .BackURL}}window.location.href='{{.BackURL}}'{{else}}window.history.length>1?window.history.back():window.location.href='/scans'{{end}}"
                 title="{{T `Back`}}"
                 class="mt-1 w-9 h-9 flex items-center justify-center bg-dark-850 border border-dark-700 hover:border-accent-500/50 text-dark-300 hover:text-accent-400 rounded-lg transition-colors shrink-0">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -56,15 +56,23 @@
 
     <div class="flex items-center gap-2 shrink-0">
         {{/* metacollector has its own richer, themeable report flow (Create Report on the results page),
-             so the generic per-scan export modal is suppressed for it to avoid an empty-schema export. */}}
-        {{if and (eq (print .Scan.Status) "done") (ne (print .Scan.Module) "metacollector")}}
-        <button onclick="openExportModal('{{.Scan.ID}}')"
+             so the generic per-scan export modal is suppressed for it to avoid an empty-schema export.
+             On a module sub-page (.StageView) the button exports just that one stage; on the advancedweb
+             suite overview (.HideExport) it's hidden because export moved to the per-module sub-pages. */}}
+        {{if and (eq (print .Scan.Status) "done") (ne (print .Scan.Module) "metacollector") (or .StageView (not .HideExport))}}
+        <button onclick="openExportModal('{{.Scan.ID}}'{{if .StageView}}, '{{.StageID}}'{{end}})"
                 class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-dark-300 hover:text-white bg-dark-850 border border-dark-700 hover:border-dark-600 rounded-lg transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
             {{T "Export"}}
         </button>
         {{end}}
 
+        {{/* Lifecycle actions (Resume/Cancel/Restart/Archive/Delete) act on the
+             WHOLE scan. On a module sub-page (.StageView) they're hidden so an
+             operator can't restart/delete the parent suite scan from a single
+             stage's view; on the suite overview and every normal module page they
+             render as before. */}}
+        {{if not .StageView}}
         {{if eq (print .Scan.Status) "paused"}}
         <form action="/scans/resume/" method="POST" class="inline">
             <input type="hidden" name="id" value="{{.Scan.ID}}">
@@ -122,6 +130,7 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
             </button>
         </form>
+        {{end}}{{/* end: not .StageView (lifecycle actions) */}}
     </div>
 </div>
 
@@ -138,6 +147,12 @@
 </div>
 {{end}}
 
+{{/* Parent-level banners + panels below (paused/queued state, the launch config,
+     the command log, the full console) describe the WHOLE scan. On a module
+     sub-page (.StageView) they're suppressed — a single stage's page shows that
+     stage's results, not the suite's lifecycle or combined command stream. The
+     error banner above stays (a failed suite is worth surfacing everywhere). */}}
+{{if not .StageView}}
 {{/* Paused banner — the connectivity monitor paused this scan; its partial
      results are preserved and it auto-resumes when the internet is back. */}}
 {{if eq (print .Scan.Status) "paused"}}
@@ -240,6 +255,7 @@
 {{end}}</pre>
 </details>
 {{end}}
+{{end}}{{/* end: not .StageView (parent-level banners + panels) */}}
 
 {{/* Shared "Copy results" helper. Any button with data-copy-results="<id>"
      copies the text of the element with that id (textarea .value or textContent)

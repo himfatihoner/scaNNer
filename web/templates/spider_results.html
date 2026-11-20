@@ -47,8 +47,13 @@
     </div>
 
     {{if .Resources}}
+    <div class="flex items-center gap-2 mb-2 flex-wrap">
+        <input id="spiderTable-{{$tIdx}}-search" type="search" data-filter-table="#spiderTable-{{$tIdx}}" data-filter-count="#spiderTable-{{$tIdx}}-count" placeholder="{{T `Search…`}}"
+               class="flex-1 min-w-[180px] px-3 py-1.5 text-xs bg-dark-850 border border-dark-700 rounded-lg text-dark-200 placeholder-dark-600 focus:border-accent-500/50 focus:outline-none">
+        <span id="spiderTable-{{$tIdx}}-count" class="text-[10px] text-dark-500 mono"></span>
+    </div>
     <div class="max-h-[600px] overflow-y-auto">
-        <table data-copytable class="w-full">
+        <table data-copytable class="w-full" id="spiderTable-{{$tIdx}}">
             <thead class="sticky top-0 bg-dark-900">
                 <tr class="border-b border-dark-800">
                     <th class="text-left px-5 py-2.5 text-[10px] font-semibold text-dark-500 uppercase">{{T `Path`}}</th>
@@ -97,7 +102,7 @@
                     <td class="px-5 py-2 mono text-[11px] text-dark-500 max-w-[150px] truncate" title="{{$r.FoundOn}}">{{$r.FoundOn}}</td>
                     <td class="px-5 py-2 text-[11px] text-dark-500 mono">{{$r.Depth}}</td>
                 </tr>
-                <tr id="spider-raw-{{$tIdx}}-{{$idx}}" class="hidden bg-dark-925">
+                <tr id="spider-raw-{{$tIdx}}-{{$idx}}" class="hidden bg-dark-925" data-filter-skip="1">
                     <td colspan="6" class="px-5 py-3">
                         {{template "raw_panel" (list "spider" (printf "%d-%d" $tIdx $idx) $r.RawRequest $r.RawResponse)}}
                     </td>

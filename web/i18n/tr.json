@@ -3104,5 +3104,18 @@
   "schedules run on this clock": "zamanlamalar bu saate göre çalışır",
   "Pick a date and time in the future (server time shown above).": "Gelecekte bir tarih ve saat seçin (sunucu saati yukarıda gösteriliyor).",
   "skipped (busy)": "atlandı (meşgul)",
-  "Failed": "Başarısız"
+  "Failed": "Başarısız",
+  "Open any completed module below to see its full results.": "Tüm sonuçlarını görmek için aşağıdaki tamamlanmış modüllerden birine tıklayın.",
+  "Click a module to open its full results — export, copy and search live on each module's own page.": "Tam sonuçlarını açmak için bir modüle tıklayın — dışa aktarma, kopyalama ve arama her modülün kendi sayfasında.",
+  "Stage": "Aşama",
+  "%d CVE": "%d CVE",
+  "Inspect": "İncele",
+  "pending": "bekliyor",
+  "This stage hasn't run yet.": "Bu aşama henüz çalışmadı.",
+  "This stage produced no results.": "Bu aşama sonuç üretmedi.",
+  "Search URL, title, server…": "URL, başlık, sunucu ara…",
+  "Port (e.g. 80, 443, 8080)": "Port (örn. 80, 443, 8080)",
+  "of": "/",
+  "Search URL, finding, CVE, template…": "URL, bulgu, CVE, şablon ara…",
+  "Search…": "Ara…"
 }

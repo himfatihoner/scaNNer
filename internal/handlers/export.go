@@ -61,6 +61,25 @@ func (h *Handler) ExportScan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	format := r.URL.Query().Get("format")
+
+	// Per-module sub-export: `?stage=<id>` on an advancedweb suite scan exports
+	// just that one stage AS the standalone module. The stage's stored blob IS
+	// the native module's ScanResult JSON, so we extract it and swap
+	// module+result — the existing standalone exporter cases then render it (and
+	// are actually more complete than the suite's own combined export). Normal
+	// scans and the whole-suite export are unaffected.
+	module := scan.Module
+	result := scan.Result
+	stage := r.URL.Query().Get("stage")
+	subExport := false
+	if stage != "" && scan.Module == "advancedweb" {
+		if m, res, ok := extractAdvancedWebStage(scan.Result, stage); ok {
+			module = m
+			result = res
+			subExport = true
+		}
+	}
+
 	sectionsParam := r.URL.Query().Get("sections")
 	sections := map[string]bool{}
 	if sectionsParam != "" {
@@ -71,8 +90,13 @@ func (h *Handler) ExportScan(w http.ResponseWriter, r *http.Request) {
 	// Belt-and-braces: even when the URL declares sections the scan
 	// didn't run (advancedweb suite with TechDetect off, e.g.), drop
 	// them here. The modal already filters via ExportSchemaFor, but a
-	// hand-crafted URL would still trigger empty writer sections.
-	if allowed := ExportSchemaFor(scan); len(allowed) > 0 {
+	// hand-crafted URL would still trigger empty writer sections. For a
+	// sub-export validate against the SUB-module's schema, not the suite's.
+	allowed := ExportSchemaFor(scan)
+	if subExport {
+		allowed = ExportSchema(module)
+	}
+	if len(allowed) > 0 {
 		valid := map[string]bool{}
 		for _, s := range allowed {
 			valid[s.ID] = true
@@ -90,15 +114,53 @@ func (h *Handler) ExportScan(w http.ResponseWriter, r *http.Request) {
 	if len(shortID) > 8 {
 		shortID = shortID[:8]
 	}
+	if subExport {
+		shortID = module + "_" + shortID // make the stage obvious in the filename
+	}
 
 	switch format {
 	case "json":
-		h.exportJSON(w, scan.Module, scan.Result, shortID, sections, severities)
+		h.exportJSON(w, module, result, shortID, sections, severities)
 	case "pdf":
-		h.exportPDF(w, scan.Module, scan.Result, shortID, sections, columns, severities)
+		h.exportPDF(w, module, result, shortID, sections, columns, severities)
 	default:
-		h.exportCSV(w, scan.Module, scan.Result, shortID, sections, columns, severities, r)
+		h.exportCSV(w, module, result, shortID, sections, columns, severities, r)
 	}
+}
+
+// advancedWebStageModule maps an advancedweb stage id to the standalone module
+// whose exporter/schema handles it. Identity for the 1:1 stages; the composite
+// dirspider stage exports its DirEnum half (Spider is copy-only on the page).
+func advancedWebStageModule(stage string) string {
+	if stage == "dirspider" {
+		return "direnum"
+	}
+	return stage
+}
+
+// extractAdvancedWebStage pulls one stage's native module result JSON out of an
+// advancedweb suite ScanResult so it can be exported as that standalone module.
+// Returns (moduleName, resultJSON, true) on success.
+func extractAdvancedWebStage(suiteResult, stage string) (string, string, bool) {
+	var sr advancedweb.ScanResult
+	if err := json.Unmarshal([]byte(suiteResult), &sr); err != nil {
+		return "", "", false
+	}
+	st, ok := sr.Stages[advancedweb.Stage(stage)]
+	if !ok || st == nil || len(st.Result) == 0 {
+		return "", "", false
+	}
+	if stage == "dirspider" {
+		// Composite {direnum, spider, iteration_log}: export the DirEnum half.
+		var combined struct {
+			DirEnum json.RawMessage `json:"direnum"`
+		}
+		if json.Unmarshal(st.Result, &combined) == nil && len(combined.DirEnum) > 0 {
+			return "direnum", string(combined.DirEnum), true
+		}
+		return "", "", false
+	}
+	return advancedWebStageModule(stage), string(st.Result), true
 }
 
 // ExportSectionsAPI returns available export sections (with their per-column
@@ -111,6 +173,12 @@ func (h *Handler) ExportSectionsAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
+	// Sub-page export modal: return the standalone sub-module's columns so the
+	// operator picks e.g. httpxfind's services columns, not advancedweb's.
+	if stage := r.URL.Query().Get("stage"); stage != "" && scan.Module == "advancedweb" {
+		json.NewEncoder(w).Encode(ExportSchema(advancedWebStageModule(stage)))
+		return
+	}
 	json.NewEncoder(w).Encode(ExportSchemaFor(scan))
 }
 

@@ -474,6 +474,14 @@ func (d *DB) migrate() error {
 		d.Exec(`ALTER TABLE cve_records ADD COLUMN source TEXT NOT NULL DEFAULT 'nvd'`)
 	}
 	d.Exec(`CREATE INDEX IF NOT EXISTS idx_cve_product ON cve_records(product_key)`)
+	// Expression index on the key's component (the part after the first colon of
+	// a "vendor:product" key, or the whole key when bare). CVELookup matches a
+	// bare product against any vendor's copy; the old `product_key LIKE '%:'||?`
+	// had a LEADING wildcard → full table scan per lookup, which became the CVE
+	// Matcher's bottleneck once the NVD sync grew cve_records to 100k+ rows (a
+	// big advancedweb run does hundreds of distinct-product lookups). Matching
+	// the SAME expression in the query lets the planner use this index instead.
+	d.Exec(`CREATE INDEX IF NOT EXISTS idx_cve_comp ON cve_records(substr(product_key, instr(product_key, ':') + 1))`)
 	d.Exec(`CREATE INDEX IF NOT EXISTS idx_cve_id ON cve_records(cve_id)`)
 	// Expression index on UPPER(cve_id): CVEByID matches `WHERE UPPER(cve_id)=?`
 	// (case-insensitive), which the plain idx_cve_id can't serve — the UPPER()
@@ -836,10 +844,16 @@ func (d *DB) CVELookup(productKey string) ([]CVERecord, error) {
 		err := d.Select(&out, `SELECT `+cols+` FROM cve_records WHERE product_key = ?`, productKey)
 		return out, err
 	}
-	esc := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(productKey)
+	// Match the bare product exactly OR as any vendor's component
+	// ("apache:tomcat" for a detected "tomcat"). The component term is written
+	// as the SAME expression as idx_cve_comp so the planner uses that index
+	// instead of a full table scan — the old `LIKE '%:'||?` had a leading
+	// wildcard no index could serve, which was the CVE Matcher's bottleneck on a
+	// large NVD cache. (First-colon split: NVD keys are single-colon
+	// "vendor:product", so this equals the old suffix match for every real key.)
 	err := d.Select(&out, `SELECT `+cols+` FROM cve_records
-		WHERE product_key = ? OR product_key LIKE '%:' || ? ESCAPE '\'`,
-		productKey, esc)
+		WHERE product_key = ? OR substr(product_key, instr(product_key, ':') + 1) = ?`,
+		productKey, productKey)
 	return out, err
 }
 

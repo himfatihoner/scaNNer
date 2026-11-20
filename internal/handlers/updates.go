@@ -131,6 +131,18 @@ func (h *Handler) updateIsRunning(src updateSource) bool {
 	return updateMgr.ensure(src.Key).running
 }
 
+// cveDBInUse reports whether a scan that consumes the CVE database is currently
+// running — the guard both the auto-refresh (StartCVEAutoRefresh) and the manual
+// CVE sync use so an NVD rewrite never collides with the CVE Matcher mid-scan.
+// Reuses the cvedb source's consumer list (single source of truth).
+func (h *Handler) cveDBInUse() bool {
+	src, ok := findUpdateSource("cvedb")
+	if !ok {
+		return h.db.HasRunningScans() // conservative fallback
+	}
+	return h.relevantScanRunning(src)
+}
+
 func (h *Handler) updateQueued(key string) bool {
 	updateMgr.mu.Lock()
 	defer updateMgr.mu.Unlock()

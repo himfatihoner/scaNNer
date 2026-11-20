@@ -26,10 +26,10 @@ type cveRefreshState struct {
 	err        string
 
 	// Feed-level progress: how many NVD feeds total + how many done.
-	feedsTotal  int
-	feedsDone   int    // stages COMPLETED (monotonic — never decreases)
-	stageName   string // current stage label e.g. "NVD modified" or "NVD 2024"
-	subPhase    string // "download" | "parse" | "insert"
+	feedsTotal int
+	feedsDone  int    // stages COMPLETED (monotonic — never decreases)
+	stageName  string // current stage label e.g. "NVD modified" or "NVD 2024"
+	subPhase   string // "download" | "parse" | "insert"
 
 	// Within the current sub-phase: progress in native units.
 	// Download: bytes_done/bytes_total are real byte counts.
@@ -88,6 +88,15 @@ func (h *Handler) CVEDBRefresh(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	// Don't rewrite the CVE DB while a scan that uses it is running (the CVE
+	// Matcher / advancedweb read it live) — a mid-scan rewrite can stall the scan.
+	if h.cveDBInUse() {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]any{"error": "scan_using_cvedb",
+			"message": "A scan is using the CVE database — run the refresh once it finishes."})
+		return
+	}
 	cveRefresh.mu.Lock()
 	if cveRefresh.running {
 		cveRefresh.mu.Unlock()
@@ -137,6 +146,14 @@ func (h *Handler) StartCVEAutoRefresh() {
 			cveRefresh.mu.Unlock()
 			if alreadyRunning {
 				return // a manual (or prior auto) refresh is in flight
+			}
+			// Never refresh the CVE DB while a scan that USES it is active. A
+			// mid-scan NVD rewrite (incl. the gap-fill annual feeds below) contends
+			// with the CVE Matcher's per-product queries and can stall a long
+			// advancedweb run. Skip this cycle; a later tick catches up once idle.
+			if h.cveDBInUse() {
+				log.Printf("CVE auto-refresh: deferred — a scan is using the CVE DB")
+				return
 			}
 
 			// 1. Modified delta when the cache is stale (last 8 days of changes).
@@ -561,17 +578,17 @@ func (h *Handler) CVEDBStatus(w http.ResponseWriter, r *http.Request) {
 		cf = cveRefresh.stageName + " · " + cveRefresh.subPhase
 	}
 	resp := map[string]any{
-		"running":         cveRefresh.running,
-		"feeds_total":     cveRefresh.feedsTotal,
-		"feeds_done":      cveRefresh.feedsDone,
-		"rows_upserted":   cveRefresh.rowsUpserted,
-		"rows_net_added":  cveRefresh.rowsNetAdded,
-		"stage_name":      cveRefresh.stageName,
-		"sub_phase":       cveRefresh.subPhase,
-		"current_feed":    cf,
-		"bytes_done":      cveRefresh.bytesDone,
-		"bytes_total":     cveRefresh.bytesTotal,
-		"error":           cveRefresh.err,
+		"running":        cveRefresh.running,
+		"feeds_total":    cveRefresh.feedsTotal,
+		"feeds_done":     cveRefresh.feedsDone,
+		"rows_upserted":  cveRefresh.rowsUpserted,
+		"rows_net_added": cveRefresh.rowsNetAdded,
+		"stage_name":     cveRefresh.stageName,
+		"sub_phase":      cveRefresh.subPhase,
+		"current_feed":   cf,
+		"bytes_done":     cveRefresh.bytesDone,
+		"bytes_total":    cveRefresh.bytesTotal,
+		"error":          cveRefresh.err,
 	}
 	if !cveRefresh.startedAt.IsZero() {
 		resp["started_at"] = cveRefresh.startedAt.Format(time.RFC3339)

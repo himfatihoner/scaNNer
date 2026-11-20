@@ -825,10 +825,11 @@
                 document.getElementById('cveDBProgressBox').classList.remove('hidden');
                 document.getElementById('cveDBStatus').textContent = '';
                 fetch('/settings/cvedb/refresh', { method: 'POST', body: fd })
-                    .then(function(r){ if (!r.ok) throw r.status; })
+                    .then(function(r){ if (!r.ok) { return r.json().catch(function(){ return {}; }).then(function(j){ throw (j.message || ('start failed: ' + r.status)); }); } })
                     .then(function() { __cveDBPoll(); })
                     .catch(function(e) {
-                        document.getElementById('cveDBStatus').innerHTML = '<span class="text-danger">start failed: ' + e + '</span>';
+                        document.getElementById('cveDBProgressBox').classList.add('hidden');
+                        document.getElementById('cveDBStatus').innerHTML = '<span class="text-warning">' + e + '</span>';
                         if (btn) btn.disabled = false;
                     });
             }

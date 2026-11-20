@@ -702,17 +702,16 @@ func (h *Handler) AdvancedWebResults(w http.ResponseWriter, r *http.Request) {
 				hbulk.WriteByte('\n')
 			}
 			// Server-side "Show more": the ?httpx= query param chooses how
-			// many rows to render. Default 50 keeps the page light — the
-			// user explicitly opts into more (200 / all) via links, so the
-			// heavier payload is only paid when requested. Only the first
+			// many rows to render. Default 100 keeps the initial page light —
+			// the user opts into more (500 / all) via links, so the heavier
+			// payload is only paid when requested. Only the first
 			// httpxDetailWindow rows carry (trimmed) inline response detail;
-			// rows beyond it are main-row only, so even "all" (bounded at
-			// httpxHardMax) stays a few MB, not tens. Rows past the hard max
-			// remain reachable via Copy-all / Export / the standalone module.
+			// rows beyond it are main-row only (lightweight), so even "all"
+			// stays reasonable. "all" is NOT capped — the operator asked for
+			// the full set (they can still Export / Copy-all instead).
 			const (
-				httpxDefaultRows  = 50
-				httpxHardMax      = 1000
-				httpxDetailWindow = 50
+				httpxDefaultRows  = 100
+				httpxDetailWindow = 100
 			)
 			httpxRows := httpxDefaultRows
 			switch r.URL.Query().Get("httpx") {
@@ -721,10 +720,7 @@ func (h *Handler) AdvancedWebResults(w http.ResponseWriter, r *http.Request) {
 			case "500":
 				httpxRows = 500
 			case "all":
-				httpxRows = len(v.Services)
-				if httpxRows > httpxHardMax {
-					httpxRows = httpxHardMax
-				}
+				httpxRows = len(v.Services) // full set — no artificial cap
 			}
 			if len(v.Services) > httpxRows {
 				v.Services = v.Services[:httpxRows]

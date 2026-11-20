@@ -68,15 +68,19 @@
      already carries a query (e.g. the advancedweb per-module page passes
      ?stage=httpxfind) the caller sets MoreSep="&" so ?httpx= doesn't clobber it. */}}
 {{$sep := "?"}}{{if .MoreSep}}{{$sep = .MoreSep}}{{end}}
-{{/* Filter bar — free-text (URL/title/server) + a dedicated PORT filter (the
-     port is on every row's data-port). Both inputs carry an id, so
-     scan_progress.html's captureSearchState preserves the operator's filter
-     across the 2s live-poll swaps automatically. */}}
+{{/* Filter bar — free-text (URL/title/server) + dedicated STATUS, CONTENT-TYPE
+     and PORT filters (each value is on the row's data-* attributes). Every input
+     carries an id, so scan_progress.html's captureSearchState preserves the
+     operator's filters across the 2s live-poll swaps automatically. */}}
 <div class="flex items-center gap-2 mb-2 flex-wrap">
     <input id="httpxSearch" type="search" oninput="applyHttpxFilter()" placeholder="{{T `Search URL, title, server…`}}"
-           class="flex-1 min-w-[180px] px-3 py-1.5 text-xs bg-dark-850 border border-dark-700 rounded-lg text-dark-200 placeholder-dark-600 focus:border-accent-500/50 focus:outline-none">
-    <input id="httpxPortFilter" type="search" inputmode="numeric" oninput="applyHttpxFilter()" placeholder="{{T `Port (e.g. 80, 443, 8080)`}}"
+           class="flex-1 min-w-[150px] px-3 py-1.5 text-xs bg-dark-850 border border-dark-700 rounded-lg text-dark-200 placeholder-dark-600 focus:border-accent-500/50 focus:outline-none">
+    <input id="httpxStatusFilter" type="search" oninput="applyHttpxFilter()" placeholder="{{T `Status (200, 4xx…)`}}" title="{{T `Prefix match: 2 = all 2xx, 40 = 40x, 404 = exact`}}"
+           class="w-[130px] px-3 py-1.5 text-xs bg-dark-850 border border-dark-700 rounded-lg text-dark-200 placeholder-dark-600 focus:border-accent-500/50 focus:outline-none">
+    <input id="httpxCtypeFilter" type="search" oninput="applyHttpxFilter()" placeholder="{{T `Content-Type (html, json…)`}}"
            class="w-[170px] px-3 py-1.5 text-xs bg-dark-850 border border-dark-700 rounded-lg text-dark-200 placeholder-dark-600 focus:border-accent-500/50 focus:outline-none">
+    <input id="httpxPortFilter" type="search" inputmode="numeric" oninput="applyHttpxFilter()" placeholder="{{T `Port (80, 443…)`}}"
+           class="w-[120px] px-3 py-1.5 text-xs bg-dark-850 border border-dark-700 rounded-lg text-dark-200 placeholder-dark-600 focus:border-accent-500/50 focus:outline-none">
     <span id="httpxFilterCount" class="text-[10px] text-dark-500 mono"></span>
 </div>
 <div class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
@@ -207,12 +211,12 @@
     <span class="text-[11px] text-dark-400">{{T "Showing"}} <span class="mono text-dark-200">{{$svcRendered}}</span> {{T "of"}} <span class="mono text-dark-200">{{$svcTotal}}</span> {{T "services"}}</span>
     {{if lt $svcRendered 200}}<a href="{{.MoreBase}}{{$sep}}httpx=200" class="text-[11px] px-2.5 py-1 rounded bg-dark-850 text-accent-400 border border-dark-700 hover:bg-dark-800 transition-colors">{{T "Show 200"}}</a>{{end}}
     {{if lt $svcRendered 500}}<a href="{{.MoreBase}}{{$sep}}httpx=500" class="text-[11px] px-2.5 py-1 rounded bg-dark-850 text-accent-400 border border-dark-700 hover:bg-dark-800 transition-colors">{{T "Show 500"}}</a>{{end}}
-    <a href="{{.MoreBase}}{{$sep}}httpx=all" class="text-[11px] px-2.5 py-1 rounded bg-dark-850 text-accent-300 border border-accent-500/30 hover:bg-dark-800 transition-colors">{{T "Show all"}}{{if gt $svcTotal 1000}} {{T "(max 1000)"}}{{end}}</a>
-    <a href="{{.MoreBase}}" class="text-[11px] px-2.5 py-1 rounded bg-dark-850 text-dark-400 border border-dark-700 hover:bg-dark-800 transition-colors">{{T "Show 50"}}</a>
+    <a href="{{.MoreBase}}{{$sep}}httpx=all" class="text-[11px] px-2.5 py-1 rounded bg-dark-850 text-accent-300 border border-accent-500/30 hover:bg-dark-800 transition-colors">{{T "Show all"}} ({{$svcTotal}})</a>
+    <a href="{{.MoreBase}}" class="text-[11px] px-2.5 py-1 rounded bg-dark-850 text-dark-400 border border-dark-700 hover:bg-dark-800 transition-colors">{{T "Show 100"}}</a>
     <button type="button" data-copy-httpx-urls class="text-[11px] px-2.5 py-1 rounded bg-dark-850 text-dark-300 border border-dark-700 hover:bg-dark-800 transition-colors">{{T "Copy all URLs"}}</button>
 </div>
 {{else if and .MoreBase (gt $svcRendered 50)}}
-<div class="mt-3"><a href="{{.MoreBase}}" class="text-[11px] px-2.5 py-1 rounded bg-dark-850 text-dark-400 border border-dark-700 hover:bg-dark-800 transition-colors">{{T "Show 50 (collapse)"}}</a></div>
+<div class="mt-3"><a href="{{.MoreBase}}" class="text-[11px] px-2.5 py-1 rounded bg-dark-850 text-dark-400 border border-dark-700 hover:bg-dark-800 transition-colors">{{T "Show 100 (collapse)"}}</a></div>
 {{end}}
 <script>
 (function() {
@@ -222,25 +226,32 @@
 // their paired detail (resp-N) row. Port match is a prefix so "80" also matches
 // 8080/8000; use the exact number to pin one port.
 function applyHttpxFilter() {
-    var qi = document.getElementById('httpxSearch'), pi = document.getElementById('httpxPortFilter');
-    var q = (qi && qi.value ? qi.value : '').trim().toLowerCase();
-    var p = (pi && pi.value ? pi.value : '').trim();
+    function val(id){ var e = document.getElementById(id); return e && e.value ? e.value.trim() : ''; }
+    var q  = val('httpxSearch').toLowerCase();          // URL / title / server
+    var st = val('httpxStatusFilter').replace(/[^0-9]/g, ''); // "4xx"→"4" prefix match on status code
+    var ct = val('httpxCtypeFilter').toLowerCase();     // content-type substring
+    var p  = val('httpxPortFilter');                    // port prefix
     var tbl = document.getElementById('httpxFindTable');
     if (!tbl) return;
     var shown = 0, total = 0;
     tbl.querySelectorAll('tbody > tr').forEach(function(tr) {
         if (!tr.hasAttribute('data-url')) return; // skip detail (resp-N) rows
         total++;
-        var hay = ((tr.getAttribute('data-url') || '') + ' ' + (tr.getAttribute('data-title') || '') + ' ' + (tr.getAttribute('data-server') || '')).toLowerCase();
-        var port = tr.getAttribute('data-port') || '';
-        var ok = (!q || hay.indexOf(q) !== -1) && (!p || port.indexOf(p) === 0);
+        var hay    = ((tr.getAttribute('data-url') || '') + ' ' + (tr.getAttribute('data-title') || '') + ' ' + (tr.getAttribute('data-server') || '')).toLowerCase();
+        var status = tr.getAttribute('data-status') || '';
+        var ctype  = (tr.getAttribute('data-ctype') || '').toLowerCase();
+        var port   = tr.getAttribute('data-port') || '';
+        var ok = (!q  || hay.indexOf(q) !== -1)
+              && (!st || status.indexOf(st) === 0)
+              && (!ct || ctype.indexOf(ct) !== -1)
+              && (!p  || port.indexOf(p) === 0);
         tr.style.display = ok ? '' : 'none';
         var det = tr.nextElementSibling;
         if (det && det.id && det.id.indexOf('resp-') === 0) det.style.display = ok ? '' : 'none';
         if (ok) shown++;
     });
     var c = document.getElementById('httpxFilterCount');
-    if (c) c.textContent = (q || p) ? (shown + ' / ' + total) : '';
+    if (c) c.textContent = (q || st || ct || p) ? (shown + ' / ' + total) : '';
 }
 applyHttpxFilter();
 </script>

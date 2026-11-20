@@ -236,6 +236,8 @@
   .w-72 { width: calc(var(--spacing) * 72); }
   .w-\[28rem\] { width: 28rem; }
   .w-\[46rem\] { width: 46rem; }
+  .w-\[120px\] { width: 120px; }
+  .w-\[130px\] { width: 130px; }
   .w-\[170px\] { width: 170px; }
   .w-fit { width: fit-content; }
   .w-full { width: 100%; }
@@ -265,6 +267,7 @@
   .min-w-0 { min-width: 0px; }
   .min-w-\[20px\] { min-width: 20px; }
   .min-w-\[64rem\] { min-width: 64rem; }
+  .min-w-\[150px\] { min-width: 150px; }
   .min-w-\[160px\] { min-width: 160px; }
   .min-w-\[180px\] { min-width: 180px; }
   .min-w-\[220px\] { min-width: 220px; }

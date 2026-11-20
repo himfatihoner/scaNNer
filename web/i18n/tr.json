@@ -3117,5 +3117,13 @@
   "Port (e.g. 80, 443, 8080)": "Port (örn. 80, 443, 8080)",
   "of": "/",
   "Search URL, finding, CVE, template…": "URL, bulgu, CVE, şablon ara…",
-  "Search…": "Ara…"
+  "Search…": "Ara…",
+  "Export this module:": "Bu modülü dışa aktar:",
+  "Export… (choose format & columns)": "Dışa aktar… (biçim & kolon seç)",
+  "Status (200, 4xx…)": "Durum (200, 4xx…)",
+  "Prefix match: 2 = all 2xx, 40 = 40x, 404 = exact": "Önek eşleşme: 2 = tüm 2xx, 40 = 40x, 404 = tam",
+  "Content-Type (html, json…)": "Content-Type (html, json…)",
+  "Port (80, 443…)": "Port (80, 443…)",
+  "Show 100": "100 göster",
+  "Show 100 (collapse)": "100 göster (daralt)"
 }

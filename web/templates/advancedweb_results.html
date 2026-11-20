@@ -343,6 +343,19 @@
     {{end}}
 </div>
 
+{{/* Export THIS module's results — quick CSV/JSON + the full column-picker modal
+     (which also does PDF). Sits right above the data so export is always
+     findable on a sub-page, not just in the header. Routes through the standalone
+     exporter via ?stage= (dirspider → its DirEnum half). */}}
+{{if eq (print $.Scan.Status) "done"}}
+<div class="flex items-center gap-2 mb-4 flex-wrap">
+    <span class="text-[10px] text-dark-500 uppercase tracking-wider">{{T "Export this module:"}}</span>
+    <a href="/export/{{$scanID}}?format=csv&stage={{$stage}}" class="text-[11px] px-2.5 py-1 rounded bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700 inline-flex items-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>CSV</a>
+    <a href="/export/{{$scanID}}?format=json&stage={{$stage}}" class="text-[11px] px-2.5 py-1 rounded bg-dark-850 text-dark-200 hover:bg-dark-800 border border-dark-700">JSON</a>
+    <button type="button" onclick="openExportModal('{{$scanID}}','{{$stage}}')" class="text-[11px] px-2.5 py-1 rounded bg-accent-600/15 text-accent-200 border border-accent-500/40 hover:bg-accent-600/25">{{T "Export… (choose format & columns)"}}</button>
+</div>
+{{end}}
+
 {{if $sr}}{{if $sr.Error}}
 <div class="bg-danger/5 border border-danger/30 rounded-xl mb-5 px-4 py-3">
     <p class="text-xs text-danger">{{T "Error:"}} {{$sr.Error}}</p>
@@ -361,7 +374,7 @@
     {{else if eq $stage "dnsenum"}}
         {{template "dnsenum_results_inner" (dict "Results" $data.Results "DisplayLimit" 100000 "TotalSubs" (index $stageMeta "dnsenum_count") "BulkText" (index $stageData "dnsenum_bulk"))}}
     {{else if eq $stage "httpxfind"}}
-        {{template "httpxfind_results_inner" (dict "Services" $data.Services "Scan" $.Scan "DisplayLimit" 100000 "ServiceCount" (index $stageMeta "httpxfind_count") "TotalCount" (index $stageMeta "httpxfind_count") "MoreBase" (printf "/modules/advancedweb/results/%s?stage=httpxfind" $scanID) "MoreSep" "&" "BulkText" (index $stageData "httpxfind_bulk"))}}
+        {{template "httpxfind_results_inner" (dict "Services" $data.Services "Scan" $.Scan "DisplayLimit" 100 "ServiceCount" (index $stageMeta "httpxfind_count") "TotalCount" (index $stageMeta "httpxfind_count") "MoreBase" (printf "/modules/advancedweb/results/%s?stage=httpxfind" $scanID) "MoreSep" "&" "BulkText" (index $stageData "httpxfind_bulk"))}}
     {{else if eq $stage "sslscan"}}
         {{template "sslscan_results_inner" (dict
             "Results" $data "Scan" $.Scan

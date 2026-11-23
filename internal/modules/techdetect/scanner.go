@@ -313,23 +313,28 @@ func detectTech(target string, opts *shared.HTTPOptions, aggressive, lightCaptur
 	if opts != nil {
 		opts.ApplyTransport(transport)
 	}
-	// The page-fetch timeout honours the per-scan request-timeout override with
-	// a 20s floor — the old fixed 15s was killing slow-but-alive sites and
-	// mislabelling them as timeouts.
+	// Page-fetch timeout: 20s floor, but CAPPED there. The old `grow to
+	// opts.Timeout` let a large per-scan request-timeout (e.g. 60s) push this
+	// GET, the 2 favicon GETs, the 2 JS-bundle GETs AND the whatweb budget all to
+	// 60s each — and they run in SERIES, so one slow/filtered host stacked to
+	// ~360s. That stacking (×90 batches of 20) is what turned an 1800-host
+	// aggressive run into a 9-hour crawl. Honour a SMALLER override, never larger.
 	getTimeout := 20 * time.Second
-	if opts != nil && opts.Timeout > getTimeout {
+	if opts != nil && opts.Timeout > 0 && opts.Timeout < getTimeout {
 		getTimeout = opts.Timeout
 	}
-	client := &http.Client{
-		Timeout:   getTimeout,
-		Transport: transport,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if len(via) > 3 {
-				return http.ErrUseLastResponse
-			}
-			return nil
-		},
+	redirectCap := func(req *http.Request, via []*http.Request) error {
+		if len(via) > 3 {
+			return http.ErrUseLastResponse
+		}
+		return nil
 	}
+	client := &http.Client{Timeout: getTimeout, Transport: transport, CheckRedirect: redirectCap}
+	// Secondary fetches (favicon, JS bundles) are best-effort fingerprint sources,
+	// not the primary page — a tight 7s timeout stops each from parking a worker
+	// for the full page timeout on a slow host. Shares the transport (bound dialer
+	// + idle pool).
+	faviconClient := &http.Client{Timeout: 7 * time.Second, Transport: transport, CheckRedirect: redirectCap}
 
 	// fetch builds + issues a GET, recording the raw request bytes.
 	fetch := func(u string) (*http.Response, error) {
@@ -388,7 +393,7 @@ func detectTech(target string, opts *shared.HTTPOptions, aggressive, lightCaptur
 		tr.StatusCode = resp.StatusCode
 		tr.Server = resp.Header.Get("Server")
 		tr.Title = extractTitle(body)
-		tr.FaviconMMH3, tr.FaviconURL = fetchFaviconHash(target, body, client, opts)
+		tr.FaviconMMH3, tr.FaviconURL = fetchFaviconHash(target, body, faviconClient, opts)
 
 		var hdrBuf strings.Builder
 		for k, vals := range resp.Header {
@@ -419,7 +424,7 @@ func detectTech(target string, opts *shared.HTTPOptions, aggressive, lightCaptur
 		// A3: fetch a couple of first-party JS bundles referenced in the HTML and
 		// run the body fingerprints over them — SPA framework names + versions
 		// (React/Vue/Next/lodash/axios/sentry) live only inside the bundle.
-		scanJSBundles(tr, target, body, client, opts, seen)
+		scanJSBundles(tr, target, body, faviconClient, opts, seen)
 	}
 
 	// Phase 2: WhatWeb — runs even when the Go GET failed (E2).
@@ -738,8 +743,8 @@ var jsLibRe = regexp.MustCompile(`(?i)([a-z][a-z0-9_-]+?)[-/]([0-9]+\.[0-9]+(?:\
 // such asset and mis-reported it as core, feeding bogus WordPress core CVEs.
 // Tried in order; first hit wins.
 var wpCoreVersionRes = []*regexp.Regexp{
-	regexp.MustCompile(`(?i)wordpress\.org/\?v=([0-9][0-9A-Za-z.\-]*)`),                                       // RSS / generator link
-	regexp.MustCompile(`(?i)wp-emoji-release(?:\.min)?\.js\?ver=([0-9][0-9A-Za-z.\-]*)`),                      // core emoji loader
+	regexp.MustCompile(`(?i)wordpress\.org/\?v=([0-9][0-9A-Za-z.\-]*)`),                                           // RSS / generator link
+	regexp.MustCompile(`(?i)wp-emoji-release(?:\.min)?\.js\?ver=([0-9][0-9A-Za-z.\-]*)`),                          // core emoji loader
 	regexp.MustCompile(`(?i)wp-includes/css/dist/block-library/style(?:\.min)?\.css\?ver=([0-9][0-9A-Za-z.\-]*)`), // core block-library CSS (WP 5.0+)
 }
 
@@ -1047,9 +1052,19 @@ func runWhatWeb(target string, opts *shared.HTTPOptions, aggressive bool, logf f
 		budget = 60 * time.Second
 	}
 	// Honour a larger per-scan request-timeout override — a slow-but-alive site
-	// was being killed at the old 12s default and mislabelled as a timeout.
+	// was being killed at the old 12s default and mislabelled as a timeout — but
+	// HARD-CAP it so a large scan timeout can't park a whatweb subprocess for
+	// minutes per host (stacked with the Go GET/favicon/bundle chain this was the
+	// 9-hour run). -a1 ≤ 40s, -a3 ≤ 75s regardless of opts.Timeout.
 	if opts != nil && opts.Timeout > 0 && opts.Timeout > budget {
 		budget = opts.Timeout
+	}
+	maxBudget := 40 * time.Second
+	if aggressive {
+		maxBudget = 75 * time.Second
+	}
+	if budget > maxBudget {
+		budget = maxBudget
 	}
 	ctx, cancel := context.WithTimeout(parent, budget)
 	defer cancel()

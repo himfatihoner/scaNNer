@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"scanner/internal/capacity"
 	"scanner/internal/modules/cvematch"
 	"scanner/internal/modules/direnum"
 	"scanner/internal/modules/dnsenum"
@@ -24,6 +25,7 @@ import (
 	"scanner/internal/modules/wafdetect"
 	"scanner/internal/modules/whoisinfo"
 	"scanner/internal/modules/wpscan"
+	"scanner/internal/sysmon"
 )
 
 // hasDNSSubdomains reports whether DNS enumeration discovered any subdomains —
@@ -169,12 +171,12 @@ func Scan(cfg Config, opts *shared.HTTPOptions, concurrency int, cveLookup CVELo
 
 	// Mark stages the user disabled vs. ones the input kind disqualifies.
 	enabledMap := map[Stage]bool{
-		StageWhois:       cfg.EnableWhois,
-		StageDNSEnum:     cfg.EnableDNSEnum,
-		StageHTTPXFind:   cfg.EnableHTTPXFind,
-		StageSSLScan:     cfg.EnableSSLScan,
-		StageWAFDetect:   cfg.EnableWAFDetect,
-		StageTechDetect:  cfg.EnableTechDetect,
+		StageWhois:      cfg.EnableWhois,
+		StageDNSEnum:    cfg.EnableDNSEnum,
+		StageHTTPXFind:  cfg.EnableHTTPXFind,
+		StageSSLScan:    cfg.EnableSSLScan,
+		StageWAFDetect:  cfg.EnableWAFDetect,
+		StageTechDetect: cfg.EnableTechDetect,
 		// CVE Matcher requires Tech Detection — it consumes its (product,
 		// version) pairs. If techdetect isn't enabled the matcher has no
 		// inputs and is force-disabled, regardless of the user's checkbox.
@@ -183,8 +185,8 @@ func Scan(cfg Config, opts *shared.HTTPOptions, concurrency int, cveLookup CVELo
 		// detected. We pre-enable it whenever both checkboxes are on, and
 		// the stage itself runtime-checks for WordPress URLs before doing
 		// any work (skipped with a clear message when none found).
-		StageWPScan: cfg.EnableWPScan && cfg.EnableTechDetect,
-		StageNuclei: cfg.EnableNuclei,
+		StageWPScan:      cfg.EnableWPScan && cfg.EnableTechDetect,
+		StageNuclei:      cfg.EnableNuclei,
 		StageDirSpider:   cfg.EnableDirSpider,
 		StageHTTPMethods: cfg.EnableHTTPMethods,
 		StageSecHeaders:  cfg.EnableSecHeaders,
@@ -816,6 +818,13 @@ func Scan(cfg Config, opts *shared.HTTPOptions, concurrency int, cveLookup CVELo
 	} else {
 		sr := startStage(StageTechDetect)
 		urls := seedURLs()
+		// Size the whatweb/fresh-GET concurrency from the adaptive capacity
+		// governor (techdetect is cpu_heavy — whatweb is ruby). The suite used to
+		// leave Concurrency 0 → a hard-wired 20 that over-saturated an 8-core box;
+		// the standalone page already does this. Computed at STAGE time so it
+		// reflects load after dnsenum/httpx/etc. (The prefetched regex path sizes
+		// itself to NumCPU and is unaffected.)
+		tdConc := capacity.Recommend("techdetect", sysmon.ReadLimits())
 		// Aggressive mode (opt-in checkbox): run whatweb -a 3 on EVERY live
 		// service via techdetect's fresh GET path — deeper version/plugin
 		// detection, but much slower (a whatweb subprocess per host). Skips
@@ -823,7 +832,7 @@ func Scan(cfg Config, opts *shared.HTTPOptions, concurrency int, cveLookup CVELo
 		// network-free prefetched path below.
 		if cfg.TechDetectAggressive && len(urls) > 0 {
 			techResult = techdetect.ScanWithConfig(
-				techdetect.Config{URLs: urls, Aggressive: true, LightCapture: true},
+				techdetect.Config{URLs: urls, Aggressive: true, LightCapture: true, Concurrency: tdConc},
 				opts, stageProgress(sr, len(urls)), nil)
 		} else if httpxResult != nil && len(httpxResult.Services) > 0 {
 			// If HTTPX already ran, reuse its fetched response bodies/headers
@@ -865,7 +874,7 @@ func Scan(cfg Config, opts *shared.HTTPOptions, concurrency int, cveLookup CVELo
 			}
 			if len(freshURLs) > 0 {
 				fresh := techdetect.ScanWithConfig(
-					techdetect.Config{URLs: freshURLs, LightCapture: true}, opts,
+					techdetect.Config{URLs: freshURLs, LightCapture: true, Concurrency: tdConc}, opts,
 					func(done int, msg string) { tdProgress(len(pre)+done, msg) }, nil)
 				if techResult == nil {
 					techResult = fresh
@@ -876,7 +885,7 @@ func Scan(cfg Config, opts *shared.HTTPOptions, concurrency int, cveLookup CVELo
 		}
 		if techResult == nil {
 			techResult = techdetect.ScanWithConfig(
-				techdetect.Config{URLs: urls, LightCapture: true}, opts,
+				techdetect.Config{URLs: urls, LightCapture: true, Concurrency: tdConc}, opts,
 				stageProgress(sr, len(urls)), nil)
 		}
 		// Aggregate technology count across all targets for the badge.

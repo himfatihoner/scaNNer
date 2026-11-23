@@ -52,14 +52,18 @@
                     <!-- Attack mode -->
                     <div>
                         <label class="block text-sm text-dark-300 mb-1.5">Attack</label>
-                        <div class="grid grid-cols-2 gap-2">
+                        <div class="grid grid-cols-3 gap-2">
                             <label class="flex items-center gap-2 px-3 py-2 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer hover:border-accent-500/40">
                                 <input type="radio" name="attack" value="0" checked onchange="hcToggleAttack()" class="text-accent-500"/>
-                                <span class="text-xs text-dark-200">Dictionary + rules</span>
+                                <span class="text-xs text-dark-200">{{T "Dictionary + rules"}}</span>
                             </label>
                             <label class="flex items-center gap-2 px-3 py-2 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer hover:border-accent-500/40">
                                 <input type="radio" name="attack" value="3" onchange="hcToggleAttack()" class="text-accent-500"/>
-                                <span class="text-xs text-dark-200">Mask / brute-force</span>
+                                <span class="text-xs text-dark-200">{{T "Mask / brute-force"}}</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-3 py-2 bg-dark-850 border border-dark-700 rounded-lg cursor-pointer hover:border-accent-500/40" title="{{T `You know a run of consecutive characters but not where it sits in the password`}}">
+                                <input type="radio" name="attack" value="sub" onchange="hcToggleAttack()" class="text-accent-500"/>
+                                <span class="text-xs text-dark-200">{{T "Known substring"}}</span>
                             </label>
                         </div>
                     </div>
@@ -169,6 +173,31 @@
                         </div>
 
                         <p class="text-[10px] text-dark-500">{{T `Alphanumeric = tick lowercase + uppercase + digits. Ticking all four classes = ?a (all 95 printable).`}}</p>
+                    </div>
+
+                    <!-- Known-substring options -->
+                    <div id="knownSubOpts" class="hidden space-y-3 border-l-2 border-dark-800 pl-3">
+                        <label class="block text-sm text-dark-300">{{T "Known substring"}}{{template "info_icon" (T `You know a run of consecutive characters (e.g. "test") but not WHERE it sits in the password. hashcat brute-forces the rest, sliding the known part across every position, for each total length in the range.`)}}</label>
+                        <div>
+                            <label class="block text-[11px] text-dark-400 mb-1">{{T "Known characters"}}</label>
+                            <input type="text" name="known_sub" id="knownSub" placeholder="test" oninput="hcCalc()" autocomplete="off" spellcheck="false"
+                                   class="w-full bg-dark-850 border border-dark-700 rounded-lg px-3 py-1.5 text-sm text-white font-mono focus:outline-none focus:border-accent-500"/>
+                        </div>
+                        <div class="flex items-end gap-3">
+                            <div>
+                                <label class="block text-[11px] text-dark-400 mb-1">{{T "Min total length"}}</label>
+                                <input type="number" name="sub_min" id="subMin" min="1" max="16" value="6" oninput="hcCalc()" class="w-20 bg-dark-850 border border-dark-700 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-accent-500"/>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] text-dark-400 mb-1">{{T "Max total length"}}</label>
+                                <input type="number" name="sub_max" id="subMax" min="1" max="16" value="8" oninput="hcCalc()" class="w-20 bg-dark-850 border border-dark-700 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-accent-500"/>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-dark-400 mb-1">{{T "Unknown positions — character set"}}</label>
+                            <div id="subClassRow"></div>
+                        </div>
+                        <p class="text-[10px] text-dark-500">{{T `Example: known "test", length 8 → tries ?l?l?l?ltest, ?l?l?ltest?l, … test?l?l?l?l. Keep the length range tight — each extra length and position multiplies the work.`}}</p>
                     </div>
 
                     <!-- CPU controls -->
@@ -302,11 +331,18 @@ function hcFileName(input, spanId) {
     document.getElementById(spanId).textContent = input.files && input.files[0] ? input.files[0].name : '';
 }
 function hcToggleAttack() {
-    const mask = document.querySelector('input[name=attack]:checked').value === '3';
-    document.getElementById('dictOpts').classList.toggle('hidden', mask);
-    document.getElementById('maskOpts').classList.toggle('hidden', !mask);
-    if (mask) hcMaskInit();
+    const v = document.querySelector('input[name=attack]:checked').value;
+    document.getElementById('dictOpts').classList.toggle('hidden', v !== '0');
+    document.getElementById('maskOpts').classList.toggle('hidden', v !== '3');
+    document.getElementById('knownSubOpts').classList.toggle('hidden', v !== 'sub');
+    if (v === '3') hcMaskInit();
+    if (v === 'sub') hcSubInit();
     hcCalc();
+}
+// Known-substring: render the single unknown-positions charset row once.
+function hcSubInit() {
+    const r = document.getElementById('subClassRow');
+    if (r && !r.children.length) r.appendChild(hcClassRow('sub_class', 'sub_custom', HC_MSG.charset));
 }
 
 // ---- Visual mask builder ----
@@ -472,14 +508,42 @@ function hcMaskEstimate() {
     }
     return any ? { n: total, note: '' } : { n: 0, note: '' };
 }
+// Known-substring estimate: Σ over each length N of (positions) × |charset|^(unknown),
+// where positions = N − L + 1 (L = known length). Also returns the mask/pass count.
+function hcSubEstimate() {
+    const subEl = document.getElementById('knownSub');
+    const sub = subEl ? subEl.value : '';
+    const L = Array.from(sub).length;
+    if (L < 1) return { n: 0, positions: 0 };
+    const rowEl = document.getElementById('subClassRow');
+    const row = rowEl ? rowEl.firstElementChild : null;
+    const c = row ? hcRowSize(row) : 0;
+    if (c < 1) return { n: 0, positions: 0 };
+    let mn = parseInt(document.getElementById('subMin').value, 10) || 0;
+    let mx = parseInt(document.getElementById('subMax').value, 10) || 0;
+    if (mn < L) mn = L;
+    if (mx < mn) return { n: 0, positions: 0 };
+    let total = 0, positions = 0;
+    for (let n = mn; n <= mx; n++) {
+        const pos = (n - L) + 1;
+        positions += pos;
+        total += pos * Math.pow(c, n - L);
+    }
+    return { n: total, positions: positions };
+}
 function hcCalc() {
     hcUpdateRuleSel();
     const out = document.getElementById('attemptVal');
     if (!out) return;
-    const isMask = document.querySelector('input[name=attack]:checked').value === '3';
-    if (isMask) {
+    const mode = document.querySelector('input[name=attack]:checked').value;
+    if (mode === '3') {
         const e = hcMaskEstimate();
         out.textContent = e.n ? ('≈ ' + hcHuman(e.n) + ' candidates' + e.note) : '—';
+        return;
+    }
+    if (mode === 'sub') {
+        const e = hcSubEstimate();
+        out.textContent = e.n ? ('≈ ' + hcHuman(e.n) + ' candidates · ' + e.positions + ' masks') : '—';
         return;
     }
     // dictionary — each selected rule runs as a SEPARATE pass, so the candidate

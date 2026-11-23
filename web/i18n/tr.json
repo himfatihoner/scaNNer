@@ -3142,5 +3142,15 @@
   "scan": "tarama",
   "first": "ilk",
   "seen": "görüldü",
-  "comma = OR within a field; * = wildcard; combine terms with": "virgül = alan içinde VEYA; * = joker; terimleri şununla birleştir:"
+  "comma = OR within a field; * = wildcard; combine terms with": "virgül = alan içinde VEYA; * = joker; terimleri şununla birleştir:",
+  "Dictionary + rules": "Sözlük + kurallar",
+  "Mask / brute-force": "Maske / brute-force",
+  "You know a run of consecutive characters but not where it sits in the password": "Ardışık bir karakter dizisini biliyorsun ama parolada nerede olduğunu bilmiyorsun",
+  "Known substring": "Bilinen alt-dize",
+  "You know a run of consecutive characters (e.g. \"test\") but not WHERE it sits in the password. hashcat brute-forces the rest, sliding the known part across every position, for each total length in the range.": "Ardışık bir karakter dizisini (ör. \"test\") biliyorsun ama parolada NEREDE olduğunu bilmiyorsun. hashcat kalanı brute-force eder; bilinen kısmı her konuma kaydırır, aralıktaki her toplam uzunluk için.",
+  "Known characters": "Bilinen karakterler",
+  "Min total length": "Min toplam uzunluk",
+  "Max total length": "Maks toplam uzunluk",
+  "Unknown positions — character set": "Bilinmeyen konumlar — karakter kümesi",
+  "Example: known \"test\", length 8 → tries ?l?l?l?ltest, ?l?l?ltest?l, … test?l?l?l?l. Keep the length range tight — each extra length and position multiplies the work.": "Örnek: bilinen \"test\", uzunluk 8 → ?l?l?l?ltest, ?l?l?ltest?l, … test?l?l?l?l dener. Uzunluk aralığını dar tut — her ek uzunluk ve konum işi katlar."
 }

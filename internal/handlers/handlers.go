@@ -131,6 +131,16 @@ func formErrorMsg(code string) string {
 		return "This mask needs more than 4 distinct multi-class/custom character sets, which hashcat can't support (it has only -1..-4). Simplify so at most 4 positions use a multi-class or custom set — single-class and all-four (?a) positions are free."
 	case "bad_mask_len":
 		return "Mask length must be between 1 and 16 (and min ≤ max for a range)."
+	case "no_substring":
+		return "Enter the known substring (the consecutive characters you already know) for the known-substring attack."
+	case "bad_sub_range":
+		return "Total password length must be 1–16, at least as long as the known substring, and min ≤ max."
+	case "sub_range_wide":
+		return "That length range generates too many masks (over 128 positions). Narrow the length range or the known substring."
+	case "no_hashes":
+		return "Paste at least one hash (or upload a hash file) before launching."
+	case "no_wordlist":
+		return "Select or upload a wordlist for the dictionary attack."
 	}
 	return ""
 }

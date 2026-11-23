@@ -150,6 +150,16 @@ func resolvePos(p MaskPos, defs *[]string) (string, error) {
 	return slotToken(len(*defs) - 1), nil
 }
 
+// ResolveCharsetToken turns ONE UI charset selection (l/u/d/s classes + custom
+// chars) into a single hashcat mask token (?l/?u/?d/?s/?a, or ?1 with a custom
+// def) plus any custom charset defs it allocated. Exported entry for the
+// known-substring mode's unknown-position charset — a thin wrapper over resolvePos.
+func ResolveCharsetToken(p MaskPos) (token string, defs []string, err error) {
+	var d []string
+	t, e := resolvePos(p, &d)
+	return t, d, e
+}
+
 // classTokens returns the selected built-in tokens in canonical l,u,d,s order.
 func classTokens(p MaskPos) string {
 	var b strings.Builder

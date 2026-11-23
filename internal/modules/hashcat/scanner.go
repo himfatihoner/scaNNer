@@ -42,6 +42,17 @@ type Config struct {
 	CPUOnly       bool     // -D 1
 	AffinityCores int      // pin to this many cores via --cpu-affinity (0 = all)
 	RuntimeSec    int      // --runtime seconds (0 = unlimited)
+
+	// Known-substring sliding mask (a flavour of Attack==3): the operator knows a
+	// consecutive run of chars (KnownSub) but not WHERE it sits, so we brute-force
+	// the rest with KnownSub slid across every position, for each total length in
+	// [SubLenMin,SubLenMax]. SubToken is the hashcat token for the unknown
+	// positions (?l/?d/?a or ?1 with a MaskCharsets def). Active when
+	// Attack==3 && KnownSub != "" — buildPasses then emits one pass per position.
+	KnownSub  string // the known literal substring, e.g. "test"
+	SubToken  string // unknown-position mask token (?l, ?d, ?a, ?1 …)
+	SubLenMin int    // min total password length
+	SubLenMax int    // max total password length
 }
 
 type HashResult struct {
@@ -56,8 +67,8 @@ type Summary struct {
 	ModeID        int    `json:"mode_id"`
 	ModeName      string `json:"mode_name,omitempty"`
 	DetectedModes string `json:"detected_modes,omitempty"` // auto-detect candidates shown to the user
-	Attack        string `json:"attack"` // "dictionary" | "mask"
-	Status        string `json:"status"` // running|exhausted|cracked|aborted|error
+	Attack        string `json:"attack"`                   // "dictionary" | "mask"
+	Status        string `json:"status"`                   // running|exhausted|cracked|aborted|error
 	ProgressPct   int    `json:"progress_pct"`
 	// Candidate keyspace across the WHOLE job (all rule/mask passes): how many
 	// password candidates have been tried vs. the total to try. CandHuman is the
@@ -110,7 +121,11 @@ func Scan(ctx context.Context, cfg Config, progress ProgressFunc, partial Partia
 	out.Summary.ModeName = cfg.ModeName
 	out.Summary.Status = "running"
 	if cfg.Attack == 3 {
-		out.Summary.Attack = "mask"
+		if cfg.KnownSub != "" {
+			out.Summary.Attack = "known-substring"
+		} else {
+			out.Summary.Attack = "mask"
+		}
 	} else {
 		out.Summary.Attack = "dictionary"
 	}
@@ -220,7 +235,7 @@ modeLoop:
 		passes := buildPasses(cfg)
 		var totalKS int64
 		for _, p := range passes {
-			totalKS += passKeyspace(cfg, p.rule, words)
+			totalKS += passKeyspace(cfg, p.rule, p.mask, words)
 		}
 		if totalKS < 1 {
 			totalKS = 1
@@ -241,22 +256,26 @@ modeLoop:
 				label = fmt.Sprintf("mode %d (%s) candidate %d/%d", mid, ModeName(mid), i+1, len(modes))
 			}
 			if len(passes) > 1 {
-				rn := "no rule"
-				if p.rule != "" {
-					rn = filepath.Base(p.rule)
-				}
 				if label != "" {
 					label += " · "
 				}
-				label += fmt.Sprintf("rule %d/%d (%s)", pi+1, len(passes), rn)
+				if p.mask != "" {
+					label += fmt.Sprintf("position %d/%d (%s)", pi+1, len(passes), p.mask)
+				} else {
+					rn := "no rule"
+					if p.rule != "" {
+						rn = filepath.Base(p.rule)
+					}
+					label += fmt.Sprintf("rule %d/%d (%s)", pi+1, len(passes), rn)
+				}
 			}
 			if label != "" {
 				prog(out.Summary.ProgressPct, "Pass: "+label)
 			}
 			_ = os.Remove(outFile) // fresh outfile per pass
 
-			pw := passKeyspace(cfg, p.rule, words)
-			exit, errTail := crackPassAgg(ctx, cfg, mid, p.rule, hashFile.Name(), outFile, prog, out, &out.Summary, &mu, pushPartial, doneKS, pw, totalKS, modeBase, modeSpan)
+			pw := passKeyspace(cfg, p.rule, p.mask, words)
+			exit, errTail := crackPassAgg(ctx, cfg, mid, p.rule, p.mask, hashFile.Name(), outFile, prog, out, &out.Summary, &mu, pushPartial, doneKS, pw, totalKS, modeBase, modeSpan)
 			lastExit, lastErr = exit, errTail
 			if exit == 0 || exit == 1 {
 				anyClean = true
@@ -307,11 +326,11 @@ modeLoop:
 // crackPass runs ONE hashcat invocation for a single mode, streaming
 // --status-json into the shared summary. Returns the process exit code and a
 // short stderr tail (for error reporting).
-func crackPassAgg(ctx context.Context, cfg Config, modeID int, rule, hashFile, outFile string,
+func crackPassAgg(ctx context.Context, cfg Config, modeID int, rule, mask, hashFile, outFile string,
 	prog func(int, string), out *ScanResult, sum *Summary, mu *sync.Mutex, pushPartial func(bool),
 	doneWeight, passWeight, totalWeight int64, modeBase, modeSpan float64) (int, string) {
 
-	args := buildArgs(cfg, modeID, rule, hashFile, outFile)
+	args := buildArgs(cfg, modeID, rule, mask, hashFile, outFile)
 	prog(0, "$ "+shared.FormatCommand("hashcat", args))
 
 	cmd := shared.Command(ctx, "hashcat", args...)
@@ -362,7 +381,7 @@ func exitCode(err error) int {
 	return -1
 }
 
-func buildArgs(cfg Config, modeID int, rule, hashFile, outFile string) []string {
+func buildArgs(cfg Config, modeID int, rule, mask, hashFile, outFile string) []string {
 	args := []string{"-m", strconv.Itoa(modeID), hashFile}
 	if cfg.Attack == 3 {
 		// Custom charset defs (-1..-4) MUST precede the mask positional; each -N
@@ -373,8 +392,15 @@ func buildArgs(cfg Config, modeID int, rule, hashFile, outFile string) []string 
 			}
 			args = append(args, "-"+strconv.Itoa(i+1), def)
 		}
-		args = append(args, cfg.Mask, "-a", "3")
-		if cfg.MaskIncMax > 0 {
+		// Known-substring mode passes a per-position mask; plain mask mode uses
+		// cfg.Mask. --increment only applies to plain mask mode (sliding masks are
+		// fixed length per position).
+		m := cfg.Mask
+		if mask != "" {
+			m = mask
+		}
+		args = append(args, m, "-a", "3")
+		if mask == "" && cfg.MaskIncMax > 0 {
 			args = append(args, "--increment",
 				"--increment-min", strconv.Itoa(cfg.MaskIncMin),
 				"--increment-max", strconv.Itoa(cfg.MaskIncMax))
@@ -673,11 +699,26 @@ func humanDuration(sec int64) string {
 // pass is one hashcat invocation — a single rule (or none / a mask). Rules are
 // NEVER chained (see buildArgs), so a dictionary attack with N rules runs N
 // passes and the keyspaces add up.
-type pass struct{ rule string }
+type pass struct {
+	rule string
+	mask string // per-position mask for the known-substring sliding mode (else "")
+}
 
 func buildPasses(cfg Config) []pass {
 	if cfg.Attack == 3 {
-		return []pass{{}} // mask: one pass, no rule
+		// Known-substring: one pass per slide position × length, so the existing
+		// keyspace-weighted progress/ETA aggregation (applyStatusAgg) spans all
+		// positions exactly as it does for dictionary rules.
+		if cfg.KnownSub != "" {
+			var out []pass
+			for _, m := range buildSlideMasks(cfg) {
+				out = append(out, pass{mask: m})
+			}
+			if len(out) > 0 {
+				return out
+			}
+		}
+		return []pass{{}} // plain mask: one pass, no rule
 	}
 	var out []pass
 	for _, r := range cfg.Rules {
@@ -694,8 +735,11 @@ func buildPasses(cfg Config) []pass {
 // passKeyspace estimates the candidate count for one pass: wordlist words ×
 // that rule's rule-count (1 for no rule), or the mask's charset product. Same
 // units as hashcat's status-json progress[] so aggregate ETA stays consistent.
-func passKeyspace(cfg Config, rule string, words int64) int64 {
+func passKeyspace(cfg Config, rule, mask string, words int64) int64 {
 	if cfg.Attack == 3 {
+		if mask != "" { // sliding-substring position: fixed length, no increment
+			return maskKeyspaceGo(mask, cfg.MaskCharsets, 0, 0)
+		}
 		return maskKeyspaceGo(cfg.Mask, cfg.MaskCharsets, cfg.MaskIncMin, cfg.MaskIncMax)
 	}
 	rc := int64(1)
@@ -875,14 +919,14 @@ func ModeName(id int) string {
 
 // WordlistOption is a selectable wordlist discovered on disk.
 type WordlistOption struct {
-	Path     string `json:"path"`
-	Label    string `json:"label"`
-	Group    string `json:"group"` // "General", "Language-specific", …
-	Size     int64  `json:"size"`
-	Words    int    `json:"words"`   // line count (exact, or estimated for huge files)
-	WordsH   string `json:"words_h"` // humanized: "15.5M", "92k", "512"
-	Approx   bool   `json:"approx"`  // Words is an estimate
-	Gz       bool   `json:"gz"`
+	Path   string `json:"path"`
+	Label  string `json:"label"`
+	Group  string `json:"group"` // "General", "Language-specific", …
+	Size   int64  `json:"size"`
+	Words  int    `json:"words"`   // line count (exact, or estimated for huge files)
+	WordsH string `json:"words_h"` // humanized: "15.5M", "92k", "512"
+	Approx bool   `json:"approx"`  // Words is an estimate
+	Gz     bool   `json:"gz"`
 }
 
 // wordlistSources maps a glob to a display group. Order matters (first match

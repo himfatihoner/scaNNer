@@ -20,24 +20,29 @@ import (
 // hashcatConfig is the JSON-persisted launch config (replayed by Restart).
 // Uploaded-wordlist temp paths are NOT persisted (UploadedWL has json:"-").
 type hashcatConfig struct {
-	Hashes        []string `json:"hashes"`
-	ModeID        int      `json:"mode_id"`
-	ModeName      string   `json:"mode_name,omitempty"`
-	DetectMode    bool     `json:"detect_mode"` // no mode chosen → auto-detect via hashid
-	Attack        int      `json:"attack"`      // 0 = dictionary+rules, 3 = mask
-	Wordlist      string   `json:"wordlist,omitempty"`
-	Rules         []string `json:"rules,omitempty"`
-	Mask          string   `json:"mask,omitempty"`
-	MaskCharsets  []string `json:"mask_charsets,omitempty"` // custom charset defs (-1..-4)
-	MaskIncMin    int      `json:"mask_inc_min,omitempty"`
-	MaskIncMax    int      `json:"mask_inc_max,omitempty"`
-	maskErr       string   `json:"-"` // assembly error code, checked in HashcatRun
-	Workload      int      `json:"workload"`
-	CPUOnly       bool     `json:"cpu_only"`
-	MaxCPUPct     int      `json:"max_cpu_pct"`     // operator's slider value
-	AffinityCores int      `json:"affinity_cores"`  // resolved core count (0 = all)
-	RuntimeSec    int      `json:"runtime_sec,omitempty"`
-	UploadedWL    string   `json:"-"`               // temp file to clean up post-run
+	Hashes       []string `json:"hashes"`
+	ModeID       int      `json:"mode_id"`
+	ModeName     string   `json:"mode_name,omitempty"`
+	DetectMode   bool     `json:"detect_mode"` // no mode chosen → auto-detect via hashid
+	Attack       int      `json:"attack"`      // 0 = dictionary+rules, 3 = mask
+	Wordlist     string   `json:"wordlist,omitempty"`
+	Rules        []string `json:"rules,omitempty"`
+	Mask         string   `json:"mask,omitempty"`
+	MaskCharsets []string `json:"mask_charsets,omitempty"` // custom charset defs (-1..-4)
+	MaskIncMin   int      `json:"mask_inc_min,omitempty"`
+	MaskIncMax   int      `json:"mask_inc_max,omitempty"`
+	// Known-substring sliding mask (Attack=3 flavour): see hashcat.Config.
+	KnownSub      string `json:"known_sub,omitempty"`
+	SubToken      string `json:"sub_token,omitempty"`
+	SubLenMin     int    `json:"sub_len_min,omitempty"`
+	SubLenMax     int    `json:"sub_len_max,omitempty"`
+	maskErr       string `json:"-"` // assembly error code, checked in HashcatRun
+	Workload      int    `json:"workload"`
+	CPUOnly       bool   `json:"cpu_only"`
+	MaxCPUPct     int    `json:"max_cpu_pct"`    // operator's slider value
+	AffinityCores int    `json:"affinity_cores"` // resolved core count (0 = all)
+	RuntimeSec    int    `json:"runtime_sec,omitempty"`
+	UploadedWL    string `json:"-"` // temp file to clean up post-run
 }
 
 func (h *Handler) HashcatPage(w http.ResponseWriter, r *http.Request) {
@@ -136,6 +141,24 @@ func (h *Handler) parseHashcatForm(r *http.Request) hashcatConfig {
 			cfg.MaskIncMin = plan.IncMin
 			cfg.MaskIncMax = plan.IncMax
 		}
+	} else if r.FormValue("attack") == "sub" {
+		// Known-substring sliding mask: a known literal (position unknown) with the
+		// rest brute-forced. Reuses the -a 3 path; buildPasses expands it to one
+		// mask per slide position/length.
+		cfg.Attack = 3
+		cfg.KnownSub = strings.TrimSpace(r.FormValue("known_sub"))
+		if cfg.KnownSub == "" {
+			cfg.maskErr = "no_substring"
+		}
+		pos := readMaskPos(r, "sub_class", "sub_custom")
+		if tok, defs, err := hashcat.ResolveCharsetToken(pos); err != nil {
+			cfg.maskErr = err.Error() // "no_mask" | "too_many_charsets"
+		} else {
+			cfg.SubToken = tok
+			cfg.MaskCharsets = defs
+		}
+		cfg.SubLenMin, _ = strconv.Atoi(r.FormValue("sub_min"))
+		cfg.SubLenMax, _ = strconv.Atoi(r.FormValue("sub_max"))
 	} else {
 		cfg.Attack = 0
 		// Wordlist: uploaded file → temp path; else custom path; else dropdown.
@@ -231,7 +254,20 @@ func (h *Handler) HashcatRun(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/modules/hashcat?error="+cfg.maskErr, http.StatusSeeOther)
 			return
 		}
-		if cfg.Mask == "" {
+		if cfg.KnownSub != "" {
+			// Known-substring sliding mode: validate length range + cap the number
+			// of generated masks (= hashcat process spawns).
+			L := len([]rune(cfg.KnownSub))
+			if cfg.SubLenMin < 1 || cfg.SubLenMax < 1 || cfg.SubLenMax > 16 ||
+				cfg.SubLenMax < L || cfg.SubLenMin > cfg.SubLenMax {
+				http.Redirect(w, r, "/modules/hashcat?error=bad_sub_range", http.StatusSeeOther)
+				return
+			}
+			if hashcat.SlideMaskCount(L, cfg.SubLenMin, cfg.SubLenMax) > 128 {
+				http.Redirect(w, r, "/modules/hashcat?error=sub_range_wide", http.StatusSeeOther)
+				return
+			}
+		} else if cfg.Mask == "" {
 			http.Redirect(w, r, "/modules/hashcat?error=no_mask", http.StatusSeeOther)
 			return
 		}
@@ -303,6 +339,10 @@ func (h *Handler) runHashcat(scanID string, cfg hashcatConfig) {
 		MaskCharsets:  cfg.MaskCharsets,
 		MaskIncMin:    cfg.MaskIncMin,
 		MaskIncMax:    cfg.MaskIncMax,
+		KnownSub:      cfg.KnownSub,
+		SubToken:      cfg.SubToken,
+		SubLenMin:     cfg.SubLenMin,
+		SubLenMax:     cfg.SubLenMax,
 		Workload:      cfg.Workload,
 		CPUOnly:       cfg.CPUOnly,
 		AffinityCores: cfg.AffinityCores,

@@ -291,3 +291,40 @@ func TestCancelStopsSweep(t *testing.T) {
 		t.Fatal("cancelled scan did not return promptly — possible worker-pool deadlock")
 	}
 }
+
+// TestAddServiceCapKeepsHeaders guards the regression where the 128MB body cap
+// emptied response HEADERS as well as the body. The advancedweb Tech-Detection
+// stage routes a service to a WAF-RST-prone fresh re-fetch when body AND headers
+// are both empty, so emptying headers silently zeroed tech detection for every
+// service past the cap. Past the cap we must drop the heavy body/raw but KEEP
+// headers so the service can still be fingerprinted from them.
+func TestAddServiceCapKeepsHeaders(t *testing.T) {
+	r := &ScanResult{}
+
+	// Below the cap: everything retained, bytes accounted.
+	r.addService(ServiceResult{
+		URL: "https://a", ResponseHeaders: "Server: nginx\n", ResponseBody: "<html>…",
+		RawRequest: "GET / HTTP/1.1\n", RawResponse: "HTTP/1.1 200\n",
+	})
+	if r.Services[0].ResponseBody == "" || r.Services[0].ResponseHeaders == "" {
+		t.Fatal("below cap: body and headers must be retained")
+	}
+
+	// Force the cap, then add another service.
+	r.bodyBytes = maxResultBodyBytes + 1
+	r.addService(ServiceResult{
+		URL: "https://b", ResponseHeaders: "Server: Apache\nX-Powered-By: PHP/8.2\n",
+		ResponseBody: "<html>big page…", RawRequest: "GET / HTTP/1.1\n", RawResponse: "HTTP/1.1 200\n",
+	})
+	capped := r.Services[1]
+	if !r.Truncated {
+		t.Error("cap should set Truncated")
+	}
+	if capped.ResponseHeaders != "Server: Apache\nX-Powered-By: PHP/8.2\n" {
+		t.Errorf("past cap: headers must be KEPT (fingerprint signal), got %q", capped.ResponseHeaders)
+	}
+	if capped.ResponseBody != "" || capped.RawRequest != "" || capped.RawResponse != "" {
+		t.Errorf("past cap: heavy body/raw must be dropped, got body=%q raw=%q/%q",
+			capped.ResponseBody, capped.RawRequest, capped.RawResponse)
+	}
+}

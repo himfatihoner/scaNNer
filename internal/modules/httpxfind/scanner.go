@@ -108,10 +108,22 @@ func (r *ScanResult) addService(svc ServiceResult) bool {
 		return false
 	}
 	if r.bodyBytes > maxResultBodyBytes {
+		// Past the retained-body budget: drop the HEAVY fields (full body + the raw
+		// request/response dump) to keep the resident set bounded — but KEEP the
+		// response HEADERS. They are tiny (~KB each, so bounded even at maxServices)
+		// yet carry strong fingerprint signal (Server, X-Powered-By, Set-Cookie,
+		// CDN/WAF markers). Critically: the advancedweb Tech-Detection stage routes a
+		// service to a fresh RE-FETCH only when BOTH body and headers are empty, and
+		// that re-fetch's second probe is frequently RST by a WAF/CDN → 0 techs. So
+		// emptying headers here (the old behaviour) silently zeroed tech detection for
+		// every service past the cap on a large scan. Keeping headers lets those
+		// services be fingerprinted from the already-captured headers, no second
+		// request. (Body-marker detection for capped services would need
+		// fingerprint-on-capture; headers recover the bulk at near-zero memory cost.)
 		svc.ResponseBody = ""
-		svc.ResponseHeaders = ""
 		svc.RawRequest = ""
 		svc.RawResponse = ""
+		r.bodyBytes += int64(len(svc.ResponseHeaders))
 		r.Truncated = true
 	} else {
 		r.bodyBytes += int64(len(svc.ResponseBody) + len(svc.ResponseHeaders) + len(svc.RawRequest) + len(svc.RawResponse))
@@ -279,15 +291,15 @@ type engineConfig struct {
 	result     *ScanResult
 	mu         *sync.Mutex
 	targets    []string
-	full       bool     // port source = portPermuter (1..65535); else `ports`
-	ports      []int    // explicit ports (Common or custom) when !full
-	directHTTP bool     // skip the TCP connect pre-scan; probe HTTP/HTTPS directly
-	resolve    bool     // resolve targets up front + own the % denominator (full/custom)
-	perTask    bool     // emit per-task progress lines (Common mode only)
-	probeConc  int      // HTTP-probe worker count
-	connConc   int      // connect-phase worker count (two-phase)
-	rate       int      // NEW connections/probes per sec (0 = default/unlimited, see runEngine)
-	label      string   // "Full scan" / "Custom scan" / "Common scan" for messages
+	full       bool   // port source = portPermuter (1..65535); else `ports`
+	ports      []int  // explicit ports (Common or custom) when !full
+	directHTTP bool   // skip the TCP connect pre-scan; probe HTTP/HTTPS directly
+	resolve    bool   // resolve targets up front + own the % denominator (full/custom)
+	perTask    bool   // emit per-task progress lines (Common mode only)
+	probeConc  int    // HTTP-probe worker count
+	connConc   int    // connect-phase worker count (two-phase)
+	rate       int    // NEW connections/probes per sec (0 = default/unlimited, see runEngine)
+	label      string // "Full scan" / "Custom scan" / "Common scan" for messages
 	client     *http.Client
 	opts       *shared.HTTPOptions
 	onPartial  PartialFunc

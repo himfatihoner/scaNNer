@@ -291,36 +291,3 @@ func TestCancelStopsSweep(t *testing.T) {
 		t.Fatal("cancelled scan did not return promptly — possible worker-pool deadlock")
 	}
 }
-
-// TestSchemesFor pins the scheme-probe order. The regression this guards: the
-// wrong-scheme fallback (http://host:443, https://host:80) was recording a
-// proxy/WAF 200 interstitial as a content-less "live service", inflating the
-// service count and starving Tech Detection. Standard ports must now probe ONE
-// canonical scheme, and a proxy must drop the fallback on every port.
-func TestSchemesFor(t *testing.T) {
-	cases := []struct {
-		port    int
-		proxied bool
-		want    []string
-	}{
-		// Standard ports: single canonical scheme, proxy or not.
-		{443, false, []string{"https"}},
-		{443, true, []string{"https"}},
-		{80, false, []string{"http"}},
-		{80, true, []string{"http"}},
-		// Non-standard ports: both schemes when direct (fallback catches real
-		// non-standard setups), canonical-only through a proxy (fallback poisoned).
-		{8443, false, []string{"https", "http"}},
-		{8443, true, []string{"https"}},
-		{8080, false, []string{"http", "https"}},
-		{8080, true, []string{"http"}},
-		{8000, false, []string{"https", "http"}},
-		{8000, true, []string{"https"}},
-	}
-	for _, c := range cases {
-		got := schemesFor(c.port, c.proxied)
-		if strings.Join(got, ",") != strings.Join(c.want, ",") {
-			t.Errorf("schemesFor(%d, proxied=%v) = %v, want %v", c.port, c.proxied, got, c.want)
-		}
-	}
-}

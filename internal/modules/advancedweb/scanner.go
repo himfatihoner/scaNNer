@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"scanner/internal/capacity"
 	"scanner/internal/modules/cvematch"
 	"scanner/internal/modules/direnum"
 	"scanner/internal/modules/dnsenum"
@@ -25,7 +24,6 @@ import (
 	"scanner/internal/modules/wafdetect"
 	"scanner/internal/modules/whoisinfo"
 	"scanner/internal/modules/wpscan"
-	"scanner/internal/sysmon"
 )
 
 // hasDNSSubdomains reports whether DNS enumeration discovered any subdomains —
@@ -818,13 +816,16 @@ func Scan(cfg Config, opts *shared.HTTPOptions, concurrency int, cveLookup CVELo
 	} else {
 		sr := startStage(StageTechDetect)
 		urls := seedURLs()
-		// Size the whatweb/fresh-GET concurrency from the adaptive capacity
-		// governor (techdetect is cpu_heavy — whatweb is ruby). The suite used to
-		// leave Concurrency 0 → a hard-wired 20 that over-saturated an 8-core box;
-		// the standalone page already does this. Computed at STAGE time so it
-		// reflects load after dnsenum/httpx/etc. (The prefetched regex path sizes
-		// itself to NumCPU and is unaffected.)
-		tdConc := capacity.Recommend("techdetect", sysmon.ReadLimits())
+		// whatweb (-a3) is I/O-BOUND: it spends almost all its wall time waiting on
+		// the TARGET's HTTP responses, not on local CPU. A prior change sized this
+		// by the CPU governor (capacity.Recommend) — which on a small box returns
+		// only ~3-7, STARVING the I/O parallelism and turning an 1800-host run into
+		// ~9h (1800/3 × per-host). Use a fixed, I/O-appropriate pool instead; each
+		// host is already time-bounded by the per-op caps in detectTech/runWhatWeb,
+		// and the fresh path has an overall stage time budget, so it can't run away.
+		// (The prefetched pure-regex path sizes itself to NumCPU — correct for CPU —
+		// and is unaffected.)
+		tdConc := 20
 		// Aggressive mode (opt-in checkbox): run whatweb -a 3 on EVERY live
 		// service via techdetect's fresh GET path — deeper version/plugin
 		// detection, but much slower (a whatweb subprocess per host). Skips

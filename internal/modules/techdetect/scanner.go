@@ -156,9 +156,27 @@ func ScanWithConfig(cfg Config, opts *shared.HTTPOptions, progress ProgressFunc,
 		urls = live
 	}
 
-	for _, u := range urls {
+	// Stage time budget — a hard backstop so Tech Detection can NEVER run away
+	// (an 1800-host aggressive run once hit 9h). After the budget we stop
+	// launching new targets and finish with partial results + a warning;
+	// in-flight targets are already bounded by the per-op timeout caps.
+	const stageBudget = 2 * time.Hour
+	deadline := time.Now().Add(stageBudget)
+	for idx, u := range urls {
 		// Cancellation fast-path (audit B42).
 		if opts != nil && opts.Done() {
+			break
+		}
+		if time.Now().After(deadline) {
+			mu.Lock()
+			skipped := len(urls) - idx
+			for _, rem := range urls[idx:] {
+				result.Results = append(result.Results, TargetResult{URL: rem, Error: "skipped — tech-detection stage time budget reached"})
+			}
+			if skipped > 0 {
+				result.Warnings = append(result.Warnings, fmt.Sprintf("Tech detection stopped at the %s stage budget — %d host(s) not analyzed. Narrow the target set or turn off the aggressive WhatWeb probe.", stageBudget, skipped))
+			}
+			mu.Unlock()
 			break
 		}
 		wg.Add(1)

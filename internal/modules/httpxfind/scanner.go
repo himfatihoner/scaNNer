@@ -279,15 +279,15 @@ type engineConfig struct {
 	result     *ScanResult
 	mu         *sync.Mutex
 	targets    []string
-	full       bool     // port source = portPermuter (1..65535); else `ports`
-	ports      []int    // explicit ports (Common or custom) when !full
-	directHTTP bool     // skip the TCP connect pre-scan; probe HTTP/HTTPS directly
-	resolve    bool     // resolve targets up front + own the % denominator (full/custom)
-	perTask    bool     // emit per-task progress lines (Common mode only)
-	probeConc  int      // HTTP-probe worker count
-	connConc   int      // connect-phase worker count (two-phase)
-	rate       int      // NEW connections/probes per sec (0 = default/unlimited, see runEngine)
-	label      string   // "Full scan" / "Custom scan" / "Common scan" for messages
+	full       bool   // port source = portPermuter (1..65535); else `ports`
+	ports      []int  // explicit ports (Common or custom) when !full
+	directHTTP bool   // skip the TCP connect pre-scan; probe HTTP/HTTPS directly
+	resolve    bool   // resolve targets up front + own the % denominator (full/custom)
+	perTask    bool   // emit per-task progress lines (Common mode only)
+	probeConc  int    // HTTP-probe worker count
+	connConc   int    // connect-phase worker count (two-phase)
+	rate       int    // NEW connections/probes per sec (0 = default/unlimited, see runEngine)
+	label      string // "Full scan" / "Custom scan" / "Common scan" for messages
 	client     *http.Client
 	opts       *shared.HTTPOptions
 	onPartial  PartialFunc
@@ -878,14 +878,50 @@ func etaSuffix(start time.Time, done, total int) string {
 var (
 	schemesHTTPSFirst = []string{"https", "http"}
 	schemesHTTPFirst  = []string{"http", "https"}
+	schemesHTTPSOnly  = []string{"https"}
+	schemesHTTPOnly   = []string{"http"}
 )
 
-func probeHTTP(host string, port int, client *http.Client, opts *shared.HTTPOptions) *ServiceResult {
-	// Try HTTPS first for 443-like ports, HTTP first for 80-like ports
-	schemes := schemesHTTPSFirst
-	if port == 80 || port == 8080 {
+// schemesFor returns the scheme probe order for a port.
+//
+// Standard ports have a CANONICAL scheme, so we do NOT try the other one on them:
+// 443 is https, 80 is http. The wrong-scheme fallback (e.g. http://host:443)
+// exists to catch non-standard setups, but it has a nasty failure mode: when the
+// correct-scheme probe to a closed/down host fails, the fallback probes the WRONG
+// scheme — and if that traffic reaches a proxy or an everything-answers WAF/CDN,
+// it comes back as a 200 "interstitial" (Burp Suite / challenge page) instead of a
+// transport error. That gets recorded as a content-less "live service" (empty
+// Server, stub body) which (a) inflates the service/asset count with junk and (b)
+// drags Tech Detection yield toward zero because there is nothing to fingerprint.
+// On a standard port the wrong scheme is virtually never a real service, so
+// dropping the fallback there is pure win.
+//
+// Through a proxy the fallback is unusable on ANY port — a failed correct-scheme
+// probe can't be told apart from the proxy's own interstitial — so when proxied we
+// drop the fallback everywhere and probe only the canonical scheme.
+func schemesFor(port int, proxied bool) []string {
+	var schemes []string
+	switch port {
+	case 443:
+		schemes = schemesHTTPSOnly
+	case 80:
+		schemes = schemesHTTPOnly
+	case 8080:
 		schemes = schemesHTTPFirst
+	default:
+		schemes = schemesHTTPSFirst
 	}
+	if proxied && len(schemes) > 1 {
+		schemes = schemes[:1]
+	}
+	return schemes
+}
+
+func probeHTTP(host string, port int, client *http.Client, opts *shared.HTTPOptions) *ServiceResult {
+	// BurpSuccessOnly bypasses the proxy for probe traffic, so the fallback is safe
+	// in that mode; only a live, probe-carrying proxy poisons it.
+	proxied := opts != nil && opts.ProxyURL != "" && !opts.BurpSuccessOnly
+	schemes := schemesFor(port, proxied)
 
 	var firstErr error
 	for _, scheme := range schemes {

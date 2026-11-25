@@ -303,9 +303,11 @@
 </div>
 {{template "scan_actions" .}}
 
-{{if or (eq (print .Scan.Status) "running") (eq (print .Scan.Status) "pending")}}
-{{template "scan_progress" .}}
-{{end}}
+{{/* Stage sub-page: include ONLY the poller (no suite-wide panel/console), so a
+     running LATER stage (e.g. Nuclei) never shows its live log on THIS stage's
+     page. The stage's own status + progress are rendered by the inner fragment
+     below; the poller just keeps it refreshed and stops when the scan ends. */}}
+{{template "scan_progress_poller" .}}
 
 <div id="scanContent">
 {{template "advancedweb_stage_inner" .}}

@@ -70,6 +70,22 @@
         <pre id="scanLog" class="mono text-[11px] text-dark-300 bg-dark-950 border border-dark-800 rounded-lg p-3 max-h-64 overflow-auto whitespace-pre-wrap break-words" style="overflow-wrap:anywhere"></pre>
     </div>
 </div>
+{{template "scan_progress_poller" .}}
+{{end}}{{/* end status guard */}}
+{{end}}
+
+{{define "scan_progress_poller"}}
+{{/* The live poller WITHOUT the visible panel: polls the scan status, drives
+     the periodic #scanContent partial-refresh, flips the header status badge,
+     and hides the panel on completion. Every panel-element lookup below is
+     null-guarded, so this runs safely on a page that renders NO progress panel.
+     The advancedweb per-stage sub-page includes ONLY this partial, so the
+     suite-wide console/bar — e.g. a currently-running Nuclei stage's live log —
+     never bleeds onto a different stage's sub-page (it used to: the stage page
+     pulled in the whole scan_progress panel, whose poller painted the suite's
+     log onto, say, the Tech Detection page). scan_progress itself includes this
+     right after its panel, so every standalone results page is unchanged. */}}
+{{if or (eq (print .Scan.Status) "running") (eq (print .Scan.Status) "pending")}}
 <script>
 function copyScanLog(btn) {
     var el = document.getElementById('scanLog');

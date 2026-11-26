@@ -13,6 +13,7 @@ package handlers
 import (
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"scanner/internal/database"
@@ -63,5 +64,70 @@ func TestAdvancedWebStageRender(t *testing.T) {
 				t.Errorf("stage=%q partial=%q: HTTP %d\n%s", st, partial, rec.Code, body)
 			}
 		}
+	}
+}
+
+// TestAdvancedWebStageRunningNoConsoleLeak exercises the EXACT failing condition
+// the done-scan smoke test above cannot: a RUNNING suite. The bug was that a
+// per-stage sub-page (e.g. CVE Matcher) pulled in the suite-wide scan_progress
+// panel, whose poller painted the whole scan's live log (a running Nuclei
+// stage's output) into a console ON the CVE Matcher page. The poller's guard is
+// only live while the scan is running/pending — so a done scan never reproduces
+// it. Here we create a fresh running suite scan and assert the stage sub-page
+// carries NO suite console/panel but KEEPS its auto-refresh poller, while the
+// suite OVERVIEW still shows the console.
+func TestAdvancedWebStageRunningNoConsoleLeak(t *testing.T) {
+	dir := t.TempDir()
+	db, err := database.New(dir + "/t.db")
+	if err != nil {
+		t.Fatalf("db: %v", err)
+	}
+	defer db.Close()
+	ws, err := db.CreateWorkspace("t", "")
+	if err != nil {
+		t.Fatalf("workspace: %v", err)
+	}
+	scan, err := db.CreateScan(ws.ID, "advancedweb", "{}", 10)
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if !db.MarkRunning(scan.ID) {
+		t.Fatal("MarkRunning returned false")
+	}
+	db.UpdateScanResult(scan.ID, `{"stages":{"cvematch":{"stage":"cvematch","status":"done","message":"5 CVE matches"}}}`)
+
+	reg := modules.NewRegistry()
+	reg.Register(&advancedweb.Module{})
+	h, err := New(reg, db, "../../web/templates")
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	render := func(url string) string {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", url, nil)
+		h.AdvancedWebResults(rec, req)
+		if rec.Code != 200 {
+			t.Fatalf("%s: HTTP %d", url, rec.Code)
+		}
+		return rec.Body.String()
+	}
+
+	// CVE Matcher sub-page of a RUNNING suite: no suite-wide console/panel.
+	stage := render("/modules/advancedweb/results/" + scan.ID + "?stage=cvematch")
+	if strings.Contains(stage, `id="scanLog"`) {
+		t.Error("REGRESSION: suite console (#scanLog) rendered on the CVE Matcher stage page")
+	}
+	if strings.Contains(stage, "Scan in progress") {
+		t.Error("REGRESSION: suite progress panel rendered on the CVE Matcher stage page")
+	}
+	// ...but it MUST still carry the poller so the stage auto-refreshes.
+	if !strings.Contains(stage, "refreshContent") {
+		t.Error("stage sub-page lost its auto-refresh poller")
+	}
+	// Sanity: the OVERVIEW of the same running suite SHOULD still show the console.
+	overview := render("/modules/advancedweb/results/" + scan.ID)
+	if !strings.Contains(overview, `id="scanLog"`) {
+		t.Error("overview unexpectedly lost its suite console")
 	}
 }

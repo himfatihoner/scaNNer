@@ -234,8 +234,14 @@ func (h *Handler) UpdateApply(w http.ResponseWriter, r *http.Request) {
 	go h.reexecAfterUpdate(finalBin)
 }
 
-// reexecAfterUpdate stops in-flight scans, then replaces this process with the
-// freshly-built binary via execve (same argv + env).
+// reexecAfterUpdate stops in-flight scans, then brings this process onto the
+// freshly-built binary. Under the systemd install it hands the restart to systemd
+// (reliable, fully re-reads the on-disk templates); otherwise it re-execs itself
+// via execve. The systemd path exists because an in-place execve of a service
+// process is fragile — when it silently fails, the OLD process (and its in-memory
+// templates) keeps serving while the on-disk checkout has already advanced, so the
+// operator was left having to `sudo systemctl restart scanner` by hand even though
+// the Update page read the new commit. Handing it to systemd removes that step.
 func (h *Handler) reexecAfterUpdate(binPath string) {
 	time.Sleep(800 * time.Millisecond) // let the HTTP response flush to the client
 	if ids := h.scanMgr.CancelAll("Restarting to apply a software update"); len(ids) > 0 {
@@ -244,6 +250,29 @@ func (h *Handler) reexecAfterUpdate(binPath string) {
 		}
 		time.Sleep(1 * time.Second) // let the subprocess SIGKILLs land
 	}
+
+	// Preferred path: let systemd restart the unit. install.sh grants passwordless
+	// `sudo systemctl restart scanner` (exact verb, no flags). systemctl submits the
+	// job to PID 1, which SIGTERMs us (→ our graceful shutdown) and starts a fresh
+	// process on the new binary + fresh on-disk templates — independent of this
+	// soon-to-die process, so it cannot "silently not take effect".
+	if canSystemdRestart() {
+		log.Printf("update: handing restart to systemd (systemctl restart scanner)")
+		if err := exec.Command("sudo", "-n", "systemctl", "restart", "scanner").Start(); err == nil {
+			// systemd should SIGTERM us within a second or two; our signal handler
+			// then shuts down and exits, and systemd starts the new process. We keep
+			// updateMu held (we are going away). Backstop: if for any reason systemd
+			// does NOT stop us, don't hang the updater forever — fall through to the
+			// in-process re-exec after a generous grace period.
+			time.Sleep(30 * time.Second)
+			log.Printf("update: systemd did not stop us within 30s; falling back to in-process re-exec")
+		} else {
+			log.Printf("update: could not launch `systemctl restart scanner` (%v); falling back to in-process re-exec", err)
+		}
+	}
+
+	// Fallback: in-place execve (manual `./scanner` runs, or systemd restart
+	// unavailable). Same argv + env; the fresh image re-reads the templates.
 	log.Printf("update: re-exec into %s", binPath)
 	argv := append([]string{binPath}, os.Args[1:]...)
 	if err := syscall.Exec(binPath, argv, os.Environ()); err != nil {
@@ -251,6 +280,16 @@ func (h *Handler) reexecAfterUpdate(binPath string) {
 		log.Printf("update: re-exec failed: %v (the new binary is installed; a manual restart will pick it up)", err)
 		updateMu.Unlock()
 	}
+}
+
+// canSystemdRestart reports whether this process can hand its own restart to
+// systemd — i.e. it runs under install.sh's scanner.service with the passwordless
+// `sudo systemctl … scanner` sudoers rule in place. The probe is read-only
+// (`is-active`) and non-interactive (`sudo -n` fails fast instead of prompting),
+// so it cleanly returns false for a manual `./scanner` run or a non-systemd host,
+// where the caller falls back to an in-process re-exec.
+func canSystemdRestart() bool {
+	return exec.Command("sudo", "-n", "systemctl", "is-active", "scanner").Run() == nil
 }
 
 // pullBuildSwap syncs the checkout to origin's tip, builds + smoke-tests the new

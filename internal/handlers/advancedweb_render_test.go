@@ -95,6 +95,12 @@ func TestAdvancedWebStageRunningNoConsoleLeak(t *testing.T) {
 		t.Fatal("MarkRunning returned false")
 	}
 	db.UpdateScanResult(scan.ID, `{"stages":{"cvematch":{"stage":"cvematch","status":"done","message":"5 CVE matches"}}}`)
+	// Populate the PERSISTED console (console_log → .Scan.ConsoleLines), which
+	// scan_actions renders server-side. This is the console a running Nuclei stage
+	// bleeds through — distinct from scan_progress's live #scanLog poller. The
+	// earlier version of this test left it empty and so never caught it.
+	const nucleiLine = "[4/5] running: Nuclei · nuclei · 5 finding(s) so far"
+	db.UpdateScanProgress(scan.ID, 1, nucleiLine)
 
 	reg := modules.NewRegistry()
 	reg.Register(&advancedweb.Module{})
@@ -125,9 +131,19 @@ func TestAdvancedWebStageRunningNoConsoleLeak(t *testing.T) {
 	if !strings.Contains(stage, "refreshContent") {
 		t.Error("stage sub-page lost its auto-refresh poller")
 	}
-	// Sanity: the OVERVIEW of the same running suite SHOULD still show the console.
+	// The PERSISTED suite console (scan_actions' .Scan.ConsoleLines) must also be
+	// suppressed on a stage page — it carries the whole suite's log incl. Nuclei.
+	if strings.Contains(stage, nucleiLine) {
+		t.Error("REGRESSION: the persisted suite console (ConsoleLines) rendered its Nuclei log on the stage page")
+	}
+	// Sanity: the OVERVIEW of the same running suite SHOULD still show the console,
+	// both the live #scanLog panel AND the persisted console lines — proving the
+	// console data is real and only the stage view suppresses it.
 	overview := render("/modules/advancedweb/results/" + scan.ID)
 	if !strings.Contains(overview, `id="scanLog"`) {
 		t.Error("overview unexpectedly lost its suite console")
+	}
+	if !strings.Contains(overview, nucleiLine) {
+		t.Error("overview unexpectedly lost its persisted console lines (test data not wired?)")
 	}
 }

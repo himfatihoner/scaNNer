@@ -176,7 +176,11 @@
                 </div>
                 <div class="flex items-center gap-2">
                     <span class="text-sm text-dark-400">{{T "at"}}</span>
-                    <input type="time" name="at_time" value="{{$s.AtTime}}" class="bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-500">
+                    {{/* Distinct name from the Daily block's at_time: BOTH recur
+                         blocks are in the DOM and hidden ones still submit, so a
+                         shared name made r.FormValue("at_time") return the Daily
+                         input (default 09:00) and silently drop the weekly time. */}}
+                    <input type="time" name="at_time_weekly" value="{{$s.AtTime}}" class="bg-dark-850 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent-500">
                     <span class="text-[11px] text-dark-500">{{T "(weekly uses this time too)"}}</span>
                 </div>
             </div>

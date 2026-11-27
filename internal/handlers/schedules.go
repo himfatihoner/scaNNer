@@ -232,7 +232,10 @@ func applyScheduleTiming(s *models.ScheduledScan, r *http.Request) error {
 				return err
 			}
 		case models.RecurWeekly:
-			s.AtTime = strings.TrimSpace(r.FormValue("at_time"))
+			// Weekly's time input is named at_time_weekly (not at_time) because the
+			// hidden Daily block also submits an at_time, which would otherwise win
+			// r.FormValue and pin every weekly schedule to the Daily default (09:00).
+			s.AtTime = strings.TrimSpace(r.FormValue("at_time_weekly"))
 			if _, _, err := parseHHMM(s.AtTime); err != nil {
 				return err
 			}
